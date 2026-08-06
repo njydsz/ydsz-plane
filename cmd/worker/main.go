@@ -57,8 +57,8 @@ func run() error {
 	go relay.Run(ctx)
 
 	// asynq task server (queues defined per domain; consumers mount in S2+)
-	srv := asynq.NewServerFromRedisClient(
-		asynqRedisOpt(cfg),
+	srv := asynq.NewServer(
+		asynq.RedisClientOpt{Addr: cfg.Redis.Addr, Password: cfg.Redis.Password, DB: cfg.Redis.DB + 1},
 		asynq.Config{
 			Concurrency: 10,
 			Queues:      map[string]int{"default": 5, "notifications": 3, "automation": 2},
@@ -78,8 +78,4 @@ func run() error {
 	case err := <-errCh:
 		return err
 	}
-}
-
-func asynqRedisOpt(cfg *config.Config) asynq.RedisClientOpt {
-	return asynq.RedisClientOpt{Addr: cfg.Redis.Addr, Password: cfg.Redis.Password, DB: cfg.Redis.DB + 1}
 }

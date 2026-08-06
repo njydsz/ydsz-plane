@@ -133,7 +133,7 @@ func login(d *Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req loginRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
-			middleware.AbortWithError(c, errs.ErrValidation.WithDetails(fieldDetails(err)))
+			middleware.AbortWithError(c, errs.ErrValidation.WithDetails(fieldDetails(err)...))
 			return
 		}
 		pair, err := d.Auth.Login(c.Request.Context(), req.Email, req.Password)

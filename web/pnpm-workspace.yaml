@@ -1,1 +1,2 @@
-packages:/n  - "packages/*"
+packages:
+  - "packages/*"

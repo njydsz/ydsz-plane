@@ -35,16 +35,18 @@ dev-worker:
 dev-web:
 	cd web && pnpm dev
 
+GOPKGS := ./cmd/... ./internal/... ./pkg/... ./scripts/...
+
 lint:
-	golangci-lint run ./...
+	golangci-lint run $(GOPKGS)
 	cd web && pnpm lint
 
 test:
-	go test ./... -race -count=1
+	go test $(GOPKGS) -race -count=1
 	cd web && pnpm test
 
 build:
-	go build ./...
+	go build $(GOPKGS)
 	cd web && pnpm build
 
 openapi:

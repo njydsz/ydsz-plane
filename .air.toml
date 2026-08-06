@@ -1,0 +1,9 @@
+root = "."
+tmp_dir = "tmp"
+
+[build]
+  bin = "./tmp/api.exe"
+  cmd = "go build -o ./tmp/api.exe ./cmd/api"
+  delay = 800
+  exclude_dir = ["tmp", "web", "docs", "deployments", "node_modules"]
+  include_ext = ["go", "yaml", "yml"]

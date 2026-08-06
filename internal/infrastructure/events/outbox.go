@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/nats-io/nats.go"
 	"go.uber.org/zap"
 )
@@ -50,12 +51,7 @@ func (r *Recorder) Record(ctx context.Context, tx pgx.Tx, e Event) error {
 // Querier is the minimal DB surface the relay needs (the pool satisfies it).
 type Querier interface {
 	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
-	Exec(ctx context.Context, sql string, args ...any) (pgconnCommandTag, error)
-}
-
-// pgconnCommandTag aliases pgx's command tag to avoid leaking pgconn here.
-type pgconnCommandTag = interface {
-	RowsAffected() int64
+	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
 }
 
 // Relay polls unpublished events and publishes them to NATS.

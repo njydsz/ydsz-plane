@@ -25,10 +25,10 @@ jobs:
           args: --timeout 5m
       - name: Vet & Build
         run: |
-          go vet ./...
-          go build ./...
+          go vet ./cmd/... ./internal/... ./pkg/... ./scripts/...
+          go build ./cmd/... ./internal/... ./pkg/... ./scripts/...
       - name: Unit tests (race)
-        run: go test ./... -race -count=1 -coverprofile=coverage.out
+        run: go test ./cmd/... ./internal/... ./pkg/... ./scripts/... -race -count=1 -coverprofile=coverage.out
       - name: Coverage gate (domain >= 70% placeholder)
         run: go tool cover -func=coverage.out | tail -1
 
