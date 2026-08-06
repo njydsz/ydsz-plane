@@ -6,11 +6,11 @@
   "packageManager": "pnpm@10.7.0",
   "scripts": {
     "dev": "vite",
-    "build": "vue-tsc -b && vite build",
+    "build": "vue-tsc --noEmit -p tsconfig.app.json && vite build",
     "preview": "vite preview",
     "lint": "eslint . --max-warnings 0",
     "format": "prettier --write .",
-    "typecheck": "vue-tsc --noEmit",
+    "typecheck": "vue-tsc --noEmit -p tsconfig.app.json",
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
@@ -20,6 +20,7 @@
     "vue-router": "^4.4.5"
   },
   "devDependencies": {
+    "@types/node": "^20.16.0",
     "@vitejs/plugin-vue": "^5.1.4",
     "eslint": "^9.13.0",
     "eslint-plugin-vue": "^9.29.0",
