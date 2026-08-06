@@ -1,158 +1,137 @@
-# Ydsz Plane
-
 <p align="center">
-  <b>面向中国软件团队的开源项目管理平台</b>
-  <br />
-  对标云效 · TAPD · ONES · PingCode，本土化研发全流程
+  <h1 align="center">Ydsz Plane</h1>
+  <p align="center">
+    面向中国软件团队的开源项目管理平台
+  </p>
 </p>
 
 <p align="center">
   <a href="#快速开始"><b>快速开始</b></a> ·
-  <a href="#在线体验"><b>在线体验</b></a> ·
-  <a href="https://github.com/ydszopen/ydsz-plane/wiki"><b>文档</b></a> ·
+  <a href="docs/architecture/README.md"><b>架构文档</b></a> ·
   <a href="#路线图"><b>路线图</b></a> ·
   <a href="#贡献指南"><b>参与贡献</b></a>
 </p>
 
 <p align="center">
-  技术栈：Go · Vue 3 · PostgreSQL · Redis · Docker
+  技术栈：Go · Vue 3 · PostgreSQL · Redis · NATS · Docker
 </p>
 
 ---
 
-## 简介
+## 项目状态
 
-**Ydsz Plane** 是一款开源、自托管的现代项目管理工具，专为中小型敏捷开发团队设计。融合了云效、TAPD、ONES 在需求管理、任务管理、迭代协同方面的本土化实践，补齐项目仪表盘、个人工作台、研发效能度量等能力，致力于成为符合国内研发现状的「开源 PM SaaS 底座」。
+> **当前阶段：M0 工程基座完成，进入 Sprint 2（IAM 与工作空间）**
+> 最后更新：2026-08-07 · 架构基线版本 v1.0
 
-## 在线体验
+Ydsz Plane 是一款开源、自托管的现代项目管理工具，专为中小型敏捷开发团队设计。目前处于 0→1 实施阶段，基础工程骨架与认证链路已就绪，业务域（工作空间 / 项目 / 工作项 / 迭代）详见下方路线图。
 
-> 公共 Demo 部署中... 敬请期待。
+## 已完成能力
 
-## 核心功能
+截至 2026-08-07，仓库中已实现的能力：
 
 | 模块 | 说明 | 状态 |
 |------|------|------|
-| 工作空间 | 组织级租户隔离，成员邀请、角色权限、SSO 集成 | ✅ 已完成 |
-| 项目管理 | 项目 CRUD、模板复用、模块配置、网络类型 | ✅ 已完成 |
-| 需求管理 | 需求池、Epic→Feature→Story 三级 WBS、评审工作流 | ✅ 已完成 |
-| 任务管理 | WBS 子任务、工时管理、任务依赖（FS/SS/FF/SF） | ✅ 已完成 |
-| 缺陷管理 | 缺陷跟踪、状态机、根因分析、严重程度 | ✅ 已完成 |
-| 迭代管理 | Sprint 创建/启动/结束、容量规划、燃尽图 | ✅ 已完成 |
-| 版本日管理 | 多迭代聚合、Release Notes、交付报告 | 🚧 规划中 |
-| 项目仪表盘 | 可配置卡片、多项目聚合、预警规则 | 🚧 规划中 |
-| 个人工作台 | 待办聚合、快捷操作、Focus Mode | 🚧 规划中 |
-| 全局搜索 | 全文检索、类 JQL 语法、过滤器联动 | 🚧 规划中 |
-| 通知中心 | 站内/邮件/IM 多渠道、订阅配置 | 🚧 规划中 |
-| Webhook & API | 开放集成、签名验证、自动重试 | 🚧 规划中 |
-| 知识库 | Markdown 文档、版本管理、评审流程 | 📋 规划中 |
-| 研发效能 | DORA 指标、CFD 分析、累计流图 | 📋 规划中 |
-| 收件箱 | 外部反馈收集、Intake Issue 转正 | 📋 规划中 |
+| 工程基座 | Monorepo、CI（lint/test/build/e2e-smoke）、Docker Compose（pg/redis/nats/minio/es）、Makefile | ✅ |
+| 鉴权链路 | 用户登录（bcrypt + JWT access/refresh）、Cookie 会话、401 单飞刷新重放、令牌解析中间件 | ✅ |
+| 配置与可观测性 | Viper 环境变量加载（YDSZ_ 前缀）、12-Factor fail-fast、zap 结构化日志、/healthz + /readyz | ✅ |
+| 中间件链 | RequestID → Recovery → CORS → RateLimit（Redis 令牌桶）→ AccessLog → Auth | ✅ |
+| 数据持久层 | pgx 连接池、租户上下文（SET LOCAL app.workspace_id）、RLS 策略模板、迁移工具 | ✅ |
+| 事件骨架 | 事务型 Outbox 表 + Relay（DB → NATS）、Asynq Worker（default/notifications/automation 队列） | ✅ |
+| 前端骨架 | Vue 3.5 + Vite 6 + Pinia、路由守卫、设计令牌（亮/暗主题）、Axios 客户端封装 | ✅ |
+| 数据库迁移 | 0001_init：users / workspaces / workspace_members / domain_events / idempotency_keys / audit_logs | ✅ |
 
-## 架构设计
-
-### 技术栈
+## 技术栈
 
 | 层次 | 技术选型 | 说明 |
 |------|----------|------|
-| 后端 | Go 1.21+ + Gin | 高并发性能、编译部署简单 |
-| 前端 | Vue 3.5 + TypeScript + Vite 6 | 组合式 API、类型安全 |
-| UI 组件库 | Element Plus | 企业级设计、Vue 3 原生支持 |
-| 状态管理 | Pinia | Vue 3 官方推荐 |
-| 数据库 | PostgreSQL 16 | ACID 事务、JSON 支持、全文检索 |
-| 缓存 | Redis 7 | 高性能 K/V、发布订阅 |
-| 全文检索 | Elasticsearch 8 | 复杂查询、聚合分析 |
-| 对象存储 | MinIO / S3 | 附件存储、私有部署 |
-| 消息队列 | NATS / Asynq | 异步任务、事件驱动 |
-| 部署 | Docker Compose / K8s | 一键部署、信创兼容 |
+| 后端 | Go 1.25 + Gin 1.12 | 模块化单体（DDD 轻量分层） |
+| 前端 | Vue 3.5 + TypeScript + Vite 6 | 组合式 API、Pinia 状态管理 |
+| 数据库 | PostgreSQL 16 | ACID + JSONB + RLS 租户隔离 + 信创方言预留 |
+| 缓存 | Redis 7 | 限流、分布式锁、会话辅助 |
+| 事件 | NATS 2.10（JetStream） | Outbox 投递、实时推送扇出 |
+| 任务队列 | Asynq | 异步任务（通知、索引、Webhook、自动化） |
+| 全文检索 | Elasticsearch 8（可选 profile） | 全局搜索、分词（IK） |
+| 对象存储 | MinIO（可选 profile） | 附件、Logo |
+| 部署 | Docker Compose（一键）/ K8s（Phase 3） | 信创兼容：openEuler/麒麟 + ARM64 |
 
-### 系统架构
+## 系统架构
 
 ```
-┌────────────────────────────────────────────────────────────────┐
-│                      展示层 (Vue 3 + Vite)                      │
-│    SPA + Element Plus + Pinia + Vue Router + ECharts           │
-└────────────────────────────────────────────────────────────────┘
-                                │
-                                ▼
-┌────────────────────────────────────────────────────────────────┐
-│                    API 网关 (Nginx / Traefik)                    │
-│           负载均衡 / SSL 终结 / 静态资源 / Rate Limit           │
-└────────────────────────────────────────────────────────────────┘
-                                │
-                                ▼
-┌────────────────────────────────────────────────────────────────┐
-│                   业务服务层 (Go + Gin)                          │
-│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌───────────┐ │
-│  │ Workspace   │ │ Project     │ │ Issue       │ │ Sprint    │ │
-│  │ Service     │ │ Service     │ │ Service     │ │ Service   │ │
-│  └─────────────┘ └─────────────┘ └─────────────┘ └───────────┘ │
-│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌───────────┐ │
-│  │ Search      │ │ Notif       │ │ Intake      │ │ Automate  │ │
-│  │ Service     │ │ Service     │ │ Service     │ │ Service   │ │
-│  └─────────────┘ └─────────────┘ └─────────────┘ └───────────┘ │
-└────────────────────────────────────────────────────────────────┘
-                                │
-                                ▼
-┌────────────────────────────────────────────────────────────────┐
-│                    数据持久层                                    │
-│    PostgreSQL    │    Redis    │    MinIO    │    ES           │
-└────────────────────────────────────────────────────────────────┘
+                        ┌────────────────────────────┐
+                        │     Web SPA (Vue3+Vite)     │
+                        │  Design Tokens / Plane 风格  │
+                        └──────────────┬─────────────┘
+                                       │ HTTPS / WSS
+                        ┌──────────────▼─────────────┐
+                        │   Nginx（反代/静态/限流）    │
+                        └──────────────┬─────────────┘
+                                       │
+              ┌────────────────────────▼────────────────────────┐
+              │            ydsz-plane-api (Go + Gin)            │
+              │  Interfaces（HTTP + Middleware）                │
+              │  Application Services（用例编排/事务边界）        │
+              │  Domain（限界上下文：iam / workspace / project   │
+              │      / issue / sprint / version / ...）         │
+              │  Infrastructure（PG / Redis / ES / NATS）       │
+              └───────┬───────────────────────┬────────────────┘
+                      │ 写事件 (Outbox)        │ 读
+        ┌─────────────▼──────────┐   ┌────────▼───────┐
+        │  ydsz-plane-worker     │   │ PostgreSQL 16  │
+        │  (Asynq + Outbox Relay)│   │ Redis 7        │
+        │  · 通知投递             │   │ NATS / ES / MinIO
+        │  · ES 索引同步          │   └────────────────┘
+        │  · Webhook 分发         │
+        │  · 自动化规则执行        │
+        │  · 迭代快照 / 效能计算   │
+        └────────────────────────┘
 ```
 
-### 后端项目结构
-
-后端采用 **DDD 轻量级分层架构**（Domain-Driven Design），模块化设计便于团队并行开发：
+## 项目结构
 
 ```
 ydsz-plane/
-├── cmd/                    # 入口程序
-│   ├── api/                # API Server
-│   └── worker/             # 异步任务 Worker
-├── internal/               # 内部业务代码
-│   ├── domain/             # 领域模型与业务规则
-│   │   ├── workspace/
-│   │   ├── project/
-│   │   ├── issue/
-│   │   ├── sprint/
-│   │   └── version/
-│   ├── application/        # 应用服务（用例编排）
-│   ├── infrastructure/     # 基础设施实现
-│   │   ├── persistence/    # 持久化（PostgreSQL）
-│   │   ├── cache/          # Redis 缓存
-│   │   ├── search/         # Elasticsearch
-│   │   ├── queue/          # 消息队列
-│   │   └── storage/        # 对象存储
-│   └── interfaces/         # 接口层
-│       ├── http/           # HTTP Handler
-│       └── middleware/     # 中间件
-├── pkg/                    # 可公开的工具包
-├── api/                    # API 定义（OpenAPI / Proto）
-├── configs/                # 配置文件模板
-├── migrations/             # 数据库迁移脚本
-└── scripts/                # 部署/运维脚本
-```
-
-### 前端项目结构
-
-前端采用 **Vue 3 + TypeScript + Vite**，组合式 API + Pinia 状态管理：
-
-```
-ydsz-plane-web/
-├── src/
-│   ├── api/                # API 请求封装（Axios）
-│   ├── assets/             # 静态资源
-│   ├── components/         # 通用组件
-│   ├── composables/        # 组合式函数
-│   ├── layouts/            # 布局组件
-│   ├── router/             # 路由配置
-│   ├── stores/             # Pinia 状态管理
-│   ├── types/              # TypeScript 类型
-│   ├── utils/              # 工具函数
-│   ├── views/              # 页面组件
-│   ├── App.vue
-│   └── main.ts
-├── public/                 # 公共静态资源
-└── tests/                  # 单元测试
+├── cmd/
+│   ├── api/main.go            # API Server 入口
+│   ├── worker/main.go         # 异步 Worker（Outbox Relay + Asynq Consumer）
+│   └── migrate/main.go        # 数据库迁移执行（golang-migrate）
+├── internal/
+│   ├── application/
+│   │   └── auth/              # 登录 / 令牌签发 / 令牌解析（已实现）
+│   ├── infrastructure/
+│   │   ├── persistence/       # pgx 连接池 + 租户上下文
+│   │   ├── cache/             # Redis 客户端
+│   │   ├── events/            # Outbox Relay（DB → NATS）
+│   │   └── telemetry/         # zap 结构化日志
+│   ├── interfaces/
+│   │   ├── http/              # Gin 路由 + Handler
+│   │   └── middleware/        # 中间件链
+│   └── config/                # Viper 配置加载 + 校验
+├── pkg/
+│   └── errs/                  # 统一错误类型 + 错误码注册
+├── migrations/                # 递增编号迁移脚本（0001_init.up/down.sql）
+├── scripts/seed/              # 开发环境种子数据
+├── deployments/
+│   ├── docker-compose.yml     # 核心栈 + full profile（ES + MinIO）
+│   ├── Dockerfile.api         # 多阶段构建（api + worker + migrate）
+│   ├── Dockerfile.web         # 前端 Nginx 静态服务
+│   └── nginx/web.conf
+├── docs/
+│   ├── architecture/          # 架构设计文档（14 份，含完整设计）
+│   └── Ydsz Plane PRD-终极完整版.docx
+├── web/                       # 前端（pnpm workspace）
+│   ├── src/
+│   │   ├── api/               # Axios 客户端（含 401 自动刷新）
+│   │   ├── views/             # 页面（Login / Home / ProjectList / NotFound）
+│   │   ├── stores/            # Pinia（auth）
+│   │   ├── router/            # 路由 + 权限守卫
+│   │   ├── layouts/           # WorkspaceLayout
+│   │   └── design/            # 设计令牌（CSS 变量）
+│   └── packages/
+│       ├── design-tokens/     # 主题令牌包
+│       └── ui/                # 基础组件门面（建设中）
+├── .github/workflows/ci.yml   # lint / test(race) / build / e2e-smoke
+├── Makefile                   # dev / up / migrate / seed / lint / test
+└── .env.example               # 环境变量模板（YDSZ_ 前缀）
 ```
 
 ## 快速开始
@@ -164,38 +143,45 @@ ydsz-plane-web/
 git clone https://github.com/ydszopen/ydsz-plane.git
 cd ydsz-plane
 
-# 一键启动
-docker compose up -d
+# 启动核心服务（PostgreSQL + Redis + NATS + API + Worker + Web）
+docker compose -f deployments/docker-compose.yml up -d
 
-# 访问 http://localhost:8080
+# 启动完整栈（额外包含 Elasticsearch + MinIO）
+docker compose -f deployments/docker-compose.yml --profile full up -d
+
+# 访问 http://localhost （前端） / API 运行在 8080
 ```
 
 ### 本地开发
 
 #### 前置要求
 
-- Go 1.21+
+- Go 1.25+
 - Node.js 20+
-- PostgreSQL 16
-- Redis 7
+- pnpm 10+
+- PostgreSQL 16（或 Docker 中的 pg）
+- Redis 7（或 Docker 中的 redis）
+- NATS 2.10（或 Docker 中的 nats）
 
-#### 启动后端
+#### 启动基础设施 + 后端
 
 ```bash
-cd backend
+# 1. 启动基础设施容器
+make up           # docker compose up -d postgres redis nats
 
-# 安装依赖
-go mod download
-
-# 配置环境变量
+# 2. 配置环境变量
 cp .env.example .env
-# 编辑 .env 配置数据库连接
 
-# 运行数据库迁移
-go run cmd/migrate/main.go
+# 3. 运行数据库迁移
+make migrate      # go run ./cmd/migrate up
 
-# 启动 API Server
-go run cmd/api/main.go
+# 4. 导入种子数据（admin@ydsz.dev / Admin@123）
+make seed         # go run ./scripts/seed
+
+# 5. 启动 API 服务（热重载需要 air）
+make dev-api      # air -c .air.toml
+# 或者
+go run ./cmd/api
 ```
 
 #### 启动前端
@@ -206,72 +192,153 @@ cd web
 # 安装依赖
 pnpm install
 
-# 启动开发服务器
+# 启动开发服务器（http://localhost:5173）
 pnpm dev
-
-# 访问 http://localhost:5173
 ```
+
+#### 启动 Worker（可选，本地调试异步任务时使用）
+
+```bash
+make dev-worker   # go run ./cmd/worker
+```
+
+## Makefile 命令速查
+
+| 命令 | 说明 |
+|------|------|
+| `make dev` | 启动基础设施容器 + 提示 dev-api / dev-web |
+| `make up` | 启动 pg + redis + nats |
+| `make down` | 停止所有容器 |
+| `make migrate` | 执行数据库迁移到最新 |
+| `make migrate-down` | 回滚 1 步 |
+| `make seed` | 导入种子数据（幂等） |
+| `make dev-api` | 启动 API（air 热重载） |
+| `make dev-worker` | 启动 Worker |
+| `make dev-web` | 启动前端 dev server |
+| `make lint` | Go + 前端全量 lint |
+| `make test` | Go（race）+ 前端全量测试 |
+| `make build` | Go + 前端全量构建 |
+| `make openapi` | 生成 OpenAPI 规范（swaggo） |
+
+## API 设计概览
+
+- 风格：REST + 统一 envelope；版本前缀 `/api/v1`
+- 认证：Cookie（Web SPA）/ Bearer Token（API 调用）
+- 错误格式：`{"error":{"code":"AUTH.INVALID_CREDENTIALS","message":"...","request_id":"..."}}`
+- 中间件：RequestID → Recovery → CORS → RateLimit → Auth
+
+已实现的路由：
+
+```
+GET  /healthz                      健康检查
+GET  /readyz                       就绪检查（含 PG / Redis 探针）
+POST /api/v1/auth/login            邮箱 + 密码登录
+POST /api/v1/auth/refresh          刷新令牌
+GET  /api/v1/me                    当前用户信息
+```
+
+S2+ 将逐步挂载：workspaces、projects、issues、sprints、versions 等路由组。
+
+## 架构文档
+
+详细设计见 [`docs/architecture/`](docs/architecture/README.md)，共 14 份文档覆盖从工程基座到测试质量的全链路设计：
+
+| # | 文档 | 内容 |
+|---|------|------|
+| 01 | [系统架构设计](docs/architecture/01-系统架构设计.md) | 总体架构、ADR 决策、领域上下文 |
+| 02 | [架构开发详细计划](docs/architecture/02-架构开发详细计划.md) | 12 Sprint WBS、里程碑、风险登记 |
+| 03 | [工程基座与开发规范](docs/architecture/03-工程基座与开发规范.md) | Monorepo、CI/CD、分支策略、编码规范 |
+| 04 | [数据模型设计](docs/architecture/04-数据模型设计.md) | DDL、索引、RLS、信创方言 |
+| 05 | [API 设计规范](docs/architecture/05-API设计规范.md) | REST 约定、错误码、幂等、限流、WS |
+| 06 | [权限与安全设计](docs/architecture/06-权限与安全设计.md) | RBAC、认证、威胁模型、等保三级 |
+| 07 | [工作项与状态机设计](docs/architecture/07-工作项与状态机设计.md) | Issue 聚合、WBS、状态机 |
+| 08 | [迭代与版本日设计](docs/architecture/08-迭代与版本日设计.md) | Sprint 生命周期、燃尽图、发布 |
+| 09 | [通知与实时推送设计](docs/architecture/09-通知与实时推送设计.md) | 通知管道、订阅、WS 扇出 |
+| 10 | [全局搜索设计](docs/architecture/10-全局搜索设计.md) | ES mapping、类 JQL 语法 |
+| 11 | [仪表盘与效能度量设计](docs/architecture/11-仪表盘与效能度量设计.md) | Widget 框架、DORA 指标 |
+| 12 | [开放集成设计](docs/architecture/12-开放集成设计.md) | Webhook、OpenAPI 治理、自动化 DSL |
+| 13 | [部署运维与可靠性设计](docs/architecture/13-部署运维与可靠性设计.md) | SLO、备份、容量、发布管理 |
+| 14 | [测试策略与质量保障](docs/architecture/14-测试策略与质量保障.md) | 测试金字塔、专项清单 |
+
+## 路线图
+
+### M0 工程基座 ✅ 已完成（S1）
+
+- [x] Monorepo 初始化（Go module + pnpm workspace）
+- [x] CI/CD（GitHub Actions: lint / test(race) / build / e2e-smoke）
+- [x] Docker Compose 全栈 + Makefile
+- [x] Gin 骨架 + 中间件链 + 健康检查
+- [x] 数据库迁移系统 + RLS 模板 + 租户上下文
+- [x] Outbox + Asynq + NATS 事件骨架
+- [x] 前端骨架 + 设计令牌 + 登录页 + 鉴权链路
+- [x] 种子数据（admin@ydsz.dev / Admin@123）
+
+### M1 租户与项目骨架（S2 进行中）
+
+- [ ] 工作空间 CRUD、Slug 唯一、归档/恢复
+- [ ] 成员邀请（邮箱链接、可撤销）+ 审核模式
+- [ ] RBAC：Owner / Admin / Member / Guest 权限中间件
+- [ ] Project CRUD、Identifier 生成、网络类型
+- [ ] 前端：空间列表/创建/设置页、成员管理页
+
+### M2 工作项核心（S3–S4）
+
+- [ ] Issue 主表 + 状态机配置 + 三级 WBS
+- [ ] 需求 / 任务 / 缺陷全流程
+- [ ] 看板 / 列表视图
+- [ ] 活动日志时间线
+
+### M3–M4：迭代与质量（S5–S7）
+
+- [ ] Sprint 生命周期、燃尽图
+- [ ] 版本日聚合、Release Notes
+- [ ] 附件管理、站内通知
+- [ ] MVP v0.1 发布
+
+### Phase 2+（S8–S12）
+
+- [ ] 全局搜索（ES + 类 JQL 语法）
+- [ ] 项目仪表盘、个人工作台
+- [ ] 通知多渠道（邮件 / IM）
+- [ ] Webhook / OpenAPI 集成
+- [ ] 自动化引擎（Trigger-Condition-Action）
+- [ ] 研发效能度量（DORA、CFD）
+
+### Phase 3–4（远期）
+
+- [ ] 知识库、收件箱
+- [ ] 甘特图 / 日历 / 电子表格视图
+- [ ] SSO / SAML 集成
+- [ ] 国际化、PWA
+- [ ] 数据迁移工具（Jira / 云效 / ONES 导入）
+- [ ] AI 功能（智能分配、重复检测）
 
 ## 竞品对标
 
 | 能力域 | 云效 | TAPD | ONES | PingCode | Jira | Ydsz Plane |
 |--------|------|------|------|----------|------|------------|
-| 需求管理 | ● | ● | ● | ● | ● | ● |
-| 任务管理 | ● | ● | ● | ● | ● | ● |
-| 缺陷管理 | ● | ● | ● | ● | ● | ● |
-| 模块管理 | ● | ● | ● | ● | ● | △ |
-| 迭代管理 | ● | ● | ● | ● | ● | ● |
-| 版本日管理 | ● | ○ | ● | ● | ● | △ |
+| 需求管理 | ● | ● | ● | ● | ● | △ |
+| 任务管理 | ● | ● | ● | ● | ● | △ |
+| 缺陷管理 | ● | ● | ● | ● | ● | △ |
+| 迭代管理 | ● | ● | ● | ● | ● | △ |
 | 项目仪表盘 | ● | ● | ● | ● | ● | △ |
-| 个人工作台 | ● | ● | ● | ● | ● | △ |
-| 收件箱 | ● | ● | ● | ● | ● | ● |
 | 效能度量 | ● | ○ | ● | ● | ○ | △ |
-| 自动化 | ● | ● | ● | ● | ● | △ |
-| 知识库 | ● | ○ | ● | ● | ● | △ |
 | **开源自托管** | ✕ | ✕ | △ | △ | ✕ | **●** |
 | **信创兼容** | ✕ | ✕ | △ | △ | ✕ | **●** |
 
-> ● 已支持 / △ 部分支持或规划中 / ○ 不支持 / ✕ 不适用
+> ● 已支持 / △ 设计中 / ○ 不支持 / ✕ 不适用
 
-## 路线图
+## 信创兼容
 
-### Phase 1 — MVP（当前）
+- **操作系统**：麒麟 V10 / 统信 UOS / openEuler
+- **CPU 架构**：x86_64 / ARM64（鲲鹏 / 飞腾）
+- **数据库**：PostgreSQL / 达梦 / 人大金仓（方言层抽象）
+- **中间件**：Nginx / 东方通 / 宝兰德
+- **浏览器**：360 安全浏览器 / 奇安信
+- **密码算法**：预留 SM2/SM3/SM4 国密算法接口（build tag 隔离）
+- **等保合规**：满足等保三级基线要求
 
-- [x] 工作空间管理（CRUD、成员邀请、角色权限）
-- [x] 项目管理（CRUD、Identifier、模板、归档）
-- [x] 工作项管理（需求/任务/缺陷、WBS 层级、状态流转）
-- [x] 迭代管理（创建/启动/结束、燃尽图）
-- [x] 用户认证与权限体系
-- [x] Docker Compose 一键部署
-
-### Phase 2 — 功能完善
-
-- [ ] 版本日管理（多迭代聚合、Release Notes）
-- [ ] 项目仪表盘（可配置卡片、多项目聚合）
-- [ ] 个人工作台（待办聚合、快捷操作）
-- [ ] 全局搜索（全文检索、类 JQL 语法）
-- [ ] 通知中心（多渠道推送、订阅配置）
-- [ ] Webhook & OpenAPI（开放集成能力）
-- [ ] 附件管理（对象存储集成）
-
-### Phase 3 — 进阶增强
-
-- [ ] 知识库（Markdown 文档、版本管理、评审）
-- [ ] 收件箱（Intake Issue 转正流程）
-- [ ] 自动化引擎（Trigger-Condition-Action）
-- [ ] 研发效能度量（DORA 指标、CFD 分析）
-- [ ] 甘特图 / 日历视图 / 电子表格视图
-- [ ] SSO/SAML 集成
-
-### Phase 4 — 生态扩展
-
-- [ ] 国际化（中/英/日多语言）
-- [ ] 移动端适配 / PWA
-- [ ] 数据迁移工具（Jira/云效/ONES 导入）
-- [ ] 插件市场 / 应用商店
-- [ ] AI 功能（智能分配、重复检测、需求分析）
-
-## 性能指标
+## 性能指标（目标）
 
 | 指标 | 目标值 |
 |------|--------|
@@ -281,38 +348,16 @@ pnpm dev
 | 单项目工作项 | ≥ 100 万 |
 | 可用性 SLA | ≥ 99.9% |
 
-## 信创兼容
-
-Ydsz Plane 从设计之初即考虑信创合规需求：
-
-- **操作系统**：麒麟 V10 / 统信 UOS / openEuler
-- **CPU 架构**：x86_64 / ARM64（鲲鹏 / 飞腾）
-- **数据库**：PostgreSQL / 达梦 / 人大金仓
-- **中间件**：Nginx / 东方通 / 宝兰德
-- **浏览器**：360 安全浏览器 / 奇安信
-- **密码算法**：支持 SM2/SM3/SM4 国密算法
-- **等保合规**：满足等保三级基线要求
-
-## 非功能需求
-
-| 维度 | 措施 |
-|------|------|
-| **安全** | JWT + RBAC、HTTPS/TLS、bcrypt、审计日志、CORS/CSP/Rate Limit |
-| **性能** | Redis 多级缓存、CDN、ES 全文检索、连接池、异步任务 |
-| **可用** | 无状态服务、多副本、跨可用区部署、健康检查 |
-| **可运维** | Docker Compose / Helm Chart、Prometheus + Grafana 监控、ELK 日志 |
-| **可扩展** | 微服务就绪、读写分离、消息队列削峰 |
-
 ## 贡献指南
 
-### 开发环境搭建
+### 分支策略（Trunk-Based）
 
-1. Fork 本仓库
-2. Clone 你的 Fork：`git clone https://github.com/<your-name>/ydsz-plane.git`
-3. 创建特性分支：`git checkout -b feature/your-feature`
-4. 提交更改：`git commit -m "feat: your feature"`
-5. 推送分支：`git push origin feature/your-feature`
-6. 提交 Pull Request
+```
+main（受保护，永远可发布）
+ ├── feature/xxx      → PR → squash merge
+ ├── fix/xxx          → PR → squash merge
+ └── release/v0.x     → 仅 cherry-pick 修复 → tag
+```
 
 ### 提交规范
 
@@ -327,52 +372,23 @@ Ydsz Plane 从设计之初即考虑信创合规需求：
 
 ### 代码规范
 
-- **Go**：`golangci-lint` + [Uber Go Style Guide](https://github.com/uber-go/guide)
-- **TypeScript**：`eslint` + `prettier`
-- **Vue**：组合式 API + `<script setup>`
-
-## 社区与反馈
-
-- **GitHub Issues**：Bug 反馈、功能建议
-- **GitHub Discussions**：使用问答、设计讨论
-- **微信群**（待创建）
-- **邮件**：ydszopen@meituan.com
+- **Go**：`golangci-lint`（配置见 `.golangci.yml`）
+- **TypeScript / Vue**：`eslint` + `prettier`
+- **提交前**：`make lint && make test`
 
 ## 许可协议
 
 Ydsz Plane 采用 [MIT License](LICENSE) 开源协议。
 
-```
-MIT License
-
-Copyright (c) 2026 Ydsz OpenSource
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-```
-
 ## 致谢
 
 本项目的设计参考了以下优秀的开源项目与商业产品：
 
-- [Plane](https://github.com/makeplane/plane) - 开源项目管理工具
+- [Plane](https://github.com/makeplane/plane) - 项目设计语言与信息架构参考
 - [GitLab](https://gitlab.com/gitlab-org/gitlab) - DevOps 平台
-- [Taiga](https://github.com/taigaio) - 敏捷项目管理
-- [Focalboard](https://github.com/mattermost/focalboard) - 看板工具
-- [云效](https://www.aliyun.com/product/yunxiao) - 阿里云研发平台
-- [TAPD](https://www.tapd.cn) - 腾讯敏捷协作平台
-- [ONES](https://ones.cn) - 企业级研发管理平台
+- [云效](https://www.aliyun.com/product/yunxiao)
+- [TAPD](https://www.tapd.cn)
+- [ONES](https://ones.cn)
 
 ---
 
