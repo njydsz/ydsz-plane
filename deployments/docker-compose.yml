@@ -1,0 +1,120 @@
+name: ydsz-plane
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ydsz
+      POSTGRES_PASSWORD: ydsz
+      POSTGRES_DB: ydsz
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ydsz"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  nats:
+    image: nats:2.10-alpine
+    command: ["-js"]   # JetStream enabled for durable consumers (S2+)
+    ports:
+      - "4222:4222"
+      - "8222:8222"    # monitoring
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O- http://127.0.0.1:8222/healthz || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.14.3
+    profiles: ["full"]
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      ES_JAVA_OPTS: -Xms512m -Xmx512m
+    ports:
+      - "9200:9200"
+    volumes:
+      - esdata:/usr/share/elasticsearch/data
+
+  minio:
+    image: minio/minio:latest
+    profiles: ["full"]
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ydsz
+      MINIO_ROOT_PASSWORD: ydsz-minio-secret
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - miniodata:/data
+
+  api:
+    build:
+      context: ..
+      dockerfile: deployments/Dockerfile.api
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      nats: { condition: service_healthy }
+    environment:
+      YDSZ_SERVER_ENV: production
+      YDSZ_SERVER_PORT: 8080
+      YDSZ_DATABASE_URL: postgres://ydsz:ydsz@postgres:5432/ydsz?sslmode=disable
+      YDSZ_REDIS_ADDR: redis:6379
+      YDSZ_NATS_URL: nats://nats:4222
+      YDSZ_AUTH_JWT_SECRET: ${YDSZ_AUTH_JWT_SECRET:?set YDSZ_AUTH_JWT_SECRET in .env}
+      YDSZ_LOG_FORMAT: json
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: ..
+      dockerfile: deployments/Dockerfile.api
+    command: ["/app/worker"]
+    depends_on:
+      api: { condition: service_started }
+    environment:
+      YDSZ_SERVER_ENV: production
+      YDSZ_DATABASE_URL: postgres://ydsz:ydsz@postgres:5432/ydsz?sslmode=disable
+      YDSZ_REDIS_ADDR: redis:6379
+      YDSZ_NATS_URL: nats://nats:4222
+      YDSZ_AUTH_JWT_SECRET: ${YDSZ_AUTH_JWT_SECRET:?set YDSZ_AUTH_JWT_SECRET in .env}
+      YDSZ_LOG_FORMAT: json
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ..
+      dockerfile: deployments/Dockerfile.web
+    depends_on:
+      - api
+    ports:
+      - "80:80"
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  redisdata:
+  esdata:
+  miniodata:
