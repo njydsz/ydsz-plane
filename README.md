@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-  技术栈：Go · Vue 3 · PostgreSQL · Redis · NATS · Docker
+  Go · Vue 3 · PostgreSQL · Redis · NATS · Docker
 </p>
 
 ---
