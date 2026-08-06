@@ -1,0 +1,30 @@
+# env / secrets
+.env
+*.local
+
+# Go
+/bin/
+/dist/
+*.exe
+*.test
+coverage.out
+
+# Node / web
+node_modules/
+web/dist/
+web/node_modules/
+*.tsbuildinfo
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# misc
+/tmp/
+*.log
+.air.toml
