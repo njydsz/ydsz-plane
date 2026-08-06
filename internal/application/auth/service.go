@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/crypto/bcrypt"
 
+	"github.com/ydszopen/ydsz-plane/internal/infrastructure/telemetry"
 	"github.com/ydszopen/ydsz-plane/pkg/errs"
 )
 
@@ -77,13 +78,17 @@ func (s *Service) Login(ctx context.Context, email, password string) (*TokenPair
 		Scan(&id, &hash, &displayName, &avatarURL, &isActive)
 	if err != nil {
 		if errors.Is(err, pgxErrNoRows()) {
+			telemetry.AuthOperations.WithLabelValues("login", "user_not_found").Inc()
 			return nil, errs.ErrInvalidCredentials // 模糊化，不区分账号/密码
 		}
+		telemetry.AuthOperations.WithLabelValues("login", "error").Inc()
 		return nil, errs.ErrInternal.Wrap(err)
 	}
 	if !isActive || bcrypt.CompareHashAndPassword([]byte(hash), []byte(password)) != nil {
+		telemetry.AuthOperations.WithLabelValues("login", "invalid").Inc()
 		return nil, errs.ErrInvalidCredentials
 	}
+	telemetry.AuthOperations.WithLabelValues("login", "ok").Inc()
 	return s.issuePair(id, email, displayName, avatarURL)
 }
 
@@ -124,6 +129,49 @@ func (s *Service) ParseAccess(token string) (int64, error) {
 func (s *Service) HashPassword(plain string) (string, error) {
 	h, err := bcrypt.GenerateFromPassword([]byte(plain), s.bcryptCost)
 	return string(h), err
+}
+
+// RegisterInput holds registration parameters.
+type RegisterInput struct {
+	Email       string
+	Password    string
+	DisplayName string
+}
+
+// Register creates a new user and issues an access/refresh token pair.
+func (s *Service) Register(ctx context.Context, in RegisterInput) (*TokenPair, error) {
+	if !s.registrationOpen {
+		return nil, errs.ErrForbidden
+	}
+	if len(in.Password) < 8 {
+		return nil, errs.ErrValidation.WithDetails(errs.FieldDetail{
+			Field: "password", Reason: "密码长度至少 8 位",
+		})
+	}
+
+	hash, err := s.HashPassword(in.Password)
+	if err != nil {
+		return nil, errs.ErrInternal.Wrap(err)
+	}
+
+	var (
+		userID int64
+		email  string
+	)
+	err = s.db.QueryRow(ctx, `
+		INSERT INTO users (email, password_hash, display_name)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (email) DO NOTHING
+		RETURNING id, email`,
+		in.Email, hash, in.DisplayName).Scan(&userID, &email)
+	if err != nil {
+		// Conflict → email taken
+		telemetry.AuthOperations.WithLabelValues("register", "conflict").Inc()
+		return nil, errs.New("AUTH.EMAIL_TAKEN", "该邮箱已被注册", 409)
+	}
+
+	telemetry.AuthOperations.WithLabelValues("register", "ok").Inc()
+	return s.issuePair(userID, email, in.DisplayName, "")
 }
 
 func (s *Service) issuePair(userID int64, email, displayName, avatarURL string) (*TokenPair, error) {

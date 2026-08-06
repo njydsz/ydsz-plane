@@ -53,12 +53,13 @@ func NewEngine(d *Deps) *gin.Engine {
 	v1 := r.Group("/api/v1")
 	{
 		authGroup := v1.Group("/auth")
-		authGroup.Use(middleware.RateLimit(d.Redis, d.Cfg.Auth.LoginRateLimitPer, func(c *gin.Context) string {
-			return "login:" + c.ClientIP()
-		}))
+		rl := middleware.RateLimit(d.Redis, d.Cfg.Auth.LoginRateLimitPer, func(c *gin.Context) string {
+			return "auth:" + c.ClientIP()
+		})
 		{
-			authGroup.POST("/login", login(d))
-			authGroup.POST("/refresh", refresh(d))
+			authGroup.POST("/login", rl, login(d))
+			authGroup.POST("/refresh", rl, refresh(d))
+			authGroup.POST("/register", rl, register(d))
 		}
 
 		// authenticated routes
@@ -174,6 +175,33 @@ func refresh(d *Deps) gin.HandlerFunc {
 		setAuthCookies(c, d, pair)
 		c.JSON(http.StatusOK, pair)
 	}
+}
+
+func register(d *Deps) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var req registerRequest
+		if err := c.ShouldBindJSON(&req); err != nil {
+			middleware.AbortWithError(c, errs.ErrValidation.WithDetails(fieldDetails(err)...))
+			return
+		}
+		pair, err := d.Auth.Register(c.Request.Context(), auth.RegisterInput{
+			Email:       req.Email,
+			Password:    req.Password,
+			DisplayName: req.DisplayName,
+		})
+		if err != nil {
+			writeError(c, err)
+			return
+		}
+		setAuthCookies(c, d, pair)
+		c.JSON(http.StatusCreated, pair)
+	}
+}
+
+type registerRequest struct {
+	Email       string `json:"email" binding:"required,email"`
+	Password    string `json:"password" binding:"required,min=8"`
+	DisplayName string `json:"display_name" binding:"required,min=2,max=64"`
 }
 
 func me(d *Deps) gin.HandlerFunc {

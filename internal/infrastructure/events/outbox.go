@@ -14,6 +14,8 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/nats-io/nats.go"
 	"go.uber.org/zap"
+
+	"github.com/ydszopen/ydsz-plane/internal/infrastructure/telemetry"
 )
 
 // Event is a domain event record.
@@ -114,11 +116,13 @@ func (r *Relay) publishBatch(ctx context.Context) error {
 			return fmt.Errorf("events: marshal %d: %w", e.ID, err)
 		}
 		if err := r.nc.Publish(Subject(e.EventType), data); err != nil {
+			telemetry.NATSPublished.WithLabelValues("error").Inc()
 			return fmt.Errorf("events: publish %d: %w", e.ID, err)
 		}
 		if _, err := r.db.Exec(ctx, `UPDATE domain_events SET published_at = now() WHERE id = $1`, e.ID); err != nil {
 			return fmt.Errorf("events: mark published %d: %w", e.ID, err)
 		}
+		telemetry.NATSPublished.WithLabelValues("ok").Inc()
 	}
 	return nil
 }
