@@ -12,7 +12,7 @@ import { AppBadge, AppButton, AppLoadingState, AppErrorState, ProgressBar } from
 const route = useRoute();
 
 const projectId = computed(() => Number(route.params.projectId));
-const workspaceSlug = computed(() => String(route.params.workspaceSlug ?? ""));
+const workspaceSlug = computed(() => String(route.params.workspaceId ?? ""));
 const versionId = computed(() => Number(route.params.versionId));
 
 const version = ref<Version | null>(null);

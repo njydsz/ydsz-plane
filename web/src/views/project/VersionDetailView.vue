@@ -16,7 +16,7 @@ const route = useRoute();
 const router = useRouter();
 
 const projectId = computed(() => Number(route.params.projectId));
-const workspaceSlug = computed(() => String(route.params.workspaceSlug ?? ""));
+const workspaceSlug = computed(() => String(route.params.workspaceId ?? ""));
 const versionId = computed(() => Number(route.params.versionId));
 
 const activeTab = ref<"overview" | "sprints" | "defects" | "notes">("overview");

@@ -155,13 +155,13 @@ function getAllItems(): any[] {
 
 /** 根据结果实体类型跳转到对应详情页，并关闭搜索面板 */
 function navigateTo(item: any) {
-  const slug = wsStore.currentSlug
+  const wsId = wsStore.currentId
   if (item._type === 'issue') {
-    router.push(`/${slug}/projects/${item.project_id}/issues/${item.id}`)
+    router.push(`/${wsId}/projects/${item.project_id}/issues/${item.id}`)
   } else if (item._type === 'sprint') {
-    router.push(`/${slug}/projects/${item.project_id}/sprints/${item.id}`)
+    router.push(`/${wsId}/projects/${item.project_id}/sprints/${item.id}`)
   } else if (item._type === 'version') {
-    router.push(`/${slug}/projects/${item.project_id}/versions/${item.id}`)
+    router.push(`/${wsId}/projects/${item.project_id}/versions/${item.id}`)
   }
   close()
 }

@@ -184,7 +184,7 @@ interface CommandGroupDef {
 }
 
 const commandGroups = computed<CommandGroupDef[]>(() => {
-  const slug = wsStore.currentSlug
+  const wsId = wsStore.currentId
 
   return [
     {
@@ -195,14 +195,14 @@ const commandGroups = computed<CommandGroupDef[]>(() => {
           label: "工作台",
           icon: "🏠",
           iconBg: "var(--brand-50, #eef2fe)",
-          action: () => router.push(`/${slug}`),
+          action: () => router.push(`/${wsId}`),
         },
         {
           id: "go-projects",
           label: "项目列表",
           icon: "📁",
           iconBg: "var(--brand-50)",
-          action: () => router.push(`/${slug}/projects`),
+          action: () => router.push(`/${wsId}/projects`),
         },
         {
           id: "go-search",
@@ -379,10 +379,10 @@ function execute(cmd: CommandDef) {
 }
 
 function goTo(type: string, item: any) {
-  const slug = wsStore.currentSlug
-  if (type === 'issue') router.push(`/${slug}/projects/${item.project_id}/issues/${item.id}`)
-  else if (type === 'sprint') router.push(`/${slug}/projects/${item.project_id}/sprints/${item.id}`)
-  else if (type === 'version') router.push(`/${slug}/projects/${item.project_id}/versions/${item.id}`)
+  const wsId = wsStore.currentId
+  if (type === 'issue') router.push(`/${wsId}/projects/${item.project_id}/issues/${item.id}`)
+  else if (type === 'sprint') router.push(`/${wsId}/projects/${item.project_id}/sprints/${item.id}`)
+  else if (type === 'version') router.push(`/${wsId}/projects/${item.project_id}/versions/${item.id}`)
   close()
 }
 

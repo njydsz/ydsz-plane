@@ -54,6 +54,7 @@ test.describe("工作项状态机流转", () => {
           type: "defect",
           name: `E2E defect ${Date.now()}`,
           severity: 3,
+          found_phase: "integration",
           state_id: 1, // 新建
           assignees: [],
           labels: [],

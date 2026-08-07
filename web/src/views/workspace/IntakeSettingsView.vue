@@ -15,7 +15,7 @@ import { ApiError } from "@/api/client";
 import { AppLoadingState, AppErrorState } from "@/components";
 
 const route = useRoute();
-const workspaceSlug = computed(() => String(route.params.workspaceSlug));
+const workspaceSlug = computed(() => String(route.params.workspaceId));
 
 const loading = ref(true);
 const error = ref("");

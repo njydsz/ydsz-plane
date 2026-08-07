@@ -52,7 +52,7 @@ const EVENT_OPTIONS: { value: WebhookEvent; label: string }[] = [
 /* ------------------------------------------------------------------ */
 
 const route = useRoute();
-const workspaceSlug = computed(() => String(route.params.workspaceSlug));
+const workspaceSlug = computed(() => String(route.params.workspaceId));
 
 const loading = ref(true);
 const error = ref("");

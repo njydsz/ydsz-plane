@@ -23,7 +23,7 @@ import { useAuthStore } from "@/stores/auth";
 const route = useRoute();
 const auth = useAuthStore();
 
-const wsSlug = computed(() => String(route.params.workspaceSlug));
+const wsSlug = computed(() => String(route.params.workspaceId));
 const activeTab = ref<"info" | "members" | "invitations" | "api-tokens">("info");
 
 const wsId = ref(0); // 拿到 ID 后设置

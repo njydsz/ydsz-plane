@@ -11,7 +11,7 @@ import { auditApi, type AuditLogEntry } from "@/api/services/audit";
 import { workspaceApi, type Workspace } from "@/api/services/workspace";
 
 const route = useRoute();
-const wsSlug = computed(() => String(route.params.workspaceSlug));
+const wsSlug = computed(() => String(route.params.workspaceId));
 
 const ws = ref<Workspace | null>(null);
 const logs = ref<AuditLogEntry[]>([]);

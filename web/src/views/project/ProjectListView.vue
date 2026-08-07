@@ -12,7 +12,7 @@ import { AppLoadingState, AppErrorState, AppEmptyState } from "@/components";
 
 const route = useRoute();
 const router = useRouter();
-const wsSlug = computed(() => String(route.params.workspaceSlug));
+const wsId = computed(() => Number(route.params.workspaceId));
 
 const ws = ref<Workspace | null>(null);
 const projects = ref<Project[]>([]);
@@ -47,7 +47,7 @@ async function load() {
   loading.value = true;
   error.value = "";
   try {
-    ws.value = await workspaceApi.getBySlug(wsSlug.value);
+    ws.value = await workspaceApi.get(wsId.value);
     projects.value = await workspaceApi.listProjects(ws.value.id);
     await loadTemplates();
   } catch (e: any) {
@@ -85,7 +85,7 @@ async function createProject() {
 }
 
 function openSettings() {
-  router.push(`/${wsSlug.value}/settings`);
+  router.push(`/${wsId.value}/settings`);
 }
 
 onMounted(load);

@@ -36,7 +36,7 @@ async function load() {
   loading.value = true;
   error.value = "";
   try {
-    const wsSlug = String(route.params.workspaceSlug ?? "");
+    const wsSlug = String(route.params.workspaceId ?? "");
     let wsIdVal: number;
     if (wsSlug) {
       const ws = await workspaceApi.getBySlug(wsSlug);
@@ -176,7 +176,7 @@ async function onColumnDrop(stateId: number, event: DragEvent) {
 
 function openIssue(issueId: number) {
   // 单击打开 Peek 预览抽屉；抽屉内有「打开详情」按钮执行路由跳转
-  peek.open(String(route.params.workspaceSlug), projectId.value, issueId);
+  peek.open(String(route.params.workspaceId), projectId.value, issueId);
 }
 
 function priorityColor(priority: string): string {
@@ -230,13 +230,13 @@ onMounted(() => {
       <div class="header-right">
         <div class="view-switcher">
           <router-link
-            :to="`/${route.params.workspaceSlug}/projects/${projectId}/board`"
+            :to="`/${route.params.workspaceId}/projects/${projectId}/board`"
             class="view-tab is-active"
           >
 看板
 </router-link>
           <router-link
-            :to="`/${route.params.workspaceSlug}/projects/${projectId}/list`"
+            :to="`/${route.params.workspaceId}/projects/${projectId}/list`"
             class="view-tab"
           >
 列表

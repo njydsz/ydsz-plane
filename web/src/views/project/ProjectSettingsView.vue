@@ -12,7 +12,7 @@ import { ApiError } from "@/api/client";
 import { AppLoadingState, AppErrorState } from "@/components";
 
 const route = useRoute();
-const workspaceSlug = String(route.params.workspaceSlug);
+const workspaceSlug = String(route.params.workspaceId);
 const projectId = Number(route.params.projectId);
 
 const project = ref<Project | null>(null);

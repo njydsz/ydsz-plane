@@ -30,7 +30,7 @@ const router = useRouter();
 const wsStore = useWorkspaceStore();
 
 const projectId = computed(() => Number(route.params.projectId));
-const workspaceSlug = computed(() => String(route.params.workspaceSlug));
+const workspaceSlug = computed(() => String(route.params.workspaceId));
 const wsId = computed(() => wsStore.current?.id ?? 0);
 
 const loading = ref(true);

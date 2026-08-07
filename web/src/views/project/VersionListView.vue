@@ -14,7 +14,7 @@ const route = useRoute();
 const router = useRouter();
 
 const projectId = computed(() => Number(route.params.projectId));
-const workspaceSlug = computed(() => String(route.params.workspaceSlug ?? ""));
+const workspaceSlug = computed(() => String(route.params.workspaceId ?? ""));
 
 const versions = ref<Version[]>([]);
 const loading = ref(true);

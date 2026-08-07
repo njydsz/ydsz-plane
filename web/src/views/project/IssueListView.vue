@@ -66,7 +66,7 @@ async function load() {
   loading.value = true;
   error.value = "";
   try {
-    const wsSlug = String(route.params.workspaceSlug ?? "");
+    const wsSlug = String(route.params.workspaceId ?? "");
     let wsIdVal: number;
     if (wsSlug) {
       const ws = await workspaceApi.getBySlug(wsSlug);
@@ -141,7 +141,7 @@ const totalPages = computed(() => Math.max(1, Math.ceil(total.value / perPage.va
 
 function openIssue(issueId: number) {
   // 单击打开 Peek 预览抽屉；抽屉内有「打开详情」按钮执行路由跳转
-  peek.open(String(route.params.workspaceSlug), projectId.value, issueId);
+  peek.open(String(route.params.workspaceId), projectId.value, issueId);
 }
 
 function toggleSelect(issueId: number) {
@@ -288,13 +288,13 @@ const showExportDropdown = ref(false);
         </div>
         <div class="view-switcher">
           <router-link
-            :to="`/${route.params.workspaceSlug}/projects/${projectId}/board`"
+            :to="`/${route.params.workspaceId}/projects/${projectId}/board`"
             class="view-tab"
           >
 看板
 </router-link>
           <router-link
-            :to="`/${route.params.workspaceSlug}/projects/${projectId}/list`"
+            :to="`/${route.params.workspaceId}/projects/${projectId}/list`"
             class="view-tab is-active"
           >
 列表
@@ -306,7 +306,7 @@ const showExportDropdown = ref(false);
     <!-- 过滤器 -->
     <IssueFilter
       :project-id="projectId"
-      :workspace-slug="String(route.params.workspaceSlug)"
+      :workspace-slug="String(route.params.workspaceId)"
       @filter-change="onFilterChange"
     />
 
