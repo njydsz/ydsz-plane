@@ -384,7 +384,7 @@ func (s *Service) getProjectMembers(ctx context.Context, projectID int64) ([]pro
 
 func (s *Service) calculateExpertiseScore(ctx context.Context, userID, projectID int64, keywords []string) (float64, error) {
 	if len(keywords) == 0 {
-		return 0.5
+		return 0.5, nil
 	}
 
 	// 查询成员最近 50 个工作项的标题
@@ -409,7 +409,7 @@ func (s *Service) calculateExpertiseScore(ctx context.Context, userID, projectID
 	}
 
 	if len(historyTexts) == 0 {
-		return 0.3 // 新人无历史
+		return 0.3, nil // 新人无历史
 	}
 
 	// 计算关键词命中率
@@ -421,7 +421,7 @@ func (s *Service) calculateExpertiseScore(ctx context.Context, userID, projectID
 		}
 	}
 
-	return float64(hits) / float64(len(keywords))
+	return float64(hits) / float64(len(keywords)), nil
 }
 
 func (s *Service) calculateLoadScore(ctx context.Context, userID, projectID int64) (float64, error) {
@@ -442,7 +442,7 @@ func (s *Service) calculateLoadScore(ctx context.Context, userID, projectID int6
 	// 负载得分：工作项数越少得分越高
 	// 0 项 = 1.0, 5 项 = 0.5, 10+ 项 = 0.1
 	if count == 0 {
-		return 1.0
+		return 1.0, nil
 	}
 	score := 1.0 - float64(count)*0.1
 	if score < 0.1 {
