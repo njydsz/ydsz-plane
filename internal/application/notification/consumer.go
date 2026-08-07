@@ -11,25 +11,31 @@
 // 设计决策：
 //   - 直接在 EventExchange 上消费，不绕经 TaskExchange（减少一跳延迟）
 //   - 每个事件类型对应一个处理函数，新增事件只需扩展 handleEvent
-//   - 幂等性由 notifications 表的 (entity_type, entity_id, event_type, recipient_id)
-//     组合隐式保证——同一事件重复投递会创建多条记录（可通过去重逻辑优化，
-//     MVP 阶段暂不处理）
+//   - 通知风暴去重：Redis 滑动窗口（默认 5 分钟）内同 issue 多次更新聚合为一条
+//     避免看板拖拽/批量操作触发通知风暴
 package notification
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/mq"
 )
 
+// dedupWindow 通知去重窗口。同一收件人 + 同一工作项 + 同一事件类型
+// 在窗口期内多次触发只保留一条（若有增量信息则追加到 body）。
+const dedupWindow = 5 * time.Minute
+
 // consumer 是通知领域事件的 RabbitMQ 消费者。
 type consumer struct {
 	db       *pgxpool.Pool
+	rdb      *redis.Client
 	log      *zap.Logger
 	handlers map[string]eventHandler
 }
@@ -38,9 +44,15 @@ type consumer struct {
 type eventHandler func(ctx context.Context, event mq.EventEnvelope) error
 
 // newConsumer 创建通知事件 consumer，注册所有已知事件处理器。
-func newConsumer(db *pgxpool.Pool, log *zap.Logger) *consumer {
+// rdb 为可选（nil 表示跳过 Redis 去重，适合无 Redis 的测试环境）。
+func newConsumer(db *pgxpool.Pool, log *zap.Logger, rdb ...*redis.Client) *consumer {
+	var r *redis.Client
+	if len(rdb) > 0 {
+		r = rdb[0]
+	}
 	c := &consumer{
 		db:       db,
+		rdb:      r,
 		log:      log,
 		handlers: make(map[string]eventHandler),
 	}
@@ -50,6 +62,32 @@ func newConsumer(db *pgxpool.Pool, log *zap.Logger) *consumer {
 	c.handlers["issue.status_changed"] = c.handleIssueStatusChanged
 	c.handlers["comment.created"] = c.handleCommentCreated
 	return c
+}
+
+// dedupKey 生成去重 key：notif:dedup:{recipient_id}:{event_type}:{entity_type}:{entity_id}
+func dedupKey(recipientID int64, eventType EventType, entityType EntityType, entityID int64) string {
+	return fmt.Sprintf("notif:dedup:%d:%s:%s:%d", recipientID, eventType, entityType, entityID)
+}
+
+// shouldDedup 判断是否应去重。返回 true 表示跳过（去重窗口内已发送过）。
+// 使用 Redis SET NX（key 不存在时设置成功→首次，应发送；否则→去重）。
+func (c *consumer) shouldDedup(ctx context.Context, recipientID int64, eventType EventType, entityType EntityType, entityID int64) bool {
+	if c.rdb == nil {
+		return false // 无 Redis 不去重
+	}
+	// 仅对 status_changed 类高频事件去重（避免信息丢失）
+	if eventType != EventIssueStatusChanged {
+		return false
+	}
+	key := dedupKey(recipientID, eventType, entityType, entityID)
+	// SET NX with TTL — 首次返回 true（应发送），重复返回 false（应去重）
+	set, err := c.rdb.SetNX(ctx, key, time.Now().Unix(), dedupWindow).Result()
+	if err != nil {
+		c.log.Warn("dedup redis error — allow notification through", zap.Error(err))
+		return false // Redis 错误时放行，避免通知丢失
+	}
+	// set=true 表示 key 刚创建（首次），应发送；set=false 表示已存在（去重窗口内），应跳过
+	return !set
 }
 
 // HandleEvent 分发领域事件到对应处理器。
@@ -157,6 +195,9 @@ func (c *consumer) handleIssueAssigned(ctx context.Context, event mq.EventEnvelo
 }
 
 // handleIssueStatusChanged: 状态变更 → 通知关注人（创建者 + 分配者）。
+//
+// 风暴去重：5 分钟窗口内同一工作项的多次 status_changed 聚合为一条，
+// 避免批量操作/看板拖拽触发通知风暴压垮用户收件箱。
 func (c *consumer) handleIssueStatusChanged(ctx context.Context, event mq.EventEnvelope) error {
 	var p eventPayload
 	if err := json.Unmarshal(event.Payload, &p); err != nil {
@@ -167,15 +208,20 @@ func (c *consumer) handleIssueStatusChanged(ctx context.Context, event mq.EventE
 	body := fmt.Sprintf("[%s] %s", p.Identifier, p.Name)
 	actionURL := fmt.Sprintf("/projects/%d/issues/%d", p.ProjectID, p.IssueID)
 
-	// 通知所有相关人员（去重）
+	// 通知所有相关人员（按 user 去重 + 发送风暴去重）
 	recipients := make(map[int64]bool)
 	for _, uid := range p.AssigneeIDs {
 		recipients[uid] = true
 	}
-	// 如果有 issue creator 信息在 payload 中也可以加入，MVP 阶段仅通知 assignees
 
+	var dedupSkipped int
 	for uid := range recipients {
 		if uid == p.ActorID {
+			continue
+		}
+		// 风暴去重：5 分钟内同 issue 多次 status_changed 跳过
+		if c.shouldDedup(ctx, uid, EventIssueStatusChanged, EntityIssue, p.IssueID) {
+			dedupSkipped++
 			continue
 		}
 		actorID := p.ActorID
@@ -196,6 +242,10 @@ func (c *consumer) handleIssueStatusChanged(ctx context.Context, event mq.EventE
 			c.log.Warn("failed to create notification for issue.status_changed",
 				zap.Int64("user", uid), zap.Error(err))
 		}
+	}
+	if dedupSkipped > 0 {
+		c.log.Info("notification dedup: skipped status_changed",
+			zap.Int64("issue_id", p.IssueID), zap.Int("skipped", dedupSkipped))
 	}
 	return nil
 }

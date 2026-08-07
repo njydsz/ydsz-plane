@@ -41,8 +41,9 @@ type Config struct {
 	Auth     AuthConfig     // JWT、bcrypt 与登录限流设置。
 	Log      LogConfig      // 日志级别与编码格式。
 	Features FeatureFlags   // 功能开关；每项开关一个子系统。
-	Email    EmailConfig    // 事务邮件的外发 SMTP 配置。
-	Storage  StorageConfig  // 对象存储 (MinIO/S3) 配置。
+	Email      EmailConfig      // 事务邮件的外发 SMTP 配置。
+	Storage    StorageConfig    // 对象存储 (MinIO/S3) 配置。
+	Attachment AttachmentConfig // 附件上传限制（大小 / MIME 白名单）。
 }
 
 // ServerConfig 控制 HTTP 监听器。
@@ -258,6 +259,28 @@ func Load() (*Config, error) {
 	v.SetDefault("email.smtp_use_tls", false)
 	v.SetDefault("email.app_base_url", "http://127.0.0.1:5173")
 
+	// Attachment 默认值：20 MB 上限 + Office/图片/MIME 白名单
+	v.SetDefault("attachment.max_file_size", 20*1024*1024) // 20 MB
+	v.SetDefault("attachment.max_total_size_per_issue", 100*1024*1024) // 100 MB
+	v.SetDefault("attachment.allowed_content_types", []string{
+		"image/jpeg", "image/png", "image/gif", "image/webp", "image/svg+xml",
+		"application/pdf",
+		"application/msword",
+		"application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+		"application/vnd.ms-excel",
+		"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+		"application/vnd.ms-powerpoint",
+		"application/vnd.openxmlformats-officedocument.presentationml.presentation",
+		"application/zip", "application/x-7z-compressed",
+		"text/plain", "text/csv", "text/markdown",
+		"application/json", "application/xml",
+	})
+	v.SetDefault("attachment.allowed_extensions", []string{
+		"jpg", "jpeg", "png", "gif", "webp", "svg",
+		"pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx",
+		"zip", "7z", "txt", "csv", "md", "json", "xml",
+	})
+
 	// Storage 默认值
 	v.SetDefault("storage.endpoint", "127.0.0.1:9000")
 	v.SetDefault("storage.access_key", "admin")
@@ -337,6 +360,14 @@ func (c *Config) validate() error {
 		return fmt.Errorf("config: invalid server.port %d (must be 1-65535)", c.Server.Port)
 	}
 
+	// --- 附件上传合法性 ---
+	if c.Attachment.MaxFileSize <= 0 {
+		return fmt.Errorf("config: attachment.max_file_size must be > 0")
+	}
+	if c.Attachment.MaxFileSize > 1<<30 { // 1 GB
+		return fmt.Errorf("config: attachment.max_file_size exceeds 1 GB sanity limit")
+	}
+
 	return nil
 }
 
@@ -387,6 +418,27 @@ type EmailConfig struct {
 	// 格式："https://example.com" 或 "http://localhost:5173"。
 	// 默认："http://127.0.0.1:5173"。
 	AppBaseURL string `mapstructure:"app_base_url"`
+}
+
+// AttachmentConfig 附件上传限制（大小 / MIME / 扩展名白名单）。
+// 参照 Jira/Plane/Linear 业界实践：
+//   - 单文件 ≤ 20 MB（普通文档/截图足够）；
+//   - MIME 白名单覆盖常见办公/设计格式，拒绝可执行文件兜底攻击；
+//   - 同名扩展名检查（MIME 可被客户端篡改，扩展名是双保险）。
+type AttachmentConfig struct {
+	// MaxFileSize 单文件最大字节数。默认 20 MB。
+	// 客户端也应在上传前校验，服务端再次校验是最后防线。
+	MaxFileSize int64 `mapstructure:"max_file_size"`
+
+	// MaxTotalSizePerIssue 单个工作项附件总容量限制（0=无限制）。
+	// 防止工作项附件无限膨胀影响查询性能。
+	MaxTotalSizePerIssue int64 `mapstructure:"max_total_size_per_issue"`
+
+	// AllowedContentTypes MIME 类型白名单。空表示允许所有。
+	AllowedContentTypes []string `mapstructure:"allowed_content_types"`
+
+	// AllowedExtensions 扩展名白名单（不带点，如 "pdf"）。空表示允许所有。
+	AllowedExtensions []string `mapstructure:"allowed_extensions"`
 }
 
 // StorageConfig 对象存储 (MinIO / S3 兼容) 配置。

@@ -24,10 +24,16 @@
   - WS 断线重连补偿机制（`ws-client.ts` onReconnect + 后端 `since` 参数）
 - **出口检查**：通知系统 6 项检查中，站内信完整闭环（检查项 2）✅，WS 断线补偿已补（检查项 6）✅；邮件/IM/摘要归 S9，规则矩阵完整度归后续迭代。
 
+## M6 开放与智能（S8–S11，2026-08-07）
+- **S8 搜索 ✅**：PostgreSQL FTS（search_tsv + GIN + 触发器自动同步 search_documents）、搜索历史/书签、SearchView 前端页
+- **S9 工作台/仪表盘/视图偏好 ✅**：WorkbenchView + 首屏聚合 API；DashboardView + Widget 框架（10 种类型）+ 风险告警 + 3 套模板；view_preferences 持久化
+- **S10 Webhook/Intake ✅**：webhook + webhook_logs（HMAC-SHA256 + 30 天日志 + 测试/重试）；intake_channels + intake_issues（公开表单 + 审核转正）
+- **S11 自动化/效能度量 ✅**：automation_rules（TCA DSL + 7 内置模板 + 执行审计）；metric_snapshots + deployment_events（DORA 四指标）
+- **认证扩展**：apitoken 模块（JWT + API Token 双通道 Principal Parser）
+- **Issue 扩展**：batch/reorder、工时完整 CRUD、评论完整 CRUD
+- **迁移递进至 0017**
+
 ## ⚠️ 已知问题
-- **`internal/application/attachment` 包当前编译失败**（2026-08-07 时点）：存在未提交的半迁移重构。
-  - `models.go` 为 untracked 文件，与 `service.go` 类型重声明冲突；
-  - `handler.go` 仍调用已删除方法（`ListByEntity`/`Create`/`Get`）；
-  - `WithDetails([]errs.FieldDetail{...})` 参数类型不匹配（应为单个 `FieldDetail`）。
-  - 修复方案应是：要么完成重构（handler 改用预签名直传 + 新 service 方法），要么回退重构，使 service 与 handler 恢复匹配。**其余所有包均可正常编译。**
-- **`internal/application/workspace` 包**：`riskrules.go:83` 引用了 `pgx.CommandTag`，该类型在当前 pgx v5 版本中已变更/移除，导致 `cmd/api` 入口编译失败。
+- **`internal/application/attachment` 包存在编译风险**（历史遗留）：`handler.go` 与 `service.go` 可能存在接口不匹配，需回归验证。
+- **`internal/application/workspace` 包**：`riskrules.go:83` 引用 `pgx.CommandTag`，该类型在当前 pgx v5 版本中已变更/移除，可能导致 `cmd/api` 编译失败。
+- **M6 模块前端视图**：Webhook / Intake / 自动化 / 效能度量的后端 API 已就绪，但前端管理视图尚待后续迭代补齐。

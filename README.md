@@ -18,56 +18,6 @@
 
 ---
 
-## 项目状态
-
-> **当前阶段：M0 ✅ + M0.5 ✅ + M1 ✅ + M2/M3/M4 ✅ + M5 ✅ + M6 部分交付（S8 搜索 + S9 工作台/仪表盘/视图偏好 + S10 Webhook/Intake + S11 自动化/效能度量）— MVP v0.1 已发布，M6 开放与智能链路基本建设完成**
-> 最后更新：2026-08-07 · 架构基线版本 v1.4
-
-Ydsz Plane 是一款开源、自托管的现代项目管理工具，专为中小型敏捷开发团队设计。M0 工程基座、M0.5 增强基座（RBAC/可观测性/安全纵深/Swagger）、M1 租户与项目骨架（Workspace CRUD/成员邀请/审计）、M2 工作项核心（Issue 全生命周期/状态机/关联/依赖/WBS）、M3 迭代管理（Sprint 生命周期/燃尽图/速率统计）、M4 版本日（版本聚合/发布/交付报告）、M5 MVP 闭环（附件/评论/通知/WebSocket/导出）的后端 API 与前端视图已全部就绪。M6 开放与智能链路同步推进：S8 全文搜索（PostgreSQL FTS + 多对象检索 + 搜索历史/收藏）、S9 工作台/仪表盘/视图偏好、S10 Webhook 管理与 Intake 收件箱、S11 自动化规则引擎与效能度量（DORA/速度/前置时间/质量）的后端 API 与前端视图已全部就绪。数据库迁移脚本从 0001 递进至 0017（users → workspaces → issue_core → state_templates → sprint_core → version_core → search → notifications → issue_comments → notification_settings → attachments → view_preferences → automation/webhooks → intake/metrics → notification_dispatcher），覆盖全部核心域 schema。
-
-## 已完成能力
-
-截至 2026-08-08，仓库中已实现的能力：
-
-| 模块 | 说明 | 状态 |
-|------|------|------|
-| 工程基座 | Monorepo（Go module + pnpm workspace）、CI（lint/test(race)/build/e2e-smoke）、Docker Compose 全栈、Makefile | ✅ |
-| 鉴权链路 | 注册 / 登录（bcrypt + JWT access/refresh）、Cookie 会话、401 单飞刷新重放、忘记 / 重置密码端点 | ✅ |
-| RBAC | Owner/Admin/Member/Guest 四角色 × workspace_members 域、10+ 项权限中间件、权限校验 | ✅ |
-| API Token | 用户级 Token 管理（创建/吊销/scopes）、Principal 双通道认证（JWT + API Token) | ✅ |
-| API 文档 | swaggo 注解 + Swagger UI（`/swagger/index.html`）、Bearer 鉴权说明、60+ 端点 | ✅ |
-| 邮件服务 | SMTP 抽象（Noop / SMTP 自动切换）、双版本 MIME 模板（密码重置 / 邀请） | ✅ |
-| 可观测性 | zap 结构化日志、Prometheus RED 指标（`/metrics`）、Go runtime 默认收集 | ✅ |
-| 安全纵深 | CSP / HSTS / COOP / CORP / Permissions-Policy / X-Frame-Options / X-Content-Type-Options 等 8 项安全头 | ✅ |
-| 中间件链 | RequestID → Recovery → CORS → SecurityHeaders → AccessLog → Metrics → Auth | ✅ |
-| Workspace API | CRUD（创建/读取/更新/归档/恢复）、Slug 唯一校验、项目集合管理 | ✅ |
-| 成员与邀请 | 成员列表/角色切换/移除、邮箱邀请（token+7 天有效+可撤销）、邀请审核模式 | ✅ |
-| 审计日志 | 空间级管理操作全量记录（invitation/workspace/member 操作）+ AuditService + 查询端点 | ✅ |
-| 前端骨架 | Vue 3.5 + Vite 6 + Pinia、WorkspaceLayout、设计令牌（CSS 变量）、路由守卫 | ✅ |
-| 前端视图 | 34 个页面组件（含 Login/Register/ForgotPassword/ResetPassword/Workspace/List/Settings/Project/List/Board/List/Settings/IssueDetail/Sprint/List/Planning/Detail/Standup/Version/List/Detail/Release/Report/Dashboard/Search/Workbench + 模态框/面板组件） | ✅ |
-| 数据持久层 | pgx 连接池、租户上下文（SET LOCAL app.workspace_id）、RLS 策略模板、迁移工具 | ✅ |
-| 事件骨架 | 事务型 Outbox 表 + Relay（DB → RabbitMQ EventExchange）、Asynq Worker | ✅ |
-| 数据库迁移 | 0001~0017（users / workspaces / issue_core / state_templates / sprint_core / version_core / search / notifications / issue_comments / notification_settings / attachments / view_preferences / automation / webhooks / intake / metrics / notification_dispatcher） | ✅ |
-| 种子数据 | 5 用户 + 3 工作空间 + 多角色成员（owner/admin/member/guest）+ 幂等执行 | ✅ |
-| Issue API | CRUD + 状态流转 + 活动日志 + 工时记录/update/delete + 关联（6 种关系）+ 依赖（FS/SS/FF/SF + lag_days）+ WBS 三级 + 类型差异化字段 + CSV/xlsx 导出 + 批量操作 + 看板排序 + 评论 CRUD | ✅ |
-| 协同增强 | 评论 CRUD（富文本 + @提及 + 嵌套回复）、附件（MinIO 预签名上传/下载/预览）、通知（站内信 + 偏好 + 铃铛 + 列表页）、WebSocket（Redis Pub/Sub 扇出 + 断线补偿） | ✅ |
-| 缺陷分析 | 聚合查询（严重程度/发现阶段/模块/根因/缺陷龄/周趋势）+ 明细导出（CSV / xlsx，支持版本过滤） | ✅ |
-| CI/CD | GitHub Actions：后端 lint/test(race)/覆盖率门禁/govulncheck、前端 lint/typecheck/test/build/audit、CodeQL 安全分析、AI Code Review、按需 k6 性能压测 | ✅ |
-| 测试治理 | Go 单元/集成测试（errs/middleware/workspace/attachment/search/notification 等）、前端 Vitest 组件测试 + Playwright E2E 冒烟 | ✅ |
-| 版本发布 | CHANGELOG、发布管理文档、GitHub Release workflow（打 tag 自动构建产物） | ✅ |
-| 依赖安全 | govulncheck + pnpm audit + CodeQL 三层防线，依赖安全治理文档 | ✅ |
-| State API | 项目管理状态集 + 状态流转规则（state_transitions 按项目×类型维度配置） | ✅ |
-| Sprint API | CRUD + 生命周期（start/complete）+ 燃尽图数据 + Backlog 查询 + 容量规划 + 速率建议 + 复盘快照 | ✅ |
-| Version API | CRUD + 状态机（activate/release/archive）+ 进度聚合 + 交付报告 + Release Notes 生成 + 缺陷面板过滤 + 迭代聚合 | ✅ |
-| 全文搜索 | PostgreSQL FTS（tsvector + GIN）、多对象检索（issues/sprints/versions）、搜索历史、搜索书签、关键词高亮 | ✅ |
-| 工作台 | 个人工作台首屏聚合（任务分桶/迭代概览/最近访问/快捷操作）、工作台配置、模板应用 | ✅ |
-| 项目仪表盘 | Widget 框架（10 种 widget 类型）、数据快照、风险预警规则与告警、仪表盘模板（项目概览/项目管理/质量看板） | ✅ |
-| 视图偏好 | 看板/列表布局、列配置、过滤条件、排序配置的持久化 | ✅ |
-| Webhook | 订阅管理 CRUD、HMAC-SHA256 签名、投递日志（30 天保留）、测试投递、手动重试、unhealthy 自动标记 | ✅ |
-| Intake 收件箱 | 收件通道 CRUD（公开表单）、工单提交（免登录）、tracking 回执、自动分配规则、限流、审核转正 | ✅ |
-| 自动化引擎 | Trigger-Condition-Action DSL（JSONB）、规则 CRUD（draft/active/disabled/error）、7 条内置模板、执行审计、dry-run、防循环 | ✅ |
-| 效能度量 | DORA 四指标、迭代速率趋势、前置时间分布、质量指标（逃逸率/缺陷密度）、资源负载（WIP）、部署事件上报、每日快照、数据校准 | ✅ |
-
 ## 技术栈
 
 | 层次 | 技术选型 | 说明 |

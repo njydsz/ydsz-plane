@@ -211,7 +211,10 @@ defectAnalyticsHandler := issue.NewDefectAnalyticsHandler(defectAnalyticsSvc)
 		return fmt.Errorf("storage: %w", err)
 	}
 	attSvc := attachment.NewService(pool.Pool, stClient)
-	attHandler := attachment.NewHandler(&attachment.HandlerDeps{AttachmentSvc: attSvc})
+	attHandler := attachment.NewHandler(&attachment.HandlerDeps{
+	AttachmentSvc: attSvc,
+	Cfg:           &cfg.Attachment,
+})
 
 	// ---------- Automation domain (S11) ----------
 	automationSvc := automation.NewService(pool.Pool)
