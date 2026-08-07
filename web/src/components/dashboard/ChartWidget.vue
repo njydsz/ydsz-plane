@@ -25,7 +25,7 @@ const chartHeight = computed(() =>
 );
 
 function render() {
-  if (!chartEl.value) return;
+  if (!chartEl.value || !chartOption.value) return;
   if (!chartInstance.value) {
     chartInstance.value = echarts.init(chartEl.value);
   }

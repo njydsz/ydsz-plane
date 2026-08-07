@@ -218,16 +218,16 @@ func run() error {
 	// ---------- Workspace Template service ----------
 	templateSvc := workspace.NewTemplateService()
 
-// ---------- Attachment / Storage ----------
+	// ---------- Attachment / Storage ----------
 	stClient, err := storage.New(cfg.Storage)
 	if err != nil {
 		return fmt.Errorf("storage: %w", err)
 	}
 	attSvc := attachment.NewService(pool.Pool, stClient)
 	attHandler := attachment.NewHandler(&attachment.HandlerDeps{
-	AttachmentSvc: attSvc,
-	Cfg:           &cfg.Attachment,
-})
+		AttachmentSvc: attSvc,
+		Cfg:           &cfg.Attachment,
+	})
 
 	// ---------- Automation domain (S11) ----------
 	automationSvc := automation.NewService(pool.Pool)
@@ -317,7 +317,7 @@ func run() error {
 		// Automation domain (S11)
 		AutomationHandler: automationHandler,
 		// Metrics domain (S11)
-		MetricsHandler:    metricsHandler,
+		MetricsHandler: metricsHandler,
 	})
 
 	// 注册工作项路由（必须在 NewEngine 之后）

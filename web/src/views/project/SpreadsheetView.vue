@@ -16,12 +16,7 @@
  *   - Jira 列表视图增强版
  */
 import { ref, computed, onMounted, onUnmounted } from "vue";
-import { useRoute } from "vue-router";
 import type { Issue } from "@/api/services/issue";
-
-const route = useRoute();
-const workspaceSlug = route.params.workspaceSlug as string;
-const projectId = Number(route.params.projectId);
 
 // --- State ---
 

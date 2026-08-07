@@ -146,7 +146,7 @@ onMounted(load);
         <div class="summary-card">
           <div class="summary-card__label">最近操作者</div>
           <div class="summary-card__value summary-card__value--sm">
-            {{ actorStats[0]?.actor_name || "-" }}
+            {{ actorStats[0]?.name || "-" }}
           </div>
         </div>
         <div class="summary-card">

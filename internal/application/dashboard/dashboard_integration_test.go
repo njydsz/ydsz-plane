@@ -120,17 +120,47 @@ func seedDashboardData(t *testing.T, ctx context.Context, pool *persistence.Pool
 	// 三条 issue：不同优先级/状态（type_code 需满足 issues_type_code_check；defect 需 severity+found_phase）
 	types := []string{"requirement", "task", "defect"}
 	priorities := []string{"urgent", "high", "medium"}
+	issueIDs := make([]int64, 0, 3)
 	for i, typ := range types {
-		_, err := pool.Pool.Exec(ctx, `
+		var id int64
+		err := pool.Pool.QueryRow(ctx, `
 			INSERT INTO issues (workspace_id, project_id, sequence_id, type_code, name, state_id, priority,
 			                    severity, found_phase, created_by)
 			VALUES ($1, $2, $3, $4, $5, $6, $7,
 			        CASE WHEN $4 = 'defect' THEN 2 ELSE NULL END,
-			        CASE WHEN $4 = 'defect' THEN 'integration'::text ELSE NULL END, 1)`,
-			wsID, projID, i+1, typ, "Dash Issue "+typ, stateID, priorities[i])
+			        CASE WHEN $4 = 'defect' THEN 'integration'::text ELSE NULL END, 1)
+			RETURNING id`,
+			wsID, projID, i+1, typ, "Dash Issue "+typ, stateID, priorities[i]).Scan(&id)
 		if err != nil {
 			t.Fatalf("seed issue %d: %v", i, err)
 		}
+		issueIDs = append(issueIDs, id)
+	}
+	// 迭代数据：active + completed 各一个（驱动 burndown/velocity）
+	var activeSprintID, doneSprintID int64
+	if err := pool.Pool.QueryRow(ctx, `
+		INSERT INTO sprints (workspace_id, project_id, name, status, created_by)
+		VALUES ($1, $2, 'Active Sprint', 'active', 1) RETURNING id`, wsID, projID).Scan(&activeSprintID); err != nil {
+		t.Fatalf("seed active sprint: %v", err)
+	}
+	if err := pool.Pool.QueryRow(ctx, `
+		INSERT INTO sprints (workspace_id, project_id, name, status, created_by, completed_at)
+		VALUES ($1, $2, 'Done Sprint', 'completed', 1, now()) RETURNING id`, wsID, projID).Scan(&doneSprintID); err != nil {
+		t.Fatalf("seed done sprint: %v", err)
+	}
+	// sprint_issues：全部 issue 加入两个迭代（驱动 burndown/velocity 计数）
+	for _, id := range issueIDs {
+		if _, err := pool.Pool.Exec(ctx, `
+			INSERT INTO sprint_issues (sprint_id, issue_id) VALUES ($1, $2), ($3, $4)`,
+			activeSprintID, id, doneSprintID, id); err != nil {
+			t.Fatalf("seed sprint_issues %d: %v", id, err)
+		}
+	}
+	// 指派：用户 1 负责第一条 issue（驱动 team_workload）
+	if _, err := pool.Pool.Exec(ctx, `
+		INSERT INTO issue_assignees (workspace_id, issue_id, user_id) VALUES ($1, $2, 1)`,
+		wsID, issueIDs[0]); err != nil {
+		t.Fatalf("seed assignee: %v", err)
 	}
 	return wsID, projID
 }

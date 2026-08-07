@@ -33,23 +33,23 @@ func NewService(db *pgxpool.Pool) *Service {
 
 // CreatePageInput 创建页面的入参。
 type CreatePageInput struct {
-	Name               string          `json:"name"`
-	DescriptionJSON    json.RawMessage `json:"description_json"`
-	DescriptionHTML    string          `json:"description_html"`
-	DescriptionStripped string         `json:"description_stripped"`
-	ParentID           *int64          `json:"parent_id"`
-	SortOrder          *float64        `json:"sort_order"`
+	Name                string          `json:"name"`
+	DescriptionJSON     json.RawMessage `json:"description_json"`
+	DescriptionHTML     string          `json:"description_html"`
+	DescriptionStripped string          `json:"description_stripped"`
+	ParentID            *int64          `json:"parent_id"`
+	SortOrder           *float64        `json:"sort_order"`
 }
 
 // UpdatePageInput 更新页面的入参。
 type UpdatePageInput struct {
-	Name               *string         `json:"name"`
-	DescriptionJSON    json.RawMessage `json:"description_json"`
-	DescriptionHTML    *string         `json:"description_html"`
-	DescriptionStripped *string        `json:"description_stripped"`
-	ParentID           *int64          `json:"parent_id"`
-	SortOrder          *float64        `json:"sort_order"`
-	Version            int32           `json:"version"`
+	Name                *string         `json:"name"`
+	DescriptionJSON     json.RawMessage `json:"description_json"`
+	DescriptionHTML     *string         `json:"description_html"`
+	DescriptionStripped *string         `json:"description_stripped"`
+	ParentID            *int64          `json:"parent_id"`
+	SortOrder           *float64        `json:"sort_order"`
+	Version             int32           `json:"version"`
 }
 
 // pageColumns 与 pages 表列一一对应（List/Get 共用）。

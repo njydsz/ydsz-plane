@@ -220,7 +220,7 @@ func (s *Service) getOverdueList(ctx context.Context, projectID int64) (any, err
 	}
 
 	rows, err := s.db.Query(ctx, `
-		SELECT i.id, i.identifier, i.name, i.priority, CURRENT_DATE - i.target_date AS overdue_days,
+		SELECT i.id, i.sequence_id::text, i.name, i.priority, CURRENT_DATE - i.target_date AS overdue_days,
 		       (SELECT string_agg(u.display_name, ',') FROM issue_assignees ia JOIN users u ON u.id = ia.user_id WHERE ia.issue_id = i.id) AS assignee
 		FROM issues i
 		JOIN states st ON st.id = i.state_id
@@ -246,7 +246,7 @@ func (s *Service) getOverdueList(ctx context.Context, projectID int64) (any, err
 func (s *Service) getBlockedList(ctx context.Context, projectID int64) (any, error) {
 	w := BlockedListWidget{}
 	rows, err := s.db.Query(ctx, `
-		SELECT i.id, i.identifier, i.name,
+		SELECT i.id, i.sequence_id::text, i.name,
 		       (SELECT count(*) FROM issue_relations ir WHERE ir.source_issue_id = i.id AND ir.relation_type = 'blocked_by') AS blocked_count,
 		       (SELECT string_agg(u.display_name, ',') FROM issue_relations ir
 		           JOIN issues blocker ON blocker.id = ir.target_issue_id
@@ -278,13 +278,17 @@ func (s *Service) getActiveSprintBurndown(ctx context.Context, projectID int64) 
 	var w BurndownWidget
 	var endDate time.Time
 	err := s.db.QueryRow(ctx, `
-		SELECT s.id, s.name, s.total_points, s.total_issues, s.end_date,
+		SELECT s.id, s.name, s.end_date,
+		       (SELECT COALESCE(sum(i2.point), 0) FROM sprint_issues si2 JOIN issues i2 ON i2.id = si2.issue_id
+		           WHERE si2.sprint_id = s.id AND i2.deleted_at IS NULL) AS total_points,
+		       (SELECT count(*) FROM sprint_issues si2 JOIN issues i2 ON i2.id = si2.issue_id
+		           WHERE si2.sprint_id = s.id AND i2.deleted_at IS NULL) AS total_issues,
 		       (SELECT count(*) FROM sprint_issues si2 JOIN issues i2 ON i2.id = si2.issue_id
 		           JOIN states sg2 ON sg2.id = i2.state_id
-		       WHERE si2.sprint_id = s.id AND sg2."group" = 'completed') AS burned_issues
+		       WHERE si2.sprint_id = s.id AND sg2."group" = 'completed' AND i2.deleted_at IS NULL) AS burned_issues
 		FROM sprints s WHERE s.project_id = $1 AND s.status = 'active' AND s.deleted_at IS NULL
 		ORDER BY s.start_date DESC LIMIT 1`,
-		projectID).Scan(&w.SprintID, &w.SprintName, &w.TotalPoints, &w.TotalIssues, &endDate, &w.BurnedIssues)
+		projectID).Scan(&w.SprintID, &w.SprintName, &endDate, &w.TotalPoints, &w.TotalIssues, &w.BurnedIssues)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, nil
@@ -336,16 +340,19 @@ func (s *Service) getTeamWorkload(ctx context.Context, projectID int64) (any, er
 		}
 		w.Members = append(w.Members, m)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, errs.ErrInternal.Wrap(err)
+	}
 	if len(w.Members) == 0 {
 		return nil, nil
 	}
-	return &w, rows.Err()
+	return &w, nil
 }
 
 // getRecentActivity 查询项目最近 20 条活动记录。
 func (s *Service) getRecentActivity(ctx context.Context, projectID int64) (any, error) {
 	rows, err := s.db.Query(ctx, `
-		SELECT a.id, a.issue_id, i.identifier, a.actor_id, u.display_name, u.avatar_url,
+		SELECT a.id, a.issue_id, i.sequence_id::text, a.actor_id, u.display_name, u.avatar_url,
 		       a.verb, COALESCE(s.name, '') AS target_state, a.created_at
 		FROM issue_activities a
 		JOIN issues i ON i.id = a.issue_id
@@ -390,10 +397,13 @@ func (s *Service) getRecentActivity(ctx context.Context, projectID int64) (any, 
 		it.CreatedAt = createdAt.Format(time.RFC3339)
 		w.Items = append(w.Items, it)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, errs.ErrInternal.Wrap(err)
+	}
 	if len(w.Items) == 0 {
 		return nil, nil
 	}
-	return &w, rows.Err()
+	return &w, nil
 }
 
 // getVelocity 查询最近 5 个已完成迭代的工作速率。
@@ -439,10 +449,13 @@ func (s *Service) getVelocity(ctx context.Context, projectID int64) (any, error)
 	if count > 0 {
 		w.Average = totalRate / float64(count)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, errs.ErrInternal.Wrap(err)
+	}
 	if len(w.Sprints) == 0 {
 		return nil, nil
 	}
-	return &w, rows.Err()
+	return &w, nil
 }
 
 // --- Risk Alerts ---

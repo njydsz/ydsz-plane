@@ -139,6 +139,11 @@ export default defineConfig(({ mode }) => ({
       "/api": {
         target: "http://localhost:8080",
         changeOrigin: true,
+        // 重写后端 Set-Cookie 的 domain，使浏览器能正确接收
+        // 后端在 localhost 设置 cookie，但浏览器在 127.0.0.1 访问 Vite，需统一域名
+        cookieDomainRewrite: {
+          "localhost": "127.0.0.1",
+        },
       },
       "/ws": {
         target: "ws://localhost:8080",

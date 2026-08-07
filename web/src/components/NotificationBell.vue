@@ -3,6 +3,7 @@
  * 未读计数 badge + 下拉面板（最多 10 条）+ 30s 轮询 + 主题感知。
  */
 <template>
+  <div class="notification-bell">
     <!-- 铃铛按钮 -->
     <button
       class="bell-btn"

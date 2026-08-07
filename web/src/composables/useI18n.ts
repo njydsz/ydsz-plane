@@ -14,7 +14,6 @@
  */
 import { useI18n as useVueI18n } from "vue-i18n";
 import {
-  SUPPORTED_LOCALES,
   setLocale as setGlobalLocale,
   getLocale,
   type SupportedLocale,
@@ -22,7 +21,7 @@ import {
 
 /** 国际化便捷 composable — 封装 vue-i18n，提供 t() / locale / setLocale / availableLocales。 */
 export function useI18n() {
-  const { t, locale, messages, ...rest } = useVueI18n();
+  const { t, locale, availableLocales, ...rest } = useVueI18n();
 
   return {
     /** 翻译函数 */
@@ -30,7 +29,7 @@ export function useI18n() {
     /** 当前语言 */
     locale,
     /** 可用语言列表 */
-    availableLocales: Object.keys(messages.value),
+    availableLocales: availableLocales as SupportedLocale[],
     /** 切换语言 */
     setLocale: (loc: SupportedLocale) => setGlobalLocale(loc),
     /** 获取当前语言代码 */
