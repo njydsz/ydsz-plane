@@ -17,6 +17,7 @@ package notification
 
 import (
 	"context"
+	"errors"
 	"encoding/json"
 	"fmt"
 	"strconv"
@@ -38,6 +39,7 @@ const dedupWindow = 5 * time.Minute
 type consumer struct {
 	db       *pgxpool.Pool
 	rdb      *redis.Client
+	svc      *Service
 	log      *zap.Logger
 	handlers map[string]eventHandler
 }
@@ -55,6 +57,7 @@ func newConsumer(db *pgxpool.Pool, log *zap.Logger, rdb ...*redis.Client) *consu
 	c := &consumer{
 		db:       db,
 		rdb:      r,
+		svc:      NewService(db),
 		log:      log,
 		handlers: make(map[string]eventHandler),
 	}
@@ -324,7 +327,7 @@ func (c *consumer) enqueueDeliveries(ctx context.Context, wsID, recipientID, not
 	}
 
 	pref, err := c.svc.fetchPreferenceTx(ctx, tx, wsID, recipientID)
-	if err != nil && !errorsIsNoRows(err) {
+	if err != nil && !isNoRowsErr(err) {
 		c.log.Warn("enqueue deliveries: read preference failed", zap.Error(err))
 		return
 	}
@@ -386,8 +389,8 @@ func (c *consumer) userEmail(ctx context.Context, userID int64) (string, bool) {
 	return email, true
 }
 
-func errorsIsNoRows(err error) bool {
-	return err != nil && err.Error() == "no rows in result set" || isNoRows(err)
+func isNoRowsErr(err error) bool {
+	return errors.Is(err, pgx.ErrNoRows)
 }
 
 // getProjectName 获取项目名称。失败时返回空字符串（非阻塞）。

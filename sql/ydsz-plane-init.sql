@@ -2307,46 +2307,88 @@ DECLARE
     v_title TEXT;
     v_content TEXT;
     v_metadata JSONB;
-    v_doc_type TEXT;
 BEGIN
-    -- 按表名分发
-    CASE TG_TABLE_NAME
-        WHEN 'issues' THEN
-            v_doc_type := 'issue';
-            v_title := COALESCE(NEW.name, '');
-            v_content := COALESCE(NEW.description_stripped, '');
-            v_metadata := jsonb_build_object(
-                'type_code', NEW.type_code,
-                'state_id', NEW.state_id,
-                'priority', NEW.priority
-            );
-        WHEN 'sprints' THEN
-            v_doc_type := 'sprint';
-            v_title := COALESCE(NEW.name, '');
-            v_content := COALESCE(NEW.goal, '');
-            v_metadata := jsonb_build_object('status', NEW.status);
-        WHEN 'versions' THEN
-            v_doc_type := 'version';
-            v_title := COALESCE(NEW.name, '');
-            v_content := COALESCE(NEW.description, '');
-            v_metadata := jsonb_build_object('status', NEW.status);
-        ELSE
-            RETURN NEW;
-    END CASE;
+    v_title := COALESCE(NEW.name, '');
+    v_content := COALESCE(NEW.description_stripped, '');
+    v_metadata := jsonb_build_object(
+        'type_code', NEW.type_code,
+        'state_id', NEW.state_id,
+        'priority', NEW.priority
+    );
 
     INSERT INTO search_documents (workspace_id, project_id, doc_type, doc_id, title, identifier, content, search_tsv, metadata)
     VALUES (
-        NEW.workspace_id, NEW.project_id, v_doc_type, NEW.id,
-        v_title,
-        CASE WHEN TG_TABLE_NAME = 'issues' THEN NEW.sequence_id::text
-             WHEN TG_TABLE_NAME = 'versions' THEN NEW.semver
-             ELSE NULL END,
-        v_content,
+        NEW.workspace_id, NEW.project_id, 'issue', NEW.id,
+        v_title, NEW.sequence_id::text, v_content,
         to_tsvector('simple',
             coalesce(v_title, '') || ' ' ||
             coalesce(v_content, '')
         ),
         v_metadata
+    )
+    ON CONFLICT (workspace_id, doc_type, doc_id) DO UPDATE SET
+        title = EXCLUDED.title,
+        identifier = EXCLUDED.identifier,
+        content = EXCLUDED.content,
+        search_tsv = EXCLUDED.search_tsv,
+        metadata = EXCLUDED.metadata,
+        updated_at = now();
+    RETURN NEW;
+END;
+$BODY$
+  LANGUAGE plpgsql VOLATILE
+  COST 100;
+
+-- ----------------------------
+-- Function structure for fn_refresh_sprint_search_document
+-- ----------------------------
+DROP FUNCTION IF EXISTS "public"."fn_refresh_sprint_search_document"();
+CREATE FUNCTION "public"."fn_refresh_sprint_search_document"()
+  RETURNS "pg_catalog"."trigger" AS $BODY$
+BEGIN
+    INSERT INTO search_documents (workspace_id, project_id, doc_type, doc_id, title, identifier, content, search_tsv, metadata)
+    VALUES (
+        NEW.workspace_id, NEW.project_id, 'sprint', NEW.id,
+        COALESCE(NEW.name, ''),
+        NULL,
+        COALESCE(NEW.goal, ''),
+        to_tsvector('simple',
+            coalesce(NEW.name, '') || ' ' ||
+            coalesce(NEW.goal, '')
+        ),
+        jsonb_build_object('status', NEW.status)
+    )
+    ON CONFLICT (workspace_id, doc_type, doc_id) DO UPDATE SET
+        title = EXCLUDED.title,
+        identifier = EXCLUDED.identifier,
+        content = EXCLUDED.content,
+        search_tsv = EXCLUDED.search_tsv,
+        metadata = EXCLUDED.metadata,
+        updated_at = now();
+    RETURN NEW;
+END;
+$BODY$
+  LANGUAGE plpgsql VOLATILE
+  COST 100;
+
+-- ----------------------------
+-- Function structure for fn_refresh_version_search_document
+-- ----------------------------
+DROP FUNCTION IF EXISTS "public"."fn_refresh_version_search_document"();
+CREATE FUNCTION "public"."fn_refresh_version_search_document"()
+  RETURNS "pg_catalog"."trigger" AS $BODY$
+BEGIN
+    INSERT INTO search_documents (workspace_id, project_id, doc_type, doc_id, title, identifier, content, search_tsv, metadata)
+    VALUES (
+        NEW.workspace_id, NEW.project_id, 'version', NEW.id,
+        COALESCE(NEW.name, ''),
+        NEW.semver,
+        COALESCE(NEW.description, ''),
+        to_tsvector('simple',
+            coalesce(NEW.name, '') || ' ' ||
+            coalesce(NEW.description, '')
+        ),
+        jsonb_build_object('status', NEW.status)
     )
     ON CONFLICT (workspace_id, doc_type, doc_id) DO UPDATE SET
         title = EXCLUDED.title,
@@ -4186,7 +4228,7 @@ EXECUTE PROCEDURE "public"."set_updated_at"();
 CREATE TRIGGER "trg_sprint_search_sync" AFTER INSERT OR UPDATE OF "name", "goal" ON "public"."sprints"
 FOR EACH ROW
 WHEN ((new.deleted_at IS NULL))
-EXECUTE PROCEDURE "public"."fn_refresh_search_document"();
+EXECUTE PROCEDURE "public"."fn_refresh_sprint_search_document"();
 CREATE TRIGGER "trg_sprint_search_cleanup" AFTER UPDATE OF "deleted_at" ON "public"."sprints"
 FOR EACH ROW
 WHEN ((new.deleted_at IS NOT NULL))
@@ -4367,7 +4409,7 @@ EXECUTE PROCEDURE "public"."set_updated_at"();
 CREATE TRIGGER "trg_version_search_sync" AFTER INSERT OR UPDATE OF "name", "description" ON "public"."versions"
 FOR EACH ROW
 WHEN ((new.deleted_at IS NULL))
-EXECUTE PROCEDURE "public"."fn_refresh_search_document"();
+EXECUTE PROCEDURE "public"."fn_refresh_version_search_document"();
 CREATE TRIGGER "trg_version_search_cleanup" AFTER UPDATE OF "deleted_at" ON "public"."versions"
 FOR EACH ROW
 WHEN ((new.deleted_at IS NOT NULL))
