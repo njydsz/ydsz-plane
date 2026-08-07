@@ -23,6 +23,7 @@ import (
 	"github.com/njydsz/ydsz-plane/internal/application/dashboard"
 	"github.com/njydsz/ydsz-plane/internal/application/intake"
 	"github.com/njydsz/ydsz-plane/internal/application/issue"
+	"github.com/njydsz/ydsz-plane/internal/application/metrics"
 	notif "github.com/njydsz/ydsz-plane/internal/application/notification"
 	"github.com/njydsz/ydsz-plane/internal/application/preference"
 	"github.com/njydsz/ydsz-plane/internal/application/search"
@@ -81,6 +82,8 @@ type Deps struct {
 	IntakePublicHandler *intake.PublicHandler
 	// Automation 域（S11）
 	AutomationHandler *automation.Handler
+	// Metrics 域（S11）
+	MetricsHandler *metrics.Handler
 }
 
 // RegisterIssueRoutes 注册工作项路由（在 NewEngine 之后调用）。
@@ -338,6 +341,24 @@ func RegisterAutomationRoutes(r *gin.Engine, d *Deps) {
 		middleware.RequirePermission(d.WorkspaceStore, auth.PermProjectAutomation),
 	)
 	d.AutomationHandler.Register(projects)
+}
+
+// RegisterMetricsRoutes 注册效能度量路由（项目级，只读）。
+//
+// 暴露仪表盘卡片数据：速度趋势、前置时间、质量指标（逃逸率、缺陷密度）、
+// DORA 四指标、资源负载（WIP）。CI/CD 系统通过 POST /deployments 上报部署事件（DORA 数据源）。
+func RegisterMetricsRoutes(r *gin.Engine, d *Deps) {
+	if d.MetricsHandler == nil {
+		return
+	}
+	project := r.Group("/api/v1/workspaces/:workspace_id/projects/:project_id/metrics")
+	project.Use(
+		middleware.RequireAuth(d.principalParser()),
+		middleware.RequireWorkspaceParam(),
+		middleware.RequireProjectParam(),
+		middleware.RequirePermission(d.WorkspaceStore, auth.PermProjectAnalytics),
+	)
+	d.MetricsHandler.Register(project)
 }
 
 // RegisterWSRoutes 注册 WebSocket 实时推送路由。

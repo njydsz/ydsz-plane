@@ -253,10 +253,6 @@ func (h *MetricsHandler) ListSnapshots(c *gin.Context) {
 	projectID := c.GetInt64(middleware.CtxProjectID)
 	metric := c.Query("metric")
 
-	var rows interface{}
-	var err error
-	_ = rows
-
 	query := `SELECT metric, value, dimensions, snapshot_date FROM metric_snapshots
 			  WHERE workspace_id = $1 AND project_id = $2`
 	args := []any{wsID, projectID}
@@ -265,14 +261,6 @@ func (h *MetricsHandler) ListSnapshots(c *gin.Context) {
 		args = append(args, metric)
 	}
 	query += ` ORDER BY snapshot_date DESC LIMIT 90`
-
-	// 通用的 map 扫描（简化）
-	type snapshotRow struct {
-		Metric   string  `json:"metric"`
-		Value    float64 `json:"value"`
-		Date     string  `json:"snapshot_date"`
-	}
-	_ = snapshotRow{}
 
 	r, err := h.d.Svc.db.Query(c.Request.Context(), query, args...)
 	if err != nil {
@@ -306,5 +294,5 @@ func writeErr(c *gin.Context, err error) {
 		c.JSON(appErr.HTTP, appErr)
 		return
 	}
-	c.JSON(http.StatusInternalServerError, errs.ErrInternal.WithMessage(err.Error()))
+	c.JSON(http.StatusInternalServerError, errs.ErrInternal.Wrap(err))
 }

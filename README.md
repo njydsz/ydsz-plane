@@ -20,10 +20,10 @@
 
 ## 项目状态
 
-> **当前阶段：M0 ✅ + M0.5 ✅ + M1 ✅ + M2/M3/M4 ✅ + M5 推进中 — 核心域后端 API 全线贯通，前端视图骨架完备，工程化质量治理补强中**
-> 最后更新：2026-08-07 · 架构基线版本 v1.2
+> **当前阶段：M0 ✅ + M0.5 ✅ + M1 ✅ + M2/M3/M4 ✅ + M5 ✅ — MVP v0.1 核心闭环（附件/评论/通知/WebSocket/导出/性能基线）全部就绪，待首轮 staging 压测回填基线后正式打版**
+> 最后更新：2026-08-07 · 架构基线版本 v1.3
 
-Ydsz Plane 是一款开源、自托管的现代项目管理工具，专为中小型敏捷开发团队设计。M0 工程基座、M0.5 增强基座（RBAC/可观测性/安全纵深/Swagger）、M1 租户与项目骨架（Workspace CRUD/成员邀请/审计）、M2 工作项核心（Issue 全生命周期/状态机/关联/依赖/WBS）、M3 迭代管理（Sprint 生命周期/燃尽图/速率统计）、M4 版本日（版本聚合/发布/交付报告）的后端 API 与前端的视图骨架已全部就绪。数据库迁移脚本从 0001 递进至 0007（users → workspaces → issue_core → state_templates → sprint_core → version_core），覆盖全部核心域 schema。
+Ydsz Plane 是一款开源、自托管的现代项目管理工具，专为中小型敏捷开发团队设计。M0 工程基座、M0.5 增强基座（RBAC/可观测性/安全纵深/Swagger）、M1 租户与项目骨架（Workspace CRUD/成员邀请/审计）、M2 工作项核心（Issue 全生命周期/状态机/关联/依赖/WBS）、M3 迭代管理（Sprint 生命周期/燃尽图/速率统计）、M4 版本日（版本聚合/发布/交付报告）、M5 MVP 闭环（附件/评论/通知/WebSocket/导出）的后端 API 与前端视图已全部就绪。数据库迁移脚本从 0001 递进至 0017（users → workspaces → issue_core → state_templates → sprint_core → version_core → notifications → issue_comments → attachments → 等），覆盖全部核心域 schema。
 
 ## 已完成能力
 
@@ -46,9 +46,11 @@ Ydsz Plane 是一款开源、自托管的现代项目管理工具，专为中小
 | 前端视图 | 28 个页面（Login/Register/ForgotPassword/ResetPassword/Workspace/List/Settings/Project/List/Board/List/Settings/IssueDetail/Sprint/List/Planning/Detail/Standup/Version/List/Detail/Release/Report） | ✅ |
 | 数据持久层 | pgx 连接池、租户上下文（SET LOCAL app.workspace_id）、RLS 策略模板、迁移工具 | ✅ |
 | 事件骨架 | 事务型 Outbox 表 + Relay（DB → RabbitMQ EventExchange）、Asynq Worker | ✅ |
-| 数据库迁移 | 0001~0007（users / workspaces / issue_core / state_templates / sprint_core / version_core） | ✅ |
+| 数据库迁移 | 0001~0017（users / workspaces / issue_core / state_templates / sprint_core / version_core / notifications / issue_comments / attachments / 等） | ✅ |
 | 种子数据 | 5 用户 + 3 工作空间 + 多角色成员（owner/admin/member/guest）+ 幂等执行 | ✅ |
-| Issue API | CRUD + 状态流转 + 活动日志 + 工时记录 + 关联（6 种关系）+ 依赖（FS/SS/FF/SF + lag_days）+ WBS 三级 + 类型差异化字段（defect/task/requirement） | ✅ |
+| Issue API | CRUD + 状态流转 + 活动日志 + 工时记录 + 关联（6 种关系）+ 依赖（FS/SS/FF/SF + lag_days）+ WBS 三级 + 类型差异化字段（defect/task/requirement）+ CSV/xlsx 导出 | ✅ |
+| 协同增强 | 评论（富文本 + @提及 + 嵌套回复）、附件（MinIO 预签名上传/下载/预览）、通知（站内信 + 偏好 + 铃铛 + 列表页）、WebSocket（Redis Pub/Sub 扇出 + 断线补偿） | ✅ |
+| 缺陷分析 | 聚合查询（严重程度/发现阶段/模块/根因/缺陷龄/周趋势）+ 明细导出（CSV / xlsx，支持版本过滤） | ✅ |
 | CI/CD | GitHub Actions：后端 lint/test(race)/覆盖率门禁/govulncheck、前端 lint/typecheck/test/build/audit、CodeQL 安全分析、AI Code Review、按需 k6 性能压测 | ✅ |
 | 测试治理 | Go 单元/集成测试（errs/middleware/workspace/attachment/search/notification 等）、前端 Vitest 组件测试 + Playwright E2E 冒烟 | ✅ |
 | 版本发布 | CHANGELOG、发布管理文档、GitHub Release workflow（打 tag 自动构建产物） | ✅ |
@@ -459,13 +461,15 @@ GET  /api/v1/invitations/:token            邀请预览（公开）
 - [x] 发布检查清单（checklist JSON）+ 准出校验
 - [x] 前端视图：VersionList / VersionDetail / VersionRelease / DeliveryReport / DefectPanel
 
-### M5 MVP v0.1 发布（S7 ⏳ 进行中）
+### M5 MVP v0.1 发布（S7 ✅ 已收尾）
 
-- [ ] MinIO 附件上传/下载 + 图片粘贴
-- [ ] 评论 issue_comments（富文本 + @提及）
-- [ ] 通知系统（notifications + 站内信 + 默认规则）
-- [ ] WebSocket 实时推送
-- [ ] MVP 加固：错误页/空态/加载态走查 + 性能基线
+- [x] MinIO 附件上传/下载 + 图片粘贴
+- [x] 评论 issue_comments（富文本 + @提及 + 嵌套回复）
+- [x] 通知系统（notifications + 站内信 + 默认规则 + 偏好设置）
+- [x] WebSocket 实时推送（Redis Pub/Sub 多节点扇出）
+- [x] MVP 加固：错误页/空态/加载态全链路统一组件
+- [x] 缺陷导出（CSV / xlsx）+ 缺陷分析聚合与明细导出
+- [x] 性能基线：造数脚本（100 万级）+ k6 三件套 + CI 压测流水线
 
 ### Phase 2+（S8–S12）
 

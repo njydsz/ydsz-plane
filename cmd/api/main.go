@@ -21,6 +21,7 @@ import (
 	"github.com/njydsz/ydsz-plane/internal/application/dashboard"
 	"github.com/njydsz/ydsz-plane/internal/application/intake"
 	"github.com/njydsz/ydsz-plane/internal/application/issue"
+	"github.com/njydsz/ydsz-plane/internal/application/metrics"
 	notif "github.com/njydsz/ydsz-plane/internal/application/notification"
 	"github.com/njydsz/ydsz-plane/internal/application/preference"
 	"github.com/njydsz/ydsz-plane/internal/application/search"
@@ -218,6 +219,12 @@ defectAnalyticsHandler := issue.NewDefectAnalyticsHandler(defectAnalyticsSvc)
 		Svc: automationSvc,
 	})
 
+	// ---------- Metrics domain (S11) ----------
+	metricsSvc := metrics.NewService(pool.Pool)
+	metricsHandler := metrics.NewMetricsHandler(&metrics.HandlerDeps{
+		Svc: metricsSvc,
+	})
+
 	// ---------- View Preference ----------
 	prefSvc := preference.NewService(pool.Pool)
 	prefHandler := preference.NewHandler(prefSvc)
@@ -285,9 +292,11 @@ defectAnalyticsHandler := issue.NewDefectAnalyticsHandler(defectAnalyticsSvc)
 		// Intake domain (S10)
 		IntakeHandler:       intakeHandler,
 		IntakePublicHandler: intakePublicHandler,
-		// Automation domain (S11)
-		AutomationHandler:   automationHandler,
-	})
+	// Automation domain (S11)
+	AutomationHandler:   automationHandler,
+	// Metrics domain (S11)
+	MetricsHandler:      metricsHandler,
+})
 
 	// 注册工作项路由（必须在 NewEngine 之后）
 	httpapi.RegisterIssueRoutes(engine, &httpapi.Deps{
