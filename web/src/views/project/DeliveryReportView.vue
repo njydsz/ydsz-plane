@@ -7,7 +7,7 @@ import { computed, onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
 
 import { versionApi, type DeliveryReport, type Version, type SprintRef } from "@/api/services/version";
-import { AppBadge, AppButton, ProgressBar } from "@/components";
+import { AppBadge, AppButton, AppLoadingState, AppErrorState, ProgressBar } from "@/components";
 
 const route = useRoute();
 
@@ -82,17 +82,14 @@ onMounted(load);
 <template>
   <div class="delivery-report" :class="{ 'delivery-report--print': printMode }">
     <!-- Loading -->
-    <div v-if="loading" class="delivery-report__loading">
-      <div class="skeleton-line" style="width:60%"></div>
-      <div class="skeleton-line" style="width:40%"></div>
-      <div class="skeleton-line" style="width:80%"></div>
-    </div>
+    <AppLoadingState v-if="loading" text="正在加载交付报告..." />
 
     <!-- Error -->
-    <div v-else-if="error" class="delivery-report__error">
-      <p>{{ error }}</p>
-      <AppButton variant="secondary" size="sm" @click="load">重试</AppButton>
-    </div>
+    <AppErrorState
+      v-else-if="error"
+      :message="error"
+      @retry="load"
+    />
 
     <template v-else-if="version && report">
       <!-- Header -->
@@ -282,31 +279,6 @@ onMounted(load);
 .delivery-report {
   max-width: 900px;
 }
-
-/* ---- loading / error ---- */
-.delivery-report__loading {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 48px 0;
-}
-.skeleton-line {
-  height: 14px;
-  background: var(--surface-2);
-  border-radius: 4px;
-  animation: pulse 1.5s infinite;
-}
-@keyframes pulse {
-  0%, 100% { opacity: 0.4; }
-  50% { opacity: 0.8; }
-}
-
-.delivery-report__error {
-  text-align: center;
-  padding: 48px 0;
-  color: var(--danger-500);
-}
-.delivery-report__error p { margin: 0 0 12px; }
 
 /* ---- header ---- */
 .report-header {

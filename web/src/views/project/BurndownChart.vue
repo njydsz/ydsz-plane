@@ -16,6 +16,7 @@
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import VChart from "vue-echarts";
 import { use } from "echarts/core";
+import { AppLoadingState, AppErrorState } from "@/components";
 import { LineChart } from "echarts/charts";
 import {
   TitleComponent,
@@ -305,17 +306,14 @@ defineExpose({ chartRef });
 <template>
   <div ref="containerRef" class="burndown-chart" :style="{ minHeight: chartHeight }">
     <!-- 加载态 -->
-    <div v-if="loading" class="chart-state chart-loading">
-      <div class="chart-spinner" />
-      <span>加载燃尽图数据...</span>
-    </div>
+    <AppLoadingState v-if="loading" text="加载燃尽图数据..." />
 
     <!-- 错误态 -->
-    <div v-else-if="error" class="chart-state chart-error">
-      <span class="error-icon">&#9888;</span>
-      <span>{{ error }}</span>
-      <button class="chart-retry-btn" @click="$emit('retry')">重试</button>
-    </div>
+    <AppErrorState
+      v-else-if="error"
+      :message="error"
+      @retry="$emit('retry')"
+    />
 
     <!-- 图表 -->
     <v-chart
@@ -340,53 +338,5 @@ defineExpose({ chartRef });
 
 .chart-canvas {
   width: 100%;
-}
-
-/* ---- 状态占位 ---- */
-.chart-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  min-height: 240px;
-  gap: 8px;
-  color: var(--text-tertiary, #999);
-  font-size: 13px;
-}
-
-.chart-loading .chart-spinner {
-  width: 28px;
-  height: 28px;
-  border: 2.5px solid var(--border-subtle, #f0f0f0);
-  border-top-color: var(--brand-500, #1890ff);
-  border-radius: 50%;
-  animation: chart-spin 0.8s linear infinite;
-}
-
-@keyframes chart-spin {
-  to { transform: rotate(360deg); }
-}
-
-.chart-error .error-icon {
-  font-size: 32px;
-  color: var(--danger-500, #ff4d4f);
-}
-
-.chart-retry-btn {
-  margin-top: 4px;
-  padding: 4px 16px;
-  border: 1px solid var(--brand-500, #1890ff);
-  border-radius: var(--radius-sm, 4px);
-  background: transparent;
-  color: var(--brand-500, #1890ff);
-  font-size: 12px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.chart-retry-btn:hover {
-  background: var(--brand-500, #1890ff);
-  color: #fff;
 }
 </style>

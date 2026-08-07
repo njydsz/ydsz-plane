@@ -8,7 +8,7 @@ import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
 import { versionApi, type Version, type VersionStatus } from "@/api/services/version";
-import { AppButton, AppBadge, AppEmptyState, ProgressBar } from "@/components";
+import { AppButton, AppBadge, AppEmptyState, AppLoadingState, AppErrorState, ProgressBar } from "@/components";
 
 const route = useRoute();
 const router = useRouter();
@@ -267,20 +267,14 @@ onMounted(load);
     </nav>
 
     <!-- Loading -->
-    <div v-if="loading" class="skeleton-list">
-      <div v-for="i in 3" :key="i" class="skeleton-card">
-        <div class="skeleton-line" style="width:60%"></div>
-        <div class="skeleton-line" style="width:40%"></div>
-        <div class="skeleton-line" style="width:80%"></div>
-      </div>
-    </div>
+    <AppLoadingState v-if="loading" text="正在加载版本列表..." />
 
     <!-- Error -->
-    <div v-else-if="error" class="center-message error">
-      <p class="center-message__title">版本列表加载失败</p>
-      <p class="center-message__detail">{{ error }}</p>
-      <AppButton variant="secondary" size="sm" @click="load">重试</AppButton>
-    </div>
+    <AppErrorState
+      v-else-if="error"
+      :message="error"
+      @retry="load"
+    />
 
     <!-- Empty -->
     <AppEmptyState
@@ -457,44 +451,6 @@ textarea.create-form__input { resize: vertical; min-height: 56px; }
   border-radius: 10px;
   font-weight: 500;
 }
-
-/* ---- skeleton ---- */
-.skeleton-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-.skeleton-card {
-  padding: 16px;
-  background: var(--surface-1);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.skeleton-line {
-  height: 12px;
-  background: var(--surface-2);
-  border-radius: 4px;
-  animation: pulse 1.5s infinite;
-}
-@keyframes pulse {
-  0%, 100% { opacity: 0.4; }
-  50% { opacity: 0.8; }
-}
-
-/* ---- center message ---- */
-.center-message {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 48px 0;
-  gap: 10px;
-}
-.center-message.error { color: var(--danger-500); }
-.center-message__title { margin: 0; font-size: 14px; font-weight: 500; }
-.center-message__detail { margin: 0; font-size: 12px; opacity: 0.8; max-width: 400px; word-break: break-word; }
 
 /* ---- cards ---- */
 .cards {

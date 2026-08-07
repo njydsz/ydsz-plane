@@ -12,6 +12,7 @@ import { dashboardApi } from "@/api/services/dashboard";
 import type { DashboardData, RiskAlert, WidgetType } from "@/api/services/dashboard";
 import { useWorkspaceStore } from "@/stores/workspace";
 import AppModal from "@/components/AppModal.vue";
+import { AppLoadingState, AppErrorState } from "@/components";
 import { WIDGET_COMPONENTS, WIDGET_NAME_MAP } from "@/components/dashboard/widgetRegistry";
 import DashWidgetCard from "@/components/dashboard/DashWidgetCard.vue";
 import EmptyStateWidget from "@/components/dashboard/EmptyStateWidget.vue";
@@ -199,12 +200,13 @@ onMounted(load);
       </div>
     </header>
 
-    <!-- ===== 加载 / 错误 ===== -->
-    <div v-if="loading" class="dashboard__loading">加载中...</div>
-    <div v-else-if="error" class="dashboard__error">
-      {{ error }}
-      <button class="action-btn" @click="load">重试</button>
-    </div>
+    <!-- 加载 / 错误 -->
+    <AppLoadingState v-if="loading" text="正在加载仪表盘数据..." />
+    <AppErrorState
+      v-else-if="error"
+      :message="error"
+      @retry="load"
+    />
 
     <!-- ===== Widget 网格 ===== -->
     <div v-else-if="hasWidgets" class="dashboard__grid">
@@ -409,23 +411,6 @@ onMounted(load);
 .template-dropdown__item:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-}
-
-/* ===== Loading / Error ===== */
-.dashboard__loading,
-.dashboard__error {
-  padding: 48px 0;
-  text-align: center;
-  color: var(--text-tertiary, #9ca3af);
-  font-size: 13px;
-}
-
-.dashboard__error {
-  color: var(--danger-500, #dc2f2f);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
 }
 
 /* ===== Grid ===== */

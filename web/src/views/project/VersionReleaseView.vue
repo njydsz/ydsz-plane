@@ -7,7 +7,7 @@ import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
 import { versionApi, type Version, type DeliveryReport } from "@/api/services/version";
-import { AppBadge, AppButton, ProgressBar } from "@/components";
+import { AppBadge, AppButton, AppLoadingState, AppErrorState, ProgressBar } from "@/components";
 
 const route = useRoute();
 const router = useRouter();
@@ -135,16 +135,14 @@ onMounted(load);
 <template>
   <div class="release-wizard">
     <!-- Loading -->
-    <div v-if="loading" class="release-wizard__loading">
-      <div class="skeleton-line" style="width:60%"></div>
-      <div class="skeleton-line" style="width:40%"></div>
-    </div>
+    <AppLoadingState v-if="loading" text="正在加载发布向导..." />
 
     <!-- Error -->
-    <div v-else-if="error && !version" class="release-wizard__error">
-      <p>{{ error }}</p>
-      <AppButton variant="secondary" size="sm" @click="load">重试</AppButton>
-    </div>
+    <AppErrorState
+      v-else-if="error && !version"
+      :message="error"
+      @retry="load"
+    />
 
     <template v-else-if="version">
       <!-- Header -->
@@ -421,31 +419,6 @@ onMounted(load);
 .release-wizard {
   max-width: 720px;
 }
-
-/* ---- loading / error ---- */
-.release-wizard__loading {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 48px 0;
-}
-.skeleton-line {
-  height: 14px;
-  background: var(--surface-2);
-  border-radius: 4px;
-  animation: pulse 1.5s infinite;
-}
-@keyframes pulse {
-  0%, 100% { opacity: 0.4; }
-  50% { opacity: 0.8; }
-}
-
-.release-wizard__error {
-  text-align: center;
-  padding: 48px 0;
-  color: var(--danger-500);
-}
-.release-wizard__error p { margin: 0 0 12px; }
 
 /* ---- header ---- */
 .release-wizard__header {

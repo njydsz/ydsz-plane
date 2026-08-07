@@ -7,6 +7,7 @@
 import { onMounted, ref } from "vue";
 
 import { issueApi, type IssueRelation } from "@/api/services/issue";
+import { AppLoadingState, AppErrorState } from "@/components";
 
 const props = defineProps<{
   workspaceId: number;
@@ -19,6 +20,7 @@ const loading = ref(false);
 const showForm = ref(false);
 const targetIssueId = ref<number | null>(null);
 const relationType = ref("relates_to");
+const loadError = ref("");
 const error = ref("");
 const submitting = ref(false);
 
@@ -35,11 +37,12 @@ const typeOptions = Object.entries(relationLabels).map(([k, v]) => ({ value: k, 
 
 async function load() {
   loading.value = true;
+  loadError.value = "";
   try {
     const res = await issueApi.listRelations(props.workspaceId, props.projectId, props.issueId);
     relations.value = res.results;
-  } catch {
-    // 非关键模块
+  } catch (e: unknown) {
+    loadError.value = e instanceof Error ? e.message : "加载关联关系失败";
   } finally {
     loading.value = false;
   }
@@ -110,7 +113,12 @@ onMounted(load);
     </div>
 
     <!-- 关联列表 -->
-    <div v-if="loading" class="text-muted" style="margin-top: 8px">加载中...</div>
+    <AppLoadingState v-if="loading" text="加载关联关系..." />
+    <AppErrorState
+      v-else-if="loadError"
+      :message="loadError"
+      @retry="load"
+    />
     <div v-else-if="relations.length > 0" class="relation-list">
       <div v-for="rel in relations" :key="rel.id" class="relation-item">
         <div class="relation-item__info">

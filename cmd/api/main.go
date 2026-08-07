@@ -17,6 +17,7 @@ import (
 	"github.com/njydsz/ydsz-plane/internal/application/apitoken"
 	"github.com/njydsz/ydsz-plane/internal/application/attachment"
 	"github.com/njydsz/ydsz-plane/internal/application/auth"
+	"github.com/njydsz/ydsz-plane/internal/application/automation"
 	"github.com/njydsz/ydsz-plane/internal/application/dashboard"
 	"github.com/njydsz/ydsz-plane/internal/application/intake"
 	"github.com/njydsz/ydsz-plane/internal/application/issue"
@@ -211,6 +212,12 @@ defectAnalyticsHandler := issue.NewDefectAnalyticsHandler(defectAnalyticsSvc)
 	attSvc := attachment.NewService(pool.Pool, stClient)
 	attHandler := attachment.NewHandler(&attachment.HandlerDeps{AttachmentSvc: attSvc})
 
+	// ---------- Automation domain (S11) ----------
+	automationSvc := automation.NewService(pool.Pool)
+	automationHandler := automation.NewHandler(&automation.HandlerDeps{
+		Svc: automationSvc,
+	})
+
 	// ---------- View Preference ----------
 	prefSvc := preference.NewService(pool.Pool)
 	prefHandler := preference.NewHandler(prefSvc)
@@ -354,10 +361,10 @@ defectAnalyticsHandler := issue.NewDefectAnalyticsHandler(defectAnalyticsSvc)
 
 	// 注册缺陷分析路由（项目级）
 	httpapi.RegisterDefectAnalyticsRoutes(engine, &httpapi.Deps{
-		Auth:                    authSvc,
-		PrincipalParser:         parsePrincipal,
-		WorkspaceStore:          wsStore,
-		DefectAnalyticsHandler:  defectAnalyticsHandler,
+		Auth:                   authSvc,
+		PrincipalParser:        parsePrincipal,
+		WorkspaceStore:         wsStore,
+		DefectAnalyticsHandler: defectAnalyticsHandler,
 	})
 
 	// 注册 WebSocket 路由

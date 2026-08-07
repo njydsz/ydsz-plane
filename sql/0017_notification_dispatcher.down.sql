@@ -1,3 +1,10 @@
--- 0017_notification_dispatcher.down.sql
+-- 0017_notification_dispatcher (down)
+
+BEGIN;
+
 DROP INDEX IF EXISTS idx_deliveries_next_retry;
-ALTER TABLE notification_deliveries DROP COLUMN IF EXISTS next_retry_at;
+
+ALTER TABLE notification_deliveries
+    DROP COLUMN IF EXISTS next_retry_at;
+
+COMMIT;

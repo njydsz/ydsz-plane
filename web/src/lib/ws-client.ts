@@ -28,6 +28,7 @@ class WSClient {
   private intentionalClose = false
   private workspaceId: number | null = null
   private userId: number | undefined
+  private lastDisconnectTs = 0
   /** 上次断开时的时间戳，用于断线补偿 since 参数 */
   get lastDisconnectTimestamp(): number {
     return this.lastDisconnectTs

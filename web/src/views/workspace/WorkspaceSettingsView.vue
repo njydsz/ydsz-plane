@@ -17,6 +17,7 @@ import {
   type ApiTokenCreated,
 } from "@/api/services/api-tokens";
 import { workspaceApi, type Invitation, type Member, type Workspace } from "@/api/services/workspace";
+import { AppLoadingState, AppErrorState } from "@/components";
 import { useAuthStore } from "@/stores/auth";
 
 const route = useRoute();
@@ -315,8 +316,12 @@ onMounted(loadAll);
 </script>
 
 <template>
-  <div v-if="loading" class="loading">加载中...</div>
-  <div v-else-if="error" class="error">{{ error }}</div>
+  <AppLoadingState v-if="loading" text="正在加载工作空间设置..." />
+  <AppErrorState
+    v-else-if="error"
+    :message="error"
+    @retry="loadAll"
+  />
   <div v-else-if="ws" class="ws-settings">
     <header class="ws-settings__header">
       <h1>{{ ws.name }}</h1>
@@ -645,14 +650,6 @@ onMounted(loadAll);
 </template>
 
 <style scoped>
-.loading,
-.error {
-  text-align: center;
-  padding: 48px 0;
-  color: var(--text-tertiary);
-}
-.error { color: var(--danger-500); }
-
 .ws-settings__header { margin-bottom: 20px; }
 .ws-settings__header h1 { font-size: 20px; margin: 0; }
 .slug { color: var(--text-tertiary); font-size: 13px; margin: 4px 0 0; }

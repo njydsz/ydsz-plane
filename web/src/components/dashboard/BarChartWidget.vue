@@ -96,10 +96,6 @@ function buildOption(): EChartsCoreOption {
 const emptyOption: EChartsCoreOption = {
   title: { text: "暂无数据", left: "center", top: "center", textStyle: { color: "var(--text-tertiary)", fontSize: 13 } },
 };
-
-function isStateData(d?: StateDistributionData | VelocityData): d is StateDistributionData {
-  return !!d && "by_state" in d;
-}
 </script>
 
 <template>
