@@ -582,6 +582,8 @@ func me(d *Deps) gin.HandlerFunc {
 	}
 }
 
+// forgotPassword 发起密码重置请求：校验通过后向邮箱发送重置链接，
+// 无论邮箱是否存在都返回 202 以避免用户枚举。
 func forgotPassword(d *Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req forgotPasswordRequest
@@ -595,6 +597,7 @@ func forgotPassword(d *Deps) gin.HandlerFunc {
 	}
 }
 
+// resetPassword 使用重置令牌设置新密码，成功后返回 204。
 func resetPassword(d *Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req resetPasswordRequest

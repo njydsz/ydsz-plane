@@ -19,6 +19,7 @@ import (
 // Workspaces 集合路由（不依赖 :workspace_id）
 // ==================================================================
 
+// getWorkspaceBySlug 根据 URL 中的 slug 查询工作空间，并附带当前用户的角色。
 func getWorkspaceBySlug(d *Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		slug := c.Param("slug")
@@ -35,6 +36,7 @@ func getWorkspaceBySlug(d *Deps) gin.HandlerFunc {
 	}
 }
 
+// listWorkspaces 返回当前用户参与的所有工作空间。
 func listWorkspaces(d *Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		uid := c.GetInt64(middleware.CtxUserID)
@@ -47,6 +49,7 @@ func listWorkspaces(d *Deps) gin.HandlerFunc {
 	}
 }
 
+// createWorkspace 创建新工作空间，并将当前用户设为 owner，记录审计日志。
 func createWorkspace(d *Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req dto.CreateWorkspaceRequest
@@ -73,6 +76,7 @@ func createWorkspace(d *Deps) gin.HandlerFunc {
 // 工作空间详情 & 设置
 // ==================================================================
 
+// getWorkspace 返回指定工作空间的详情（含当前用户角色）。
 func getWorkspace(d *Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		wsID := c.GetInt64(middleware.CtxWorkspaceID)
@@ -89,6 +93,7 @@ func getWorkspace(d *Deps) gin.HandlerFunc {
 	}
 }
 
+// updateWorkspace 更新工作空间的名称/时区/语言/Logo，并记录审计日志。
 func updateWorkspace(d *Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		wsID := c.GetInt64(middleware.CtxWorkspaceID)
@@ -111,6 +116,7 @@ func updateWorkspace(d *Deps) gin.HandlerFunc {
 	}
 }
 
+// archiveWorkspace 归档指定工作空间（软删除），返回 204。
 func archiveWorkspace(d *Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		wsID := c.GetInt64(middleware.CtxWorkspaceID)
@@ -127,6 +133,7 @@ func archiveWorkspace(d *Deps) gin.HandlerFunc {
 // 成员管理
 // ==================================================================
 
+// listMembers 返回工作空间的所有成员列表。
 func listMembers(d *Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		wsID := c.GetInt64(middleware.CtxWorkspaceID)
@@ -139,6 +146,7 @@ func listMembers(d *Deps) gin.HandlerFunc {
 	}
 }
 
+// changeMemberRole 调整指定成员角色；禁止修改自己的角色。
 func changeMemberRole(d *Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		wsID := c.GetInt64(middleware.CtxWorkspaceID)
@@ -165,6 +173,7 @@ func changeMemberRole(d *Deps) gin.HandlerFunc {
 	}
 }
 
+// removeMember 从工作空间移除指定成员；禁止移除自己。
 func removeMember(d *Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		wsID := c.GetInt64(middleware.CtxWorkspaceID)
@@ -188,6 +197,7 @@ func removeMember(d *Deps) gin.HandlerFunc {
 // 邀请
 // ==================================================================
 
+// sendInvitation 向指定邮箱发送工作空间邀请，并记录审计日志。
 func sendInvitation(d *Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		wsID := c.GetInt64(middleware.CtxWorkspaceID)
@@ -214,6 +224,7 @@ func sendInvitation(d *Deps) gin.HandlerFunc {
 	}
 }
 
+// listInvitations 按可选状态过滤返回工作空间的邀请列表。
 func listInvitations(d *Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		wsID := c.GetInt64(middleware.CtxWorkspaceID)
@@ -227,6 +238,7 @@ func listInvitations(d *Deps) gin.HandlerFunc {
 	}
 }
 
+// revokeInvitation 撤销一条未使用的邀请，返回 204。
 func revokeInvitation(d *Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		wsID := c.GetInt64(middleware.CtxWorkspaceID)
@@ -240,6 +252,7 @@ func revokeInvitation(d *Deps) gin.HandlerFunc {
 	}
 }
 
+// acceptInvitation 使用邀请令牌接受工作空间邀请，加入对应工作空间。
 func acceptInvitation(d *Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req dto.AcceptInvitationRequest
@@ -256,6 +269,7 @@ func acceptInvitation(d *Deps) gin.HandlerFunc {
 	}
 }
 
+// getInvitationPreview 根据邀请令牌返回邀请预览信息（不校验登录）。
 func getInvitationPreview(d *Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		token := c.Param("token")
@@ -272,6 +286,7 @@ func getInvitationPreview(d *Deps) gin.HandlerFunc {
 // 项目
 // ==================================================================
 
+// listProjects 返回指定工作空间下的所有项目列表。
 func listProjects(d *Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		wsID := c.GetInt64(middleware.CtxWorkspaceID)
@@ -284,6 +299,7 @@ func listProjects(d *Deps) gin.HandlerFunc {
 	}
 }
 
+// createProject 在工作空间下创建项目并初始化默认状态机，记录审计日志。
 func createProject(d *Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		wsID := c.GetInt64(middleware.CtxWorkspaceID)
@@ -314,6 +330,7 @@ func createProject(d *Deps) gin.HandlerFunc {
 	}
 }
 
+// getProject 返回指定项目的详情。
 func getProject(d *Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		wsID := c.GetInt64(middleware.CtxWorkspaceID)
@@ -327,6 +344,7 @@ func getProject(d *Deps) gin.HandlerFunc {
 	}
 }
 
+// updateProject 更新项目名称/描述/网络/图标/颜色等信息。
 func updateProject(d *Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		wsID := c.GetInt64(middleware.CtxWorkspaceID)
@@ -348,6 +366,7 @@ func updateProject(d *Deps) gin.HandlerFunc {
 	}
 }
 
+// archiveProject 归档指定项目，返回 204 并记录审计日志。
 func archiveProject(d *Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		wsID := c.GetInt64(middleware.CtxWorkspaceID)
@@ -365,6 +384,8 @@ func archiveProject(d *Deps) gin.HandlerFunc {
 // 审计（仅 owner/admin 可见）
 // ==================================================================
 
+// listAuditLogs 返回工作空间的审计日志（默认 50 条，最多 200 条），
+// 仅 owner/admin 可访问。
 func listAuditLogs(d *Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		wsID := c.GetInt64(middleware.CtxWorkspaceID)

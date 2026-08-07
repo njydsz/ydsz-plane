@@ -8,14 +8,21 @@ import { issueApi, type Issue, type ListIssuesParams, type State } from "@/api/s
 /** Issue 域 Pinia store —— 管理当前工作空间/项目维度的工作项状态、缓存与变更操作 */
 export const useIssueStore = defineStore("issue", () => {
   // --- State ---
+  /** 项目内全部状态定义（含分组） */
   const states = ref<State[]>([]);
+  /** 当前查询条件下的工作项列表 */
   const issues = ref<Issue[]>([]);
+  /** 符合条件的总条数（用于分页） */
   const total = ref(0);
+  /** 列表/详情请求进行中的标志位 */
   const loading = ref(false);
+  /** 当前正在查看的工作项详情 */
   const currentIssue = ref<Issue | null>(null);
+  /** 最近一次请求的错误信息 */
   const error = ref<string | null>(null);
 
   // --- Getters ---
+  /** 按状态分组（backlog/started/completed/cancelled）索引各状态定义 */
   const statesByGroup = computed(() => {
     const groups: Record<string, State[]> = { backlog: [], started: [], completed: [], cancelled: [] };
     for (const s of states.value) {
@@ -24,6 +31,7 @@ export const useIssueStore = defineStore("issue", () => {
     return groups;
   });
 
+  /** 按状态 ID 索引工作项，便于看板按列渲染 */
   const issuesByState = computed(() => {
     const map: Record<number, Issue[]> = {};
     for (const s of states.value) map[s.id] = [];
@@ -34,10 +42,15 @@ export const useIssueStore = defineStore("issue", () => {
   });
 
   // --- Actions ---
+  /** 拉取指定项目的状态定义列表 */
   async function fetchStates(wsId: number, projectId: number) {
     states.value = await issueApi.listStates(wsId, projectId);
   }
 
+  /**
+   * 分页拉取工作项列表并缓存。
+   * 失败时记录 error 并向上抛出，由调用方决定是否展示错误态。
+   */
   async function fetchIssues(wsId: number, projectId: number, params: ListIssuesParams = {}) {
     loading.value = true;
     error.value = null;
@@ -53,6 +66,7 @@ export const useIssueStore = defineStore("issue", () => {
     }
   }
 
+  /** 拉取单个工作项详情并写入 currentIssue */
   async function fetchIssue(wsId: number, projectId: number, issueId: number) {
     loading.value = true;
     try {
@@ -62,6 +76,7 @@ export const useIssueStore = defineStore("issue", () => {
     }
   }
 
+  /** 创建工作项：插入列表头部并累加总数，返回新工作项 */
   async function createIssue(wsId: number, projectId: number, input: Parameters<typeof issueApi.createIssue>[2]) {
     const iss = await issueApi.createIssue(wsId, projectId, input);
     issues.value.unshift(iss);
@@ -69,6 +84,10 @@ export const useIssueStore = defineStore("issue", () => {
     return iss;
   }
 
+  /**
+   * 更新工作项：同时同步列表项与当前详情（若命中）。
+   * @returns 更新后的工作项
+   */
   async function updateIssue(
     wsId: number,
     projectId: number,
@@ -82,6 +101,11 @@ export const useIssueStore = defineStore("issue", () => {
     return iss;
   }
 
+  /**
+   * 流转工作项状态：后端执行后同步本地列表与详情。
+   * @param toStateId 目标状态 ID
+   * @returns 流转后的工作项
+   */
   async function transitionIssue(wsId: number, projectId: number, issueId: number, toStateId: number) {
     const iss = await issueApi.transition(wsId, projectId, issueId, toStateId);
     const idx = issues.value.findIndex((i) => i.id === issueId);
@@ -90,6 +114,7 @@ export const useIssueStore = defineStore("issue", () => {
     return iss;
   }
 
+  /** 删除工作项：从列表移除并递减总数（下限为 0） */
   async function deleteIssue(wsId: number, projectId: number, issueId: number) {
     await issueApi.deleteIssue(wsId, projectId, issueId);
     issues.value = issues.value.filter((i) => i.id !== issueId);
@@ -97,6 +122,7 @@ export const useIssueStore = defineStore("issue", () => {
   }
 
   // --- State helpers ---
+  /** 重置全部状态（常用于切换项目/工作空间时） */
   function clear() {
     states.value = [];
     issues.value = [];

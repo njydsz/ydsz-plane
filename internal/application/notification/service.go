@@ -1,3 +1,5 @@
+// Package notification 通知域应用服务：提供站内通知的创建、
+// 查询、分页与已读状态管理。
 package notification
 
 import (

@@ -1,3 +1,9 @@
+<!--
+  通知铃铛组件。
+  展示当前工作空间的未读角标，点击展开下拉通知列表；
+  支持单条已读/归档、全部已读、点击跳转 action_url。
+  打开面板时拉取列表，挂载时起 30s 轮询刷新未读数，点击外部区域关闭面板。
+-->
 <template>
   <div class="notification-bell" ref="bellRef">
     <button class="bell-btn" @click="toggle" :class="{ active: open }" :title="`${unreadCount} 条未读通知`">
@@ -53,6 +59,7 @@ const items = computed(() => notifStore.items)
 const unreadCount = computed(() => notifStore.unreadCount)
 const loading = computed(() => notifStore.loading)
 
+/** 切换面板开合；首次打开时拉取当前工作空间的通知列表 */
 function toggle() {
   open.value = !open.value
   if (open.value && wsStore.current) {
@@ -60,6 +67,7 @@ function toggle() {
   }
 }
 
+/** 点击单条通知：未读则标记已读，有 action_url 则跳转，随后关闭面板 */
 function handleClick(item: any) {
   if (!item.is_read && wsStore.current) {
     notifStore.markRead(wsStore.current.id, item.id)
@@ -70,18 +78,21 @@ function handleClick(item: any) {
   open.value = false
 }
 
+/** 将当前工作空间全部通知标记为已读 */
 function handleMarkAllRead() {
   if (wsStore.current) {
     notifStore.markAllRead(wsStore.current.id)
   }
 }
 
+/** 归档指定通知并从列表移除 */
 function handleArchive(id: number) {
   if (wsStore.current) {
     notifStore.archive(wsStore.current.id, id)
   }
 }
 
+/** 将 ISO 时间格式化为友好相对时间（刚刚/N 分钟前/N 小时前/日期） */
 function formatTime(ts: string): string {
   const d = new Date(ts)
   const now = new Date()
@@ -92,6 +103,7 @@ function formatTime(ts: string): string {
   return d.toLocaleDateString('zh-CN')
 }
 
+/** 点击组件外部区域时关闭下拉面板 */
 function handleClickOutside(e: MouseEvent) {
   if (bellRef.value && !bellRef.value.contains(e.target as Node)) {
     open.value = false

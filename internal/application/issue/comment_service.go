@@ -1,3 +1,5 @@
+// Package issue 工作项评论应用服务：评论的创建、编辑、删除、
+// 列表查询与提及解析，并在事务内录制领域事件。
 package issue
 
 import (

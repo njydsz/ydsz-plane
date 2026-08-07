@@ -28,6 +28,7 @@ export interface RegisterInput {
 
 /** 认证域 API：登录 / 注册 / 刷新 / 当前用户 / 密码找回与重置 */
 export const authApi = {
+  /** 使用邮箱密码登录，返回令牌对与用户信息 */
   login(input: LoginInput): Promise<ApiResponse<TokenPair>> {
     return http.post("/auth/login", input).then((r) => ({
       data: r.data,
@@ -35,6 +36,7 @@ export const authApi = {
     }));
   },
 
+  /** 注册新账号，成功后直接返回令牌对完成自动登录 */
   register(input: RegisterInput): Promise<ApiResponse<TokenPair>> {
     return http.post("/auth/register", input).then((r) => ({
       data: r.data,
@@ -50,6 +52,7 @@ export const authApi = {
     }));
   },
 
+  /** 获取当前登录用户信息 */
   me(): Promise<ApiResponse<UserBrief>> {
     return http.get<UserBrief>("/me").then((r) => ({
       data: r.data,
@@ -57,10 +60,12 @@ export const authApi = {
     }));
   },
 
+  /** 发起密码重置（向邮箱发送重置链接） */
   forgotPassword(email: string): Promise<void> {
     return http.post("/auth/forgot-password", { email });
   },
 
+  /** 使用重置令牌设置新密码 */
   resetPassword(token: string, newPassword: string): Promise<void> {
     return http.post("/auth/reset-password", { token, new_password: newPassword });
   },

@@ -1,3 +1,5 @@
+// Package notification 通知域 HTTP 处理器：查询/标记已读/全部已读，
+// 以及通知偏好（preferences）的设置与读取。
 package notification
 
 import (

@@ -1,11 +1,9 @@
+// Package attachment 附件域 HTTP 处理器：列表查询、预签名直传与删除。
 package attachment
 
 import (
 	"fmt"
 	"net/http"
-	"path/filepath"
-	"strings"
-	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -28,36 +26,34 @@ func NewHandler(d *HandlerDeps) *Handler {
 	return &Handler{d: d}
 }
 
-// Register 注册附件路由。
+// Register 注册附件路由（项目级）。
 func (h *Handler) Register(r *gin.RouterGroup) {
 	r.GET("/attachments", h.listAttachments)
 	r.POST("/attachments/presigned-upload", h.getPresignedUploadURL)
-	r.GET("/attachments/:id/download", h.downloadAttachment)
 	r.DELETE("/attachments/:id", h.deleteAttachment)
 }
 
 // listAttachments GET /attachments?entity_type=issue&entity_id=123
 func (h *Handler) listAttachments(c *gin.Context) {
+	wsID := c.GetInt64(middleware.CtxWorkspaceID)
+	projectID := c.GetInt64(middleware.CtxProjectID)
 	entityType := c.Query("entity_type")
 	entityID := int64Param(c, "entity_id")
 
-	atts, err := h.d.AttachmentSvc.ListByEntity(c.Request.Context(), entityType, entityID)
+	if entityType == "" {
+		middleware.AbortWithError(c, errs.ErrValidation.WithDetails(
+			errs.FieldDetail{Field: "entity_type", Reason: "required"},
+		))
+		return
+	}
+
+	atts, err := h.d.AttachmentSvc.List(c.Request.Context(), wsID, projectID, entityType, entityID)
 	if err != nil {
 		writeErr(c, err)
 		return
 	}
 
-	// 为返回的附件生成下载 URL
-	for i := range atts {
-		url, err := h.d.AttachmentSvc.Storage().PresignedDownloadURL(
-			c.Request.Context(), atts[i].StorageKey, 15*time.Minute,
-		)
-		if err == nil {
-			atts[i].StorageURL = url
-		}
-	}
-
-	c.JSON(http.StatusOK, gin.H{"results": atts})
+	c.JSON(http.StatusOK, ListResponse{Results: atts})
 }
 
 // getPresignedUploadURL 获取预签名上传 URL。
@@ -79,34 +75,11 @@ func (h *Handler) getPresignedUploadURL(c *gin.Context) {
 		return
 	}
 
-	if req.ContentType == "" {
-		req.ContentType = "application/octet-stream"
-	}
-
-	// 生成唯一的存储 key：{ws}/{project}/{entity_type}/{entity_id}/{timestamp}_{filename}
-	ext := filepath.Ext(req.FileName)
-	storageKey := fmt.Sprintf("%d/%d/%s/%d/%d_%s%s",
-		wsID, projectID, req.EntityType, req.EntityID,
-		time.Now().UnixMilli(), sanitizeFilename(req.FileName), ext)
-
-	uploadURL, err := h.d.AttachmentSvc.Storage().PresignedUploadURL(
-		c.Request.Context(), storageKey, 15*time.Minute, req.ContentType,
-	)
-	if err != nil {
-		writeErr(c, err)
-		return
-	}
-
-	// 预创建数据库记录
-	att, err := h.d.AttachmentSvc.Create(c.Request.Context(), CreateInput{
-		WorkspaceID: wsID,
-		ProjectID:   projectID,
+	result, err := h.d.AttachmentSvc.CreatePresignedUpload(c.Request.Context(), wsID, projectID, PresignedUploadInput{
+		FileName:    req.FileName,
+		ContentType: req.ContentType,
 		EntityType:  req.EntityType,
 		EntityID:    req.EntityID,
-		FileName:    req.FileName,
-		FileSize:    0,
-		ContentType: req.ContentType,
-		StorageKey:  storageKey,
 		UploadedBy:  userID,
 	})
 	if err != nil {
@@ -114,41 +87,17 @@ func (h *Handler) getPresignedUploadURL(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"upload_url":  uploadURL,
-		"storage_key": storageKey,
-		"attachment":  att,
-	})
-}
-
-// downloadAttachment 生成预签名下载 URL 并 302 重定向。
-// GET /attachments/:id/download
-func (h *Handler) downloadAttachment(c *gin.Context) {
-	id := int64Param(c, "id")
-
-	att, err := h.d.AttachmentSvc.Get(c.Request.Context(), id)
-	if err != nil {
-		writeErr(c, err)
-		return
-	}
-
-	downloadURL, err := h.d.AttachmentSvc.Storage().PresignedDownloadURL(
-		c.Request.Context(), att.StorageKey, 15*time.Minute,
-	)
-	if err != nil {
-		writeErr(c, err)
-		return
-	}
-
-	c.Redirect(http.StatusFound, downloadURL)
+	c.JSON(http.StatusOK, result)
 }
 
 // deleteAttachment DELETE /attachments/:id
 func (h *Handler) deleteAttachment(c *gin.Context) {
-	id := int64Param(c, "id")
+	wsID := c.GetInt64(middleware.CtxWorkspaceID)
+	projectID := c.GetInt64(middleware.CtxProjectID)
 	userID := c.GetInt64(middleware.CtxUserID)
+	id := int64Param(c, "id")
 
-	if err := h.d.AttachmentSvc.Delete(c.Request.Context(), id, userID); err != nil {
+	if err := h.d.AttachmentSvc.Delete(c.Request.Context(), wsID, projectID, id, userID); err != nil {
 		writeErr(c, err)
 		return
 	}
@@ -167,26 +116,9 @@ func int64Param(c *gin.Context, key string) int64 {
 	return n
 }
 
-func sanitizeFilename(name string) string {
-	name = filepath.Base(name)
-	name = strings.Map(func(r rune) rune {
-		if r == ' ' || r == '\\' || r == '/' || r == ':' || r == '*' || r == '?' || r == '"' || r == '<' || r == '>' || r == '|' {
-			return '_'
-		}
-		return r
-	}, name)
-	if len(name) > 200 {
-		name = name[:200]
-	}
-	return name
-}
-
 func fieldDetail(err error) []errs.FieldDetail {
-	// 提供基础的字段级错误详情
 	if err != nil {
-		return []errs.FieldDetail{
-			{Field: "body", Reason: err.Error()},
-		}
+		return []errs.FieldDetail{{Field: "body", Reason: err.Error()}}
 	}
 	return nil
 }

@@ -1,4 +1,5 @@
-// 本文件属于 Package auth —— 认证域的小型辅助函数集合。
+// Package auth 认证域的小型辅助函数集合：错误归一化、
+// 格式化与 JWT subject 解析，供同包其他文件复用。
 package auth
 
 import (

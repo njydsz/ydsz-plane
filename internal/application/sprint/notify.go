@@ -1,3 +1,5 @@
+// Package sprint 迭代通知辅助：迭代启动/结束时的站内通知与
+// WebSocket 实时广播编排。
 package sprint
 
 import (

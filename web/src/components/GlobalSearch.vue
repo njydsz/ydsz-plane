@@ -1,3 +1,9 @@
+<!--
+  全局搜索弹层组件。
+  通过 Ctrl/Cmd+K 快捷键唤起，在工作空间内对工作项/迭代/版本执行全文搜索，
+  支持键盘上下键导航选中项、Enter 打开、ESC 关闭，结果按实体类型分组展示。
+  搜索请求做 200ms 防抖，避免每次按键都触发后端请求。
+-->
 <template>
   <Teleport to="body">
     <div v-if="open" class="search-overlay" @click.self="close">
@@ -95,12 +101,14 @@ const inputRef = ref<HTMLInputElement | null>(null)
 const selectedIdx = ref(-1)
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
 
+/** 结果是否为空（用于展示"未找到结果"提示） */
 const isEmpty = computed(() => {
   const r = store.results
   if (!r) return true
   return (!r.results.issues?.length) && (!r.results.sprints?.length) && (!r.results.versions?.length)
 })
 
+/** 输入变化处理：重置选中索引，并对搜索请求做 200ms 防抖 */
 function handleInput() {
   selectedIdx.value = -1
   if (debounceTimer) clearTimeout(debounceTimer)
@@ -111,6 +119,7 @@ function handleInput() {
   }, 200)
 }
 
+/** 回车键处理：若当前有选中项则打开它，否则保留默认行为 */
 function handleEnter() {
   // 如果有选中项，打开它
   const allItems = getAllItems()
@@ -121,16 +130,19 @@ function handleEnter() {
   // 否则默认行为：跳转搜索结果页
 }
 
+/** 键盘 ↓：将选中索引下移一格（封顶到列表末尾） */
 function moveDown() {
   const allItems = getAllItems()
   if (allItems.length === 0) return
   selectedIdx.value = Math.min(selectedIdx.value + 1, allItems.length - 1)
 }
 
+/** 键盘 ↑：将选中索引上移一格（下限为 -1，即无选中） */
 function moveUp() {
   selectedIdx.value = Math.max(selectedIdx.value - 1, -1)
 }
 
+/** 将三类实体的结果合并为统一的扁平列表，并打上 _type 标记以便导航 */
 function getAllItems(): any[] {
   const r = store.results
   if (!r) return []
@@ -141,6 +153,7 @@ function getAllItems(): any[] {
   ]
 }
 
+/** 根据结果实体类型跳转到对应详情页，并关闭搜索面板 */
 function navigateTo(item: any) {
   const slug = wsStore.currentSlug
   if (item._type === 'issue') {
@@ -153,22 +166,28 @@ function navigateTo(item: any) {
   close()
 }
 
+/** 点击工作项结果跳转 */
 function goIssue(item: any) { navigateTo({ ...item, _type: 'issue' }) }
+/** 点击迭代结果跳转 */
 function goSprint(item: any) { navigateTo({ ...item, _type: 'sprint' }) }
+/** 点击版本结果跳转 */
 function goVersion(item: any) { navigateTo({ ...item, _type: 'version' }) }
 
+/** 关闭搜索面板并重置输入与选中状态 */
 function close() {
   store.clear()
   q.value = ''
   selectedIdx.value = -1
 }
 
+/** 面板打开时自动聚焦输入框 */
 watch(open, (val) => {
   if (val) {
     nextTick(() => inputRef.value?.focus())
   }
 })
 
+/** 全局 Ctrl/Cmd+K 快捷键处理：切换搜索面板开关 */
 function handleKeydown(e: KeyboardEvent) {
   if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
     e.preventDefault()

@@ -31,11 +31,21 @@ interface TimelineEntry {
   width: number;
 }
 
+/**
+ * 计算每条迭代在时间轴上的定位（left）与宽度（width），均为百分比。
+ *
+ * 算法说明：
+ *  - 时间轴范围 = [min, max]，取所有迭代/版本日期的最小与最大值；
+ *    若范围不足 7 天则强制拉长为 7 天，避免日期间隔过近时条块重叠。
+ *  - left   = (迭代开始 - min) / range * 100，即相对起始点的偏移百分比。
+ *  - width  = (迭代结束 - 开始) / range * 100，最小宽度钳制为 2%，保证可见。
+ *  - 缺失开始/结束日期的迭代分别回退到 min / max，从而铺满可视范围。
+ */
 const timeline = computed<TimelineEntry[]>(() => {
   const items = props.sprints.filter((s) => s.startDate || s.endDate);
   if (items.length === 0) return [];
 
-  // 计算时间范围（至少7天）
+  // 汇总所有日期点（迭代起止 + 版本起止），用于确定时间轴整体范围
   const allDates: number[] = [];
   items.forEach((s) => {
     if (s.startDate) allDates.push(new Date(s.startDate).getTime());
@@ -44,6 +54,7 @@ const timeline = computed<TimelineEntry[]>(() => {
   if (props.versionStart) allDates.push(new Date(props.versionStart).getTime());
   if (props.versionEnd) allDates.push(new Date(props.versionEnd).getTime());
 
+  // 时间轴最小/最大值，并确保至少有 7 天的可视宽度
   const min = Math.min(...allDates);
   const max = Math.max(...allDates);
   const range = Math.max(max - min, 7 * 86400000); // min 7 days
@@ -61,8 +72,14 @@ const timeline = computed<TimelineEntry[]>(() => {
 
 const hasData = computed(() => timeline.value.length > 0);
 
+/**
+ * 生成月份刻度标签。
+ * 从时间轴起始月份逐月递增到结束月份，仅保留落在 [min, max] 区间内的月份，
+ * 并计算每个月份首日在时间轴上的百分比位置，供横轴刻度渲染。
+ */
 const months = computed(() => {
   if (timeline.value.length === 0) return [];
+  // 复用与 timeline 相同的时间范围计算
   const items = props.sprints.filter((s) => s.startDate || s.endDate);
   const allDates: number[] = [];
   items.forEach((s) => {
@@ -76,6 +93,7 @@ const months = computed(() => {
   const result: { label: string; left: number }[] = [];
   const start = new Date(min);
   const end = new Date(max);
+  // 从起始月份的首日作为游标，逐月推进
   const cursor = new Date(start.getFullYear(), start.getMonth(), 1);
 
   while (cursor <= end) {

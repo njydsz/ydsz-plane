@@ -1,3 +1,9 @@
+<!--
+  工作台首页（HomeView）。
+  进入工作空间后展示聚合信息：快捷操作、我的任务（逾期/今日/进行中）、
+  迭代概览（当前/下一个）与最近访问。数据来自 workbenchApi.getSummary，
+  加载/错误/空态均有对应组件兜底。
+-->
 <template>
   <div class="workbench">
     <div class="wb-header">
@@ -110,6 +116,7 @@ const summary = ref<WorkbenchSummary | null>(null)
 
 const wsSlug = computed(() => wsStore.currentSlug)
 
+/** 根据当前小时返回问候语 */
 const greeting = computed(() => {
   const h = new Date().getHours()
   if (h < 12) return '早上好 ☀️'
@@ -117,20 +124,29 @@ const greeting = computed(() => {
   return '晚上好 🌙'
 })
 
+/** 快捷操作：优先取后端配置，缺省时提供新建工作项/迭代的兜底动作 */
 const quickActions = computed<QuickAction[]>(() => summary.value?.quick_actions ?? [
   { type: 'create_issue', label: '新建工作项', icon: '➕', route: `/${wsSlug.value}/projects` },
   { type: 'create_sprint', label: '新建迭代', icon: '🏃', route: `/${wsSlug.value}/projects` },
 ])
 
+/** 逾期任务列表 */
 const overdueTasks = computed(() => summary.value?.my_tasks?.overdue ?? [])
+/** 今日到期任务列表 */
 const todayTasks = computed(() => summary.value?.my_tasks?.today ?? [])
+/** 进行中任务列表 */
 const inProgressTasks = computed(() => summary.value?.my_tasks?.in_progress ?? [])
+/** 是否完全没有任务（用于展示空态） */
 const noTasks = computed(() => overdueTasks.value.length === 0 && todayTasks.value.length === 0 && inProgressTasks.value.length === 0)
 
+/** 当前进行中的迭代 */
 const currentSprint = computed(() => summary.value?.iteration_overview?.current ?? null)
+/** 下一个即将开始的迭代 */
 const nextSprint = computed(() => summary.value?.iteration_overview?.next ?? null)
+/** 最近访问实体列表 */
 const recentItems = computed(() => summary.value?.recent_items ?? [])
 
+/** 拉取工作台汇总数据 */
 async function load() {
   loading.value = true
   error.value = null
@@ -143,25 +159,30 @@ async function load() {
   }
 }
 
+/** 跳转到指定工作项详情页 */
 function goIssue(projectId: number, seqId: number) {
   router.push(`/${wsSlug.value}/projects/${projectId}/issues/${seqId}`)
 }
 
+/** 跳转到最近访问的实体详情页（当前仅支持 issue） */
 function goRecent(item: any) {
   if (item.entity_type === 'issue') {
     router.push(`/${wsSlug.value}/projects/${item.project_id}/issues/${item.entity_id}`)
   }
 }
 
+/** 执行快捷操作：若有配置路由则跳转 */
 function handleAction(act: QuickAction) {
   if (act.route) router.push(act.route)
 }
 
+/** 将实体类型转换为中文展示标签 */
 function typeLabel(t: string): string {
   const map: Record<string, string> = { issue: '工作项', sprint: '迭代', version: '版本' }
   return map[t] || t
 }
 
+/** 将日期格式化为"x月x日"短格式 */
 function formatDate(d: string): string {
   return new Date(d).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })
 }
