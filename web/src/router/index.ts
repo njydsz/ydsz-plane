@@ -12,6 +12,24 @@ const router = createRouter({
       meta: { public: true },
     },
     {
+      path: "/register",
+      name: "register",
+      component: () => import("@/views/auth/RegisterView.vue"),
+      meta: { public: true },
+    },
+    {
+      path: "/forgot-password",
+      name: "forgot-password",
+      component: () => import("@/views/auth/ForgotPasswordView.vue"),
+      meta: { public: true },
+    },
+    {
+      path: "/reset-password",
+      name: "reset-password",
+      component: () => import("@/views/auth/ResetPasswordView.vue"),
+      meta: { public: true },
+    },
+    {
       path: "/",
       component: () => import("@/layouts/WorkspaceLayout.vue"),
       children: [
@@ -48,6 +66,12 @@ const router = createRouter({
             projectId: Number(route.params.projectId),
           }),
         },
+        // 项目设置
+        {
+          path: ":workspaceSlug/projects/:projectId/settings",
+          name: "project-settings",
+          component: () => import("@/views/project/ProjectSettingsView.vue"),
+        },
         // 迭代列表
         {
           path: ":workspaceSlug/projects/:projectId/sprints",
@@ -77,6 +101,46 @@ const router = createRouter({
             workspaceSlug: route.params.workspaceSlug,
             projectId: Number(route.params.projectId),
             sprintId: Number(route.params.sprintId),
+          }),
+        },
+        // 版本日聚合
+        {
+          path: ":workspaceSlug/projects/:projectId/versions",
+          name: "version-list",
+          component: () => import("@/views/project/VersionListView.vue"),
+          props: (route) => ({
+            workspaceSlug: route.params.workspaceSlug,
+            projectId: Number(route.params.projectId),
+          }),
+        },
+        {
+          path: ":workspaceSlug/projects/:projectId/versions/:versionId",
+          name: "version-detail",
+          component: () => import("@/views/project/VersionDetailView.vue"),
+          props: (route) => ({
+            workspaceSlug: route.params.workspaceSlug,
+            projectId: Number(route.params.projectId),
+            versionId: Number(route.params.versionId),
+          }),
+        },
+        {
+          path: ":workspaceSlug/projects/:projectId/versions/:versionId/release",
+          name: "version-release",
+          component: () => import("@/views/project/VersionReleaseView.vue"),
+          props: (route) => ({
+            workspaceSlug: route.params.workspaceSlug,
+            projectId: Number(route.params.projectId),
+            versionId: Number(route.params.versionId),
+          }),
+        },
+        {
+          path: ":workspaceSlug/projects/:projectId/versions/:versionId/delivery-report",
+          name: "delivery-report",
+          component: () => import("@/views/project/DeliveryReportView.vue"),
+          props: (route) => ({
+            workspaceSlug: route.params.workspaceSlug,
+            projectId: Number(route.params.projectId),
+            versionId: Number(route.params.versionId),
           }),
         },
         // 工作项详情页
@@ -109,7 +173,8 @@ router.beforeEach(async (to) => {
   if (!to.meta.public && !auth.isAuthenticated) {
     return { name: "login", query: { redirect: to.fullPath } };
   }
-  if (to.name === "login" && auth.isAuthenticated) {
+  const authPages = ["login", "register", "forgot-password", "reset-password"];
+  if (authPages.includes(String(to.name)) && auth.isAuthenticated) {
     return { name: "home" };
   }
   return true;

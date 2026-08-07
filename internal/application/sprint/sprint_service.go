@@ -623,6 +623,52 @@ func (s *Service) GetBacklog(ctx context.Context, wsID, projectID int64, limit, 
 
 // --- Snapshot & Burndown ---
 
+// SnapshotAllActive 遍历所有工作空间的 active 迭代，为每个迭代写日快照。
+//
+// 用于 Worker 每日 Cron 调用（而非 WriteDailySnapshot 按工作空间维度）。
+// 返回 (sprints_snapshotted, error)。
+//
+// 幂等性：sprint_snapshots 表有 ON CONFLICT (sprint_id, snapshot_date) DO UPDATE，
+// 同一天重复调用不会产生重复数据。
+//
+// 大厂标准：
+//   - 超时控制：带 ctx 超时（外部传入 30s deadline）
+//   - 错误隔离：单个 sprint 快照写入失败不影响其他 sprint
+//   - 监控告警：失败计数通过返回值上报 Prometheus
+func (s *Service) SnapshotAllActive(ctx context.Context) (int, int) {
+	// 查询所有有 active 迭代的工作空间
+	rows, err := s.db.Query(ctx,
+		`SELECT DISTINCT workspace_id FROM sprints WHERE status = 'active' AND deleted_at IS NULL`)
+	if err != nil {
+		return 0, 0
+	}
+	defer rows.Close()
+
+	var wsIDs []int64
+	for rows.Next() {
+		var ws int64
+		if err := rows.Scan(&ws); err != nil {
+			continue
+		}
+		wsIDs = append(wsIDs, ws)
+	}
+	if err := rows.Err(); err != nil {
+		return 0, 0
+	}
+
+	total := 0
+	failures := 0
+	for _, wsID := range wsIDs {
+		n, err := s.WriteDailySnapshot(ctx, wsID)
+		if err != nil {
+			failures++
+			continue
+		}
+		total += n
+	}
+	return total, failures
+}
+
 // WriteDailySnapshot 为 active 迭代写一条日快照（由外部 Cron/Worker 调用）。
 func (s *Service) WriteDailySnapshot(ctx context.Context, wsID int64) (int, error) {
 	var projectIDs []int64

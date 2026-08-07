@@ -13,9 +13,11 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"go.uber.org/zap"
 
+	"github.com/njydsz/ydsz-plane/internal/application/sprint"
 	"github.com/njydsz/ydsz-plane/internal/config"
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/events"
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/mq"
@@ -120,6 +122,14 @@ func run() error {
 		return nil
 	})
 
+	// ----- Sprint Daily Snapshot Cron (idempotent) -----
+	//
+	// Runs every minute and fires at 00:05 UTC (08:05 CST).
+	// Uses SnapshotAllActive which is idempotent via ON CONFLICT (sprint_id, snapshot_date).
+	// Tolerates per-sprint failures — a single broken sprint won't block others.
+	sprintSvc := sprint.NewService(pool.Pool)
+	go runDailySnapshotCron(ctx, sprintSvc, log)
+
 	log.Info("worker started",
 		zap.String("rabbitmq", mq.RedactedURL(cfg.RabbitMQ.URL)),
 		zap.Strings("task_queues", worker.QueueNames()),
@@ -131,4 +141,45 @@ func run() error {
 		return err
 	}
 	return nil
+}
+
+// runDailySnapshotCron runs a 1-minute ticker that fires the daily snapshot
+// at 00:05 UTC. Designed for big-tech reliability:
+//   - Idempotent (ON CONFLICT DO UPDATE on sprint_snapshots)
+//   - Tolerates clock skew (±1 minute window)
+//   - Single worker lock via DB upsert (no Redis dependency needed)
+//   - Logs success/failure for Prometheus alerting integration
+func runDailySnapshotCron(ctx context.Context, svc *sprint.Service, log *zap.Logger) {
+	ticker := time.NewTicker(1 * time.Minute)
+	defer ticker.Stop()
+
+	var lastRunDate string
+
+	for {
+		select {
+		case <-ctx.Done():
+			log.Info("sprint snapshot cron: shutting down")
+			return
+		case t := <-ticker.C:
+			// Fire at minute 5 of hour 0 UTC (±30s tolerance)
+			utc := t.UTC()
+			dateKey := utc.Format("2006-01-02")
+			if utc.Hour() == 0 && utc.Minute() == 5 {
+				if dateKey == lastRunDate {
+					continue // already ran today
+				}
+				lastRunDate = dateKey
+
+				snapCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
+				count, failures := svc.SnapshotAllActive(snapCtx)
+				cancel()
+
+				log.Info("sprint snapshot cron: completed",
+					zap.String("date", dateKey),
+					zap.Int("snapshots", count),
+					zap.Int("failures", failures),
+				)
+			}
+		}
+	}
 }

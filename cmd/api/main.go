@@ -1,4 +1,4 @@
-// Command api runs the Ydsz Plane HTTP API server.
+// Command api 启动 Ydsz Plane 的 HTTP API 服务。
 package main
 
 import (
@@ -34,27 +34,21 @@ func main() {
 	}
 }
 
-// run bootstraps the HTTP API server and blocks until shutdown.
+// run 引导并启动 HTTP API 服务，阻塞直至收到退出信号。
 //
-// Initialization follows a strict ordering to guarantee that every
-// downstream component receives a fully-initialized dependency:
+// 初始化遵循严格的依赖顺序，确保每个下游组件都能拿到完整初始化的依赖：
 //
-//  1. Configuration +Logger — everything else depends on the parsed
-//     config and a working logger.
-//  2. PostgreSQL pool — services will validate their DB schema on boot.
-//  3. Redis client — used for sessions, rate-limiting and the outbox sink.
-//  4. Domain Services — wired after both DB and Redis are available so that
-//     each service can fail fast if its underlying store is unreachable.
-//  5. HTTP Engine + Routes — mounted last once all handlers are registered.
-//  6. Listen & Serve — the server starts in its own goroutine; the main
-//     goroutine then blocks on a select{} that waits for either a signal or
-//     a ListenAndServe error.
+//  1. 配置 + Logger —— 其余一切组件都依赖解析后的配置与可用的日志器。
+//  2. PostgreSQL 连接池 —— 各服务启动时会对数据库 schema 做校验。
+//  3. Redis 客户端 —— 用于会话、限流与 outbox 汇聚。
+//  4. 领域服务 —— 在 DB 与 Redis 就绪后装配，便于各服务在底层存储不可达时快速失败。
+//  5. HTTP 引擎与路由 —— 所有 handler 注册完成后最后挂载。
+//  6. 监听与服务 —— 服务在独立 goroutine 中启动；主 goroutine 通过 select{}
+//     等待信号或 ListenAndServe 错误。
 //
-// On SIGINT/SIGTERM the server performs a graceful shutdown with a 15 s
-// drain timeout, after which remaining connections are closed and the
-// process exits.
+// 收到 SIGINT/SIGTERM 后执行优雅关闭，排水超时 15 秒，之后关闭剩余连接并退出。
 //
-// A non-nil return from run terminates the process with exit code 1.
+// run 返回非 nil 时进程以退出码 1 终止。
 func run() error {
 	cfg, err := config.Load()
 	if err != nil {
@@ -66,9 +60,8 @@ func run() error {
 	}
 	defer func() { _ = log.Sync() }()
 
-	// Security notice: dev-mode JWT secret rotates each restart — tokens issued
-	// before restart become invalid. This is intentional to avoid hardcoded
-	// secrets in the codebase.
+	// 安全提示：开发模式下 JWT 密钥每次重启都会轮换，重启前签发的 token
+	// 将全部失效。这是有意设计，避免代码库中出现硬编码密钥。
 	if cfg.IsDev() && strings.HasPrefix(cfg.Auth.JWTSecret, "dev-") {
 		log.Warn("auth: using ephemeral dev JWT secret (set YDSZ_AUTH_JWT_SECRET to pin it)")
 	}
@@ -173,20 +166,16 @@ func run() error {
 	srv := &http.Server{
 		Addr:    fmt.Sprintf(":%d", cfg.Server.Port),
 		Handler: engine,
-		// ReadHeaderTimeout bounds the time a client has to finish sending
-		// request headers. 10 s is generous enough for slow clients on
-		// cellular but rejects Slowloris-style attacks quickly.
+		// ReadHeaderTimeout 限制客户端发送请求头的时长。10s 对弱网客户端足够宽裕，
+		// 同时能快速拒绝 Slowloris 类慢速攻击。
 		ReadHeaderTimeout: 10 * time.Second,
-		// ReadTimeout covers reading the full request body. 30 s handles
-		// bulk CSV/JSON uploads within a single request window.
+		// ReadTimeout 覆盖读取完整请求体的时长。30s 可支撑单请求内的批量 CSV/JSON 上传。
 		ReadTimeout: 30 * time.Second,
-		// WriteTimeout limits the entire response write. 60 s is sufficient
-		// for paginated issue lists and sprint reports — endpoints that need
-		// more time should stream instead.
+		// WriteTimeout 限制整个响应写入时长。60s 对分页工作项列表与迭代报告足够；
+		// 需要更长时间的端点应当改用流式输出。
 		WriteTimeout: 60 * time.Second,
-		// IdleTimeout recycles keep-alive connections that have been silent
-		// for 2 minutes. This limits idle slot consumption under high traffic
-		// while still benefiting from HTTP keep-alive for typical bursts.
+		// IdleTimeout 回收静默超过 2 分钟的 keep-alive 连接，
+		// 在高流量下限制空闲连接占用，同时保留典型突发请求的 keep-alive 收益。
 		IdleTimeout: 120 * time.Second,
 	}
 

@@ -52,6 +52,11 @@ async function onSubmit() {
       <button class="submit" type="submit" :disabled="loading">
         {{ loading ? "登录中…" : "登录" }}
       </button>
+
+      <div class="footer-links">
+        <router-link to="/register">注册账号</router-link>
+        <router-link to="/forgot-password">忘记密码？</router-link>
+      </div>
     </form>
   </div>
 </template>
@@ -157,5 +162,16 @@ async function onSubmit() {
 .submit:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.footer-links {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 4px;
+  font-size: 13px;
+}
+
+.footer-links a {
+  color: var(--brand-500);
 }
 </style>

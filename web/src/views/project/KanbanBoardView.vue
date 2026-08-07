@@ -4,15 +4,18 @@ import { useRoute, useRouter } from "vue-router";
 
 import { workspaceApi } from "@/api/services/workspace";
 import { useIssueStore } from "@/stores/issue";
+import IssueCreateModal from "./IssueCreateModal.vue";
 
 const route = useRoute();
 const router = useRouter();
 const issueStore = useIssueStore();
 
 const projectId = computed(() => Number(route.params.projectId));
+const wsId = ref(0);
 const loading = ref(true);
 const error = ref("");
 const dragIssueId = ref<number | null>(null);
+const showCreateModal = ref(false);
 
 async function load() {
   loading.value = true;
@@ -26,6 +29,7 @@ async function load() {
     } else {
       wsIdVal = Number(route.params.wsId);
     }
+    wsId.value = wsIdVal;
     await Promise.all([
       issueStore.fetchStates(wsIdVal, projectId.value),
       issueStore.fetchIssues(wsIdVal, projectId.value),
@@ -85,8 +89,11 @@ onMounted(load);
 <template>
   <div class="kanban">
     <header class="kanban__header">
-      <h1>看板</h1>
-      <p class="hint">拖拽工作项到不同状态列进行流转</p>
+      <div>
+        <h1>看板</h1>
+        <p class="hint">拖拽工作项到不同状态列进行流转</p>
+      </div>
+      <button class="btn btn--primary" @click="showCreateModal = true">＋ 创建工作项</button>
     </header>
 
     <div v-if="loading" class="loading">加载中...</div>
@@ -152,11 +159,22 @@ onMounted(load);
         </div>
       </div>
     </div>
+
+    <IssueCreateModal
+      :workspace-id="wsId"
+      :project-id="projectId"
+      :visible="showCreateModal"
+      @close="showCreateModal = false"
+      @created="load"
+    />
   </div>
 </template>
 
 <style scoped>
 .kanban__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
   margin-bottom: 16px;
 }
 .kanban__header h1 {
@@ -164,6 +182,22 @@ onMounted(load);
   margin: 0 0 4px;
 }
 .hint { color: var(--text-tertiary); font-size: 13px; margin: 0; }
+
+.btn--primary {
+  padding: 8px 16px;
+  background: var(--brand-500);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+}
+.btn--primary:hover {
+  background: var(--brand-600);
+}
 
 .loading, .error {
   text-align: center;
