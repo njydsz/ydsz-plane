@@ -38,6 +38,20 @@ const router = createRouter({
       meta: { public: true },
     },
     {
+      path: "/intake/:wsSlug/:slug",
+      name: "intake-public",
+      component: () => import("@/views/IntakePublicView.vue"),
+      meta: { public: true },
+      props: (route) => ({ mode: "submit" as const, wsSlug: String(route.params.wsSlug), slug: String(route.params.slug) }),
+    },
+    {
+      path: "/intake/track",
+      name: "intake-track",
+      component: () => import("@/views/IntakePublicView.vue"),
+      meta: { public: true },
+      props: { mode: "track" as const },
+    },
+    {
       path: "/",
       component: () => import("@/layouts/WorkspaceLayout.vue"),
       children: [

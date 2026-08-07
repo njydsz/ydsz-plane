@@ -30,11 +30,12 @@ func TestWidgetQueriesIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("connect: %v", err)
 	}
-	defer pool.Close()
 
 	svc := NewService(pool.Pool)
 	wsID, projID := seedDashboardData(t, ctx, pool)
+	// LIFO：先清理测试数据，最后关闭连接池，避免 "closed pool" 警告。
 	t.Cleanup(func() { cleanupDashboardData(t, ctx, pool, wsID, projID) })
+	t.Cleanup(func() { pool.Close() })
 
 	widgets := []struct {
 		name string
@@ -78,11 +79,12 @@ func TestGetDashboardIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("connect: %v", err)
 	}
-	defer pool.Close()
 
 	svc := NewService(pool.Pool)
 	wsID, projID := seedDashboardData(t, ctx, pool)
+	// LIFO：先清理测试数据，最后关闭连接池，避免 "closed pool" 警告。
 	t.Cleanup(func() { cleanupDashboardData(t, ctx, pool, wsID, projID) })
+	t.Cleanup(func() { pool.Close() })
 
 	data, err := svc.GetDashboard(ctx, wsID, projID)
 	if err != nil {
@@ -158,9 +160,16 @@ func seedDashboardData(t *testing.T, ctx context.Context, pool *persistence.Pool
 	}
 	// 指派：用户 1 负责第一条 issue（驱动 team_workload）
 	if _, err := pool.Pool.Exec(ctx, `
-		INSERT INTO issue_assignees (workspace_id, issue_id, user_id) VALUES ($1, $2, 1)`,
-		wsID, issueIDs[0]); err != nil {
+		INSERT INTO issue_assignees (issue_id, user_id, assigned_by) VALUES ($1, 1, 1)`,
+		issueIDs[0]); err != nil {
 		t.Fatalf("seed assignee: %v", err)
+	}
+	// 活动记录（驱动 recent_activity）
+	if _, err := pool.Pool.Exec(ctx, `
+		INSERT INTO issue_activities (workspace_id, project_id, issue_id, verb, actor_id, actor_name)
+		VALUES ($1, $2, $3, 'created', 1, 'Admin')`,
+		wsID, projID, issueIDs[0]); err != nil {
+		t.Fatalf("seed activity: %v", err)
 	}
 	return wsID, projID
 }

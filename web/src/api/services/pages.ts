@@ -50,8 +50,12 @@ const wrap = <T>(p: Promise<{ data: T }>) => p.then((r) => r.data);
 /** Pages 文档域 API — 文档页 CRUD（列表、创建、更新、删除）。 */
 export const pagesApi = {
   /** 列出项目全部文档页面（扁平列表，由前端组装树） */
-  list: (wsId: number, projectId: number) =>
-    wrap<Page[]>(http.get(`/workspaces/${wsId}/projects/${projectId}/pages`)),
+  list: async (wsId: number, projectId: number) => {
+    const data = await wrap<{ results?: Page[] }>(
+      http.get(`/workspaces/${wsId}/projects/${projectId}/pages`),
+    );
+    return data?.results ?? (Array.isArray(data) ? (data as Page[]) : []);
+  },
 
   /** 获取单个文档页面 */
   get: (wsId: number, projectId: number, pageId: number) =>

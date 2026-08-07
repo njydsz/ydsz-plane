@@ -276,7 +276,7 @@ func (s *Service) getBlockedList(ctx context.Context, projectID int64) (any, err
 // getActiveSprintBurndown 获取当前活跃迭代的燃尽数据。
 func (s *Service) getActiveSprintBurndown(ctx context.Context, projectID int64) (any, error) {
 	var w BurndownWidget
-	var endDate time.Time
+	var endDate *time.Time
 	err := s.db.QueryRow(ctx, `
 		SELECT s.id, s.name, s.end_date,
 		       (SELECT COALESCE(sum(i2.point), 0) FROM sprint_issues si2 JOIN issues i2 ON i2.id = si2.issue_id
@@ -296,7 +296,9 @@ func (s *Service) getActiveSprintBurndown(ctx context.Context, projectID int64) 
 		return nil, errs.ErrInternal.Wrap(err)
 	}
 	w.BurnedPoints = w.BurnedIssues * (w.TotalPoints / max(w.TotalIssues, 1))
-	w.RemainingDays = int(endDate.Sub(time.Now()).Hours() / 24)
+	if endDate != nil {
+		w.RemainingDays = int(endDate.Sub(time.Now()).Hours() / 24)
+	}
 	w.IsActive = true
 	return &w, nil
 }
@@ -311,7 +313,7 @@ func max(a, b int) int {
 // getTeamWorkload 按负责人分组统计未完成 issues。
 func (s *Service) getTeamWorkload(ctx context.Context, projectID int64) (any, error) {
 	rows, err := s.db.Query(ctx, `
-		SELECT u.id, u.display_name, u.avatar_url,
+		SELECT u.id, u.display_name, COALESCE(u.avatar_url, ''),
 		       count(*) FILTER (WHERE sg."group" IN ('backlog','unstarted')) AS todo,
 		       count(*) FILTER (WHERE sg."group" = 'started') AS in_progress,
 		       count(*) FILTER (WHERE sg."group" = 'completed') AS done,
@@ -352,7 +354,8 @@ func (s *Service) getTeamWorkload(ctx context.Context, projectID int64) (any, er
 // getRecentActivity 查询项目最近 20 条活动记录。
 func (s *Service) getRecentActivity(ctx context.Context, projectID int64) (any, error) {
 	rows, err := s.db.Query(ctx, `
-		SELECT a.id, a.issue_id, i.sequence_id::text, a.actor_id, u.display_name, u.avatar_url,
+		SELECT a.id, a.issue_id, i.sequence_id::text, a.actor_id, u.display_name,
+		       COALESCE(u.avatar_url, '') AS actor_avatar,
 		       a.verb, COALESCE(s.name, '') AS target_state, a.created_at
 		FROM issue_activities a
 		JOIN issues i ON i.id = a.issue_id
