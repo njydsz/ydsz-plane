@@ -14,6 +14,19 @@
 
 /** 注册 Service Worker 并监听更新 */
 export function registerSW(): void {
+  // 开发模式下禁用 PWA，避免 Service Worker 与 HMR 冲突导致页面闪烁/循环刷新
+  if (import.meta.env.DEV) {
+    // 开发模式下确保清理已有的 Service Worker，避免缓存干扰
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.getRegistrations().then((regs) => {
+        for (const reg of regs) {
+          reg.unregister().catch(() => {});
+        }
+      });
+    }
+    return;
+  }
+
   if (!("serviceWorker" in navigator)) {
     return;
   }
