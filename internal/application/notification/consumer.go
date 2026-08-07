@@ -19,8 +19,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
@@ -295,11 +297,97 @@ func (c *consumer) handleCommentCreated(ctx context.Context, event mq.EventEnvel
 	return nil
 }
 
-// create 写入一条通知记录。
-func (c *consumer) create(ctx context.Context, input CreateNotificationInput) error {
-	svc := NewService(c.db)
-	_, err := svc.Create(ctx, input)
-	return err
+// create 写入一条通知记录,返回创建的通知(含 id/recipient_id 供下游入投递记录)。
+func (c *consumer) create(ctx context.Context, input CreateNotificationInput) (*Notification, error) {
+	svc := c.svc
+	return svc.Create(ctx, input)
+}
+
+// enqueueDeliveries 为刚创建的通知,按收件人订阅的非 in_app 渠道写入 notification_deliveries 待投递记录。
+// 写入在同一事务内完成: 设置 app.workspace_id 以通过偏好表 RLS,然后读偏好、生成投递记录。
+// 任何失败只打 warn 不阻塞主流程(in-app通知已落库,投递为尽力而为)。
+func (c *consumer) enqueueDeliveries(ctx context.Context, wsID, recipientID, notifID int64, eventType EventType) {
+	tx, err := c.db.Begin(ctx)
+	if err != nil {
+		c.log.Warn("enqueue deliveries: begin tx failed", zap.Error(err))
+		return
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	// 租户上下文,使 preference 行级安全策略(app.workspace_id)生效。
+	if _, err := tx.Exec(ctx,
+		"SELECT set_config('app.workspace_id', $1, true)",
+		strconv.FormatInt(wsID, 10),
+	); err != nil {
+		c.log.Warn("enqueue deliveries: set_config failed", zap.Error(err))
+		return
+	}
+
+	pref, err := c.svc.fetchPreferenceTx(ctx, tx, wsID, recipientID)
+	if err != nil && !errorsIsNoRows(err) {
+		c.log.Warn("enqueue deliveries: read preference failed", zap.Error(err))
+		return
+	}
+	if pref == nil || !pref.IsEnabled || !c.svc.isEventEnabledPref(pref, eventType) {
+		_ = tx.Rollback(ctx)
+		return
+	}
+
+	now := time.Now()
+	for _, chStr := range pref.Channels {
+		ch := Channel(chStr)
+		if ch == ChannelInApp {
+			continue
+		}
+		// DND 窗口内跳过非站内渠道(避免夜间打扰)。
+		if pref.DNDEnabled && inDNDWindow(pref.DNDStart, pref.DNDEnd) {
+			continue
+		}
+		recipient, def := c.resolveRecipient(ctx, ch, recipientID)
+		if !def {
+			continue
+		}
+		if _, err := tx.Exec(ctx,
+			"INSERT INTO notification_deliveries (notification_id,channel,status,recipient,created_at) VALUES ($1,$2,'pending',$3,$4)",
+			notifID, string(ch), recipient, now,
+		); err != nil {
+			c.log.Warn("enqueue deliveries: insert failed",
+				zap.String("channel", string(ch)), zap.Error(err))
+			return
+		}
+	}
+	if err := tx.Commit(ctx); err != nil {
+		c.log.Warn("enqueue deliveries: commit failed", zap.Error(err))
+	}
+}
+
+// resolveRecipient 解析渠道收件人地址;def=false 表示该渠道无法解析收件人(跳过)。
+func (c *consumer) resolveRecipient(ctx context.Context, ch Channel, userID int64) (string, bool) {
+	switch ch {
+	case ChannelEmail:
+		// 邮箱需查 users 表,为尽力而为:失败返回 false 跳过。
+		return c.userEmail(ctx, userID)
+	case ChannelWeCom, ChannelDingTalk, ChannelFeishu:
+		// IM webhook 由 dispatcher 按渠道从环境变量读取,收件人填渠道标识占位。
+		return string(ch), true
+	default:
+		return "", false
+	}
+}
+
+func (c *consumer) userEmail(ctx context.Context, userID int64) (string, bool) {
+	var email string
+	if err := c.db.QueryRow(ctx, "SELECT email FROM users WHERE id = $1 AND deleted_at IS NULL", userID).Scan(&email); err != nil {
+		return "", false
+	}
+	if email == "" {
+		return "", false
+	}
+	return email, true
+}
+
+func errorsIsNoRows(err error) bool {
+	return err != nil && err.Error() == "no rows in result set" || isNoRows(err)
 }
 
 // getProjectName 获取项目名称。失败时返回空字符串（非阻塞）。
