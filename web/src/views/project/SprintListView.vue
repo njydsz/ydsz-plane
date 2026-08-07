@@ -342,7 +342,10 @@ watch(ready, (r) => {
         </div>
       </div>
 
-      <div v-if="hasMore" class="load-more">
+    </div>
+
+    <!-- 加载更多 -->
+    <div v-if="hasMore" class="load-more">
       <button class="btn btn-secondary" :disabled="loading" @click="loadMore">
         {{ loading ? "加载中..." : "加载更多" }}
       </button>

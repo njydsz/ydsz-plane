@@ -291,11 +291,11 @@ func bulkInsertIssues(ctx context.Context, pool *persistence.Pool, fk *fkEntitie
 			remaining = batchSize
 		}
 
-		n, err := insertBatch(ctx, pool, fk, remaining, rng)
+		err := insertBatch(ctx, pool, fk, remaining, rng)
 		if err != nil {
 			return inserted, fmt.Errorf("在已插入 %d 条时失败: %w", inserted, err)
 		}
-		inserted += n
+		inserted += remaining
 
 		// 进度打印
 		if inserted%progressStep == 0 || inserted == total {
@@ -407,8 +407,8 @@ func allocateSequenceRange(ctx context.Context, tx pgx.Tx, projectID int64, seqC
 	return startSeq, nil
 }
 
-// generateIssueRow 生成单条工作项记录的伪随机数据。
-func generateIssueRow(rng *rand.Rand, fk *fkEntities, sequenceID int64, now time.Time) (row struct {
+// rawIssueRow 是单条工作项插入前的中间表示。
+type rawIssueRow struct {
 	projectID   int64
 	sequenceID  int64
 	typeCode    string
@@ -422,7 +422,11 @@ func generateIssueRow(rng *rand.Rand, fk *fkEntities, sequenceID int64, now time
 	targetDate  *time.Time
 	point       *int
 	progress    int
-}) {
+}
+
+// generateIssueRow 生成单条工作项记录的伪随机数据。
+func generateIssueRow(rng *rand.Rand, fk *fkEntities, sequenceID int64, now time.Time) rawIssueRow {
+	var row rawIssueRow
 	row.projectID = fk.projectID
 	row.sequenceID = sequenceID
 
@@ -500,7 +504,6 @@ func generateIssueName(rng *rand.Rand, typeCode string) string {
 		sb.WriteString(cnPrefixes[rng.Intn(len(cnPrefixes))])
 		sb.WriteString(cnSubjects[rng.Intn(len(cnSubjects))])
 		sb.WriteString(cnSuffixes[rng.Intn(len(cnSuffixes))])
-		// 20% 混合英文术语
 		if rng.Float64() < 0.2 {
 			sb.WriteString(" (")
 			sb.WriteString(enSubjects[rng.Intn(len(enSubjects))])
@@ -511,7 +514,6 @@ func generateIssueName(rng *rand.Rand, typeCode string) string {
 		sb.WriteString(" ")
 		sb.WriteString(enSubjects[rng.Intn(len(enSubjects))])
 		sb.WriteString(enSuffixes[rng.Intn(len(enSuffixes))])
-		// 20% 混合中文术语
 		if rng.Float64() < 0.2 {
 			sb.WriteString(" (")
 			sb.WriteString(cnSubjects[rng.Intn(len(cnSubjects))])
@@ -519,7 +521,7 @@ func generateIssueName(rng *rand.Rand, typeCode string) string {
 		}
 	}
 
-	return sb.ToString()
+	return sb.String()
 }
 
 func generateDescription(rng *rand.Rand) string {
@@ -541,7 +543,7 @@ func generateDescription(rng *rand.Rand) string {
 	case 2:
 		return fmt.Sprintf(t, rng.Intn(15)+1, rng.Intn(20)+5)
 	case 3:
-		return fmt.Sprintf(t)
+		return t
 	case 4:
 		return fmt.Sprintf(t, []string{"XSS", "SQL 注入", "越权访问", "CSRF"}[rng.Intn(4)],
 			[]string{"A03:2021", "A01:2021", "A05:2021", "A07:2021"}[rng.Intn(4)])

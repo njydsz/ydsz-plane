@@ -251,24 +251,17 @@ watch(ready, (r) => {
       </div>
     </header>
 
-    <div v-if="loading" class="center-message">
-      <div class="skeleton-card">
-        <div class="skeleton-line" style="width:60%"></div>
-        <div class="skeleton-line" style="width:40%"></div>
-        <div class="skeleton-line" style="width:80%"></div>
-        <div class="skeleton-line" style="width:30%"></div>
-      </div>
-    </div>
-    <div v-else-if="error" class="center-message error">
-      <p>{{ error }}</p>
-      <button class="btn btn-secondary" @click="load">重试</button>
-    </div>
-    <div v-else-if="!sprint" class="center-message empty">
-      <p>迭代不存在或已被删除</p>
+    <AppLoadingState v-if="loading" />
+    <AppErrorState v-else-if="error" :message="error" @retry="load" />
+    <AppEmptyState
+      v-else-if="!sprint"
+      title="迭代不存在或已被删除"
+      description="请检查迭代 ID 是否正确"
+    >
       <button class="btn btn-secondary" @click="router.back()">返回</button>
-    </div>
+    </AppEmptyState>
 
-    <div v-else-if="sprint" class="content">
+    <div v-else class="content">
       <!-- 进度卡片 -->
       <section class="progress-card">
         <h2>进度</h2>

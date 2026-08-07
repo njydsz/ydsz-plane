@@ -33,12 +33,12 @@ export const useNotificationStore = defineStore('notification', () => {
   /**
    * 拉取指定工作空间的通知列表（分页），刷新后同步未读数。
    * @param wsId 工作空间 ID
-   * @param params 可选过滤参数：limit（每页条数）、is_read（按已读状态过滤）
+   * @param params 可选过滤参数：limit（每页条数）、is_read（按已读状态过滤）、since（时间戳过滤，用于断线补偿）
    */
-  async function fetchList(wsId: number | string, params?: { limit?: number; is_read?: boolean }) {
+  async function fetchList(wsId: number | string, params?: { limit?: number; is_read?: boolean; since?: number }) {
     loading.value = true
     try {
-      const result = await notificationApi.list(wsId, { limit: params?.limit ?? 20, is_read: params?.is_read })
+      const result = await notificationApi.list(wsId, { limit: params?.limit ?? 20, is_read: params?.is_read, since: params?.since })
       items.value = result.items
       await fetchUnreadCount(wsId)
     } catch { /* 静默失败：列表保持旧值 */ }

@@ -1,11 +1,12 @@
 /**
- * WebSocket 客户端 — 自动重连、心跳、事件订阅
+ * WebSocket 客户端 — 自动重连、心跳、事件订阅、断线补偿
  *
  * 使用方式：
  *   import { wsClient } from '@/lib/ws-client'
  *   wsClient.connect(workspaceId)
  *   wsClient.on('issue.updated', (data) => { ... })
  *   wsClient.off('issue.updated', handler)
+ *   wsClient.onReconnect(() => { /* 补偿拉取 */ })
  *   wsClient.disconnect()
  */
 type WSMessage = {
@@ -21,11 +22,26 @@ class WSClient {
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null
   private listeners: Map<string, Set<Listener>> = new Map()
+  private reconnectCallbacks: Set<() => void> = new Set()
   private reconnectAttempts = 0
   private maxReconnectAttempts = 10
   private intentionalClose = false
   private workspaceId: number | null = null
   private userId: number | undefined
+  /** 上次断开时的时间戳，用于断线补偿 since 参数 */
+  get lastDisconnectTimestamp(): number {
+    return this.lastDisconnectTs
+  }
+
+  /** 注册断线重连补偿回调（在每次重连成功后调用） */
+  onReconnect(callback: () => void) {
+    this.reconnectCallbacks.add(callback)
+  }
+
+  /** 取消断线重连补偿回调 */
+  offReconnect(callback: () => void) {
+    this.reconnectCallbacks.delete(callback)
+  }
 
   /** 当前连接的 workspaceId（未连接时为 null） */
   get currentWorkspaceId(): number | null {
@@ -62,6 +78,14 @@ class WSClient {
       this.reconnectAttempts = 0
       this.startHeartbeat()
       console.log('[WS] connected')
+
+      // 断线重连补偿：通知所有已注册的回调进行数据补齐
+      if (this.lastDisconnectTs > 0) {
+        console.log(`[WS] reconnect detected, triggering compensation (since ${new Date(this.lastDisconnectTs).toISOString()})`)
+        this.reconnectCallbacks.forEach(cb => {
+          try { cb() } catch (e) { console.error('[WS] reconnect callback error:', e) }
+        })
+      }
     }
 
     this.ws.onmessage = (event) => {
@@ -77,6 +101,7 @@ class WSClient {
     this.ws.onclose = () => {
       this.stopHeartbeat()
       if (!this.intentionalClose) {
+        this.lastDisconnectTs = Date.now()
         this.scheduleReconnect()
       }
     }
@@ -125,6 +150,8 @@ class WSClient {
       this.ws = null
     }
     this.listeners.clear()
+    this.reconnectCallbacks.clear()
+    this.lastDisconnectTs = 0
   }
 
   /** 订阅事件 */

@@ -9,6 +9,7 @@ import { useRoute } from "vue-router";
 
 import { workspaceApi, type Project } from "@/api/services/workspace";
 import { ApiError } from "@/api/client";
+import { AppLoadingState, AppErrorState } from "@/components";
 
 const route = useRoute();
 const workspaceSlug = String(route.params.workspaceSlug);
@@ -88,9 +89,10 @@ onMounted(loadProject);
 </script>
 
 <template>
-  <div v-if="loading" class="loading">加载中...</div>
-  <div v-else-if="error" class="error-state">{{ error }}</div>
-  <div v-else-if="project" class="settings">
+  <div class="project-settings">
+    <AppLoadingState v-if="loading" />
+    <AppErrorState v-else-if="error" :message="error" @retry="loadProject" />
+    <div v-else-if="project" class="settings">
     <header class="settings__header">
       <h1>{{ project.name }} 设置</h1>
       <p class="meta">#{{ project.identifier }} · 项目配置与管理</p>
@@ -171,9 +173,11 @@ onMounted(loadProject);
       </div>
     </section>
   </div>
+  </div>
 </template>
 
 <style scoped>
+.project-settings { max-width: 700px; }
 .loading,
 .error-state {
   text-align: center;

@@ -4,6 +4,7 @@
  */
 import { onMounted, ref } from "vue";
 import { notificationApi, type NotificationPreference } from "@/api/services/notification";
+import { AppLoadingState, AppErrorState } from "@/components";
 import { workspaceApi, type Workspace } from "@/api/services/workspace";
 
 const props = defineProps<{ workspaceSlug: string }>();
@@ -104,11 +105,8 @@ onMounted(load);
       <p class="notification-prefs__subtitle">控制你在此工作空间收到的通知类型与投递方式</p>
     </div>
 
-    <div v-if="loading" class="notification-prefs__state">加载中...</div>
-    <div v-else-if="error" class="notification-prefs__state notification-prefs__state--error">
-      {{ error }}
-      <button class="btn btn--sm" @click="load">重试</button>
-    </div>
+    <AppLoadingState v-if="loading" />
+    <AppErrorState v-else-if="error" :message="error" @retry="load" />
 
     <div v-else-if="pref" class="notification-prefs__body">
       <!-- 总开关 -->

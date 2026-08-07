@@ -91,6 +91,8 @@ export const notificationApi = {
     offset?: number
     is_read?: boolean
     event_type?: string
+    /** 按时间戳过滤，仅返回此时间之后的通知（用于 WS 断线重连补偿） */
+    since?: number
   }): Promise<NotificationListResult> {
     const { data } = await apiClient.get(`/workspaces/${wsId}/notifications`, { params })
     return data

@@ -77,6 +77,15 @@ function handleAnyChange() {
   void notifStore.fetchUnreadCount(currentWsId.value);
 }
 
+/** 断线重连补偿：重新拉取未读数 + 通知列表 */
+function handleReconnectCompensation() {
+  if (!currentWsId.value) return
+  const since = wsClient.lastDisconnectTimestamp
+  void notifStore.fetchUnreadCount(currentWsId.value)
+  // 断线期间可能有漏掉的通知，拉取列表补齐
+  void notifStore.fetchList(currentWsId.value, { limit: 20, since: since || undefined })
+}
+
 watch(
   currentWsId,
   (id) => {
@@ -91,6 +100,8 @@ watch(
       wsClient.on("comment.created", handleAnyChange);
       wsClient.on("sprint.started", handleAnyChange);
       wsClient.on("version.released", handleAnyChange);
+      // 注册断线重连补偿回调
+      wsClient.onReconnect(handleReconnectCompensation);
       // 初始拉取未读数
       void notifStore.fetchUnreadCount(id);
     }

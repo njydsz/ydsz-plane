@@ -33,6 +33,8 @@ type ListInput struct {
 	IsRead      *bool
 	IsArchived  *bool
 	EventType   *string
+	/** 按创建时间过滤，仅返回此时间戳之后的通知（用于 WS 断线重连补偿） */
+	Since       *int64
 	Limit       int
 	Offset      int
 }
