@@ -1,0 +1,187 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  GO_VERSION: '1.26'
+  NODE_VERSION: '20'
+  PNPM_VERSION: '10'
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ---- 后端静态检查 ----
+  go-lint:
+    name: Go Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - uses: golangci/golangci-lint-action@v6
+        with:
+          args: --timeout=5m
+          only-new-issues: false
+
+  # ---- 后端测试（race + 覆盖率门槛） ----
+  go-test:
+    name: Go Test (race + coverage)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: ydsz
+          POSTGRES_PASSWORD: ydsz
+          POSTGRES_DB: ydsz_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U ydsz"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:8
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # 测试环境连接（若集成测试需要真实中间件时使用；单测默认走 mock）
+      YDSZ_DB_DSN: postgres://ydsz:ydsz@localhost:5432/ydsz_test?sslmode=disable
+      YDSZ_REDIS_ADDR: localhost:6379
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - run: go build ./...
+      - name: Run unit tests with coverage
+        run: |
+          go test ./... -race -count=1 -coverprofile=coverage.out -covermode=atomic
+      # 覆盖率门禁采用"渐进式基线"：当前整体约 10%，设 15% 为起点，
+      # 随 P2 补测逐步提升该阈值（目标阶段：40%+）。
+      - name: Enforce coverage threshold (progressive baseline >= 15%)
+        run: |
+          go tool cover -func=coverage.out > cover.txt
+          cat cover.txt
+          TOTAL=$(go tool cover -func=coverage.out | tail -n 1 | awk '{print $NF}' | tr -d '%')
+          echo "total coverage = ${TOTAL}%"
+          if (( $(echo "$TOTAL < 15" | bc -l) )); then
+            echo "::error::Go coverage ${TOTAL}% below threshold 15%"
+            exit 1
+          fi
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: go-coverage
+          path: coverage.out
+
+  # ---- 后端安全漏洞扫描 ----
+  go-security:
+    name: Go Vulnerabilities (govulncheck)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - name: Install govulncheck
+        run: go install golang.org/x/vuln/cmd/govulncheck@latest
+      - name: Run govulncheck
+        run: govulncheck ./...
+
+  # ---- 前端 lint + typecheck ----
+  web-lint:
+    name: Web Lint + Typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+      - name: Install dependencies
+        run: cd web && pnpm install --frozen-lockfile
+      - name: Lint
+        run: cd web && pnpm lint
+      - name: Typecheck
+        run: cd web && pnpm typecheck
+
+  # ---- 前端测试 + 构建 ----
+  web-test-build:
+    name: Web Test + Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+      - name: Install dependencies
+        run: cd web && pnpm install --frozen-lockfile
+      - name: Run tests
+        run: cd web && pnpm test
+      - name: Build
+        run: cd web && pnpm build
+
+  # ---- 前端依赖安全审计 ----
+  web-audit:
+    name: Web Dependency Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+      - name: Install dependencies
+        run: cd web && pnpm install --frozen-lockfile
+      - name: Audit production dependencies
+        run: cd web && pnpm audit --prod
+
+  # ---- 代码审查（开源 OCR：alibaba/open-code-review） ----
+  code-review:
+    name: AI Code Review
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - name: Install ocr
+        run: go install github.com/alibaba/open-code-review/cmd/ocr@latest
+      - name: Run AI code review
+        env:
+          # 需在仓库 Secrets 配置：OCR_MODEL / OCR_MODEL_PROVIDER / OCR_APP_KEY / OCR_APP_SECRET
+          OCR_MODEL: ${{ secrets.OCR_MODEL }}
+          OCR_MODEL_PROVIDER: ${{ secrets.OCR_MODEL_PROVIDER }}
+          OCR_APP_KEY: ${{ secrets.OCR_APP_KEY }}
+          OCR_APP_SECRET: ${{ secrets.OCR_APP_SECRET }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: ocr review --lang=zh --report --review-type=commit

@@ -46,6 +46,12 @@ const router = createRouter({
           name: "home",
           component: () => import("@/views/workspace/WorkspaceListView.vue"),
         },
+        {
+          path: "workbench",
+          name: "workbench",
+          component: () => import("@/views/workspace/WorkbenchView.vue"),
+          props: (route) => ({ workspaceSlug: route.params.workspaceSlug }),
+        },
         // 邀请接受链接：公开可读，但 POST accept 需鉴权
         {
           path: "invite/:token",

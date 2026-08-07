@@ -45,6 +45,16 @@ test:
 	go test $(GOPKGS) -race -count=1
 	cd web && pnpm test
 
+# 本地覆盖率：生成 coverage.out 并按函数列出覆盖情况
+coverage:
+	go test $(GOPKGS) -count=1 -coverprofile=coverage.out
+	go tool cover -func=coverage.out
+
+# 覆盖率 HTML 报告：coverage.html
+coverage-html:
+	go test $(GOPKGS) -count=1 -coverprofile=coverage.out
+	go tool cover -html=coverage.out -o coverage.html
+
 build:
 	go build $(GOPKGS)
 	cd web && pnpm build

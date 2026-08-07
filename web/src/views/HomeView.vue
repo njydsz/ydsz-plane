@@ -33,25 +33,25 @@
           <div class="task-section">
             <div class="task-group" v-if="overdueTasks.length">
               <div class="task-group-title overdue">逾期 ({{ overdueTasks.length }})</div>
-              <div v-for="t in overdueTasks.slice(0,5)" :key="t.id" class="task-item" @click="goIssue(t.project_id, t.sequence_id)">
-                <span class="task-id">#{{ t.sequence_id }}</span>
-                <span class="task-name">{{ t.name }}</span>
+              <div v-for="t in overdueTasks.slice(0,5)" :key="t.id" class="task-item" @click="goIssue(t.group_id, t.id)">
+                <span class="task-id">{{ t.identifier }}</span>
+                <span class="task-name">{{ t.title }}</span>
                 <span class="task-meta">{{ t.project_name }}</span>
               </div>
             </div>
             <div class="task-group" v-if="todayTasks.length">
               <div class="task-group-title today">今日 ({{ todayTasks.length }})</div>
-              <div v-for="t in todayTasks.slice(0,5)" :key="t.id" class="task-item" @click="goIssue(t.project_id, t.sequence_id)">
-                <span class="task-id">#{{ t.sequence_id }}</span>
-                <span class="task-name">{{ t.name }}</span>
+              <div v-for="t in todayTasks.slice(0,5)" :key="t.id" class="task-item" @click="goIssue(t.group_id, t.id)">
+                <span class="task-id">{{ t.identifier }}</span>
+                <span class="task-name">{{ t.title }}</span>
                 <span class="task-meta">{{ t.project_name }}</span>
               </div>
             </div>
             <div class="task-group" v-if="inProgressTasks.length">
               <div class="task-group-title in-progress">进行中 ({{ inProgressTasks.length }})</div>
-              <div v-for="t in inProgressTasks.slice(0,5)" :key="t.id" class="task-item" @click="goIssue(t.project_id, t.sequence_id)">
-                <span class="task-id">#{{ t.sequence_id }}</span>
-                <span class="task-name">{{ t.name }}</span>
+              <div v-for="t in inProgressTasks.slice(0,5)" :key="t.id" class="task-item" @click="goIssue(t.group_id, t.id)">
+                <span class="task-id">{{ t.identifier }}</span>
+                <span class="task-name">{{ t.title }}</span>
                 <span class="task-meta">{{ t.project_name }}</span>
               </div>
             </div>
@@ -66,17 +66,17 @@
           <div v-else class="sprint-cards">
             <div v-if="currentSprint" class="sprint-card active">
               <div class="sc-status active">进行中</div>
-              <div class="sc-name">{{ currentSprint.name }}</div>
+              <div class="sc-name">{{ currentSprint.sprint_name }}</div>
               <div class="sc-project">{{ currentSprint.project_name }}</div>
-              <ProgressBar :percent="currentSprint.progress" />
-              <div class="sc-stats">{{ currentSprint.completed_count }}/{{ currentSprint.issue_count }} 已完成</div>
-              <router-link :to="`/${wsSlug}/projects/${currentSprint.project_id}/sprints/${currentSprint.id}`" class="sc-link">查看详情 →</router-link>
+              <ProgressBar :percent="currentSprint.progress * 100" />
+              <div class="sc-stats">{{ currentSprint.my_issue_count }} 项 · 剩 {{ currentSprint.days_remaining }} 天</div>
+              <router-link :to="`/${wsSlug}/projects/${currentSprint.project_id}/sprints/${currentSprint.sprint_id}`" class="sc-link">查看详情 →</router-link>
             </div>
             <div v-if="nextSprint" class="sprint-card">
               <div class="sc-status planned">规划中</div>
-              <div class="sc-name">{{ nextSprint.name }}</div>
+              <div class="sc-name">{{ nextSprint.sprint_name }}</div>
               <div class="sc-project">{{ nextSprint.project_name }}</div>
-              <div class="sc-date" v-if="nextSprint.start_date">{{ formatDate(nextSprint.start_date) }} 开始</div>
+              <div class="sc-date" v-if="nextSprint.days_remaining">剩 {{ nextSprint.days_remaining }} 天</div>
             </div>
           </div>
         </section>
@@ -86,10 +86,10 @@
       <section class="wb-section" v-if="recentItems.length">
         <h3>最近访问</h3>
         <div class="recent-list">
-          <div v-for="item in recentItems.slice(0,10)" :key="item.entity_id" class="recent-item" @click="goRecent(item)">
-            <span class="ri-type">{{ typeLabel(item.entity_type) }}</span>
-            <span class="ri-name">{{ item.name }}</span>
-            <span class="ri-meta">{{ item.project_name }}</span>
+          <div v-for="item in recentItems.slice(0,10)" :key="`${item.item_type}-${item.item_id}`" class="recent-item" @click="goRecent(item)">
+            <span class="ri-type">{{ typeLabel(item.item_type) }}</span>
+            <span class="ri-name">{{ item.title }}</span>
+            <span class="ri-meta">{{ item.identifier || ('#' + item.item_id) }}</span>
           </div>
         </div>
       </section>
@@ -100,7 +100,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { workbenchApi, type WorkbenchSummary, type QuickAction } from '@/api/services/workbench'
+import { workbenchApi, type WorkbenchSummary, type QuickActionSet } from '@/api/services/workbench'
 import { useWorkspaceStore } from '@/stores/workspace'
 import AppLoadingState from '@/components/AppLoadingState.vue'
 import AppErrorState from '@/components/AppErrorState.vue'
@@ -124,25 +124,30 @@ const greeting = computed(() => {
   return '晚上好 🌙'
 })
 
-/** 快捷操作：优先取后端配置，缺省时提供新建工作项/迭代的兜底动作 */
-const quickActions = computed<QuickAction[]>(() => summary.value?.quick_actions ?? [
-  { type: 'create_issue', label: '新建工作项', icon: '➕', route: `/${wsSlug.value}/projects` },
-  { type: 'create_sprint', label: '新建迭代', icon: '🏃', route: `/${wsSlug.value}/projects` },
-])
+/** 快捷操作：从后端 QuickActionSet 转换为 UI Action 列表 */
+interface QuickActionItem { type: string; label: string; icon: string; route: string; }
+const quickActions = computed<QuickActionItem[]>(() => {
+  const qa: QuickActionSet | undefined = summary.value?.quick_actions;
+  if (!qa) return [];
+  const out: QuickActionItem[] = [];
+  if (qa.can_create_issue) out.push({ type: 'create_issue', label: '新建工作项', icon: '➕', route: `/${wsSlug.value}/projects` });
+  if (qa.can_start_sprint) out.push({ type: 'create_sprint', label: '新建迭代', icon: '🏃', route: `/${wsSlug.value}/projects` });
+  return out;
+})
 
 /** 逾期任务列表 */
-const overdueTasks = computed(() => summary.value?.my_tasks?.overdue ?? [])
+const overdueTasks = computed(() => summary.value?.my_issues?.overdue ?? [])
 /** 今日到期任务列表 */
-const todayTasks = computed(() => summary.value?.my_tasks?.today ?? [])
+const todayTasks = computed(() => summary.value?.my_issues?.today ?? [])
 /** 进行中任务列表 */
-const inProgressTasks = computed(() => summary.value?.my_tasks?.in_progress ?? [])
+const inProgressTasks = computed(() => summary.value?.my_issues?.in_progress ?? [])
 /** 是否完全没有任务（用于展示空态） */
 const noTasks = computed(() => overdueTasks.value.length === 0 && todayTasks.value.length === 0 && inProgressTasks.value.length === 0)
 
 /** 当前进行中的迭代 */
-const currentSprint = computed(() => summary.value?.iteration_overview?.current ?? null)
+const currentSprint = computed(() => summary.value?.sprint_overviews?.find(s => s.status === 'active') ?? null)
 /** 下一个即将开始的迭代 */
-const nextSprint = computed(() => summary.value?.iteration_overview?.next ?? null)
+const nextSprint = computed(() => summary.value?.sprint_overviews?.find(s => s.status === 'planned') ?? null)
 /** 最近访问实体列表 */
 const recentItems = computed(() => summary.value?.recent_items ?? [])
 
@@ -166,13 +171,13 @@ function goIssue(projectId: number, seqId: number) {
 
 /** 跳转到最近访问的实体详情页（当前仅支持 issue） */
 function goRecent(item: any) {
-  if (item.entity_type === 'issue') {
-    router.push(`/${wsSlug.value}/projects/${item.project_id}/issues/${item.entity_id}`)
+  if (item.item_type === 'issue') {
+    router.push(`/${wsSlug.value}/projects/${item.project_id}/issues/${item.item_id}`)
   }
 }
 
 /** 执行快捷操作：若有配置路由则跳转 */
-function handleAction(act: QuickAction) {
+function handleAction(act: QuickActionItem) {
   if (act.route) router.push(act.route)
 }
 
@@ -182,10 +187,6 @@ function typeLabel(t: string): string {
   return map[t] || t
 }
 
-/** 将日期格式化为"x月x日"短格式 */
-function formatDate(d: string): string {
-  return new Date(d).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })
-}
 
 onMounted(() => {
   if (wsStore.current) load()

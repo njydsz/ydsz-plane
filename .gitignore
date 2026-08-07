@@ -8,12 +8,18 @@
 *.exe
 *.test
 coverage.out
+/coverage
+coverage.html
 
 # Node / web
 node_modules/
 web/dist/
 web/node_modules/
 *.tsbuildinfo
+web/_tmp_*/
+web/coverage/
+web/playwright-report/
+web/test-results/
 
 # IDE
 .idea/

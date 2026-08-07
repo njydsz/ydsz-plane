@@ -1,3 +1,4 @@
+/// <reference types="vitest/config" />
 import { fileURLToPath, URL } from "node:url";
 
 import vue from "@vitejs/plugin-vue";
@@ -8,6 +9,26 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": fileURLToPath(new URL("./src", import.meta.url)),
+    },
+  },
+  test: {
+    // 前端组件/单元测试环境
+    environment: "happy-dom",
+    globals: true,
+    include: ["src/**/*.{test,spec}.ts"],
+    // 覆盖率阈值门禁：全量 >= 50%，函数 >= 40%
+    coverage: {
+      provider: "v8",
+      reporter: ["text", "lcov"],
+      include: ["src/components/**/*.vue", "src/stores/**/*.ts"],
+      thresholds: {
+        global: {
+          lines: 50,
+          functions: 40,
+          branches: 40,
+          statements: 50,
+        },
+      },
     },
   },
   build: {
