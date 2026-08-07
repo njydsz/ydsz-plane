@@ -68,7 +68,8 @@ func (s *Service) List(ctx context.Context, wsID, projectID int64, entityType st
 	return atts, nil
 }
 
-// CreatePresignedUpload 生成 UUID 存储 key，预签名 PUT URL（15 分钟），并插入 DB 记录。
+// CreatePresignedUpload 生成 UUID 存储 key，预签名 PUT URL（15 分钟）。
+// 仅返回上传 URL 与 storage_key，不写入 DB；客户端 PUT 成功后须调用 ConfirmUpload 落库。
 func (s *Service) CreatePresignedUpload(ctx context.Context, wsID, projectID int64, input PresignedUploadInput) (*PresignedUploadResult, error) {
 	ct := input.ContentType
 	if ct == "" {
@@ -89,7 +90,35 @@ func (s *Service) CreatePresignedUpload(ctx context.Context, wsID, projectID int
 		return nil, fmt.Errorf("Attachment.CreatePresignedUpload: presign: %w", err)
 	}
 
-	// 插入 DB 记录
+	return &PresignedUploadResult{
+		UploadURL:  uploadURL,
+		StorageKey: storageKey,
+	}, nil
+}
+
+// ConfirmUpload 校验对象存储中的文件已存在（stat），然后写入 DB 记录并返回附件。
+// 幂等：相同 storage_key 已插入时返回已存在记录的冲突错误，由前端做去重判定。
+func (s *Service) ConfirmUpload(ctx context.Context, wsID, projectID int64, input ConfirmUploadInput) (*Attachment, error) {
+	// 校验对象已上传
+	exists, err := s.st.Exists(ctx, input.StorageKey)
+	if err != nil {
+		return nil, fmt.Errorf("Attachment.ConfirmUpload: storage stat: %w", err)
+	}
+	if !exists {
+		return nil, errs.NotFound("ATTACHMENT.NOT_UPLOADED", "文件尚未上传或已过期，请重新上传")
+	}
+
+	// 获取实际存储大小（stat 返回）；客户端传入的 file_size 作为 fallback
+	size := input.FileSize
+	if actual, err := s.st.Size(ctx, input.StorageKey); err == nil && actual > 0 {
+		size = actual
+	}
+
+	ct := input.ContentType
+	if ct == "" {
+		ct = "application/octet-stream"
+	}
+
 	var a Attachment
 	err = s.db.QueryRow(ctx, `
 		INSERT INTO attachments
@@ -101,7 +130,7 @@ func (s *Service) CreatePresignedUpload(ctx context.Context, wsID, projectID int
 			file_name, file_size, content_type, storage_key,
 			uploaded_by, created_at, updated_at`,
 		wsID, projectID, input.EntityType, input.EntityID,
-		input.FileName, 0, ct, storageKey,
+		input.FileName, size, ct, input.StorageKey,
 		input.UploadedBy,
 	).Scan(
 		&a.ID, &a.WorkspaceID, &a.ProjectID, &a.EntityType, &a.EntityID,
@@ -109,14 +138,9 @@ func (s *Service) CreatePresignedUpload(ctx context.Context, wsID, projectID int
 		&a.UploadedBy, &a.CreatedAt, &a.UpdatedAt,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("Attachment.CreatePresignedUpload: insert: %w", err)
+		return nil, fmt.Errorf("Attachment.ConfirmUpload: insert: %w", err)
 	}
-
-	return &PresignedUploadResult{
-		UploadURL:  uploadURL,
-		StorageKey: storageKey,
-		Attachment: &a,
-	}, nil
+	return &a, nil
 }
 
 // Delete 加载附件并从存储删除文件，然后软删除 DB 记录。

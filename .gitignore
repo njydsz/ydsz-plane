@@ -20,6 +20,7 @@ web/_tmp_*/
 web/coverage/
 web/playwright-report/
 web/test-results/
+web/e2e/.auth/
 
 # IDE
 .idea/

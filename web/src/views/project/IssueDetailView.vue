@@ -8,6 +8,7 @@ import { useRouter } from "vue-router";
 
 import { issueApi, type Issue, type IssueActivity, type State, type TimeLog } from "@/api/services/issue";
 import { workspaceApi, type Workspace } from "@/api/services/workspace";
+import { attachmentApi, type Attachment } from "@/api/services/attachment";
 import { toast } from "@/lib/toast";
 import RichTextEditor from "@/components/RichTextEditor.vue";
 import CommentList from "@/components/CommentList.vue";
@@ -56,6 +57,65 @@ const descHtml = ref("");
 const descJsonValue = ref("{}");
 const descSaving = ref(false);
 const descError = ref("");
+const descEditor = ref<InstanceType<typeof RichTextEditor> | null>(null);
+
+/** 粘贴图片到描述编辑器：上传附件并将图片插入编辑器光标位置。 */
+async function handleDescPasteImage(file: File) {
+  if (!ws.value) return;
+  // 仅处理编辑器激活状态下的粘贴
+  if (!editingDesc.value) return;
+  try {
+    // 1. 获取预签名 URL
+    const presigned = await attachmentApi.getPresignedUploadURL(
+      ws.value.id, props.projectId,
+      {
+        file_name: file.name || `paste-${Date.now()}.png`,
+        content_type: file.type || "image/png",
+        entity_type: "issue",
+        entity_id: props.issueId,
+      },
+    );
+
+    // 2. PUT 直传 MinIO
+    const ok = await new Promise<boolean>((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open("PUT", presigned.upload_url);
+      xhr.setRequestHeader("Content-Type", file.type || "image/png");
+      xhr.onload = () => (xhr.status >= 200 && xhr.status < 300 ? resolve(true) : reject(new Error(`upload ${xhr.status}`)));
+      xhr.onerror = () => reject(new Error("network error"));
+      xhr.send(file);
+    });
+    if (!ok) throw new Error("上传失败");
+
+    // 3. 确认写入 DB
+    const confirmed = await attachmentApi.confirmUpload(ws.value.id, props.projectId, {
+      file_name: file.name || `paste-${Date.now()}.png`,
+      content_type: file.type || "image/png",
+      file_size: file.size,
+      entity_type: "issue",
+      entity_id: props.issueId,
+      storage_key: presigned.storage_key,
+    });
+    const _att: Attachment = confirmed.attachment;
+
+    // 4. 获取预签名查看 URL（列表接口返回带 URL 的附件）
+    const list = await attachmentApi.listAttachments(ws.value.id, props.projectId, "issue", props.issueId);
+    const withUrl = list.results.find((a) => a.id === _att.id);
+    const imageUrl = withUrl?.storage_url ?? "";
+    if (!imageUrl) throw new Error("图片 URL 未就绪");
+
+    // 5. 插入图片到编辑器光标处
+    const ed = descEditor.value?.editor;
+    if (ed) {
+      ed.chain().focus().setImage({ src: imageUrl }).run();
+    }
+    toast.success("图片已插入");
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : "图片上传失败";
+    descError.value = msg;
+    toast.error(msg);
+  }
+}
 
 // 一键提缺陷
 const showDefectModal = ref(false);
@@ -370,10 +430,12 @@ onMounted(() => {
           <!-- 编辑模式：TipTap 富文本编辑器 -->
           <div v-if="editingDesc" class="edit-row">
             <RichTextEditor
+              ref="descEditor"
               v-model:content-html="descHtml"
               v-model:content-json="descJsonValue"
               placeholder="输入工作项描述..."
               :min-height="'200px'"
+              @paste-image="handleDescPasteImage"
             />
             <div class="edit-row__actions">
               <button class="btn btn--sm btn--primary" @click="saveDesc" :disabled="descSaving">{{ descSaving ? "保存中..." : "保存" }}</button>

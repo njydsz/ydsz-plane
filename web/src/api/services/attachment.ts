@@ -32,10 +32,24 @@ export interface PresignedUploadInput {
   entity_id: number;
 }
 
-/** 预签名上传响应 */
+/** 预签名上传响应（presign 阶段不含 attachment，需 confirm 后才有） */
 export interface PresignedUploadResult {
   upload_url: string;
   storage_key: string;
+}
+
+/** 上传确认入参 */
+export interface ConfirmUploadInput {
+  file_name: string;
+  content_type: string;
+  file_size: number;
+  entity_type: string;
+  entity_id: number;
+  storage_key: string;
+}
+
+/** 上传确认响应 */
+export interface ConfirmUploadResult {
   attachment: Attachment;
 }
 
@@ -58,6 +72,12 @@ export const attachmentApi = {
   getPresignedUploadURL: (wsId: number, projectId: number, input: PresignedUploadInput) =>
     wrap<PresignedUploadResult>(
       http.post(`/workspaces/${wsId}/projects/${projectId}/attachments/presigned-upload`, input),
+    ),
+
+  /** 上传确认：PUT 成功后调用，写入 DB 附件记录 */
+  confirmUpload: (wsId: number, projectId: number, input: ConfirmUploadInput) =>
+    wrap<ConfirmUploadResult>(
+      http.post(`/workspaces/${wsId}/projects/${projectId}/attachments/confirm`, input),
     ),
 
   /** 删除附件 */

@@ -29,7 +29,9 @@ func NewHandler(d *HandlerDeps) *Handler {
 // Register 注册附件路由（项目级）。
 func (h *Handler) Register(r *gin.RouterGroup) {
 	r.GET("/attachments", h.listAttachments)
+	r.GET("/issues/:issue_id/attachments", h.listIssueAttachments)
 	r.POST("/attachments/presigned-upload", h.getPresignedUploadURL)
+	r.POST("/attachments/confirm", h.confirmUpload)
 	r.DELETE("/attachments/:id", h.deleteAttachment)
 }
 
@@ -88,6 +90,57 @@ func (h *Handler) getPresignedUploadURL(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, result)
+}
+
+// listIssueAttachments GET /issues/:issue_id/attachments — 便捷路由，等价于 GET /attachments?entity_type=issue&entity_id=:issue_id
+func (h *Handler) listIssueAttachments(c *gin.Context) {
+	wsID := c.GetInt64(middleware.CtxWorkspaceID)
+	projectID := c.GetInt64(middleware.CtxProjectID)
+	issueID := int64Param(c, "issue_id")
+
+	atts, err := h.d.AttachmentSvc.List(c.Request.Context(), wsID, projectID, "issue", issueID)
+	if err != nil {
+		writeErr(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, ListResponse{Results: atts})
+}
+
+// confirmUpload POST /attachments/confirm — 客户端 PUT 成功后提交，写入 DB 记录。
+func (h *Handler) confirmUpload(c *gin.Context) {
+	wsID := c.GetInt64(middleware.CtxWorkspaceID)
+	projectID := c.GetInt64(middleware.CtxProjectID)
+	userID := c.GetInt64(middleware.CtxUserID)
+
+	var req struct {
+		FileName    string `json:"file_name" binding:"required"`
+		ContentType string `json:"content_type"`
+		FileSize    int64  `json:"file_size"`
+		EntityType  string `json:"entity_type" binding:"required"`
+		EntityID    int64  `json:"entity_id" binding:"required"`
+		StorageKey  string `json:"storage_key" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		middleware.AbortWithError(c, errs.ErrValidation.WithDetails(fieldDetail(err)...))
+		return
+	}
+
+	att, err := h.d.AttachmentSvc.ConfirmUpload(c.Request.Context(), wsID, projectID, ConfirmUploadInput{
+		FileName:    req.FileName,
+		ContentType: req.ContentType,
+		FileSize:    req.FileSize,
+		EntityType:  req.EntityType,
+		EntityID:    req.EntityID,
+		StorageKey:  req.StorageKey,
+		UploadedBy:  userID,
+	})
+	if err != nil {
+		writeErr(c, err)
+		return
+	}
+
+	c.JSON(http.StatusCreated, ConfirmUploadResult{Attachment: *att})
 }
 
 // deleteAttachment DELETE /attachments/:id

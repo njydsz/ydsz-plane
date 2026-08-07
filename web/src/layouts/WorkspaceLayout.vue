@@ -169,6 +169,14 @@ onMounted(bootstrap);
       <!-- ===== 侧边导航 ===== -->
       <nav class="sidebar__nav">
         <router-link
+          :to="`/${wsStore.currentSlug}/workbench`"
+          class="nav-item"
+          active-class="is-active"
+        >
+          <span class="nav-icon">📊</span>
+          <span v-if="!collapsed">工作台</span>
+        </router-link>
+        <router-link
           :to="`/${wsStore.currentSlug}/projects`"
           class="nav-item"
           active-class="is-active"

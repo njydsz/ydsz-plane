@@ -47,9 +47,16 @@ const router = createRouter({
           component: () => import("@/views/workspace/WorkspaceListView.vue"),
         },
         {
-          path: "workbench",
+          path: ":workspaceSlug/workbench",
           name: "workbench",
           component: () => import("@/views/workspace/WorkbenchView.vue"),
+          props: (route) => ({ workspaceSlug: route.params.workspaceSlug }),
+        },
+        // 通知中心全屏页（从铃铛下拉「查看全部通知」进入）
+        {
+          path: ":workspaceSlug/notifications",
+          name: "notifications",
+          component: () => import("@/views/workspace/NotificationsView.vue"),
           props: (route) => ({ workspaceSlug: route.params.workspaceSlug }),
         },
         // 邀请接受链接：公开可读，但 POST accept 需鉴权

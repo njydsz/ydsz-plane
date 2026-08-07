@@ -20,8 +20,8 @@
 
 ## 项目状态
 
-> **当前阶段：M0 ✅ + M0.5 ✅ + M1 ✅ + M2/M3/M4 API ✅ — 数据库迁移至 0007，核心域后端 API 全线贯通，前端视图骨架完备**
-> 最后更新：2026-08-08 · 架构基线版本 v1.2
+> **当前阶段：M0 ✅ + M0.5 ✅ + M1 ✅ + M2/M3/M4 ✅ + M5 推进中 — 核心域后端 API 全线贯通，前端视图骨架完备，工程化质量治理补强中**
+> 最后更新：2026-08-07 · 架构基线版本 v1.2
 
 Ydsz Plane 是一款开源、自托管的现代项目管理工具，专为中小型敏捷开发团队设计。M0 工程基座、M0.5 增强基座（RBAC/可观测性/安全纵深/Swagger）、M1 租户与项目骨架（Workspace CRUD/成员邀请/审计）、M2 工作项核心（Issue 全生命周期/状态机/关联/依赖/WBS）、M3 迭代管理（Sprint 生命周期/燃尽图/速率统计）、M4 版本日（版本聚合/发布/交付报告）的后端 API 与前端的视图骨架已全部就绪。数据库迁移脚本从 0001 递进至 0007（users → workspaces → issue_core → state_templates → sprint_core → version_core），覆盖全部核心域 schema。
 
@@ -49,6 +49,10 @@ Ydsz Plane 是一款开源、自托管的现代项目管理工具，专为中小
 | 数据库迁移 | 0001~0007（users / workspaces / issue_core / state_templates / sprint_core / version_core） | ✅ |
 | 种子数据 | 5 用户 + 3 工作空间 + 多角色成员（owner/admin/member/guest）+ 幂等执行 | ✅ |
 | Issue API | CRUD + 状态流转 + 活动日志 + 工时记录 + 关联（6 种关系）+ 依赖（FS/SS/FF/SF + lag_days）+ WBS 三级 + 类型差异化字段（defect/task/requirement） | ✅ |
+| CI/CD | GitHub Actions：后端 lint/test(race)/覆盖率门禁/govulncheck、前端 lint/typecheck/test/build/audit、CodeQL 安全分析、AI Code Review、按需 k6 性能压测 | ✅ |
+| 测试治理 | Go 单元/集成测试（errs/middleware/workspace/attachment/search/notification 等）、前端 Vitest 组件测试 + Playwright E2E 冒烟 | ✅ |
+| 版本发布 | CHANGELOG、发布管理文档、GitHub Release workflow（打 tag 自动构建产物） | ✅ |
+| 依赖安全 | govulncheck + pnpm audit + CodeQL 三层防线，依赖安全治理文档 | ✅ |
 | State API | 项目管理状态集 + 状态流转规则（state_transitions 按项目×类型维度配置） | ✅ |
 | Sprint API | CRUD + 生命周期（start/complete）+ 燃尽图数据 + Backlog 查询 + 容量规划 + 速率建议 + 复盘快照 | ✅ |
 | Version API | CRUD + 状态机（activate/release/archive）+ 进度聚合 + 交付报告 + Release Notes 生成 + 缺陷面板过滤 + 迭代聚合 | ✅ |
@@ -377,6 +381,9 @@ GET  /api/v1/invitations/:token            邀请预览（公开）
 | 12 | [开放集成设计](docs/architecture/12-开放集成设计.md) | Webhook、OpenAPI 治理、自动化 DSL |
 | 13 | [部署运维与可靠性设计](docs/architecture/13-部署运维与可靠性设计.md) | SLO、备份、容量、发布管理 |
 | 14 | [测试策略与质量保障](docs/architecture/14-测试策略与质量保障.md) | 测试金字塔、专项清单 |
+| 15 | [发布管理](docs/architecture/15-发布管理.md) | 版本规范、分支保护、发布门禁 |
+| 16 | [依赖安全治理](docs/architecture/16-依赖安全治理.md) | govulncheck、npm audit、漏洞响应 |
+| 17 | [性能基线与压测](docs/architecture/17-性能基线.md) | 性能目标、k6 脚本、基线回归 |
 
 ## 路线图
 

@@ -49,10 +49,28 @@ type PresignedUploadInput struct {
 }
 
 // PresignedUploadResult 预签名上传响应。
+// Attachment 在确认上传（ConfirmUpload）之前为 nil，前端不应依赖此字段。
 type PresignedUploadResult struct {
 	UploadURL  string      `json:"upload_url"`
 	StorageKey string      `json:"storage_key"`
-	Attachment *Attachment `json:"attachment"`
+	Attachment *Attachment `json:"attachment,omitempty"`
+}
+
+// ConfirmUploadInput 上传确认入参。
+// 客户端在 PUT 成功后提交，服务端校验存储对象存在后写入 DB。
+type ConfirmUploadInput struct {
+	FileName    string `json:"file_name" binding:"required"`
+	ContentType string `json:"content_type"`
+	FileSize    int64  `json:"file_size"`
+	EntityType  string `json:"entity_type" binding:"required"`
+	EntityID    int64  `json:"entity_id" binding:"required"`
+	StorageKey  string `json:"storage_key" binding:"required"`
+	UploadedBy  int64  `json:"-"`
+}
+
+// ConfirmUploadResult 上传确认响应。
+type ConfirmUploadResult struct {
+	Attachment Attachment `json:"attachment"`
 }
 
 // ListResponse 附件列表响应。

@@ -66,6 +66,13 @@ openapi:
 reindex:
 	go run ./scripts/reindex
 
+# 性能压测：需 k6 已安装且后端已启动并 seed
+perf:
+	k6 run scripts/k6/smoke.js
+
+perf-json:
+	k6 run --out json=scripts/k6/result.json scripts/k6/smoke.js
+
 fmt:
 	gofmt -w .
 	cd web && pnpm format

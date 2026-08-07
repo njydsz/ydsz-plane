@@ -10,6 +10,7 @@ import { workspaceApi } from "@/api/services/workspace";
 import { issueApi, type Issue } from "@/api/services/issue";
 import { useIssueStore } from "@/stores/issue";
 import { prefs } from "@/lib/prefs";
+import { toast } from "@/lib/toast";
 import IssueCreateModal from "./IssueCreateModal.vue";
 
 const route = useRoute();
@@ -26,6 +27,8 @@ const showCreateModal = ref(false);
 const dragIssue = ref<Issue | null>(null);
 const dragOverColumn = ref<number | null>(null);
 const dropIndex = ref<number | null>(null);
+/** 正在执行 transition / reorder API 调用，阻止重复提交 */
+const processingDrop = ref(false);
 
 async function load() {
   loading.value = true;
@@ -76,9 +79,11 @@ function onDragEnd() {
 
 function onColumnDragOver(stateId: number, event: DragEvent) {
   event.preventDefault();
-  dragOverColumn.value = stateId;
-  if (event.dataTransfer) {
-    event.dataTransfer.dropEffect = "move";
+  if (!processingDrop.value) {
+    dragOverColumn.value = stateId;
+    if (event.dataTransfer) {
+      event.dataTransfer.dropEffect = "move";
+    }
   }
 }
 
@@ -103,38 +108,59 @@ function onCardDragOver(stateId: number, index: number, event: DragEvent) {
 async function onColumnDrop(stateId: number, event: DragEvent) {
   event.preventDefault();
   const dragged = dragIssue.value;
-  if (!dragged) return;
+  if (!dragged || processingDrop.value) return;
 
   const targetIdx = dropIndex.value;
   dragIssue.value = null;
   dragOverColumn.value = null;
   dropIndex.value = null;
 
-  try {
-    // 跨列流转
-    const issue = dragged.state_id !== stateId
-      ? await issueApi.transition(wsId.value, projectId.value, dragged.id, stateId)
-      : dragged;
+  // 同列且未移动位置 → 无操作
+  if (dragged.state_id === stateId && targetIdx === null) return;
 
-    // 列内排序
-    const columnIssues = issuesInState(stateId);
-    const insertIdx = targetIdx ?? columnIssues.length;
+  processingDrop.value = true;
+  try {
+    let updatedIssue: Issue;
+
+    if (dragged.state_id !== stateId) {
+      // 跨列流转
+      updatedIssue = await issueApi.transition(wsId.value, projectId.value, dragged.id, stateId);
+      const targetName = issueStore.states.find((s) => s.id === stateId)?.name ?? "";
+      toast.success("已流转至 " + targetName);
+    } else {
+      updatedIssue = dragged;
+    }
+
+    // 列内排序 — 过滤掉自身后计算中值插入位置
+    const columnIssues = issuesInState(stateId).filter((i) => i.id !== dragged.id);
+    const insertIdx = Math.min(targetIdx ?? columnIssues.length, columnIssues.length);
 
     const prevIssue = insertIdx > 0 ? columnIssues[insertIdx - 1] : null;
     const nextIssue = insertIdx < columnIssues.length ? columnIssues[insertIdx] : null;
 
-    await issueApi.reorder(
-      wsId.value,
-      projectId.value,
-      issue.id,
-      prevIssue?.sort_order ?? null,
-      nextIssue?.sort_order ?? null,
-    );
+    // 跨列或同列有位置变化 → 调用 reorder
+    if (targetIdx !== null || dragged.state_id !== stateId) {
+      updatedIssue = await issueApi.reorder(
+        wsId.value,
+        projectId.value,
+        updatedIssue.id,
+        prevIssue?.sort_order ?? null,
+        nextIssue?.sort_order ?? null,
+      );
+    }
 
-    // 刷新看板
-    await issueStore.fetchIssues(wsId.value, projectId.value);
+    // 乐观更新：在列表中直接更新 state_id + sort_order
+    const idx = issueStore.issues.findIndex((i) => i.id === updatedIssue.id);
+    if (idx >= 0) {
+      issueStore.issues[idx] = { ...issueStore.issues[idx], ...updatedIssue };
+    }
   } catch (e: unknown) {
-    error.value = e instanceof Error ? e.message : "操作失败";
+    const msg = e instanceof Error ? e.message : "操作失败";
+    toast.error(msg);
+    // 回滚：重新拉取以恢复服务端真实状态
+    await issueStore.fetchIssues(wsId.value, projectId.value);
+  } finally {
+    processingDrop.value = false;
   }
 }
 

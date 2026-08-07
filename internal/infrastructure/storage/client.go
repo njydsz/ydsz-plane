@@ -104,5 +104,18 @@ func (c *Client) Exists(ctx context.Context, storageKey string) (bool, error) {
 	return true, nil
 }
 
+// Size 返回已上传对象的字节大小。若对象不存在返回 0, nil。
+func (c *Client) Size(ctx context.Context, storageKey string) (int64, error) {
+	info, err := c.mc.StatObject(ctx, c.bucket, storageKey, minio.StatObjectOptions{})
+	if err != nil {
+		errResp := minio.ToErrorResponse(err)
+		if errResp.Code == "NoSuchKey" {
+			return 0, nil
+		}
+		return 0, fmt.Errorf("storage: stat %s: %w", storageKey, err)
+	}
+	return info.Size, nil
+}
+
 // Bucket 返回当前使用的存储桶名称。
 func (c *Client) Bucket() string { return c.bucket }

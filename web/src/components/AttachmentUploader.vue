@@ -28,6 +28,7 @@ const attachments = ref<Attachment[]>([]);
 const loading = ref(true);
 const error = ref("");
 const uploading = ref(false);
+const uploadProgress = ref(0); // 0-100
 const dragging = ref(false);
 const fileInput = ref<HTMLInputElement | null>(null);
 
@@ -69,9 +70,11 @@ async function handleFileSelect(files: FileList | null) {
   }
 
   uploading.value = true;
+  uploadProgress.value = 0;
   error.value = "";
+  let storageKey = "";
   try {
-    // 1. 获取预签名上传 URL
+    // Step 1: 获取预签名上传 URL
     const presigned = await attachmentApi.getPresignedUploadURL(
       props.workspaceId, props.projectId,
       {
@@ -81,18 +84,26 @@ async function handleFileSelect(files: FileList | null) {
         entity_id: props.entityId,
       },
     );
+    storageKey = presigned.storage_key;
 
-    // 2. 直接 PUT 到 MinIO（预签名 URL）
-    const uploadRes = await fetch(presigned.upload_url, {
-      method: "PUT",
-      headers: { "Content-Type": file.type || "application/octet-stream" },
-      body: file,
-    });
-    if (!uploadRes.ok) {
-      throw new Error(`上传失败 (${uploadRes.status})`);
+    // Step 2: 直接 PUT 到 MinIO（预签名 URL），带进度追踪
+    const uploadOk = await putWithProgress(presigned.upload_url, file);
+    if (!uploadOk) {
+      throw new Error("上传失败");
     }
 
-    // 3. 刷新附件列表
+    // Step 3: 上传确认（服务端 stat 对象 + 写 DB）
+    await attachmentApi.confirmUpload(props.workspaceId, props.projectId, {
+      file_name: file.name,
+      content_type: file.type || "application/octet-stream",
+      file_size: file.size,
+      entity_type: props.entityType,
+      entity_id: props.entityId,
+      storage_key: storageKey,
+    });
+
+    uploadProgress.value = 100;
+    // Step 4: 刷新附件列表
     await loadAttachments();
     toast.success(`已上传 ${file.name}`);
     emit("change");
@@ -101,8 +112,32 @@ async function handleFileSelect(files: FileList | null) {
     toast.error(error.value);
   } finally {
     uploading.value = false;
+    uploadProgress.value = 0;
     if (fileInput.value) fileInput.value.value = "";
   }
+}
+
+/** PUT 文件到预签名 URL，返回是否成功。通过 XMLHttpRequest 获取进度。 */
+function putWithProgress(url: string, file: File): Promise<boolean> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("PUT", url);
+    xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) {
+        uploadProgress.value = Math.round((e.loaded / e.total) * 100);
+      }
+    };
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve(true);
+      } else {
+        reject(new Error(`上传失败 (${xhr.status})`));
+      }
+    };
+    xhr.onerror = () => reject(new Error("网络错误，上传中断"));
+    xhr.send(file);
+  });
 }
 
 async function handleDelete(att: Attachment) {
@@ -157,7 +192,12 @@ onMounted(loadAttachments);
         class="attachment-uploader__input"
         @change="handleFileSelect(($event.target as HTMLInputElement).files)"
       />
-      <span v-if="uploading" class="attachment-uploader__text">上传中...</span>
+      <template v-if="uploading">
+        <span class="attachment-uploader__text">上传中 {{ uploadProgress }}%</span>
+        <div class="attachment-uploader__progress">
+          <div class="attachment-uploader__progress-bar" :style="{ width: uploadProgress + '%' }"></div>
+        </div>
+      </template>
       <span v-else class="attachment-uploader__text">📎 点击或拖拽上传附件（≤20MB）</span>
     </div>
 
@@ -240,6 +280,20 @@ onMounted(loadAttachments);
   margin-top: 8px;
   font-size: 12px;
   color: var(--danger-500, #ef4444);
+}
+
+.attachment-uploader__progress {
+  margin-top: 6px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border-subtle, #e5e7eb);
+  overflow: hidden;
+}
+
+.attachment-uploader__progress-bar {
+  height: 100%;
+  background: var(--brand-500, #3b82f6);
+  transition: width 0.2s ease;
 }
 
 .attachment-uploader__muted {

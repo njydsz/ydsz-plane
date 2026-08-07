@@ -1,0 +1,40 @@
+# 性能压测（k6）— 按需 + 每周日触发。
+# 需在仓库 Secrets 配置目标 API 地址与鉴权环境。
+name: Performance
+
+on:
+  workflow_dispatch:
+    inputs:
+      api_url:
+        description: "Target API base URL (e.g. https://staging.example.com/api/v1)"
+        required: true
+        default: "http://localhost:8080/api/v1"
+      vus:
+        description: "Peak concurrent users"
+        required: false
+        default: "100"
+  schedule:
+    - cron: "0 2 * * 0" # 每周日 02:00
+
+jobs:
+  k6:
+    name: k6 Load Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run k6 smoke test
+        uses: grafana/k6-action@v0.3.1
+        with:
+          filename: scripts/k6/smoke.js
+          flags: >-
+            -e API_URL=${{ github.event.inputs.api_url || 'http://localhost:8080/api/v1' }}
+            -e VUS=${{ github.event.inputs.vus || '100' }}
+      - name: Upload k6 report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: k6-report
+          path: |
+            summary.json
+            html-report.html
+          if-no-files-found: ignore
