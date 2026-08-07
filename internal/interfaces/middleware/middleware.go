@@ -24,6 +24,48 @@ const (
 	CtxWorkspaceID = "workspace_id"
 )
 
+// SecurityHeaders adds defense-in-depth HTTP headers. These complement the
+// reverse-proxy nginx config and harden the app even when the edge terminates
+// TLS. Reference: OWASP Secure Header Project, Google gts/security guide.
+func SecurityHeaders() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// Prevent MIME type sniffing
+		c.Header("X-Content-Type-Options", "nosniff")
+
+		// Clickjacking protection. SAMEORIGIN allows same-site iframe embedding
+		// for potential future internal dashboards.
+		c.Header("X-Frame-Options", "SAMEORIGIN")
+
+		// Browser XSS filter — kept at 0 (disabled) because it introduces
+		// filter-bypass vectors in older browsers; rely on CSP instead.
+		c.Header("X-XSS-Protection", "0")
+
+		// Limit referrer leakage on cross-origin navigations
+		c.Header("Referrer-Policy", "strict-origin-when-cross-origin")
+
+		// Control which browser features the document/context can use
+		c.Header("Permissions-Policy",
+			"accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()")
+
+		// Cross-origin isolation (process-level siloing).
+		c.Header("Cross-Origin-Opener-Policy", "same-origin")
+		c.Header("Cross-Origin-Resource-Policy", "same-origin")
+
+		// Content-Security-Policy — baseline restrictive policy.
+		// For the SPA (separate Vite dev server + nginx-served prod bundle),
+		// the API endpoints only need a minimal policy; the SPA's HTML
+		// should set its own CSP via nginx meta tag / response header.
+		c.Header("Content-Security-Policy",
+			"default-src 'none'; frame-ancestors 'self'; base-uri 'none'; form-action 'self'")
+
+		// HSTS is set only by the TLS-terminating edge (nginx/CDN). We
+		// intentionally omit it here so the API can run behind any proxy
+		// without conflicting with the proxy's HSTS max-age.
+
+		c.Next()
+	}
+}
+
 // RequestID assigns a unique request id (or propagates X-Request-ID).
 func RequestID() gin.HandlerFunc {
 	return func(c *gin.Context) {

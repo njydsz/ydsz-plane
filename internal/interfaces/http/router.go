@@ -39,6 +39,7 @@ func NewEngine(d *Deps) *gin.Engine {
 
 	origins := []string{"http://localhost:5173", "http://localhost:8080"}
 	r.Use(
+		middleware.SecurityHeaders(), // defense-in-depth HTTP headers
 		middleware.RequestID(),
 		middleware.Recovery(d.Log),
 		middleware.CORS(origins),

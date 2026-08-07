@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -39,6 +40,12 @@ func run() error {
 	}
 	defer func() { _ = log.Sync() }()
 
+	// Security notice: dev-mode JWT secret rotates each restart — tokens issued
+	// before restart become invalid. This is intentional to avoid hardcoded
+	// secrets in the codebase.
+	if cfg.IsDev() && strings.HasPrefix(cfg.Auth.JWTSecret, "dev-") {
+		log.Warn("auth: using ephemeral dev JWT secret (set YDSZ_AUTH_JWT_SECRET to pin it)")
+	}
 	ctx := context.Background()
 
 	pool, err := persistence.NewPool(ctx, cfg.Database.URL, cfg.Database.MaxConns)

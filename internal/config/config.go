@@ -4,6 +4,8 @@
 package config
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"strings"
 	"time"
@@ -84,7 +86,8 @@ func Load() (*Config, error) {
 	v.SetDefault("redis.db", 0)
 	v.SetDefault("nats.url", "nats://localhost:4222")
 	v.SetDefault("auth.jwt_issuer", "ydsz-plane")
-	v.SetDefault("auth.jwt_secret", "dev-only-secret-change-me")
+	// dev-only ephemeral secret (rotated each startup); production requires explicit value
+	v.SetDefault("auth.jwt_secret", "")
 	v.SetDefault("auth.access_token_ttl", "15m")
 	v.SetDefault("auth.refresh_token_ttl", "720h") // 30d
 	v.SetDefault("auth.bcrypt_cost", 12)
@@ -98,8 +101,7 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("config: unmarshal: %w", err)
 	}
 
-	// viper does not natively parse time.Duration strings on Unmarshal for
-	// nested structs in all versions; normalize explicitly.
+	// derive explicit duration fields (nested + viper limitation)
 	var err error
 	if cfg.Database.ConnMaxLifetime, err = time.ParseDuration(v.GetString("database.conn_max_lifetime")); err != nil {
 		return nil, fmt.Errorf("config: database.conn_max_lifetime: %w", err)
@@ -111,15 +113,31 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("config: auth.refresh_token_ttl: %w", err)
 	}
 
+	// dev fallback: if jwt_secret is empty in dev, generate an ephemeral one.
+	// This is logged so developers know in-flight tokens get invalidated on restart.
+	if cfg.Auth.JWTSecret == "" {
+		if cfg.Server.Env != "development" {
+			return nil, fmt.Errorf("config: YDSZ_AUTH_JWT_SECRET is required in non-development environments")
+		}
+		cfg.Auth.JWTSecret = generateDevSecret()
+	}
+
 	if err := cfg.validate(); err != nil {
 		return nil, err
 	}
 	return cfg, nil
 }
 
+// generateDevSecret creates a 256-bit random secret for local development.
+func generateDevSecret() string {
+	var b [32]byte
+	_, _ = rand.Read(b[:])
+	return "dev-" + hex.EncodeToString(b[:])
+}
+
 func (c *Config) validate() error {
 	if c.Server.Env == "production" {
-		if c.Auth.JWTSecret == "" || c.Auth.JWTSecret == "dev-only-secret-change-me" {
+		if c.Auth.JWTSecret == "" || strings.HasPrefix(c.Auth.JWTSecret, "dev-") {
 			return fmt.Errorf("config: YDSZ_AUTH_JWT_SECRET must be set to a strong value in production")
 		}
 		if c.Database.URL == "" {
