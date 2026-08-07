@@ -2,10 +2,96 @@
 import { fileURLToPath, URL } from "node:url";
 
 import vue from "@vitejs/plugin-vue";
+import { VitePWA } from "vite-plugin-pwa";
 import { defineConfig } from "vite";
 
 export default defineConfig({
-  plugins: [vue()],
+  plugins: [
+    vue(),
+    VitePWA({
+      registerType: "autoUpdate",
+      // Service Worker 策略
+      workbox: {
+        globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
+        // 运行时缓存策略
+        runtimeCaching: [
+          {
+            // API 请求：网络优先，离线回退缓存
+            urlPattern: /^\/api\/.*/i,
+            handler: "NetworkFirst",
+            options: {
+              cacheName: "api-cache",
+              expiration: {
+                maxEntries: 100,
+                maxAgeSeconds: 60 * 60, // 1 小时
+              },
+              networkTimeoutSeconds: 5,
+            },
+          },
+          {
+            // 静态资源：缓存优先
+            urlPattern: /\.(?:js|css|woff2|png|svg|ico)$/i,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "static-assets",
+              expiration: {
+                maxEntries: 200,
+                maxAgeSeconds: 30 * 24 * 60 * 60, // 30 天
+              },
+            },
+          },
+        ],
+      },
+      // PWA Manifest
+      manifest: {
+        name: "Ydsz Plane — 开源项目管理平台",
+        short_name: "Ydsz Plane",
+        description: "面向中国软件团队的开源项目管理平台",
+        theme_color: "#3b82f6",
+        background_color: "#ffffff",
+        display: "standalone",
+        orientation: "any",
+        scope: "/",
+        start_url: "/",
+        icons: [
+          {
+            src: "/pwa-192x192.png",
+            sizes: "192x192",
+            type: "image/png",
+          },
+          {
+            src: "/pwa-512x512.png",
+            sizes: "512x512",
+            type: "image/png",
+          },
+          {
+            src: "/pwa-512x512.png",
+            sizes: "512x512",
+            type: "image/png",
+            purpose: "any maskable",
+          },
+        ],
+        // 快捷方式
+        shortcuts: [
+          {
+            name: "工作台",
+            short_name: "工作台",
+            description: "查看个人工作台",
+            url: "/workspace",
+          },
+          {
+            name: "搜索",
+            short_name: "搜索",
+            description: "全局搜索",
+            url: "/search",
+          },
+        ],
+        // 关联应用
+        related_applications: [],
+        prefer_related_applications: false,
+      },
+    }),
+  ],
   resolve: {
     alias: {
       "@": fileURLToPath(new URL("./src", import.meta.url)),
@@ -42,6 +128,7 @@ export default defineConfig({
     },
   },
   server: {
+    host: "127.0.0.1",
     port: 5173,
     proxy: {
       "/api": {

@@ -177,6 +177,16 @@ const router = createRouter({
             projectId: Number(route.params.projectId),
           }),
         },
+        // 电子表格视图
+        {
+          path: ":workspaceSlug/projects/:projectId/spreadsheet",
+          name: "spreadsheet-view",
+          component: () => import("@/views/project/SpreadsheetView.vue"),
+          props: (route) => ({
+            workspaceSlug: route.params.workspaceSlug,
+            projectId: Number(route.params.projectId),
+          }),
+        },
         // 项目列表视图
         {
           path: ":workspaceSlug/projects/:projectId/list",

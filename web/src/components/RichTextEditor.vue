@@ -1,36 +1,39 @@
 <script setup lang="ts">
 /**
- * RichTextEditor — 基于 TipTap 3 的通用富文本编辑器组件。
+ * RichTextEditor — 基于 TipTap 3 的通用富文本编辑器组件 v2
+ *
+ * 变化：
+ *   — 扩展改用拆分模块（@/lib/editor/extensions）
+ *   — 支持 variant：full / comment / compact 适配不同场景
  *
  * 特性：
  *   - v-model:contentHTML / v-model:contentJSON 双向绑定
  *   - 菜单栏（粗体/斜体/链接/图片/代码/标题/列表）
  *   - @提及 扩展（需传入 mentionSuggestions）
  *   - 图片粘贴回调 @paste-image
- *
- * 使用：
- *   <RichTextEditor v-model:content-html="html" v-model:content-json="json" />
  */
 
-import { useEditor, EditorContent } from "@tiptap/vue-3";
-import StarterKit from "@tiptap/starter-kit";
-import Underline from "@tiptap/extension-underline";
-import Link from "@tiptap/extension-link";
-import Image from "@tiptap/extension-image";
-import Placeholder from "@tiptap/extension-placeholder";
-import Mention from "@tiptap/extension-mention";
-import { computed, onBeforeUnmount, watch } from "vue";
+import { useEditor, EditorContent } from "@tiptap/vue-3"
+import {
+  completeExtensions,
+  commentExtensions,
+  compactExtensions,
+} from "@/lib/editor/extensions"
+import { baseWithPlaceholder } from "@/lib/editor/extensions/base"
+import { computed, onBeforeUnmount, watch } from "vue"
 
 const props = withDefaults(
   defineProps<{
-    contentHtml?: string;
-    contentJson?: string;
-    placeholder?: string;
-    editable?: boolean;
-    mentionSuggestions?: Array<{ id: number | string; label: string }>;
-    minHeight?: string;
-    /** 精简模式：隐藏菜单栏（用于评论等紧凑场景） */
-    compact?: boolean;
+    contentHtml?: string
+    contentJson?: string
+    placeholder?: string
+    editable?: boolean
+    mentionSuggestions?: Array<{ id: number | string; label: string }>
+    minHeight?: string
+    /** 编辑器变体 — full(默认) / comment / compact */
+    variant?: "full" | "comment" | "compact"
+    /** 精简模式：隐藏菜单栏（用于紧凑场景，已废弃，用 variant='compact' 替代） */
+    compact?: boolean
   }>(),
   {
     contentHtml: "",
@@ -39,43 +42,59 @@ const props = withDefaults(
     editable: true,
     mentionSuggestions: () => [],
     minHeight: "120px",
+    variant: "full",
     compact: false,
   },
-);
+)
 
 const emit = defineEmits<{
-  "update:contentHtml": [value: string];
-  "update:contentJson": [value: string];
-  "paste-image": [file: File];
-}>();
+  "update:contentHtml": [value: string]
+  "update:contentJson": [value: string]
+  "paste-image": [file: File]
+}>()
 
 /* ---- 配置 mention 扩展的 suggestion ---- */
 const mentionItems = computed(() => {
-  const { mentionSuggestions } = props;
+  const { mentionSuggestions } = props
   return ({ query }: { query: string }) => {
-    if (!query) return mentionSuggestions.slice(0, 8);
+    if (!query) return mentionSuggestions.slice(0, 8)
     return mentionSuggestions
       .filter((i) => i.label.toLowerCase().includes(query.toLowerCase()))
-      .slice(0, 8);
-  };
-});
+      .slice(0, 8)
+  }
+})
+
+/* ---- 根据 variant 选择扩展 ---- */
+import Mention from "@tiptap/extension-mention"
+
+const editorExtensions = computed(() => {
+  let exts: any[]
+  switch (props.variant) {
+    case "comment":
+      exts = commentExtensions(props.placeholder)
+      break
+    case "compact":
+      exts = compactExtensions(props.placeholder)
+      break
+    case "full":
+    default:
+      exts = completeExtensions(props.placeholder)
+  }
+  // 注入 mention（如提供）
+  if (props.mentionSuggestions.length > 0) {
+    exts = [
+      ...exts.filter((e) => e?.name !== "mention"),
+      Mention.configure({ suggestion: { items: mentionItems.value } }),
+    ]
+  }
+  return exts
+})
 
 /* ---- 初始化编辑器 ---- */
 const editor = useEditor({
   content: props.contentHtml || props.contentJson || "",
   editable: props.editable,
-  extensions: [
-    StarterKit.configure({
-      heading: { levels: [2, 3] },
-    }),
-    Underline,
-    Link.configure({ openOnClick: false }),
-    Image.configure({ inline: true, allowBase64: true }),
-    Placeholder.configure({ placeholder: props.placeholder }),
-    ...(props.mentionSuggestions.length > 0
-      ? [Mention.configure({ suggestion: { items: mentionItems.value } })]
-      : []),
-  ],
+  extensions: editorExtensions.value,
   editorProps: {
     handlePaste(_view, event) {
       const items = event.clipboardData?.items;
@@ -151,6 +170,9 @@ function toggleOrderedList() {
 function toggleBlockquote() {
   editor.value?.chain().focus().toggleBlockquote().run();
 }
+function toggleTaskList() {
+  editor.value?.chain().focus().toggleTaskList().run();
+}
 function addLink() {
   const url = prompt("输入链接 URL:");
   if (url) {
@@ -175,126 +197,178 @@ const isActiveHeading3 = computed(() => editor.value?.isActive("heading", { leve
 const isActiveBulletList = computed(() => editor.value?.isActive("bulletList") ?? false);
 const isActiveOrderedList = computed(() => editor.value?.isActive("orderedList") ?? false);
 const isActiveBlockquote = computed(() => editor.value?.isActive("blockquote") ?? false);
+const isActiveTaskList = computed(() => editor.value?.isActive("taskList") ?? false);
 const isActiveLink = computed(() => editor.value?.isActive("link") ?? false);
+
+/* ---- 工具栏配置（按 variant） ---- */
+const toolbarGroups = computed(() => {
+  if (props.variant === "compact") return []
+  if (props.variant === "comment") {
+    return [
+      ["bold", "italic", "underline", "strike", "code"],
+      ["bulletList", "orderedList"],
+      ["link"],
+    ]
+  }
+  // full
+  return [
+    ["bold", "italic", "underline", "strike", "code"],
+    ["heading2", "heading3"],
+    ["bulletList", "orderedList", "taskList", "blockquote"],
+    ["link", "image"],
+  ]
+})
 
 defineExpose({ editor });
 </script>
 
 <template>
-  <div class="rich-editor" :class="{ 'rich-editor--compact': compact, 'rich-editor--readonly': !editable }">
+  <div
+    class="rich-editor"
+    :class="{
+      'rich-editor--compact': variant === 'compact' || compact,
+      'rich-editor--comment': variant === 'comment',
+      'rich-editor--readonly': !editable,
+    }"
+  >
     <!-- 菜单栏 -->
-    <div v-if="editable && !compact" class="rich-editor__toolbar">
-      <button
-        class="rich-editor__btn"
-        :class="{ 'rich-editor__btn--active': isActiveBold }"
-        title="粗体 (Ctrl+B)"
-        @click="toggleBold"
-      >
-B
-</button>
-      <button
-        class="rich-editor__btn"
-        :class="{ 'rich-editor__btn--active': isActiveItalic }"
-        title="斜体 (Ctrl+I)"
-        @click="toggleItalic"
-      >
-<em>I</em>
-</button>
-      <button
-        class="rich-editor__btn"
-        :class="{ 'rich-editor__btn--active': isActiveUnderline }"
-        title="下划线 (Ctrl+U)"
-        @click="toggleUnderline"
-      >
-<u>U</u>
-</button>
-      <button
-        class="rich-editor__btn"
-        :class="{ 'rich-editor__btn--active': isActiveStrike }"
-        title="删除线"
-        @click="toggleStrike"
-      >
-<s>S</s>
-</button>
-      <button
-        class="rich-editor__btn"
-        :class="{ 'rich-editor__btn--active': isActiveCode }"
-        title="行内代码"
-        @click="toggleCode"
-      >
-{ }
-</button>
+    <div v-if="editable && variant !== 'compact' && !compact" class="rich-editor__toolbar">
+      <!-- 格式按钮 -->
+      <template v-for="(group, gi) in toolbarGroups" :key="gi">
+        <template v-for="action in group" :key="action">
+          <button
+            v-if="action === 'bold'"
+            class="rich-editor__btn"
+            :class="{ 'rich-editor__btn--active': isActiveBold }"
+            title="粗体 (Ctrl+B)"
+            @click="toggleBold"
+          >
+            <strong>B</strong>
+          </button>
+          <button
+            v-else-if="action === 'italic'"
+            class="rich-editor__btn"
+            :class="{ 'rich-editor__btn--active': isActiveItalic }"
+            title="斜体 (Ctrl+I)"
+            @click="toggleItalic"
+          >
+            <em>I</em>
+          </button>
+          <button
+            v-else-if="action === 'underline'"
+            class="rich-editor__btn"
+            :class="{ 'rich-editor__btn--active': isActiveUnderline }"
+            title="下划线 (Ctrl+U)"
+            @click="toggleUnderline"
+          >
+            <u>U</u>
+          </button>
+          <button
+            v-else-if="action === 'strike'"
+            class="rich-editor__btn"
+            :class="{ 'rich-editor__btn--active': isActiveStrike }"
+            title="删除线"
+            @click="toggleStrike"
+          >
+            <s>S</s>
+          </button>
+          <button
+            v-else-if="action === 'code'"
+            class="rich-editor__btn"
+            :class="{ 'rich-editor__btn--active': isActiveCode }"
+            title="行内代码"
+            @click="toggleCode"
+          >
+            {"{ }"}
+          </button>
 
-      <span class="rich-editor__divider"></span>
+          <!-- 标题 -->
+          <button
+            v-else-if="action === 'heading2'"
+            class="rich-editor__btn"
+            :class="{ 'rich-editor__btn--active': isActiveHeading2 }"
+            title="标题 2"
+            @click="setHeading(2)"
+          >
+            H2
+          </button>
+          <button
+            v-else-if="action === 'heading3'"
+            class="rich-editor__btn"
+            :class="{ 'rich-editor__btn--active': isActiveHeading3 }"
+            title="标题 3"
+            @click="setHeading(3)"
+          >
+            H3
+          </button>
 
-      <button
-        class="rich-editor__btn"
-        :class="{ 'rich-editor__btn--active': isActiveHeading2 }"
-        title="标题 2"
-        @click="setHeading(2)"
-      >
-H2
-</button>
-      <button
-        class="rich-editor__btn"
-        :class="{ 'rich-editor__btn--active': isActiveHeading3 }"
-        title="标题 3"
-        @click="setHeading(3)"
-      >
-H3
-</button>
+          <!-- 列表 -->
+          <button
+            v-else-if="action === 'bulletList'"
+            class="rich-editor__btn"
+            :class="{ 'rich-editor__btn--active': isActiveBulletList }"
+            title="无序列表"
+            @click="toggleBulletList"
+          >
+            •≡
+          </button>
+          <button
+            v-else-if="action === 'orderedList'"
+            class="rich-editor__btn"
+            :class="{ 'rich-editor__btn--active': isActiveOrderedList }"
+            title="有序列表"
+            @click="toggleOrderedList"
+          >
+            1≡
+          </button>
+          <button
+            v-else-if="action === 'taskList'"
+            class="rich-editor__btn"
+            :class="{ 'rich-editor__btn--active': isActiveTaskList }"
+            title="任务列表"
+            @click="toggleTaskList"
+          >
+            ☑
+          </button>
+          <button
+            v-else-if="action === 'blockquote'"
+            class="rich-editor__btn"
+            :class="{ 'rich-editor__btn--active': isActiveBlockquote }"
+            title="引用"
+            @click="toggleBlockquote"
+          >
+            ❝
+          </button>
 
-      <span class="rich-editor__divider"></span>
+          <!-- 链接/图片 -->
+          <button
+            v-else-if="action === 'link'"
+            class="rich-editor__btn"
+            :class="{ 'rich-editor__btn--active': isActiveLink }"
+            title="链接"
+            @click="addLink"
+          >
+            🔗
+          </button>
+          <button
+            v-else-if="action === 'image'"
+            class="rich-editor__btn"
+            title="图片"
+            @click="insertImage"
+          >
+            🖼
+          </button>
+        </template>
 
-      <button
-        class="rich-editor__btn"
-        :class="{ 'rich-editor__btn--active': isActiveBulletList }"
-        title="无序列表"
-        @click="toggleBulletList"
-      >
-•≡
-</button>
-      <button
-        class="rich-editor__btn"
-        :class="{ 'rich-editor__btn--active': isActiveOrderedList }"
-        title="有序列表"
-        @click="toggleOrderedList"
-      >
-1≡
-</button>
-      <button
-        class="rich-editor__btn"
-        :class="{ 'rich-editor__btn--active': isActiveBlockquote }"
-        title="引用"
-        @click="toggleBlockquote"
-      >
-❝
-</button>
-
-      <span class="rich-editor__divider"></span>
-
-      <button
-        class="rich-editor__btn"
-        :class="{ 'rich-editor__btn--active': isActiveLink }"
-        title="链接"
-        @click="addLink"
-      >
-🔗
-</button>
-      <button
-        class="rich-editor__btn"
-        title="图片"
-        @click="insertImage"
-      >
-🖼
-</button>
+        <span v-if="gi < toolbarGroups.length - 1" class="rich-editor__divider"></span>
+      </template>
     </div>
 
     <!-- 编辑区域 -->
     <EditorContent
       :editor="editor"
       class="rich-editor__content"
-      :style="{ minHeight: compact ? '80px' : minHeight }"
+      :style="{ minHeight: variant === 'compact' ? '40px' : variant === 'comment' ? '80px' : minHeight }"
     />
   </div>
 </template>
@@ -303,14 +377,15 @@ H3
 .rich-editor {
   border: 1px solid var(--border-default, #d1d5db);
   border-radius: var(--radius-md, 8px);
-  background: var(--surface-1, #fff);
+  background: var(--bg-surface-1, var(--surface-1, #fff));
   overflow: hidden;
+
   transition: border-color 0.15s;
 }
 
 .rich-editor:focus-within {
-  border-color: var(--brand-500, #3b82f6);
-  box-shadow: 0 0 0 3px var(--brand-50, rgba(59,130,246,0.1));
+  border-color: var(--border-accent-strong, var(--brand-500, #3b82f6));
+  box-shadow: 0 0 0 3px var(--bg-accent-subtle, var(--brand-50, rgba(59, 130, 246, 0.1)));
 }
 
 .rich-editor--readonly {
@@ -322,27 +397,57 @@ H3
   box-shadow: none;
 }
 
+.rich-editor--comment {
+  border-radius: 8px;
+}
+
+.rich-editor--comment .rich-editor__content {
+  padding: 10px 12px;
+}
+
+.rich-editor--compact {
+  border: none;
+  border-bottom: 1px solid var(--border-subtle);
+  border-radius: 0 0 var(--radius-sm, 4px) var(--radius-sm, 4px);
+  box-shadow: none;
+}
+
+.rich-editor--compact .rich-editor__content {
+  padding: 6px 0;
+}
+
+.rich-editor--compact.rich-editor:focus-within {
+  border-color: var(--border-accent-strong, var(--brand-500));
+  box-shadow: none;
+}
+
 /* ---- Toolbar ---- */
 .rich-editor__toolbar {
   display: flex;
   align-items: center;
   gap: 2px;
   padding: 6px 8px;
-  background: var(--surface-2, #f9fafb);
+  background: var(--bg-surface-2, var(--surface-2, #f9fafb));
   border-bottom: 1px solid var(--border-subtle, #e5e7eb);
   flex-wrap: wrap;
+}
+
+.rich-editor--comment .rich-editor__toolbar {
+  padding: 4px 6px;
+  background: var(--bg-layer-transparent);
+  border-bottom-style: dashed;
 }
 
 .rich-editor__btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 28px;
-  height: 28px;
-  padding: 0 6px;
+  min-width: 26px;
+  height: 26px;
+  padding: 0 5px;
   font-size: 12px;
   font-weight: 600;
-  color: var(--text-secondary, #4b5563);
+  color: var(--txt-secondary, var(--text-secondary, #4b5563));
   background: none;
   border: 1px solid transparent;
   border-radius: var(--radius-sm, 4px);
@@ -352,19 +457,19 @@ H3
 }
 
 .rich-editor__btn:hover {
-  background: var(--surface-3, #f3f4f6);
+  background: var(--bg-layer-3-hover, var(--surface-3, #f3f4f6));
   border-color: var(--border-default, #d1d5db);
 }
 
 .rich-editor__btn--active {
-  background: var(--brand-50, rgba(59,130,246,0.08));
-  color: var(--brand-500, #3b82f6);
-  border-color: var(--brand-200, #bfdbfe);
+  background: var(--bg-accent-subtle, var(--brand-50, rgba(59, 130, 246, 0.08)));
+  color: var(--txt-accent-primary, var(--brand-500, #3b82f6));
+  border-color: var(--border-accent-subtle, var(--brand-200, #bfdbfe));
 }
 
 .rich-editor__divider {
   width: 1px;
-  height: 20px;
+  height: 18px;
   background: var(--border-subtle, #e5e7eb);
   margin: 0 4px;
 }
@@ -378,7 +483,7 @@ H3
   outline: none;
   font-size: 14px;
   line-height: 1.6;
-  color: var(--text-primary, #1f2937);
+  color: var(--txt-primary, var(--text-primary, #1f2937));
 }
 
 .rich-editor--readonly .rich-editor__content {
@@ -401,7 +506,7 @@ H3
   font-size: 18px;
   font-weight: 600;
   margin: 16px 0 8px;
-  color: var(--text-primary, #1f2937);
+  color: var(--txt-primary);
 }
 
 .rich-editor__content :deep(.ProseMirror h3) {
@@ -421,22 +526,38 @@ H3
 }
 
 .rich-editor__content :deep(.ProseMirror blockquote) {
-  border-left: 3px solid var(--brand-200, #bfdbfe);
+  border-left: 3px solid var(--border-accent-subtle, var(--brand-200, #bfdbfe));
   padding-left: 12px;
   margin: 8px 0;
-  color: var(--text-secondary, #4b5563);
+  color: var(--txt-secondary);
 }
 
 .rich-editor__content :deep(.ProseMirror code) {
-  background: var(--surface-3, #f3f4f6);
+  background: var(--bg-layer-3, var(--surface-3, #f3f4f6));
   padding: 2px 6px;
   border-radius: 4px;
   font-size: 13px;
   font-family: var(--font-mono, 'Consolas', monospace);
 }
 
+.rich-editor__content :deep(.ProseMirror pre) {
+  background: var(--bg-layer-2, #f8fafc);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm, 6px);
+  padding: 12px;
+  margin: 8px 0;
+  overflow-x: auto;
+}
+
+.rich-editor__content :deep(.ProseMirror pre code) {
+  background: none;
+  padding: 0;
+  border-radius: 0;
+  font-size: 13px;
+}
+
 .rich-editor__content :deep(.ProseMirror a) {
-  color: var(--brand-500, #3b82f6);
+  color: var(--txt-accent-primary, var(--brand-500, #3b82f6));
   text-decoration: underline;
 }
 
@@ -446,21 +567,45 @@ H3
   margin: 8px 0;
 }
 
+.rich-editor__content :deep(.ProseMirror ul[data-type="taskList"]) {
+  list-style: none;
+  padding-left: 0;
+}
+
+.rich-editor__content :deep(.ProseMirror ul[data-type="taskList"] li) {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+}
+
+.rich-editor__content :deep(.ProseMirror ul[data-type="taskList"] li input[type="checkbox"]) {
+  margin-top: 3px;
+  accent-color: var(--brand-default, var(--brand-500));
+}
+
 .rich-editor__content :deep(.ProseMirror p.is-editor-empty:first-child::before) {
   content: attr(data-placeholder);
   float: left;
-  color: var(--text-tertiary, #9ca3af);
+  color: var(--txt-placeholder, var(--text-tertiary, #9ca3af));
   pointer-events: none;
   height: 0;
 }
 
 /* Mention */
 .rich-editor__content :deep(.ProseMirror .mention) {
-  background: var(--brand-50, rgba(59,130,246,0.08));
-  color: var(--brand-600, #2563eb);
+  background: var(--bg-accent-subtle, var(--brand-50));
+  color: var(--txt-accent-secondary, var(--brand-600, #2563eb));
   padding: 1px 4px;
   border-radius: 3px;
   font-weight: 500;
   font-size: 13px;
+}
+
+/* Highlight */
+.rich-editor__content :deep(.ProseMirror mark) {
+  background: var(--bg-warning-subtle, var(--amber-50));
+  color: var(--txt-warning-primary);
+  padding: 1px 3px;
+  border-radius: 3px;
 }
 </style>

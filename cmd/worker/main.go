@@ -21,6 +21,7 @@ import (
 	"github.com/njydsz/ydsz-plane/internal/application/metrics"
 	notifApp "github.com/njydsz/ydsz-plane/internal/application/notification"
 	"github.com/njydsz/ydsz-plane/internal/application/sprint"
+	"github.com/njydsz/ydsz-plane/internal/application/webhook"
 	"github.com/njydsz/ydsz-plane/internal/config"
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/events"
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/mail"
@@ -127,9 +128,22 @@ func run() error {
 	// 根据事件类型与 payload 创建对应的站内通知。
 	// 独立于 Task-based 投递通道，直接订阅事件总线以获得更低延迟。
 	go notifApp.RunConsumer(ctx, mqClient, pool.Pool, log)
-	worker.Register("webhook.deliver", func(ctx context.Context, task mq.Task) error {
-		log.Info("task: webhook.deliver", zap.String("id", task.ID))
-		return nil
+
+	// ----- Webhook 事件投递链路 -----
+	//
+	// 1. 事件消费者（EventExchange → Dispatcher）：订阅全部领域事件，
+	//    匹配 Webhook 订阅并同步投递；失败投递异步排入 webhook.retry 重试队列。
+	// 2. webhook.retry 任务：消费重试队列，按指数退避（1/5/30min，≤3 次）重投。
+	//
+	// Dispatcher 持有真实 TaskClient（不再是 nil），使重试入队与测试 ping 均可工作。
+	webhookSvc := webhook.NewService(pool.Pool)
+	webhookTaskClient := mq.NewTaskClient(mqClient, log)
+	webhookDispatcher := webhook.NewDispatcher(webhookSvc, webhookTaskClient, log)
+	webhookConsumer := webhook.NewConsumer(webhookDispatcher, log)
+	go webhook.RunConsumer(ctx, mqClient, webhookDispatcher, log)
+
+	worker.Register("webhook.retry", func(ctx context.Context, task mq.Task) error {
+		return webhookConsumer.HandleRetryTask(ctx, task)
 	})
 	worker.Register("search.index", func(ctx context.Context, task mq.Task) error {
 		log.Info("task: search.index", zap.String("id", task.ID))

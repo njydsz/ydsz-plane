@@ -12,7 +12,10 @@ package webhook
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"time"
 
+	amqp "github.com/rabbitmq/amqp091-go"
 	"go.uber.org/zap"
 
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/mq"
@@ -57,5 +60,76 @@ func (c *Consumer) HandleRetryTask(ctx context.Context, task mq.Task) error {
 	return c.dispatcher.HandleRetry(ctx, task)
 }
 
-// 确保 Consumer 实现了期望的接口签名（供外部断言）。
-var _ = json.Unmarshal // 保留 import
+// consumerQueue 是 webhook 消费者绑定的队列名。
+const consumerQueue = "webhook.events"
+
+// routingPattern 订阅所有领域事件（Dispatcher 内部按订阅匹配过滤）。
+const routingPattern = "plane.events.#"
+
+// RunConsumer 启动阻塞型 webhook 投递消费者循环。
+//
+// 订阅 EventExchange 的全部领域事件，逐条交给 Dispatcher 匹配 Webhook 订阅并投递。
+// 投递失败的事件由 Dispatcher 异步排入 TaskExchange 的重试队列（webhook.retry），
+// 消费本身立即 ACK，不阻塞后续事件。
+//
+// 当 ctx 取消时优雅退出；连接断开后以指数退避自动重连。
+//
+// 调用方应在独立 goroutine 中运行：
+//
+//	go webhook.RunConsumer(ctx, mqClient, dispatcher, log)
+func RunConsumer(ctx context.Context, mqClient *mq.Client, dispatcher *Dispatcher, log *zap.Logger) {
+	log.Info("webhook consumer: starting",
+		zap.String("queue", consumerQueue),
+		zap.String("exchange", mq.EventExchange))
+
+	consumer := NewConsumer(dispatcher, log)
+
+	for {
+		select {
+		case <-ctx.Done():
+			log.Info("webhook consumer: stopped")
+			return
+		default:
+		}
+
+		if err := runConsumeLoop(ctx, mqClient, consumer, log); err != nil {
+			if errors.Is(err, context.Canceled) || ctx.Err() != nil {
+				log.Info("webhook consumer: stopped (context)")
+				return
+			}
+			log.Warn("webhook consumer: connection lost, retrying",
+				zap.Error(err), zap.Duration("backoff", 2*time.Second))
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(2 * time.Second):
+			}
+		}
+	}
+}
+
+// runConsumeLoop 单次消费循环：声明队列 → 消费。
+// 返回非 nil 错误时触发外层重连逻辑。
+func runConsumeLoop(ctx context.Context, mqClient *mq.Client, consumer *Consumer, log *zap.Logger) error {
+	if _, err := mqClient.DeclareQueue(ctx, consumerQueue, mq.EventExchange, routingPattern, amqp.Table{
+		"x-max-priority":       int64(5),
+		"x-dead-letter-exchange": mq.DeadLetterExchange,
+	}); err != nil {
+		return errors.New("webhook: declare queue: " + err.Error())
+	}
+
+	return mqClient.Consume(ctx, consumerQueue, "webhook-consumer", false, func(delivery amqp.Delivery) error {
+		var envelope mq.EventEnvelope
+		if err := json.Unmarshal(delivery.Body, &envelope); err != nil {
+			log.Warn("webhook consumer: bad payload, skipping", zap.Error(err))
+			return nil // 无法解析直接 ACK，避免死信循环
+		}
+
+		if err := consumer.HandleEvent(ctx, envelope); err != nil {
+			log.Warn("webhook consumer: handle failed",
+				zap.String("event_type", envelope.EventType), zap.Error(err))
+			return err // NACK → 重试（受 MaxRetries 限制）
+		}
+		return nil // ACK
+	})
+}

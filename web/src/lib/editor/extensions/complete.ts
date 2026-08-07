@@ -37,24 +37,16 @@ export function commentExtensions(placeholder = "写下你的评论...") {
 export function compactExtensions(placeholder = "输入...") {
   return [
     ...baseWithPlaceholder(placeholder),
-    formattingBasic(),
+    ...formattingBasic(),
   ]
 }
 
 /**
  * 只读模式扩展（仅渲染，无编辑历史）
  */
-export function readonlyExtensions(placeholder?: string) {
-  const base = placeholder
-    ? baseWithPlaceholder(placeholder)
-    : [
-        baseWithPlaceholder("")[0], // Document
-        baseWithPlaceholder("")[1], // Paragraph
-        baseWithPlaceholder("")[2], // Text
-        baseWithPlaceholder("")[3], // HardBreak
-      ]
+export function readonlyExtensions() {
   return [
-    ...base,
+    ...baseWithPlaceholder("").slice(0, 4), // Document, Paragraph, Text, HardBreak（不含 History）
     ...formattingExtensions,
     ...blockExtensions,
     ...inlineExtensions,
