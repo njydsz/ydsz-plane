@@ -22,6 +22,7 @@ import (
 	"github.com/njydsz/ydsz-plane/internal/application/version"
 	"github.com/njydsz/ydsz-plane/internal/application/workbench"
 	"github.com/njydsz/ydsz-plane/internal/application/workspace"
+	"github.com/njydsz/ydsz-plane/internal/application/dashboard"
 	"github.com/njydsz/ydsz-plane/internal/config"
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/cache"
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/mail"
@@ -147,6 +148,12 @@ func run() error {
 		WorkbenchSvc: workbenchSvc,
 	})
 
+	// ---------- Dashboard domain ----------
+	dashboardSvc := dashboard.NewService(pool.Pool)
+	dashboardHandler := dashboard.NewDashboardHandler(&dashboard.HandlerDeps{
+		DashboardSvc: dashboardSvc,
+	})
+
 	// ---------- Notification domain ----------
 	notifSvc := notif.NewService(pool.Pool)
 	notifHandler := notif.NewHandler(&notif.HandlerDeps{
@@ -179,6 +186,8 @@ func run() error {
 		SearchHandler: searchHandler,
 		// Workbench domain
 		WorkbenchHandler: workbenchHandler,
+		// Dashboard domain
+		DashboardHandler: dashboardHandler,
 		// Notification domain
 		NotificationHandler: notifHandler,
 		// Sprint domain
@@ -220,6 +229,13 @@ func run() error {
 		Auth:             authSvc,
 		WorkspaceStore:   wsStore,
 		WorkbenchHandler: workbenchHandler,
+	})
+
+	// 注册仪表盘路由（项目级 + 工作空间级）
+	httpapi.RegisterDashboardRoutes(engine, &httpapi.Deps{
+		Auth:             authSvc,
+		WorkspaceStore:   wsStore,
+		DashboardHandler: dashboardHandler,
 	})
 
 	// 注册通知路由

@@ -110,3 +110,17 @@ a {
   color: var(--brand-500);
   text-decoration: none;
 }
+
+/* ===== 移动端响应式基线 ===== */
+@media (max-width: 768px) {
+  :root {
+    --sidebar-width: 0px;
+    --header-height: 48px;
+  }
+  .ws-layout .sidebar { display: none; }
+  .ws-layout .content { padding: 12px; }
+  .kanban__board { flex-direction: column; }
+  .kanban__column { flex: 0 0 auto; max-height: none; }
+  .planning .content { grid-template-columns: 1fr; }
+  .wb-grid { grid-template-columns: 1fr; }
+}

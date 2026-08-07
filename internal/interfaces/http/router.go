@@ -210,6 +210,7 @@ func RegisterNotificationRoutes(r *gin.Engine, d *Deps) {
 		middleware.RequirePermission(d.WorkspaceStore, auth.PermWorkspaceRead),
 	)
 	d.NotificationHandler.RegisterRoutes(ws)
+	d.NotificationHandler.RegisterPreferenceRoutes(ws)
 }
 
 // NewEngine 构建带完整中间件链的 HTTP 引擎。

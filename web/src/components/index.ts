@@ -22,3 +22,4 @@ export { default as AppModal } from "./AppModal.vue";
 export { default as ProgressBar } from "./ProgressBar.vue";
 export { default as MiniGantt } from "./MiniGantt.vue";
 export { default as NotificationBell } from "./NotificationBell.vue";
+export { default as GlobalSearch } from "./GlobalSearch.vue";

@@ -4,7 +4,6 @@ package dashboard
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -271,14 +270,15 @@ func (s *Service) getBlockedList(ctx context.Context, projectID int64) (any, err
 // getActiveSprintBurndown 获取当前活跃迭代的燃尽数据。
 func (s *Service) getActiveSprintBurndown(ctx context.Context, projectID int64) (any, error) {
 	var w BurndownWidget
+	var endDate time.Time
 	err := s.db.QueryRow(ctx, `
-		SELECT s.id, s.name,s.total_points, s.total_issues, s.end_date,
+		SELECT s.id, s.name, s.total_points, s.total_issues, s.end_date,
 		       (SELECT count(*) FROM sprint_issues si2 JOIN issues i2 ON i2.id = si2.issue_id
 		           JOIN states sg2 ON sg2.id = i2.state_id
 		       WHERE si2.sprint_id = s.id AND sg2."group" = 'completed') AS burned_issues
 		FROM sprints s WHERE s.project_id = $1 AND s.status = 'active' AND s.deleted_at IS NULL
 		ORDER BY s.start_date DESC LIMIT 1`,
-		projectID).Scan(&w.SprintID, &w.SprintName, &w.TotalPoints, &w.TotalIssues, &w.EndDate, &w.BurnedIssues)
+		projectID).Scan(&w.SprintID, &w.SprintName, &w.TotalPoints, &w.TotalIssues, &endDate, &w.BurnedIssues)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, nil
@@ -286,7 +286,7 @@ func (s *Service) getActiveSprintBurndown(ctx context.Context, projectID int64) 
 		return nil, errs.ErrInternal.Wrap(err)
 	}
 	w.BurnedPoints = w.BurnedIssues * (w.TotalPoints / max(w.TotalIssues, 1))
-	w.RemainingDays = int(w.EndDate.Sub(time.Now()).Hours() / 24)
+	w.RemainingDays = int(endDate.Sub(time.Now()).Hours() / 24)
 	w.IsActive = true
 	return &w, nil
 }

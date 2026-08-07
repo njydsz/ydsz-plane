@@ -14,6 +14,7 @@ import { useRoute, useRouter } from "vue-router";
 import type { Workspace } from "@/api/services/workspace";
 import { useAuthStore } from "@/stores/auth";
 import { useWorkspaceStore } from "@/stores/workspace";
+import NotificationBell from "@/components/NotificationBell.vue";
 
 const route = useRoute();
 const router = useRouter();
@@ -149,7 +150,8 @@ onMounted(bootstrap);
           </slot>
         </div>
         <div class="header__actions">
-          <kbd class="cmdk-hint">⌘ K</kbd>
+          <kbd class="cmdk-hint" title="搜索 (Ctrl+K)" @click="$emit('search')">⌘ K</kbd>
+          <NotificationBell />
           <span class="user">{{ auth.user?.display_name ?? "" }}</span>
           <button class="logout" @click="auth.logout()">退出</button>
         </div>
