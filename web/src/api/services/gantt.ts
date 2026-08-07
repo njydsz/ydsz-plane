@@ -50,6 +50,7 @@ export interface GanttQuery {
   sprint_id?: number;
 }
 
+/** 甘特图域 API — 获取项目工作项时间线数据与依赖关系（v0.3+）。 */
 export const ganttApi = {
   /**
    * 获取项目甘特图数据（工作项时间线，无日期的工作项也会返回）。

@@ -4920,3 +4920,79 @@ ALTER TABLE "public"."workspace_members" ADD CONSTRAINT "workspace_members_works
 -- Foreign Keys structure for table workspaces
 -- ----------------------------
 ALTER TABLE "public"."workspaces" ADD CONSTRAINT "workspaces_owner_id_fkey" FOREIGN KEY ("owner_id") REFERENCES "public"."users" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+
+-- ----------------------------
+-- Table structure for pages
+-- ----------------------------
+DROP TABLE IF EXISTS "public"."pages";
+CREATE TABLE "public"."pages" (
+  "id" int8 NOT NULL GENERATED ALWAYS AS IDENTITY (
+INCREMENT 1
+MINVALUE  1
+MAXVALUE 9223372036854775807
+START 1
+CACHE 1
+),
+  "public_id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "workspace_id" int8 NOT NULL,
+  "project_id" int8 NOT NULL,
+  "name" text COLLATE "pg_catalog"."default" NOT NULL,
+  "description_json" jsonb,
+  "description_html" text COLLATE "pg_catalog"."default",
+  "description_stripped" text COLLATE "pg_catalog"."default",
+  "parent_id" int8,
+  "sort_order" float8 NOT NULL DEFAULT 65535,
+  "created_by" int8 NOT NULL,
+  "created_at" timestamptz(6) NOT NULL DEFAULT now(),
+  "updated_at" timestamptz(6) NOT NULL DEFAULT now(),
+  "deleted_at" timestamptz(6),
+  "version" int4 NOT NULL DEFAULT 1
+)
+;
+
+-- ----------------------------
+-- Records of pages
+-- ----------------------------
+
+-- ----------------------------
+-- Indexes structure for table pages
+-- ----------------------------
+CREATE INDEX "idx_pages_project" ON "public"."pages" USING btree (
+  "project_id" "pg_catalog"."int8_ops" ASC NULLS LAST,
+  "deleted_at" "pg_catalog"."timestamptz_ops" ASC NULLS LAST
+) WHERE deleted_at IS NULL;
+CREATE INDEX "idx_pages_parent" ON "public"."pages" USING btree (
+  "parent_id" "pg_catalog"."int8_ops" ASC NULLS LAST
+) WHERE deleted_at IS NULL AND parent_id IS NOT NULL;
+CREATE INDEX "idx_pages_project_sort" ON "public"."pages" USING btree (
+  "project_id" "pg_catalog"."int8_ops" ASC NULLS LAST,
+  "sort_order" "pg_catalog"."float8_ops" ASC NULLS LAST
+) WHERE deleted_at IS NULL;
+CREATE UNIQUE INDEX "idx_pages_public_id" ON "public"."pages" USING btree (
+  "public_id" "pg_catalog"."uuid_ops" ASC NULLS LAST
+) WHERE deleted_at IS NULL;
+
+-- ----------------------------
+-- Triggers structure for table pages
+-- ----------------------------
+CREATE TRIGGER "trg_pages_updated_at" BEFORE UPDATE ON "public"."pages"
+FOR EACH ROW
+EXECUTE PROCEDURE "public"."set_updated_at"();
+
+-- ----------------------------
+-- Primary Key structure for table pages
+-- ----------------------------
+ALTER TABLE "public"."pages" ADD CONSTRAINT "pages_pkey" PRIMARY KEY ("id");
+
+-- ----------------------------
+-- Auto increment value for pages
+-- ----------------------------
+SELECT setval(pg_get_serial_sequence('public.pages', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.pages) + 1, false);
+
+-- ----------------------------
+-- Foreign Keys structure for table pages
+-- ----------------------------
+ALTER TABLE "public"."pages" ADD CONSTRAINT "pages_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "public"."users" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+ALTER TABLE "public"."pages" ADD CONSTRAINT "pages_parent_id_fkey" FOREIGN KEY ("parent_id") REFERENCES "public"."pages" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+ALTER TABLE "public"."pages" ADD CONSTRAINT "pages_project_id_fkey" FOREIGN KEY ("project_id") REFERENCES "public"."projects" ("id") ON DELETE CASCADE ON UPDATE NO ACTION;
+ALTER TABLE "public"."pages" ADD CONSTRAINT "pages_workspace_id_fkey" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces" ("id") ON DELETE CASCADE ON UPDATE NO ACTION;

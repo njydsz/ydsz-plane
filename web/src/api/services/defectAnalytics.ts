@@ -16,17 +16,20 @@ export interface SeverityCount {
   count: number;
 }
 
+/** 缺陷发现阶段分布（phase → count）。 */
 export interface PhaseCount {
   phase: string;
   count: number;
 }
 
+/** 缺陷模块分布（module_id / module_name → count）。 */
 export interface ModuleCount {
   module_id?: number;
   module_name?: string;
   count: number;
 }
 
+/** 缺陷根因分类分布（root_cause → count）。 */
 export interface RootCauseCount {
   root_cause?: string;
   count: number;

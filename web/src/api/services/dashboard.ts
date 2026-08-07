@@ -99,7 +99,7 @@ export interface OverdueItem {
   assignee: string;
 }
 
-//** 逾期工作项列表（total + items）。 */
+/** 逾期工作项列表（total + items）。 */
 export interface OverdueListData {
   total: number;
   items: OverdueItem[];

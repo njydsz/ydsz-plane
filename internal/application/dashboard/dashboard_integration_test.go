@@ -125,7 +125,7 @@ func seedDashboardData(t *testing.T, ctx context.Context, pool *persistence.Pool
 			INSERT INTO issues (workspace_id, project_id, sequence_id, type_code, name, state_id, priority,
 			                    severity, found_phase, created_by)
 			VALUES ($1, $2, $3, $4, $5, $6, $7,
-			        CASE WHEN $4 = 'defect' THEN 'high'::text ELSE NULL END,
+			        CASE WHEN $4 = 'defect' THEN 2 ELSE NULL END,
 			        CASE WHEN $4 = 'defect' THEN 'integration'::text ELSE NULL END, 1)`,
 			wsID, projID, i+1, typ, "Dash Issue "+typ, stateID, priorities[i])
 		if err != nil {

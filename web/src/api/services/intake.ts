@@ -12,6 +12,7 @@ import { http } from "../client";
 
 export type IssueType = "requirement" | "bug" | "task";
 
+/** Intake 收件箱通道实体（对外开放提交入口的配置）。 */
 export interface IntakeChannel {
   id: number;
   workspace_id: number;
@@ -35,8 +36,10 @@ export interface IntakeChannel {
   updated_at: string;
 }
 
+/** Intake 工单状态：待审核 / 已审核 / 已转换 / 已拒绝 / 已归档。 */
 export type IntakeStatus = "pending" | "reviewed" | "converted" | "rejected" | "archived";
 
+/** Intake 工单实体（外部用户提交的问题追踪）。 */
 export interface IntakeIssue {
   id: number;
   workspace_id: number;
@@ -59,6 +62,7 @@ export interface IntakeIssue {
   updated_at: string;
 }
 
+/** 创建 Intake 通道入参（slug、配置、限流、通知规则等）。 */
 export interface CreateChannelInput {
   slug: string;
   name: string;
@@ -76,6 +80,7 @@ export interface CreateChannelInput {
   project_id?: number;
 }
 
+/** 更新 Intake 通道入参（仅包含可变字段）。 */
 export interface UpdateChannelInput {
   name?: string;
   description?: string;
@@ -84,12 +89,14 @@ export interface UpdateChannelInput {
   auto_assign_rules?: any;
 }
 
+/** 通道列表查询参数（分页 + 项目过滤）。 */
 export interface ListChannelsParams {
   project_id?: number;
   limit?: number;
   offset?: number;
 }
 
+/** Intake 工单列表查询参数（分页 + 通道 / 状态过滤）。 */
 export interface ListIssuesParams {
   channel_id?: number;
   status?: IntakeStatus;
@@ -97,6 +104,7 @@ export interface ListIssuesParams {
   offset?: number;
 }
 
+//** 工单审核入参（approve / reject / archive + 目标类型与原因）。 */
 export interface ReviewInput {
   action: "approve" | "reject" | "archive";
   target_issue_type?: string;
@@ -104,11 +112,13 @@ export interface ReviewInput {
   reason?: string;
 }
 
+/** 工单转换为正式工作项的入参（目标项目 + 工作项类型）。 */
 export interface ConvertInput {
   target_project_id: number;
   target_issue_type: string;
 }
 
+/** 转换结果 — 新建的工作项 ID 与标识符。 */
 export interface ConvertResult {
   converted_issue_id: number;
   identifier: string;
@@ -116,6 +126,7 @@ export interface ConvertResult {
   project_id: number;
 }
 
+/** 公开提交入参（标题、描述、提交者信息、自定义字段）。 */
 export interface SubmitInput {
   title: string;
   description?: string;
@@ -126,6 +137,7 @@ export interface SubmitInput {
   attachment_ids?: number[];
 }
 
+/** 公开提交结果 — tracking_id + 状态 + 提交时间 + 提示信息。 */
 export interface SubmitResult {
   tracking_id: string;
   status: string;
@@ -133,6 +145,7 @@ export interface SubmitResult {
   message: string;
 }
 
+//** 工单追踪结果（状态 + 提交时间 + 审核时间 + 转换项）。 */
 export interface TrackResult {
   tracking_id: string;
   status: string;
@@ -148,6 +161,7 @@ export interface TrackResult {
 
 const wrap = <T>(p: Promise<{ data: T }>) => p.then((r) => r.data);
 
+/** Intake 收件箱域 API — 通道管理、工单审核、公开提交、追踪查询。 */
 export const intakeApi = {
   // --- Channel CRUD (admin) ---
   listChannels: (wsId: number, params?: ListChannelsParams) =>
