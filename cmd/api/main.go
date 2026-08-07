@@ -292,11 +292,11 @@ defectAnalyticsHandler := issue.NewDefectAnalyticsHandler(defectAnalyticsSvc)
 		// Intake domain (S10)
 		IntakeHandler:       intakeHandler,
 		IntakePublicHandler: intakePublicHandler,
-	// Automation domain (S11)
-	AutomationHandler:   automationHandler,
-	// Metrics domain (S11)
-	MetricsHandler:      metricsHandler,
-})
+		// Automation domain (S11)
+		AutomationHandler: automationHandler,
+		// Metrics domain (S11)
+		MetricsHandler:    metricsHandler,
+	})
 
 	// 注册工作项路由（必须在 NewEngine 之后）
 	httpapi.RegisterIssueRoutes(engine, &httpapi.Deps{
@@ -429,6 +429,14 @@ defectAnalyticsHandler := issue.NewDefectAnalyticsHandler(defectAnalyticsSvc)
 		PrincipalParser:   parsePrincipal,
 		WorkspaceStore:    wsStore,
 		AutomationHandler: automationHandler,
+	})
+
+	// 注册效能度量路由（S11，项目级）
+	httpapi.RegisterMetricsRoutes(engine, &httpapi.Deps{
+		Auth:            authSvc,
+		PrincipalParser: parsePrincipal,
+		WorkspaceStore:  wsStore,
+		MetricsHandler:  metricsHandler,
 	})
 
 	errCh := make(chan error, 1)
