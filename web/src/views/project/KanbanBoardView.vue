@@ -7,13 +7,13 @@ import { computed, onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
 
 import { workspaceApi } from "@/api/services/workspace";
-import { issueApi, type Issue } from "@/api/services/issue";
+import { issueApi, type Issue, type IssuePriority } from "@/api/services/issue";
 import { useIssueStore } from "@/stores/issue";
 import { usePeekStore } from "@/stores/peek";
 import { prefs } from "@/lib/prefs";
 import { toast } from "@/lib/toast";
 import IssueCreateModal from "./IssueCreateModal.vue";
-import { AppLoadingState, AppErrorState, AppEmptyState } from "@/components";
+import { AppErrorState, AppEmptyState, InlineEdit, InlineSelectEdit, AppSkeleton } from "@/components";
 
 const route = useRoute();
 const issueStore = useIssueStore();
@@ -181,6 +181,31 @@ function priorityColor(priority: string): string {
   return map[priority] ?? "var(--text-tertiary)";
 }
 
+/** 内联更新：更新单个字段并同步本地状态 */
+async function inlineUpdate(iss: Issue, patch: Partial<Pick<Issue, "name" | "priority" | "state_id">>) {
+  try {
+    const updated = await issueApi.updateIssue(wsId.value, projectId.value, iss.id, {
+      ...patch,
+      version: iss.version,
+    } as Parameters<typeof issueApi.updateIssue>[3]);
+    const idx = issueStore.issues.findIndex((i) => i.id === iss.id);
+    if (idx >= 0) issueStore.issues[idx] = updated;
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : "更新失败";
+    toast.error(msg);
+    // 回滚：重新拉取以恢复服务端真实状态
+    await issueStore.fetchIssues(wsId.value, projectId.value);
+  }
+}
+
+const priorityOptions = [
+  { value: "urgent" as IssuePriority, label: "紧急", color: "var(--danger-500)", icon: "🔴" },
+  { value: "high" as IssuePriority, label: "高", color: "var(--warning-500)", icon: "🟠" },
+  { value: "medium" as IssuePriority, label: "中", color: "var(--brand-500)", icon: "🔵" },
+  { value: "low" as IssuePriority, label: "低", color: "var(--text-tertiary)", icon: "⚪" },
+  { value: "none" as IssuePriority, label: "无", color: "var(--text-tertiary)", icon: "⬜" },
+];
+
 onMounted(() => {
   prefs.setLastView(projectId.value, "board");
   load();
@@ -213,7 +238,7 @@ onMounted(() => {
       </div>
     </header>
 
-    <AppLoadingState v-if="loading" />
+    <AppSkeleton v-if="loading" variant="board" :cols="issueStore.states.length || 4" />
     <AppErrorState v-else-if="error" :message="error" @retry="load" />
     <AppEmptyState v-else-if="issueStore.issues.length === 0" icon="📋" title="暂无工作项" description="创建或拖拽工作项到此看板">
       <button class="btn btn--primary" @click="showCreateModal = true">+ 创建工作项</button>
@@ -256,12 +281,23 @@ onMounted(() => {
               <span class="issue-card__identifier" :style="{ color: priorityColor(iss.priority) }">
                 {{ iss.identifier }}
               </span>
-              <span
-                class="issue-card__priority"
-                :style="{ backgroundColor: priorityColor(iss.priority) }"
-              ></span>
+              <InlineSelectEdit
+                class="issue-card__priority-edit"
+                :model-value="iss.priority"
+                :options="priorityOptions"
+                placeholder="优先级"
+                align="right"
+                @submit="(v) => inlineUpdate(iss, { priority: v as IssuePriority })"
+              />
             </div>
-            <div class="issue-card__name">{{ iss.name }}</div>
+            <div class="issue-card__name" @click.stop>
+              <InlineEdit
+                :model-value="iss.name"
+                trigger="dblclick"
+                placeholder="双击编辑名称..."
+                @submit="(v) => inlineUpdate(iss, { name: v })"
+              />
+            </div>
             <div class="issue-card__meta">
               <span class="issue-card__type-badge" :class="`type-${iss.type_code}`">
                 {{ ({ requirement: "需求", task: "任务", defect: "缺陷" } as Record<string, string>)[iss.type_code] }}
@@ -356,13 +392,13 @@ onMounted(() => {
 
 .view-tab.is-active {
   background: var(--brand-500);
-  color: #fff;
+  color: var(--text-on-brand);
 }
 
 .btn--primary {
   padding: 8px 16px;
   background: var(--brand-500);
-  color: #fff;
+  color: var(--text-on-brand);
   border: none;
   border-radius: var(--radius-sm);
   font-size: 13px;
@@ -514,6 +550,7 @@ onMounted(() => {
   width: 8px;
   height: 8px;
   border-radius: 50%;
+  display: none;
 }
 
 .issue-card__name {
@@ -522,10 +559,18 @@ onMounted(() => {
   font-weight: 500;
   line-height: 1.4;
   margin-bottom: 8px;
+}
+
+.issue-card__name :deep(.inline-edit) {
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+.issue-card__priority-edit {
+  font-size: 11px;
+  color: var(--text-tertiary);
 }
 
 .issue-card__meta {

@@ -84,6 +84,44 @@ func (s *Service) UpdatePreference(ctx context.Context, wsID, userID int64, upda
 	return &p, nil
 }
 
+// isEventEnabledPref 基于已加载的偏好对象判断事件类型是否启用(无需回 DB)。
+func (s *Service) isEventEnabledPref(pref *NotificationPreference, eventType EventType) bool {
+	if len(pref.EventTypes) == 0 {
+		return true // 空 = 全部启用
+	}
+	for _, et := range pref.EventTypes {
+		if et == string(eventType) {
+			return true
+		}
+	}
+	return false
+}
+
+// fetchPreferenceTx 在调用方事务内读取偏好(事务已设置 app.workspace_id 以保证 RLS)。
+// 找不到返回 pgx.ErrNoRows,由调用方转换为"默认仅 in_app 不投递"。
+func (s *Service) fetchPreferenceTx(ctx context.Context, tx pgx.Tx, wsID, userID int64) (*NotificationPreference, error) {
+	var p NotificationPreference
+	var eventTypesRaw, channelsRaw []byte
+	var dndStart, dndEnd string
+	err := tx.QueryRow(ctx, `
+		SELECT id, user_id, workspace_id, event_types, channels, digest,
+		       dnd_enabled, dnd_start, dnd_end, is_enabled, created_at, updated_at
+		FROM notification_preferences
+		WHERE user_id = $1 AND workspace_id = $2`,
+		userID, wsID).Scan(
+		&p.ID, &p.UserID, &p.WorkspaceID, &eventTypesRaw, &channelsRaw,
+		&p.Digest, &p.DNDEnabled, &dndStart, &dndEnd, &p.IsEnabled,
+		&p.CreatedAt, &p.UpdatedAt)
+	if err != nil {
+		return nil, err
+	}
+	_ = json.Unmarshal(eventTypesRaw, &p.EventTypes)
+	_ = json.Unmarshal(channelsRaw, &p.Channels)
+	p.DNDStart = dndStart
+	p.DNDEnd = dndEnd
+	return &p, nil
+}
+
 // IsEventEnabled 检查该事件类型在用户偏好中是否启用。
 func (s *Service) IsEventEnabled(ctx context.Context, wsID, userID int64, eventType EventType) bool {
 	pref, err := s.GetUserPreference(ctx, wsID, userID)

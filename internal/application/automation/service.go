@@ -1,3 +1,12 @@
+// Package automation 提供自动化规则的应用服务（CRUD + 模板预置 + dry-run）。
+//
+// 核心职责：
+//   - 规则生命周期管理：Create / Update / Delete / Toggle / GetByID / List（含分页过滤）
+//   - 内置模板预置：workspace 创建时预置常用规则（状态流转通知、自动指派等）
+//   - dry-run 测试：给定规则 ID + 模拟工作项上下文，返回预测动作而非真实执行
+//   - 执行审计：所有被触发的规则执行均落 execution_log，便于追溯
+//
+// 实际的动作执行委托给 engine.go（ExecutionEngine），本文件负责编排与输入校验。
 package automation
 
 import (

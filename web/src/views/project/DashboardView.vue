@@ -12,7 +12,7 @@ import { dashboardApi } from "@/api/services/dashboard";
 import type { DashboardData, RiskAlert, WidgetType } from "@/api/services/dashboard";
 import { useWorkspaceStore } from "@/stores/workspace";
 import AppModal from "@/components/AppModal.vue";
-import { AppLoadingState, AppErrorState } from "@/components";
+import { AppErrorState, AppSkeleton } from "@/components";
 import { WIDGET_COMPONENTS, WIDGET_NAME_MAP } from "@/components/dashboard/widgetRegistry";
 import DashWidgetCard from "@/components/dashboard/DashWidgetCard.vue";
 import EmptyStateWidget from "@/components/dashboard/EmptyStateWidget.vue";
@@ -201,7 +201,7 @@ onMounted(load);
     </header>
 
     <!-- 加载 / 错误 -->
-    <AppLoadingState v-if="loading" text="正在加载仪表盘数据..." />
+    <AppSkeleton v-if="loading" variant="dashboard" :rows="4" />
     <AppErrorState
       v-else-if="error"
       :message="error"

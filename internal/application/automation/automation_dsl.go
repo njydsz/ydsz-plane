@@ -1,3 +1,11 @@
+// Package automation 提供领域自动化规则引擎的 DSL 定义、解析与校验能力。
+//
+// 核心职责：
+//   - 定义 Automation DSL（Trigger / Condition / Action）并实现 JSON Schema 校验
+//   - 提供内置动作常量（transition/assign/update_field/notify/create_issue）与触发器类型枚举
+//   - 支持条件表达式解析（eq/ne/gt/gte/lt/lte/contains/in/is_empty/is_not_empty/changed）
+//
+// DSL 数据流：前端 DSL JSON → BuildRule → ValidateDSL → DB 存储 → 运行时引擎匹配执行。
 package automation
 
 import (

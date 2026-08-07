@@ -8,7 +8,7 @@ import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
 import { versionApi, type Version, type VersionStatus } from "@/api/services/version";
-import { AppButton, AppBadge, AppEmptyState, AppLoadingState, AppErrorState, ProgressBar } from "@/components";
+import { AppButton, AppBadge, AppEmptyState, AppErrorState, ProgressBar, AppSkeleton } from "@/components";
 
 const route = useRoute();
 const router = useRouter();
@@ -267,7 +267,7 @@ onMounted(load);
     </nav>
 
     <!-- Loading -->
-    <AppLoadingState v-if="loading" text="正在加载版本列表..." />
+    <AppSkeleton v-if="loading" variant="table" :rows="6" />
 
     <!-- Error -->
     <AppErrorState

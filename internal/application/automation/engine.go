@@ -1,3 +1,11 @@
+// Package automation 提供领域自动化规则引擎的运行时调度与执行能力。
+//
+// 核心职责：
+//   - 事件驱动：订阅领域事件（issue.created/updated、sprint.started、version.released 等），匹配活跃规则
+//   - 根据事件优先级与规则权重排序执行；支持 dry-run（干跑）模式产出执行预览
+//   - 通过 SPI（ExecutionContextProvider / ActionExecutor）解耦领域副作用，便于单元测试 fake
+//
+// 与 automation_dsl.go（DSL 定义）和 service.go（应用服务）协作，形成"定义-存储-执行"闭环。
 package automation
 
 import (

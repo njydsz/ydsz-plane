@@ -1,3 +1,8 @@
+// Package main 为 seed 工具集提供数据库连接与通用辅助函数。
+//
+// 提供：
+//   - loadDSN：从环境变量或配置文件读取数据库连接串
+//   - maskDSN：连接串安全脱敏打印（密码隐藏）
 package main
 
 import (

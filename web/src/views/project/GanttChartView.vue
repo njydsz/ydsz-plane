@@ -18,7 +18,7 @@ import dayjs from "dayjs";
 import { ganttApi } from "@/api/services/gantt";
 import type { GanttIssue, GanttDependency } from "@/api/services/gantt";
 import { useWorkspaceStore } from "@/stores/workspace";
-import { AppLoadingState, AppErrorState, AppEmptyState } from "@/components";
+import { AppErrorState, AppEmptyState, AppSkeleton } from "@/components";
 
 const route = useRoute();
 const router = useRouter();
@@ -241,7 +241,7 @@ const svgHeight = computed(() => HEADER_HEIGHT + issues.value.length * ROW_HEIGH
     </header>
 
     <!-- 状态 -->
-    <AppLoadingState v-if="loading" />
+    <AppSkeleton v-if="loading" variant="board" :cols="2" />
     <AppErrorState v-else-if="error" :message="error" :retry="load" />
 
     <!-- 主内容 -->

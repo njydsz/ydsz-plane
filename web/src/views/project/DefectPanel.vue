@@ -265,7 +265,7 @@ onMounted(load);
   border: 1px solid var(--brand-500);
   border-radius: var(--radius-sm);
   background: var(--brand-500);
-  color: var(--text-on-brand, #fff);
+  color: var(--text-on-brand);
   cursor: pointer;
   transition: background 0.15s;
 }

@@ -72,19 +72,21 @@ onUnmounted(() => document.removeEventListener("mousedown", onDocClick));
 
 <template>
   <span ref="rootRef" class="inline-select" :class="{ 'inline-select--open': open }">
-    <span
-      class="inline-select__trigger"
-      :class="{ 'inline-select__trigger--editable': !disabled, 'inline-select__trigger--empty': !current }"
-      role="button"
-      tabindex="0"
-      @click="toggle"
-      @keydown.enter="toggle"
-      @keydown.esc="open = false"
-    >
-      <span v-if="current?.color" class="inline-select__dot" :style="{ background: current.color }" />
-      <span v-if="current?.icon" class="inline-select__icon">{{ current.icon }}</span>
-      <span class="inline-select__label">{{ current?.label ?? placeholder }}</span>
-    </span>
+      <span
+        class="inline-select__trigger"
+        :class="{ 'inline-select__trigger--editable': !disabled, 'inline-select__trigger--empty': !current }"
+        role="button"
+        tabindex="0"
+        @click="toggle"
+        @keydown.enter="toggle"
+        @keydown.esc="open = false"
+      >
+        <slot name="trigger">
+          <span v-if="current?.color" class="inline-select__dot" :style="{ background: current.color }" />
+          <span v-if="current?.icon" class="inline-select__icon">{{ current.icon }}</span>
+          <span class="inline-select__label">{{ current?.label ?? placeholder }}</span>
+        </slot>
+      </span>
 
     <Transition name="ise-pop">
       <div

@@ -520,17 +520,17 @@ section h2 { margin: 0 0 12px; font-size: 14px; font-weight: 600; }
   font-size: 13px; font-weight: 500; padding: 6px 14px; border-radius: var(--radius-sm);
   border: 1px solid var(--border-subtle); cursor: pointer; transition: background 0.15s;
 }
-.btn-primary { background: var(--brand-500); color: #fff; border-color: var(--brand-500); }
+.btn-primary { background: var(--brand-500); color: var(--text-on-brand); border-color: var(--brand-500); }
 .btn-primary:hover:not(:disabled) { background: var(--brand-600); }
 .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
 .btn-secondary { background: var(--surface-2); color: var(--text-primary); }
 .btn-secondary:hover { background: var(--surface-3); }
-.btn-danger { background: var(--danger-500); color: #fff; border-color: var(--danger-500); }
+.btn-danger { background: var(--danger-500); color: var(--text-on-brand); border-color: var(--danger-500); }
 .btn-danger:hover:not(:disabled) { background: var(--danger-600); }
 .btn-danger:disabled { opacity: 0.6; cursor: not-allowed; }
 
 .modal-overlay {
-  position: fixed; inset: 0; background: rgba(0,0,0,0.4);
+  position: fixed; inset: 0; background: var(--bg-backdrop);
   display: flex; align-items: center; justify-content: center; z-index: 100;
 }
 .modal {

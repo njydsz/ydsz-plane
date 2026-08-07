@@ -51,12 +51,12 @@ type ServerConfig struct {
 	// Env 是运行环境标识。
 	// 合法值："development" | "staging" | "production"。
 	// 默认："development"。
-	Env string
+	Env string `mapstructure:"env"`
 
 	// Port 是服务绑定的 TCP 端口。
 	// 范围：1-65535，超出触发校验错误。
 	// 默认：8080。
-	Port int
+	Port int `mapstructure:"port"`
 }
 
 // DatabaseConfig 保存 PostgreSQL 连接参数。
@@ -64,35 +64,35 @@ type DatabaseConfig struct {
 	// URL 是完整的 libpq 连接串。
 	// 格式："postgres://user:pass@host:port/db?sslmode=disable"。
 	// 生产环境必填；默认使用本地开发连接串。
-	URL string
+	URL string `mapstructure:"url"`
 
 	// MaxConns 是 pgx 连接池的最大连接数。
 	// 范围：1-100。超过 Postgres max_connections 会在服务端引发连接错误。
 	// 默认：20。
-	MaxConns int32
+	MaxConns int32 `mapstructure:"max_conns"`
 
 	// ConnMaxLifetime 是单条连接被复用多久后关闭并重开。
 	// 有助于在 PgBouncer 或其他连接代理后重新平衡连接。
 	// 格式：Go 时长字符串（如 "30m"、"1h"）。
 	// 默认："30m"。
-	ConnMaxLifetime time.Duration
+	ConnMaxLifetime time.Duration `mapstructure:"conn_max_lifetime"`
 }
 
 // RedisConfig 保存 Redis 客户端参数。
 type RedisConfig struct {
 	// Addr 是 Redis 服务地址，格式 "host:port"。
 	// 默认："127.0.0.1:6379"。
-	Addr string
+	Addr string `mapstructure:"addr"`
 
 	// Password 是 Redis AUTH 密码。空字符串禁用 AUTH。
 	// 默认："Limw1020"（本地开发）；生产环境必须覆盖。
-	Password string
+	Password string `mapstructure:"password"`
 
 	// DB 是 Redis 逻辑数据库编号（标准 Redis 为 0-15，
 	// 或支持该配置的 Redis Cluster 的索引）。
 	// 范围：0-15。
 	// 默认：0。
-	DB int
+	DB int `mapstructure:"db"`
 }
 
 // RedisOptions 将配置转换为 go-redis 的 *redis.Options 值。
@@ -109,7 +109,7 @@ type RabbitMQConfig struct {
 	// URL 是完整的 AMQP 连接串。
 	// 格式："amqp://user:pass@host:port/vhost"，TLS 使用 "amqps://..."。
 	// 默认："amqp://guest:guest@127.0.0.1:5672/"。
-	URL string
+	URL string `mapstructure:"url"`
 }
 
 // AuthConfig 聚合认证与授权参数。
@@ -118,7 +118,7 @@ type AuthConfig struct {
 	// 防止跨服务 token 重放。
 	// 格式：建议 URI 形式字符串（如 "ydsz-plane"）。
 	// 默认："ydsz-plane"。
-	JWTIssuer string
+	JWTIssuer string `mapstructure:"jwt_issuer"`
 
 	// JWTSecret 是签署 HS256 JWT 的对称密钥。
 	// 安全要求：
@@ -130,7 +130,7 @@ type AuthConfig struct {
 	// 迁移说明：Phase 3 将轮换为 RS256（非对称）密钥；该字段在过渡期
 	// 仍作为 HMAC 密钥保留。
 	// 默认：""（仅开发模式自动生成）。
-	JWTSecret string
+	JWTSecret string `mapstructure:"jwt_secret"`
 
 	// AccessTokenTTL 是短期访问令牌的生命周期。
 	// 权衡：更短的值可缩小令牌被盗利用的时间窗，但会增加刷新频率
@@ -138,14 +138,14 @@ type AuthConfig struct {
 	// 格式：Go 时长字符串（如 "15m"、"1h"）。
 	// 推荐范围：5m-1h。
 	// 默认："15m"。
-	AccessTokenTTL time.Duration
+	AccessTokenTTL time.Duration `mapstructure:"access_token_ttl"`
 
 	// RefreshTokenTTL 是刷新令牌的最大生命周期，到期后用户必须重新认证。
 	// 长生命令牌改善体验，但扩大失窃利用窗口；建议配合轮换与吊销列表。
 	// 格式：Go 时长字符串（如 "720h"、"168h"）。
 	// 推荐范围：24h-720h（30 天）。
 	// 默认："720h"（30 天）。
-	RefreshTokenTTL time.Duration
+	RefreshTokenTTL time.Duration `mapstructure:"refresh_token_ttl"`
 
 	// BcryptCost 是 bcrypt 工作因子（2^cost 次迭代）。每 +1 ，
 	// CPU 与内存成本翻倍。
@@ -156,7 +156,7 @@ type AuthConfig struct {
 	//   - 14：约 1s（高安全，可感知的用户延迟）。
 	// 范围：4-31（bcrypt 规范上限）。
 	// 默认：12。
-	BcryptCost int
+	BcryptCost int `mapstructure:"bcrypt_cost"`
 
 	// LoginRateLimitPer 是限流窗口内每个客户端 IP 允许的最大登录尝试次数。
 	// 用于缓解撞库与暴力破解攻击。
@@ -164,7 +164,7 @@ type AuthConfig struct {
 	// 范围：1-1000。过低的值可能误伤共享 NAT 网关的合法用户
 	// （如企业网络）。
 	// 默认：10。
-	LoginRateLimitPer int
+	LoginRateLimitPer int `mapstructure:"login_rate_limit_per"`
 }
 
 // LogConfig 控制结构化日志行为。
@@ -172,14 +172,14 @@ type LogConfig struct {
 	// Level 是最小严重级别阈值。低于该级别的消息被丢弃。
 	// 合法值："debug" | "info" | "warn" | "error" | "fatal" | "panic"。
 	// 默认："info"。
-	Level string
+	Level string `mapstructure:"level"`
 
 	// Format 选择日志编码器。"json" 每行输出一个 JSON 对象
 	// （适合 ELK / Loki 采集）；"console" 输出人类可读的格式化日志，
 	// 用于本地开发。
 	// 合法值："json" | "console"。
 	// 默认："console"。
-	Format string
+	Format string `mapstructure:"format"`
 }
 
 // FeatureFlags 用于门控未完成或实验性功能，使代码可以在不暴露给生产流量的
@@ -189,22 +189,22 @@ type FeatureFlags struct {
 	// SearchEnabled 切换全文搜索 API（/api/v1/search）与后台索引 goroutine。
 	// 关闭时搜索端点返回 501 Not Implemented，表明功能有意不可用。
 	// 默认：false。
-	SearchEnabled bool
+	SearchEnabled bool `mapstructure:"search_enabled"`
 
 	// AutomationEnabled 切换工作流自动化引擎（规则评估、定时触发）。
 	// 关闭时无自动化任务执行，/api/v1/automation 路由返回 501。
 	// 默认：false。
-	AutomationEnabled bool
+	AutomationEnabled bool `mapstructure:"automation_enabled"`
 
 	// WebhooksEnabled 控制外发 webhook 投递。关闭时 webhook 注册仍然保留，
 	// 但不发出任何 HTTP 请求；记录合成 200 响应以留审计痕迹。
 	// 默认：false。
-	WebhooksEnabled bool
+	WebhooksEnabled bool `mapstructure:"webhooks_enabled"`
 
 	// RegistrationOpen 切换公开用户注册。关闭时 POST /api/v1/auth/register
 	// 返回 403，实例实质变为邀请制。适用于私有内测或维护模式。
 	// 默认：true。
-	RegistrationOpen bool
+	RegistrationOpen bool `mapstructure:"registration_open"`
 }
 
 // Load 从环境变量（前缀 YDSZ_）读取配置并附带合理的本地开发默认值。

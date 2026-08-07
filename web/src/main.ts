@@ -17,6 +17,10 @@ import { i18n } from "./locales";
 import { registerSW } from "./pwa";
 
 import "./design/tokens.css";
+import { initTheme } from "./lib/theme";
+
+// 在挂载前应用主题，避免首帧闪烁（FOUC）
+initTheme();
 
 const app = createApp(App);
 app.use(createPinia());

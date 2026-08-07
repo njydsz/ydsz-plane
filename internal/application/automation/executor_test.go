@@ -1,3 +1,10 @@
+// Package automation (test) 为自动化规则引擎提供单元测试辅助类型与 fixture。
+//
+// 包含：
+//   - ExecutionContext 构造器（buildTestContext）
+//   - 模板变量解析测试（TestResolveTemplate）验证 ${issue.identifier} 等占位符替换
+//
+// 测试仅依赖本仓库内部类型，无需外部服务。
 package automation
 
 import (

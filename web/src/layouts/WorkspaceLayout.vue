@@ -19,6 +19,7 @@ import { useNotificationStore } from "@/stores/notification";
 import { wsClient } from "@/lib/ws-client";
 import NotificationBell from "@/components/NotificationBell.vue";
 import { IssuePeekOverview } from "@/components";
+import ThemeToggle from "@/components/ThemeToggle.vue";
 
 const route = useRoute();
 const router = useRouter();
@@ -327,6 +328,7 @@ onMounted(bootstrap);
         </div>
         <div class="header__actions">
           <kbd class="cmdk-hint" title="搜索 (Ctrl+K)" @click="searchStore.toggle()">⌘ K</kbd>
+          <ThemeToggle />
           <NotificationBell />
           <span class="user">{{ auth.user?.display_name ?? "" }}</span>
           <button class="logout" @click="auth.logout()">退出</button>

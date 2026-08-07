@@ -11,7 +11,7 @@ import { sprintApi, type Sprint, type SprintStatus } from "@/api/services/sprint
 import { useWorkspaceContext } from "@/composables/useWorkspaceContext";
 import SprintStatusBadge from "@/components/sprint/SprintStatusBadge.vue";
 import SprintProgressBar from "@/components/sprint/SprintProgressBar.vue";
-import { AppLoadingState, AppErrorState, AppEmptyState } from "@/components";
+import { AppErrorState, AppEmptyState, AppSkeleton } from "@/components";
 
 /* ------------------------------------------------------------------ */
 /* 路由上下文                                                           */
@@ -281,7 +281,7 @@ watch(ready, (r) => {
       </label>
     </div>
 
-    <AppLoadingState v-if="loading" />
+    <AppSkeleton v-if="loading" variant="table" :rows="6" />
     <AppErrorState v-else-if="error" :message="error" @retry="load(true)" />
 
     <AppEmptyState
@@ -471,7 +471,7 @@ watch(ready, (r) => {
   color: var(--text-secondary); cursor: pointer; border-radius: var(--radius-sm);
   transition: all 0.15s;
 }
-.filter-tab.active { background: var(--surface-1); color: var(--text-primary); font-weight: 500; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.filter-tab.active { background: var(--surface-1); color: var(--text-primary); font-weight: 500; box-shadow: var(--shadow-raised-100); }
 .sort-select { font-size: 12px; color: var(--text-secondary); display: flex; align-items: center; gap: 6px; }
 .sort-select select {
   font-size: 12px; padding: 4px 8px; border: 1px solid var(--border-subtle);
@@ -576,17 +576,17 @@ watch(ready, (r) => {
   font-size: 13px; font-weight: 500; padding: 6px 14px; border-radius: var(--radius-sm);
   border: 1px solid var(--border-subtle); cursor: pointer; transition: background 0.15s;
 }
-.btn-primary { background: var(--brand-500); color: #fff; border-color: var(--brand-500); }
+.btn-primary { background: var(--brand-500); color: var(--text-on-brand); border-color: var(--brand-500); }
 .btn-primary:hover:not(:disabled) { background: var(--brand-600); }
 .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
 .btn-secondary { background: var(--surface-2); color: var(--text-primary); }
 .btn-secondary:hover { background: var(--surface-3); }
-.btn-danger { background: var(--danger-500); color: #fff; border-color: var(--danger-500); }
+.btn-danger { background: var(--danger-500); color: var(--text-on-brand); border-color: var(--danger-500); }
 .btn-danger:hover:not(:disabled) { background: var(--danger-600); }
 .btn-danger:disabled { opacity: 0.6; cursor: not-allowed; }
 
 .modal-overlay {
-  position: fixed; inset: 0; background: rgba(0,0,0,0.4);
+  position: fixed; inset: 0; background: var(--bg-backdrop);
   display: flex; align-items: center; justify-content: center; z-index: 100;
 }
 .modal {

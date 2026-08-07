@@ -12,7 +12,7 @@ import dayjs from "dayjs";
 
 import { issueApi } from "@/api/services/issue";
 import { useWorkspaceStore } from "@/stores/workspace";
-import { AppLoadingState, AppErrorState, AppEmptyState } from "@/components";
+import { AppErrorState, AppEmptyState, AppSkeleton } from "@/components";
 
 interface CalendarEvent {
   id: number;
@@ -229,7 +229,7 @@ function typeColor(type: string): string {
     </header>
 
     <!-- 加载中 -->
-    <AppLoadingState v-if="loading" />
+    <AppSkeleton v-if="loading" variant="dashboard" :rows="2" />
     <!-- 错误 -->
     <AppErrorState v-else-if="error" :message="error" :retry="load" />
 

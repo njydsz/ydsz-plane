@@ -733,7 +733,7 @@ onMounted(() => {
   font-size: 11px;
   padding: 2px 8px;
   border-radius: var(--radius-sm);
-  color: #fff;
+  color: var(--text-on-brand);
   font-weight: 500;
 }
 
@@ -907,7 +907,7 @@ onMounted(() => {
 
 .btn--primary {
   background: var(--brand-500);
-  color: #fff;
+  color: var(--text-on-brand);
   border-color: var(--brand-500);
 }
 

@@ -1,3 +1,10 @@
+// Package issue (test) 为评论 HTML 清洗器提供安全回归测试。
+//
+// 覆盖场景：
+//   - 剥离 script / iframe / 事件属性 / style 属性
+//   - 允许富文本标签（strong/em/u/a/ul/ol/li/code/pre/blockquote/h1-h6）
+//   - 链接安全 rel 强制（防 window.opener）
+//   - 空串输入与纯文本输入边界
 package issue
 
 import (

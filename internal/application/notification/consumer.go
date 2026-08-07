@@ -140,7 +140,7 @@ func (c *consumer) handleIssueCreated(ctx context.Context, event mq.EventEnvelop
 		title := fmt.Sprintf("%s 创建工作项", p.ActorName)
 		body := fmt.Sprintf("[%s] %s", p.Identifier, p.Name)
 		actionURL := fmt.Sprintf("/projects/%d/issues/%d", p.ProjectID, p.IssueID)
-		if err := c.create(ctx, CreateNotificationInput{
+		notif, err := c.create(ctx, CreateNotificationInput{
 			WorkspaceID: p.WorkspaceID,
 			RecipientID: uid,
 			EventType:   EventIssueCreated,
@@ -153,10 +153,13 @@ func (c *consumer) handleIssueCreated(ctx context.Context, event mq.EventEnvelop
 			ActorName:   p.ActorName,
 			Channel:     ChannelInApp,
 			Payload:     event.Payload,
-		}); err != nil {
-			c.log.Warn("failed to create notification for issue.assignee",
+		})
+		if err != nil {
+			c.log.Warn("failed to create notification for issue.created",
 				zap.Int64("user", uid), zap.Error(err))
+			continue
 		}
+		c.enqueueDeliveries(ctx, p.WorkspaceID, uid, notif.ID, EventIssueCreated)
 	}
 	_ = projectName
 	return nil
@@ -178,7 +181,7 @@ func (c *consumer) handleIssueAssigned(ctx context.Context, event mq.EventEnvelo
 		if uid == p.ActorID {
 			continue
 		}
-		if err := c.create(ctx, CreateNotificationInput{
+		notif, err := c.create(ctx, CreateNotificationInput{
 			WorkspaceID: p.WorkspaceID,
 			RecipientID: uid,
 			EventType:   EventIssueAssigned,
@@ -191,10 +194,13 @@ func (c *consumer) handleIssueAssigned(ctx context.Context, event mq.EventEnvelo
 			ActorName:   p.ActorName,
 			Channel:     ChannelInApp,
 			Payload:     event.Payload,
-		}); err != nil {
+		})
+		if err != nil {
 			c.log.Warn("failed to create notification for issue.assigned",
 				zap.Int64("user", uid), zap.Error(err))
+			continue
 		}
+		c.enqueueDeliveries(ctx, p.WorkspaceID, uid, notif.ID, EventIssueAssigned)
 	}
 	return nil
 }
@@ -230,7 +236,7 @@ func (c *consumer) handleIssueStatusChanged(ctx context.Context, event mq.EventE
 			continue
 		}
 		actorID := p.ActorID
-		if err := c.create(ctx, CreateNotificationInput{
+		notif, err := c.create(ctx, CreateNotificationInput{
 			WorkspaceID: p.WorkspaceID,
 			RecipientID: uid,
 			EventType:   EventIssueStatusChanged,
@@ -243,10 +249,13 @@ func (c *consumer) handleIssueStatusChanged(ctx context.Context, event mq.EventE
 			ActorName:   p.ActorName,
 			Channel:     ChannelInApp,
 			Payload:     event.Payload,
-		}); err != nil {
+		})
+		if err != nil {
 			c.log.Warn("failed to create notification for issue.status_changed",
 				zap.Int64("user", uid), zap.Error(err))
+			continue
 		}
+		c.enqueueDeliveries(ctx, p.WorkspaceID, uid, notif.ID, EventIssueStatusChanged)
 	}
 	if dedupSkipped > 0 {
 		c.log.Info("notification dedup: skipped status_changed",
@@ -279,7 +288,7 @@ func (c *consumer) handleCommentCreated(ctx context.Context, event mq.EventEnvel
 			continue
 		}
 		actorID := p.ActorID
-		if err := c.create(ctx, CreateNotificationInput{
+		notif, err := c.create(ctx, CreateNotificationInput{
 			WorkspaceID: p.WorkspaceID,
 			RecipientID: uid,
 			EventType:   EventCommentCreated,
@@ -292,18 +301,20 @@ func (c *consumer) handleCommentCreated(ctx context.Context, event mq.EventEnvel
 			ActorName:   p.ActorName,
 			Channel:     ChannelInApp,
 			Payload:     event.Payload,
-		}); err != nil {
+		})
+		if err != nil {
 			c.log.Warn("failed to create notification for comment.created",
 				zap.Int64("user", uid), zap.Error(err))
+			continue
 		}
+		c.enqueueDeliveries(ctx, p.WorkspaceID, uid, notif.ID, EventCommentCreated)
 	}
 	return nil
 }
 
 // create 写入一条通知记录,返回创建的通知(含 id/recipient_id 供下游入投递记录)。
 func (c *consumer) create(ctx context.Context, input CreateNotificationInput) (*Notification, error) {
-	svc := c.svc
-	return svc.Create(ctx, input)
+	return c.svc.Create(ctx, input)
 }
 
 // enqueueDeliveries 为刚创建的通知,按收件人订阅的非 in_app 渠道写入 notification_deliveries 待投递记录。

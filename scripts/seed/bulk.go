@@ -1,3 +1,7 @@
+// Package main 为性能压测提供批量工作项造数工具（CLI）。
+//
+// 使用场景：staging 环境压测前快速生成 N 条工作项，验证批量 INSERT 性能与索引吞吐。
+// 造数前会保证基础数据存在（至少 1 个 workspace / 1 个 project / 若干状态节点）。
 package main
 
 import (

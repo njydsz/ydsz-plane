@@ -1,3 +1,9 @@
+// Package export (test) 为导出能力（CSV / Excel 流式写入）提供单元测试。
+//
+// 覆盖场景：
+//   - CSV 写入（UTF-8 BOM、列头编码、工作项角色转译）
+//   - Excel 格式输出（xlsx 流式写入）
+//   - HTTP 响应头（Content-Type、Content-Disposition）
 package export
 
 import (

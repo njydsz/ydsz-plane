@@ -6,13 +6,14 @@
 import { computed, onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
 
-import { type IssueType, type ListIssuesParams, type State, issueApi } from "@/api/services/issue";
+import { type IssueType, type IssuePriority, type ListIssuesParams, type State, issueApi } from "@/api/services/issue";
 import { workspaceApi } from "@/api/services/workspace";
 import { useIssueStore } from "@/stores/issue";
 import { usePeekStore } from "@/stores/peek";
 import { prefs } from "@/lib/prefs";
+import { toast } from "@/lib/toast";
 import IssueFilter from "./IssueFilter.vue";
-import { AppLoadingState, AppErrorState, AppEmptyState } from "@/components";
+import { AppErrorState, AppEmptyState, InlineEdit, InlineSelectEdit, AppSkeleton } from "@/components";
 
 const route = useRoute();
 const issueStore = useIssueStore();
@@ -198,6 +199,33 @@ function severityText(s?: number | null): string {
   return `S${s}`;
 }
 
+/** 内联更新：更新单个字段并同步本地状态（乐观更新 + 失败回滚） */
+async function inlineUpdate(iss: any, patch: Record<string, unknown>) {
+  const prev = { ...iss };
+  // 乐观更新
+  const idx = issueStore.issues.findIndex((i) => i.id === iss.id);
+  if (idx >= 0) issueStore.issues[idx] = { ...issueStore.issues[idx], ...patch };
+  try {
+    const updated = await issueApi.updateIssue(wsId.value, projectId.value, iss.id, {
+      ...patch,
+      version: iss.version,
+    } as Parameters<typeof issueApi.updateIssue>[3]);
+    if (idx >= 0) issueStore.issues[idx] = updated;
+  } catch (e: unknown) {
+    if (idx >= 0) issueStore.issues[idx] = prev;
+    const msg = e instanceof Error ? e.message : "更新失败";
+    toast.error(msg);
+  }
+}
+
+const priorityOptions: { value: IssuePriority; label: string; color: string; icon: string }[] = [
+  { value: "urgent", label: "紧急", color: "var(--danger-500)", icon: "🔴" },
+  { value: "high", label: "高", color: "var(--warning-500)", icon: "🟠" },
+  { value: "medium", label: "中", color: "var(--brand-500)", icon: "🔵" },
+  { value: "low", label: "低", color: "var(--text-tertiary)", icon: "⚪" },
+  { value: "none", label: "无", color: "var(--text-tertiary)", icon: "⬜" },
+];
+
 const columns: { key: string; label: string; width?: string; sortable?: boolean }[] = [
   { key: "identifier", label: "编号", width: "120px" },
   { key: "name", label: "名称", sortable: true },
@@ -291,7 +319,7 @@ const showExportDropdown = ref(false);
       <button class="btn btn--sm btn--ghost" @click="selectedIds = new Set()">取消选择</button>
     </div>
 
-    <AppLoadingState v-if="loading" />
+    <AppSkeleton v-if="loading" variant="table" :rows="8" />
     <AppErrorState v-else-if="error" :message="error" @retry="load" />
 
     <!-- 表格 -->
@@ -349,8 +377,13 @@ const showExportDropdown = ref(false);
             <td class="td-name">
               <span class="name-link" @click="openIssue(iss.id)">
                 <span class="type-dot" :class="`dot-${iss.type_code}`"></span>
-                {{ iss.name }}
               </span>
+              <InlineEdit
+                :model-value="iss.name"
+                placeholder="未命名"
+                :max-length="200"
+                @submit="(v) => inlineUpdate(iss, { name: v })"
+              />
             </td>
             <td>
               <span class="badge-sm" :class="`type-${iss.type_code}`">
@@ -358,17 +391,35 @@ const showExportDropdown = ref(false);
               </span>
             </td>
             <td>
-              <span class="priority-text" :class="`pri-${iss.priority}`">
-                {{ priorityLabel(iss.priority) }}
-              </span>
+              <InlineSelectEdit
+                :model-value="iss.priority"
+                :options="priorityOptions"
+                placeholder="无"
+                @submit="(v) => inlineUpdate(iss, { priority: v as IssuePriority })"
+              >
+                <template #trigger>
+                  <span class="priority-text" :class="`pri-${iss.priority}`">
+                    {{ priorityLabel(iss.priority) }}
+                  </span>
+                </template>
+              </InlineSelectEdit>
             </td>
             <td>
-              <span
-                class="state-badge"
-                :style="{ backgroundColor: stateMap[iss.state_id]?.color ?? '#ccc' }"
+              <InlineSelectEdit
+                :model-value="iss.state_id"
+                :options="issueStore.states.map((s) => ({ value: s.id, label: s.name, color: s.color }))"
+                placeholder="未设置状态"
+                @submit="(v) => inlineUpdate(iss, { state_id: Number(v) })"
               >
-                {{ stateMap[iss.state_id]?.name ?? iss.state_id }}
-              </span>
+                <template #trigger>
+                  <span
+                    class="state-badge"
+                    :style="{ backgroundColor: stateMap[iss.state_id]?.color ?? '#ccc' }"
+                  >
+                    {{ stateMap[iss.state_id]?.name ?? iss.state_id }}
+                  </span>
+                </template>
+              </InlineSelectEdit>
             </td>
             <td class="td-severity">
               {{ severityText(iss.severity) }}
@@ -475,7 +526,7 @@ const showExportDropdown = ref(false);
 }
 .view-tab + .view-tab { border-left: 1px solid var(--border-default); }
 .view-tab:hover { background: var(--surface-3); color: var(--text-primary); }
-.view-tab.is-active { background: var(--brand-500); color: #fff; }
+.view-tab.is-active { background: var(--brand-500); color: var(--text-on-brand); }
 
 .loading, .error { text-align: center; padding: 48px 0; color: var(--text-tertiary); }
 .error { color: var(--danger-500); }
@@ -498,10 +549,10 @@ const showExportDropdown = ref(false);
 .batch-select:focus { border-color: var(--brand-500); outline: none; }
 
 .btn--sm { padding: 4px 10px; font-size: 12px; font-family: inherit; border-radius: var(--radius-sm); cursor: pointer; border: 1px solid var(--border-default); }
-.btn--danger { background: var(--danger-500); color: #fff; border: none; }
+.btn--danger { background: var(--danger-500); color: var(--text-on-brand); border: none; }
 .btn--danger:hover { background: var(--danger-600); }
 .btn--ghost { background: none; color: var(--text-secondary); }
-.btn--export { background: var(--success-500); color: #fff; text-decoration: none; border: none; font-size: 12px; }
+.btn--export { background: var(--success-500); color: var(--text-on-brand); text-decoration: none; border: none; font-size: 12px; }
 .btn--export:hover { background: var(--success-600); }
 
 /* 导出下拉菜单 */
@@ -509,7 +560,7 @@ const showExportDropdown = ref(false);
 .export-dropdown__menu {
   position: absolute; top: 100%; right: 0; margin-top: 4px;
   background: var(--surface-1); border: 1px solid var(--border-default);
-  border-radius: var(--radius-sm); box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  border-radius: var(--radius-sm); box-shadow: var(--shadow-popover);
   min-width: 160px; z-index: 100;
 }
 .export-dropdown__item {
@@ -563,7 +614,7 @@ const showExportDropdown = ref(false);
 .priority-text.pri-medium { color: var(--brand-500); }
 .priority-text.pri-low, .priority-text.pri-none { color: var(--text-tertiary); }
 
-.state-badge { font-size: 11px; padding: 1px 8px; border-radius: 10px; color: #fff; font-weight: 500; }
+.state-badge { font-size: 11px; padding: 1px 8px; border-radius: 10px; color: var(--text-on-brand); font-weight: 500; }
 
 .empty-cell { text-align: center; padding: 32px 0; color: var(--text-tertiary); }
 
@@ -592,14 +643,14 @@ const showExportDropdown = ref(false);
   cursor: pointer; transition: all 0.1s;
 }
 .page-btn:hover:not(:disabled) { background: var(--surface-3); color: var(--text-primary); }
-.page-btn--active { background: var(--brand-500); color: #fff; border-color: var(--brand-500); }
+.page-btn--active { background: var(--brand-500); color: var(--text-on-brand); border-color: var(--brand-500); }
 .page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 .page-ellipsis { font-size: 12px; color: var(--text-tertiary); padding: 4px 4px; }
 .page-info { font-size: 12px; color: var(--text-tertiary); margin-left: 12px; }
 
 /* 弹窗 */
 .modal-overlay {
-  position: fixed; inset: 0; background: rgba(0,0,0,0.3);
+  position: fixed; inset: 0; background: var(--bg-backdrop);
   display: flex; align-items: center; justify-content: center; z-index: 1000;
 }
 .modal-box { background: var(--surface-1); padding: 24px; border-radius: var(--radius-md); max-width: 400px; width: 90%; }

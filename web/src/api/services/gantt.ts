@@ -78,6 +78,21 @@ export const ganttApi = {
       parent_id: item.parent_id ?? undefined,
     }));
 
-    return { issues, dependencies: [] };
+    // 通过父工作项派生 FS(完成→开始)依赖箭头,与甘特图渲染对齐。
+    const byId = new Map(issues.map((i) => [i.id, i]));
+    const dependencies: GanttDependency[] = [];
+    let depSeq = 1;
+    for (const child of issues) {
+      if (child.parent_id != null && byId.has(child.parent_id)) {
+        dependencies.push({
+          id: depSeq++,
+          source_id: child.parent_id,
+          target_id: child.id,
+          type: 'fs',
+        });
+      }
+    }
+
+    return { issues, dependencies };
   },
 };

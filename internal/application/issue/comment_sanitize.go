@@ -1,3 +1,10 @@
+// Package issue 提供工作项领域的安全清洗能力。
+//
+// 核心职责：
+//   - comment_sanitize：评论富文本 HTML 白名单清洗（对齐 TipTap 输出能力，阻止存储型 XSS）
+//   - html_sanitize：通用 HTML 内容清洗（工作项描述等富文本字段）
+//
+// 安全策略基于 bluemonday 严格模式 + 最小授权白名单；外链强制 nofollow + noreferrer。
 package issue
 
 import (

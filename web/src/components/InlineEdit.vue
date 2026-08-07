@@ -26,7 +26,7 @@ const props = withDefaults(defineProps<{
   modelValue: string;
   trigger?: "click" | "dblclick";
   placeholder?: string;
-  maxLength?: number;
+  maxLength?: number | string;
   validate?: (value: string) => string | null;
   disabled?: boolean;
   align?: "left" | "right" | "center";
@@ -92,7 +92,7 @@ function cancel() {
         ref="inputRef"
         v-model="draft"
         class="inline-edit__input"
-        :maxlength="maxLength"
+        :maxlength="Number(maxLength) || undefined"
         @keydown.enter.prevent="commit"
         @keydown.esc.prevent="cancel"
         @blur="commit"
