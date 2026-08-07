@@ -14,12 +14,12 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/ydszopen/ydsz-plane/internal/application/auth"
-	"github.com/ydszopen/ydsz-plane/internal/config"
-	"github.com/ydszopen/ydsz-plane/internal/infrastructure/cache"
-	"github.com/ydszopen/ydsz-plane/internal/infrastructure/persistence"
-	"github.com/ydszopen/ydsz-plane/internal/infrastructure/telemetry"
-	httpapi "github.com/ydszopen/ydsz-plane/internal/interfaces/http"
+	"github.com/njydsz/ydsz-plane/internal/application/auth"
+	"github.com/njydsz/ydsz-plane/internal/config"
+	"github.com/njydsz/ydsz-plane/internal/infrastructure/cache"
+	"github.com/njydsz/ydsz-plane/internal/infrastructure/persistence"
+	"github.com/njydsz/ydsz-plane/internal/infrastructure/telemetry"
+	httpapi "github.com/njydsz/ydsz-plane/internal/interfaces/http"
 )
 
 func main() {
@@ -63,9 +63,11 @@ func run() error {
 	authSvc := auth.NewService(pool.Pool, cfg.Auth.JWTSecret, cfg.Auth.JWTIssuer,
 		cfg.Auth.AccessTokenTTL, cfg.Auth.RefreshTokenTTL, cfg.Auth.BcryptCost,
 		cfg.Features.RegistrationOpen)
+	wsStore := auth.NewWorkspaceMembershipStore(pool.Pool)
 
 	engine := httpapi.NewEngine(&httpapi.Deps{
 		Cfg: cfg, Log: log, DB: pool.Pool, Redis: rdb, Auth: authSvc,
+		WorkspaceStore: wsStore,
 	})
 
 	srv := &http.Server{

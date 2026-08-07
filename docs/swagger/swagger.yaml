@@ -1,5 +1,5 @@
 definitions:
-  github_com_ydszopen_ydsz-plane_internal_application_auth.TokenPair:
+  github_com_njydsz_ydsz-plane_internal_application_auth.TokenPair:
     properties:
       access_token:
         type: string
@@ -11,9 +11,9 @@ definitions:
         description: Bearer
         type: string
       user:
-        $ref: '#/definitions/github_com_ydszopen_ydsz-plane_internal_application_auth.UserBrief'
+        $ref: '#/definitions/github_com_njydsz_ydsz-plane_internal_application_auth.UserBrief'
     type: object
-  github_com_ydszopen_ydsz-plane_internal_application_auth.UserBrief:
+  github_com_njydsz_ydsz-plane_internal_application_auth.UserBrief:
     properties:
       avatar_url:
         type: string
@@ -24,19 +24,19 @@ definitions:
       id:
         type: integer
     type: object
-  github_com_ydszopen_ydsz-plane_pkg_errs.AppError:
+  github_com_njydsz_ydsz-plane_pkg_errs.AppError:
     properties:
       code:
         type: string
       details:
         items:
-          $ref: '#/definitions/github_com_ydszopen_ydsz-plane_pkg_errs.FieldDetail'
+          $ref: '#/definitions/github_com_njydsz_ydsz-plane_pkg_errs.FieldDetail'
         type: array
       message:
         description: user-facing (zh)
         type: string
     type: object
-  github_com_ydszopen_ydsz-plane_pkg_errs.FieldDetail:
+  github_com_njydsz_ydsz-plane_pkg_errs.FieldDetail:
     properties:
       field:
         type: string
@@ -69,6 +69,19 @@ definitions:
         example: new-password
         type: string
     type: object
+  internal_interfaces_http.workspaceMemberResponse:
+    properties:
+      display_name:
+        type: string
+      email:
+        type: string
+      id:
+        type: integer
+      joined_at:
+        type: string
+      role:
+        type: string
+    type: object
 info:
   contact: {}
 paths:
@@ -90,15 +103,15 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/github_com_ydszopen_ydsz-plane_internal_application_auth.TokenPair'
+            $ref: '#/definitions/github_com_njydsz_ydsz-plane_internal_application_auth.TokenPair'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/github_com_ydszopen_ydsz-plane_pkg_errs.AppError'
+            $ref: '#/definitions/github_com_njydsz_ydsz-plane_pkg_errs.AppError'
         "422":
           description: Unprocessable Entity
           schema:
-            $ref: '#/definitions/github_com_ydszopen_ydsz-plane_pkg_errs.AppError'
+            $ref: '#/definitions/github_com_njydsz_ydsz-plane_pkg_errs.AppError'
       summary: 登录
       tags:
       - auth
@@ -120,11 +133,11 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/github_com_ydszopen_ydsz-plane_internal_application_auth.TokenPair'
+            $ref: '#/definitions/github_com_njydsz_ydsz-plane_internal_application_auth.TokenPair'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/github_com_ydszopen_ydsz-plane_pkg_errs.AppError'
+            $ref: '#/definitions/github_com_njydsz_ydsz-plane_pkg_errs.AppError'
       summary: 刷新访问令牌
       tags:
       - auth
@@ -146,15 +159,15 @@ paths:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/github_com_ydszopen_ydsz-plane_internal_application_auth.TokenPair'
+            $ref: '#/definitions/github_com_njydsz_ydsz-plane_internal_application_auth.TokenPair'
         "409":
           description: 邮箱已被注册
           schema:
-            $ref: '#/definitions/github_com_ydszopen_ydsz-plane_pkg_errs.AppError'
+            $ref: '#/definitions/github_com_njydsz_ydsz-plane_pkg_errs.AppError'
         "422":
           description: Unprocessable Entity
           schema:
-            $ref: '#/definitions/github_com_ydszopen_ydsz-plane_pkg_errs.AppError'
+            $ref: '#/definitions/github_com_njydsz_ydsz-plane_pkg_errs.AppError'
       summary: 注册
       tags:
       - auth
@@ -167,14 +180,41 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/github_com_ydszopen_ydsz-plane_internal_application_auth.UserBrief'
+            $ref: '#/definitions/github_com_njydsz_ydsz-plane_internal_application_auth.UserBrief'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/github_com_ydszopen_ydsz-plane_pkg_errs.AppError'
+            $ref: '#/definitions/github_com_njydsz_ydsz-plane_pkg_errs.AppError'
       security:
       - Bearer: []
       summary: 获取当前用户
       tags:
       - user
+  /workspaces/{workspace_id}/members:
+    get:
+      description: 返回当前用户在 :workspace_id 工作空间里的成员列表
+      parameters:
+      - description: 工作空间 ID
+        in: path
+        name: workspace_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/internal_interfaces_http.workspaceMemberResponse'
+            type: array
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_njydsz_ydsz-plane_pkg_errs.AppError'
+      security:
+      - Bearer: []
+      summary: 列出工作空间成员
+      tags:
+      - workspace
 swagger: "2.0"

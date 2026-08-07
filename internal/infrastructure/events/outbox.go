@@ -15,7 +15,7 @@ import (
 	"github.com/nats-io/nats.go"
 	"go.uber.org/zap"
 
-	"github.com/ydszopen/ydsz-plane/internal/infrastructure/telemetry"
+	"github.com/njydsz/ydsz-plane/internal/infrastructure/telemetry"
 )
 
 // Event is a domain event record.

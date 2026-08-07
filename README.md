@@ -140,7 +140,7 @@ ydsz-plane/
 
 ```bash
 # 克隆项目
-git clone https://github.com/ydszopen/ydsz-plane.git
+git clone https://github.com/njydsz/ydsz-plane.git
 cd ydsz-plane
 
 # 启动核心服务（PostgreSQL + Redis + NATS + API + Worker + Web）

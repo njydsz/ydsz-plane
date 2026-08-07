@@ -14,7 +14,7 @@ import (
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 
-	"github.com/ydszopen/ydsz-plane/pkg/errs"
+	"github.com/njydsz/ydsz-plane/pkg/errs"
 )
 
 // CtxKey enumerates keys stored in gin.Context.

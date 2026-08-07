@@ -16,20 +16,21 @@ import (
 	ginSwagger "github.com/swaggo/gin-swagger"
 	"go.uber.org/zap"
 
-	"github.com/ydszopen/ydsz-plane/internal/application/auth"
-	"github.com/ydszopen/ydsz-plane/internal/config"
-	"github.com/ydszopen/ydsz-plane/internal/interfaces/middleware"
-	"github.com/ydszopen/ydsz-plane/internal/infrastructure/telemetry"
-	"github.com/ydszopen/ydsz-plane/pkg/errs"
+	"github.com/njydsz/ydsz-plane/internal/application/auth"
+	"github.com/njydsz/ydsz-plane/internal/config"
+	"github.com/njydsz/ydsz-plane/internal/interfaces/middleware"
+	"github.com/njydsz/ydsz-plane/internal/infrastructure/telemetry"
+	"github.com/njydsz/ydsz-plane/pkg/errs"
 )
 
 // Deps carries handler dependencies.
 type Deps struct {
-	Cfg   *config.Config
-	Log   *zap.Logger
-	DB    *pgxpool.Pool
-	Redis *redis.Client
-	Auth  *auth.Service
+	Cfg           *config.Config
+	Log           *zap.Logger
+	DB            *pgxpool.Pool
+	Redis         *redis.Client
+	Auth          *auth.Service
+	WorkspaceStore *auth.WorkspaceMembershipStore
 }
 
 // NewEngine builds the HTTP engine with the full middleware chain.
@@ -77,8 +78,13 @@ func NewEngine(d *Deps) *gin.Engine {
 		}))
 		{
 			authed.GET("/me", me(d))
-			// S2+ routes mount here:
-			// workspaces, projects, issues, sprints, versions, ...
+			// 工作空间作用域路由：由 RequireAuth 注入 UserID，RequireWorkspaceParam 注入 WorkspaceID，
+			// RequirePermission 基于角色矩阵向下钻取到权限粒度。
+			ws := authed.Group("/workspaces/:workspace_id")
+			ws.Use(middleware.RequireWorkspaceParam(), middleware.RequirePermission(d.WorkspaceStore, auth.PermWorkspaceRead))
+			{
+				ws.GET("/members", listWorkspaceMembers(d))
+			}
 		}
 	}
 
@@ -269,6 +275,57 @@ func me(d *Deps) gin.HandlerFunc {
 		}
 		c.JSON(http.StatusOK, u)
 	}
+}
+
+// listWorkspaceMembers godoc
+//
+//	@Summary		列出工作空间成员
+//	@Description	返回当前用户在 :workspace_id 工作空间里的成员列表
+//	@Tags			workspace
+//	@Produce		json
+//	@Security		Bearer
+//	@Param			workspace_id	path		int	true	"工作空间 ID"
+//	@Success		200				{object}	[]workspaceMemberResponse
+//	@Failure		403				{object}	errs.AppError
+//	@Router			/workspaces/{workspace_id}/members [get]
+func listWorkspaceMembers(d *Deps) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		wsIDVal, _ := c.Get(middleware.CtxWorkspaceID)
+		wsID := wsIDVal.(int64)
+		roleVal, _ := c.Get("workspace_role")
+		_ = roleVal
+
+		rows, err := d.DB.Query(c.Request.Context(), `
+			SELECT u.id, u.email, u.display_name, wm.role, wm.joined_at::text
+			FROM workspace_members wm
+			JOIN users u ON u.id = wm.user_id
+			WHERE wm.workspace_id = $1 AND u.is_active
+			ORDER BY wm.role, wm.joined_at`, wsID)
+		if err != nil {
+			middleware.AbortWithError(c, errs.ErrInternal.Wrap(err))
+			return
+		}
+		defer rows.Close()
+
+		var out []workspaceMemberResponse
+		for rows.Next() {
+			var m workspaceMemberResponse
+			if err := rows.Scan(&m.ID, &m.Email, &m.DisplayName, &m.Role, &m.JoinedAt); err != nil {
+				middleware.AbortWithError(c, errs.ErrInternal.Wrap(err))
+				return
+			}
+			out = append(out, m)
+		}
+		c.JSON(http.StatusOK, out)
+	}
+}
+
+type workspaceMemberResponse struct {
+	ID          int64  `json:"id"`
+	Email       string `json:"email"`
+	DisplayName string `json:"display_name"`
+	Role        string `json:"role"`
+	JoinedAt    string `json:"joined_at"`
 }
 
 // --- helpers ---

@@ -13,8 +13,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/crypto/bcrypt"
 
-	"github.com/ydszopen/ydsz-plane/internal/infrastructure/telemetry"
-	"github.com/ydszopen/ydsz-plane/pkg/errs"
+	"github.com/njydsz/ydsz-plane/internal/infrastructure/telemetry"
+	"github.com/njydsz/ydsz-plane/pkg/errs"
 )
 
 // Service provides auth use cases.

@@ -43,19 +43,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_ydszopen_ydsz-plane_internal_application_auth.TokenPair"
+                            "$ref": "#/definitions/github_com_njydsz_ydsz-plane_internal_application_auth.TokenPair"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/github_com_ydszopen_ydsz-plane_pkg_errs.AppError"
+                            "$ref": "#/definitions/github_com_njydsz_ydsz-plane_pkg_errs.AppError"
                         }
                     },
                     "422": {
                         "description": "Unprocessable Entity",
                         "schema": {
-                            "$ref": "#/definitions/github_com_ydszopen_ydsz-plane_pkg_errs.AppError"
+                            "$ref": "#/definitions/github_com_njydsz_ydsz-plane_pkg_errs.AppError"
                         }
                     }
                 }
@@ -89,13 +89,13 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_ydszopen_ydsz-plane_internal_application_auth.TokenPair"
+                            "$ref": "#/definitions/github_com_njydsz_ydsz-plane_internal_application_auth.TokenPair"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/github_com_ydszopen_ydsz-plane_pkg_errs.AppError"
+                            "$ref": "#/definitions/github_com_njydsz_ydsz-plane_pkg_errs.AppError"
                         }
                     }
                 }
@@ -129,19 +129,19 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/github_com_ydszopen_ydsz-plane_internal_application_auth.TokenPair"
+                            "$ref": "#/definitions/github_com_njydsz_ydsz-plane_internal_application_auth.TokenPair"
                         }
                     },
                     "409": {
                         "description": "邮箱已被注册",
                         "schema": {
-                            "$ref": "#/definitions/github_com_ydszopen_ydsz-plane_pkg_errs.AppError"
+                            "$ref": "#/definitions/github_com_njydsz_ydsz-plane_pkg_errs.AppError"
                         }
                     },
                     "422": {
                         "description": "Unprocessable Entity",
                         "schema": {
-                            "$ref": "#/definitions/github_com_ydszopen_ydsz-plane_pkg_errs.AppError"
+                            "$ref": "#/definitions/github_com_njydsz_ydsz-plane_pkg_errs.AppError"
                         }
                     }
                 }
@@ -166,13 +166,56 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_ydszopen_ydsz-plane_internal_application_auth.UserBrief"
+                            "$ref": "#/definitions/github_com_njydsz_ydsz-plane_internal_application_auth.UserBrief"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/github_com_ydszopen_ydsz-plane_pkg_errs.AppError"
+                            "$ref": "#/definitions/github_com_njydsz_ydsz-plane_pkg_errs.AppError"
+                        }
+                    }
+                }
+            }
+        },
+        "/workspaces/{workspace_id}/members": {
+            "get": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "返回当前用户在 :workspace_id 工作空间里的成员列表",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "workspace"
+                ],
+                "summary": "列出工作空间成员",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "工作空间 ID",
+                        "name": "workspace_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/internal_interfaces_http.workspaceMemberResponse"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_njydsz_ydsz-plane_pkg_errs.AppError"
                         }
                     }
                 }
@@ -180,7 +223,7 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "github_com_ydszopen_ydsz-plane_internal_application_auth.TokenPair": {
+        "github_com_njydsz_ydsz-plane_internal_application_auth.TokenPair": {
             "type": "object",
             "properties": {
                 "access_token": {
@@ -197,11 +240,11 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "user": {
-                    "$ref": "#/definitions/github_com_ydszopen_ydsz-plane_internal_application_auth.UserBrief"
+                    "$ref": "#/definitions/github_com_njydsz_ydsz-plane_internal_application_auth.UserBrief"
                 }
             }
         },
-        "github_com_ydszopen_ydsz-plane_internal_application_auth.UserBrief": {
+        "github_com_njydsz_ydsz-plane_internal_application_auth.UserBrief": {
             "type": "object",
             "properties": {
                 "avatar_url": {
@@ -218,7 +261,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_ydszopen_ydsz-plane_pkg_errs.AppError": {
+        "github_com_njydsz_ydsz-plane_pkg_errs.AppError": {
             "type": "object",
             "properties": {
                 "code": {
@@ -227,7 +270,7 @@ const docTemplate = `{
                 "details": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_ydszopen_ydsz-plane_pkg_errs.FieldDetail"
+                        "$ref": "#/definitions/github_com_njydsz_ydsz-plane_pkg_errs.FieldDetail"
                     }
                 },
                 "message": {
@@ -236,7 +279,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_ydszopen_ydsz-plane_pkg_errs.FieldDetail": {
+        "github_com_njydsz_ydsz-plane_pkg_errs.FieldDetail": {
             "type": "object",
             "properties": {
                 "field": {
@@ -282,6 +325,26 @@ const docTemplate = `{
                 "password": {
                     "type": "string",
                     "example": "new-password"
+                }
+            }
+        },
+        "internal_interfaces_http.workspaceMemberResponse": {
+            "type": "object",
+            "properties": {
+                "display_name": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "joined_at": {
+                    "type": "string"
+                },
+                "role": {
+                    "type": "string"
                 }
             }
         }

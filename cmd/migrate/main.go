@@ -12,7 +12,7 @@ import (
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 
-	"github.com/ydszopen/ydsz-plane/internal/config"
+	"github.com/njydsz/ydsz-plane/internal/config"
 )
 
 func main() {

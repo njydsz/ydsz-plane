@@ -8,7 +8,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/ydszopen/ydsz-plane/internal/config"
+	"github.com/njydsz/ydsz-plane/internal/config"
 )
 
 func stubDeps() *Deps {

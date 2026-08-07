@@ -11,9 +11,9 @@ import (
 	"os"
 	"time"
 
-	"github.com/ydszopen/ydsz-plane/internal/application/auth"
-	"github.com/ydszopen/ydsz-plane/internal/config"
-	"github.com/ydszopen/ydsz-plane/internal/infrastructure/persistence"
+	"github.com/njydsz/ydsz-plane/internal/application/auth"
+	"github.com/njydsz/ydsz-plane/internal/config"
+	"github.com/njydsz/ydsz-plane/internal/infrastructure/persistence"
 )
 
 /* ------------------------------------------------------------------ */

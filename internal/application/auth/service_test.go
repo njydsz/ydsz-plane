@@ -5,6 +5,67 @@ import (
 	"time"
 )
 
+func TestRolePermissionMatrix(t *testing.T) {
+	cases := []struct {
+		role WorkspaceRole
+		perm string
+		want bool
+	}{
+		// Owner: all
+		{RoleOwner, PermWorkspaceRead, true},
+		{RoleOwner, PermWorkspaceDelete, true},
+		{RoleOwner, PermMemberChangeRole, true},
+		{RoleOwner, PermProjectCreate, true},
+		// Admin: can't delete workspace, can't change role
+		{RoleAdmin, PermWorkspaceRead, true},
+		{RoleAdmin, PermMemberInvite, true},
+		{RoleAdmin, PermProjectDelete, true},
+		{RoleAdmin, PermWorkspaceDelete, false},
+		{RoleAdmin, PermMemberChangeRole, false},
+		// Member: read + create
+		{RoleMember, PermWorkspaceRead, true},
+		{RoleMember, PermProjectCreate, true},
+		{RoleMember, PermIssueCreate, true},
+		{RoleMember, PermMemberInvite, false},
+		{RoleMember, PermProjectDelete, false},
+		// Guest: read only
+		{RoleGuest, PermWorkspaceRead, true},
+		{RoleGuest, PermProjectCreate, false},
+		{RoleGuest, PermIssueCreate, false},
+	}
+	for _, c := range cases {
+		m := WorkspaceMembership{Role: c.role, WorkspaceID: 1, UserID: 1}
+		got := m.HasPermission(c.perm)
+		if got != c.want {
+			t.Errorf("role=%s perm=%s: got %v want %v", c.role, c.perm, got, c.want)
+		}
+	}
+}
+
+func TestRoleIsAtLeast(t *testing.T) {
+	cases := []struct {
+		role WorkspaceRole
+		min  WorkspaceRole
+		want bool
+	}{
+		{RoleOwner, RoleAdmin, true},
+		{RoleAdmin, RoleAdmin, true},
+		{RoleMember, RoleAdmin, false},
+		{RoleGuest, RoleMember, false},
+	}
+	for _, c := range cases {
+		if got := c.role.IsAtLeast(c.min); got != c.want {
+			t.Errorf("role=%s IsAtLeast(%s): got %v want %v", c.role, c.min, got, c.want)
+		}
+	}
+}
+
+func TestInvalidRole(t *testing.T) {
+	if WorkspaceRole("hacker").IsValid() {
+		t.Errorf("unknown role should be invalid")
+	}
+}
+
 // 令牌签发/解析往返（不依赖 DB）
 func TestTokenRoundTrip(t *testing.T) {
 	svc := NewService(nil, "test-secret", "ydsz-plane", 15*time.Minute, 720*time.Hour, 4, true)

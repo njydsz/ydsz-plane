@@ -13,10 +13,10 @@ import (
 	"github.com/nats-io/nats.go"
 	"go.uber.org/zap"
 
-	"github.com/ydszopen/ydsz-plane/internal/config"
-	"github.com/ydszopen/ydsz-plane/internal/infrastructure/events"
-	"github.com/ydszopen/ydsz-plane/internal/infrastructure/persistence"
-	"github.com/ydszopen/ydsz-plane/internal/infrastructure/telemetry"
+	"github.com/njydsz/ydsz-plane/internal/config"
+	"github.com/njydsz/ydsz-plane/internal/infrastructure/events"
+	"github.com/njydsz/ydsz-plane/internal/infrastructure/persistence"
+	"github.com/njydsz/ydsz-plane/internal/infrastructure/telemetry"
 )
 
 func main() {

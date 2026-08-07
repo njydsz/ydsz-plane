@@ -1,4 +1,4 @@
-module github.com/ydszopen/ydsz-plane
+module github.com/njydsz/ydsz-plane
 
 go 1.25.0
 
