@@ -104,14 +104,26 @@ func run() error {
 	notifSvc := notif.NewService(pool.Pool)
 
 	worker.Register("notifications.send", func(ctx context.Context, task mq.Task) error {
-		// 解析 task payload 为通知创建参数
+		// 兼容直接通过 TaskExchange 投递的通知任务
 		var input notif.CreateNotificationInput
-		// 注意：这里使用 payload 直接解析，task payload 由 Outbox Relay 事件消费者填充
-		log.Debug("task: notifications.send", zap.String("id", task.ID))
-		_ = input // 占位，实际实现将在事件消费者中串联
+		if err := json.Unmarshal(task.Payload, &input); err != nil {
+			log.Warn("task: notifications.send: bad payload",
+				zap.String("id", task.ID), zap.Error(err))
+			return nil // 格式错误不重试
+		}
+		svc := notif.NewService(pool.Pool)
+		if _, err := svc.Create(ctx, input); err != nil {
+			return fmt.Errorf("notifications.send: create: %w", err)
+		}
 		return nil
 	})
-	_ = notifSvc // 通知服务已就绪，后续事件消费者将调用
+
+	// ----- 通知领域事件消费者 (EventExchange → notifications 表) -----
+	//
+	// 消费 EventExchange 上的 issue.* 和 comment.* 事件，
+	// 根据事件类型与 payload 创建对应的站内通知。
+	// 独立于 Task-based 投递通道，直接订阅事件总线以获得更低延迟。
+	go notif.RunConsumer(ctx, mqClient, pool.Pool, log)
 	worker.Register("webhook.deliver", func(ctx context.Context, task mq.Task) error {
 		log.Info("task: webhook.deliver", zap.String("id", task.ID))
 		return nil

@@ -20,9 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"time"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
 
@@ -264,34 +262,3 @@ func (c *consumer) getProjectName(ctx context.Context, projectID int64) string {
 	return name
 }
 
-// resolveRecipients 确定某工作项的通知接收人集合。
-// MVP 版本：返回所有 assignee + 创建者。
-func (c *consumer) resolveRecipients(ctx context.Context, issueID, workspaceID int64) ([]int64, error) {
-	rows, err := c.db.Query(ctx, `
-		SELECT created_by FROM issues WHERE id = $1 AND workspace_id = $2
-		UNION
-		SELECT user_id FROM issue_assignees WHERE issue_id = $1`,
-		issueID, workspaceID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var recipients []int64
-	seen := make(map[int64]bool)
-	for rows.Next() {
-		var uid int64
-		if err := rows.Scan(&uid); err != nil {
-			return nil, err
-		}
-		if !seen[uid] {
-			seen[uid] = true
-			recipients = append(recipients, uid)
-		}
-	}
-	return recipients, rows.Err()
-}
-
-// suppressUnused 消除未使用导入警告（保留 pgx 导入用于未来扩展）。
-var _ = pgx.ErrNoRows
-var _ = time.Now

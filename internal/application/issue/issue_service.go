@@ -100,6 +100,12 @@ type ListIssuesOptions struct {
 	ReleaseVersionID *int64
 }
 
+// ReorderInput 看板拖拽排序输入。
+type ReorderInput struct {
+	PrevSortOrder *float64 // 前一个工作项的 sort_order，nil 表示移到第一个
+	NextSortOrder *float64 // 后一个工作项的 sort_order，nil 表示移到最后一个
+}
+
 // --- CRUD ---
 
 // Create 创建工作项。
@@ -461,6 +467,37 @@ func (s *Service) Transition(ctx context.Context, wsID, projectID, issueID, toSt
 	if err != nil {
 		return nil, err
 	}
+	return s.GetByID(ctx, wsID, issueID)
+}
+
+// Reorder 看板拖拽排序 — 中值插入策略。
+// prev 和 next 至少需要提供一个；两者都 nil 则无操作。
+func (s *Service) Reorder(ctx context.Context, wsID, issueID int64, in ReorderInput) (*Issue, error) {
+	var newOrder float64
+
+	switch {
+	case in.PrevSortOrder == nil && in.NextSortOrder == nil:
+		// 无参照节点，不做任何事
+		return s.GetByID(ctx, wsID, issueID)
+	case in.PrevSortOrder == nil:
+		// 移到第一个：比 next 稍小
+		newOrder = *in.NextSortOrder - 1.0
+	case in.NextSortOrder == nil:
+		// 移到最后一个：比 prev 稍大
+		newOrder = *in.PrevSortOrder + 1.0
+	default:
+		// 中值插入
+		newOrder = (*in.PrevSortOrder + *in.NextSortOrder) / 2.0
+	}
+
+	_, err := s.db.Exec(ctx, `
+		UPDATE issues SET sort_order = $1, updated_at = now()
+		WHERE id = $2 AND workspace_id = $3 AND deleted_at IS NULL`,
+		newOrder, issueID, wsID)
+	if err != nil {
+		return nil, errs.ErrInternal.Wrap(fmt.Errorf("reorder: %w", err))
+	}
+
 	return s.GetByID(ctx, wsID, issueID)
 }
 

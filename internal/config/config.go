@@ -42,6 +42,7 @@ type Config struct {
 	Log      LogConfig      // 日志级别与编码格式。
 	Features FeatureFlags   // 功能开关；每项开关一个子系统。
 	Email    EmailConfig    // 事务邮件的外发 SMTP 配置。
+	Storage  StorageConfig  // 对象存储 (MinIO/S3) 配置。
 }
 
 // ServerConfig 控制 HTTP 监听器。
@@ -257,6 +258,14 @@ func Load() (*Config, error) {
 	v.SetDefault("email.smtp_use_tls", false)
 	v.SetDefault("email.app_base_url", "http://127.0.0.1:5173")
 
+	// Storage 默认值
+	v.SetDefault("storage.endpoint", "127.0.0.1:9000")
+	v.SetDefault("storage.access_key", "admin")
+	v.SetDefault("storage.secret_key", "Limw1020")
+	v.SetDefault("storage.bucket", "ydsz-plane")
+	v.SetDefault("storage.use_ssl", false)
+	v.SetDefault("storage.region", "us-east-1")
+
 	// ----- 第 2-3 步：环境变量覆盖 + 反序列化 -----
 	cfg := &Config{}
 	if err := v.Unmarshal(cfg); err != nil {
@@ -378,4 +387,37 @@ type EmailConfig struct {
 	// 格式："https://example.com" 或 "http://localhost:5173"。
 	// 默认："http://127.0.0.1:5173"。
 	AppBaseURL string `mapstructure:"app_base_url"`
+}
+
+// StorageConfig 对象存储 (MinIO / S3 兼容) 配置。
+// 通过 YDSZ_STORAGE_ 前缀环境变量注入。
+type StorageConfig struct {
+	// Endpoint 对象存储服务端点，格式 "host:port"。
+	// 默认："127.0.0.1:9000"（本地 MinIO）。
+	Endpoint string `mapstructure:"endpoint"`
+
+	// AccessKey 对象存储访问密钥 ID。
+	// 默认："admin"。
+	AccessKey string `mapstructure:"access_key"`
+
+	// SecretKey 对象存储访问密钥 Secret。
+	// 默认："Limw1020"。
+	SecretKey string `mapstructure:"secret_key"`
+
+	// Bucket 默认存储桶名称。
+	// 默认："ydsz-plane"。
+	Bucket string `mapstructure:"bucket"`
+
+	// UseSSL 是否使用 HTTPS 连接。
+	// 默认：false。
+	UseSSL bool `mapstructure:"use_ssl"`
+
+	// Region 存储桶所在地域（S3 协议要求，MinIO 可忽略）。
+	// 默认："us-east-1"。
+	Region string `mapstructure:"region"`
+
+	// PublicURL 对象存储的公网访问 URL，用于前端直传。
+	// 留空时使用 Endpoint 构造。
+	// 默认：""。
+	PublicURL string `mapstructure:"public_url"`
 }

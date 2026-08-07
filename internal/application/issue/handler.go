@@ -64,6 +64,8 @@ func (h *IssueHandler) Register(r *gin.RouterGroup, wsMiddleware []gin.HandlerFu
 		issue.GET("/dependencies", h.listDependencies)
 		issue.POST("/dependencies", h.createDependency)
 		issue.DELETE("/dependencies/:dep_id", h.deleteDependency)
+		// 看板排序（预留，S4 完善）
+		issue.PATCH("/reorder", h.reorderIssue)
 		// 评论
 		issue.GET("/comments", h.listComments)
 		issue.POST("/comments", h.createComment)
@@ -296,6 +298,37 @@ func (h *IssueHandler) transition(c *gin.Context) {
 	c.JSON(http.StatusOK, iss)
 }
 
+// reorderIssue 看板拖拽排序（中值插入策略）。
+//
+//	@Summary		看板排序
+//	@Description	在看板视图拖拽工作项到新位置
+//	@Tags			issue
+//	@Accept			json
+//	@Produce		json
+//	@Param			body	body	reorderIssueRequest	true	"排序信息"
+//	@Success		200		{object}	Issue
+//	@Router			/issues/{issue_id}/reorder [patch]
+func (h *IssueHandler) reorderIssue(c *gin.Context) {
+	wsID := c.GetInt64(middleware.CtxWorkspaceID)
+	issueID := int64Param(c, "issue_id")
+
+	var req reorderIssueRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		middleware.AbortWithError(c, errs.ErrValidation.WithDetails(fieldDetail(err)))
+		return
+	}
+
+	iss, err := h.d.IssueSvc.Reorder(c.Request.Context(), wsID, issueID, ReorderInput{
+		PrevSortOrder: req.PrevSortOrder,
+		NextSortOrder: req.NextSortOrder,
+	})
+	if err != nil {
+		writeErr(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, iss)
+}
+
 // listIssues 列出工作项（REST handler，Swagger 注解见下）。
 //
 //	@Summary		列出工作项
@@ -458,6 +491,11 @@ type updateIssueRequest struct {
 	Modules           []int64 `json:"modules"`
 	Source            *string `json:"source"`
 	Version           int     `json:"version" binding:"required"`
+}
+
+type reorderIssueRequest struct {
+	PrevSortOrder *float64 `json:"prev_sort_order"`
+	NextSortOrder *float64 `json:"next_sort_order"`
 }
 
 // --- helpers ---

@@ -96,7 +96,7 @@ type Issue struct {
 	TargetDate        *time.Time     `json:"target_date,omitempty"`
 	CompletedAt       *time.Time     `json:"completed_at,omitempty"`
 	IsDraft           bool           `json:"is_draft"`
-	SortOrder         float64        `json:"-"`
+	SortOrder         float64        `json:"sort_order"`
 	Version           int            `json:"version"`
 	Assignees         []int64        `json:"assignees,omitempty"`
 	Labels            []int64        `json:"labels,omitempty"`

@@ -252,6 +252,13 @@ export const issueApi = {
       to_state_id: toStateId,
     })),
 
+  // --- 看板排序 ---
+  reorder: (wsId: number, projectId: number, issueId: number, prevSortOrder?: number | null, nextSortOrder?: number | null) =>
+    wrap<Issue>(http.patch(`/workspaces/${wsId}/projects/${projectId}/issues/${issueId}/reorder`, {
+      prev_sort_order: prevSortOrder ?? null,
+      next_sort_order: nextSortOrder ?? null,
+    })),
+
   // --- 活动日志 ---
   listActivities: (wsId: number, projectId: number, issueId: number, limit = 50, offset = 0) =>
     wrap<{ results: IssueActivity[]; total: number }>(
