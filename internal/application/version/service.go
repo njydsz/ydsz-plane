@@ -269,7 +269,7 @@ func (s *Service) List(ctx context.Context, opts ListVersionsOptions) ([]Version
 	}
 	defer rows.Close()
 
-	var out []Version
+	var out = make([]Version, 0)
 	for rows.Next() {
 		v, err := scanVersion(rows)
 		if err != nil {

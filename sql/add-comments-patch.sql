@@ -136,7 +136,7 @@ COMMENT ON TABLE public.issue_watchers IS '[核心工作项域]工作项关注�
 
 COMMENT ON COLUMN public.issue_watchers.issue_id IS '关联 issues.id（被关注的工作项）';
 COMMENT ON COLUMN public.issue_watchers.user_id IS '关联 users.id（关注者）';
-COMMENT ON COLUMN public.issue_watchers.created_at IS '关注时间（含时zone）';
+COMMENT ON COLUMN public.issue_watchers.created_at IS '关注时间（含时区）';
 
 -- ============================================================
 -- 表: issue_comments — 工作项评论表（已有注释，补充缺失字段）

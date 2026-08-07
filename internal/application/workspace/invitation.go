@@ -219,7 +219,7 @@ func (s *InvitationService) ListByWorkspace(ctx context.Context, wsID int64, sta
 	}
 	defer rows.Close()
 
-	var out []Invitation
+	var out = make([]Invitation, 0)
 	for rows.Next() {
 		var i Invitation
 		if err := rows.Scan(&i.ID, &i.WorkspaceID, &i.InviterID, &i.InviterName,

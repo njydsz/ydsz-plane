@@ -67,6 +67,9 @@ const STATUS_BADGE: Record<string, { text: string; cls: string }> = {
   error: { text: "异常", cls: "au-badge--error" },
 };
 
+/* ------------------------------------------------------------------ */
+/* Execution status map                                                */
+/* ------------------------------------------------------------------ */
 const EXECUTION_STATUS: Record<string, { text: string; cls: string }> = {
   success: { text: "成功", cls: "au-badge--active" },
   failed: { text: "失败", cls: "au-badge--error" },
@@ -1041,6 +1044,15 @@ watch(ready, (v) => {
 .wh-badge.draft { background: var(--surface-3); color: var(--text-tertiary); }
 .wh-badge.disabled { background: rgba(245,158,11,0.12); color: var(--warning-500,#f59e0b); }
 .wh-badge.error { background: rgba(220,47,47,0.12); color: var(--danger-500,#dc2f2f); }
+
+/* au-prefixed badge variants (used by AutomationView status maps) */
+.au-badge--active { background: rgba(15,194,123,0.12); color: var(--success-500,#0fc27b); }
+.au-badge--draft { background: var(--surface-3); color: var(--text-tertiary); }
+.au-badge--disabled { background: rgba(245,158,11,0.12); color: var(--warning-500,#f59e0b); }
+.au-badge--error { background: rgba(220,47,47,0.12); color: var(--danger-500,#dc2f2f); }
+
+/* The wh-badge base class must also be applied when using au-badge--* variants
+   since they share the same visual base. We rely on the template composing both classes. */
 
 .ev-tag {
   padding: 1px 6px;

@@ -166,7 +166,7 @@ func (s *Service) ListByUser(ctx context.Context, userID int64) ([]Workspace, er
 	}
 	defer rows.Close()
 
-	var out []Workspace
+	var out = make([]Workspace, 0)
 	for rows.Next() {
 		var w Workspace
 		if err := rows.Scan(&w.ID, &w.Name, &w.Slug, &w.LogoURL, &w.Timezone, &w.Language,

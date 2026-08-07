@@ -119,7 +119,7 @@ func (s *Service) List(ctx context.Context, userID int64) ([]TokenVM, error) {
 	}
 	defer rows.Close()
 
-	var out []TokenVM
+	var out = make([]TokenVM, 0)
 	for rows.Next() {
 		var vm TokenVM
 		if err := rows.Scan(&vm.ID, &vm.Name, &vm.Scopes, &vm.LastUsedAt, &vm.ExpiresAt, &vm.CreatedAt); err != nil {

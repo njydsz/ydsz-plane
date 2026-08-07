@@ -49,7 +49,7 @@ func (s *MemberService) List(ctx context.Context, wsID int64) ([]Member, error) 
 	}
 	defer rows.Close()
 
-	var out []Member
+	var out = make([]Member, 0)
 	for rows.Next() {
 		var m Member
 		if err := rows.Scan(&m.ID, &m.Email, &m.DisplayName, &m.AvatarURL, &m.Role, &m.JoinedAt); err != nil {

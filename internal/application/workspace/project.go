@@ -133,7 +133,7 @@ func (s *ProjectService) ListByWorkspace(ctx context.Context, wsID int64) ([]Pro
 	}
 	defer rows.Close()
 
-	var out []Project
+	var out = make([]Project, 0)
 	for rows.Next() {
 		var p Project
 		if err := rows.Scan(&p.ID, &p.WorkspaceID, &p.Name, &p.Slug, &p.Identifier, &p.Description,

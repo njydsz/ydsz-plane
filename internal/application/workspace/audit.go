@@ -86,7 +86,7 @@ func (s *AuditService) List(ctx context.Context, wsID int64, limit int) ([]Audit
 	}
 	defer rows.Close()
 
-	var out []AuditLogVM
+	var out = make([]AuditLogVM, 0)
 	for rows.Next() {
 		var r AuditLogVM
 		if err := rows.Scan(&r.ID, &r.ActorID, &r.ActorName, &r.Action, &r.Target, &r.DetailRaw, &r.IP, &r.CreatedAt); err != nil {
