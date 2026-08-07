@@ -1,8 +1,15 @@
 // Package middleware — 工作空间级 RBAC 中间件。
 //
-// RequirePermission(store, perm) 校验用户在指定 workspace 上是否拥有 perm。
-// 必须配合 RequireAuth 使用（前置中间件设置 CtxUserID），
-// 调用方需先通过路径参数或查询字符串将 workspace_id 注入到 ctx。
+// 中间件链顺序（外层 → 内层）：
+//   RequireAuth → RequireWorkspaceParam → RequirePermission / RequireProjectParam → handler
+//
+// RequirePermission 校验用户在当前 workspace 拥有指定 permission；
+// 校验通过后把 workspace_role 写入 ctx，供 handler 做二次鉴权。
+//
+// 错误语义：
+//   401 Unauthorized — 未登录或 token 无效（由 RequireAuth 返回）。
+//   403 Forbidden — 已登录但权限不足。
+//   422 — workspace_id / project_id 格式错误。
 package middleware
 
 import (
@@ -72,7 +79,9 @@ func RequirePermission(store *auth.WorkspaceMembershipStore, perm string) gin.Ha
 }
 
 // RequireProjectParam 把路径 :project_id 解析成 int64 并写入 ctx (CtxProjectID)。
-// 解析失败直接 422。通常嵌套在 RequireWorkspaceParam 之后的子路由组。
+// 解析失败直接 422。
+//
+// 注意：必须嵌套在 RequireWorkspaceParam 之后的子路由，因为项目是工作空间下的二级资源。
 func RequireProjectParam() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id, ok := parseBigInt(c.Param("project_id"))

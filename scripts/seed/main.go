@@ -1,8 +1,17 @@
-// Command seed inserts rich development seed data: multiple users,
-// workspaces, memberships, outbox events, and audit logs (idempotent).
+// Command seed 向开发/演示环境插入确定性种子数据。
 //
-// Reference: big-tech seed scripts (Linear, Plane, Asana) prioritize
-// deterministic data for predictable dev/demo environments.
+// 种子数据（幂等，可重复执行）：
+//   - 管理员 / PM / 工程 / 设计 / 访客 5 个测试账号（详见 users 变量）。
+//   - 3 个工作空间（核心产品 / 设计系统 / 基础设施），含成员关系。
+//   - 审计日志演示条目。
+//
+// 参考: Linear / Plane / Asana 的 seed 策略——确定性数据便于复现 bug 与演示。
+//
+// 典型的 run() 顺序：
+//   1. 加载配置
+//   2. 建 DB 连接池
+//   3. 构造 auth.Service（用于 HashPassword）
+//   4. INSERT ... ON CONFLICT 幂等写入 users / workspaces / workspace_members / audit_logs
 package main
 
 import (
@@ -20,17 +29,19 @@ import (
 /* seed data (deterministic)                                            */
 /* ------------------------------------------------------------------ */
 
+// seedUser 一个种子用户的基本信息。
 type seedUser struct {
-	Email       string
-	Password    string
-	DisplayName string
-	Timezone    string
+	Email       string // 邮箱，唯一标识。
+	Password    string // 明文密码（seed 中仅用于生成 bcrypt hash，不落库）。
+	DisplayName string // 显示名。
+	Timezone    string // IANA 时区。
 }
 
+// seedWorkspace 一个种子工作空间的定义。
 type seedWorkspace struct {
-	Name    string
-	Slug    string
-	Members map[string] string // email → role
+	Name    string            // 显示名。
+	Slug    string            // URL 友好唯一标识。
+	Members map[string]string // 成员映射：email → role（owner / admin / member / guest）。
 }
 
 var users = []seedUser{

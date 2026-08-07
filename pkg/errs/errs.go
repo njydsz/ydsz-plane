@@ -298,6 +298,38 @@ var (
 	// 触发场景：向迭代添加工作项时总 story point 或工作量超出迭代预设容量。
 	// 用户文案考虑：提示容量超限，前端可增加容量校验以提前拦截并展示具体数值。
 	ErrSprintCapacityExceeded = New("SPRINT.CAPACITY_EXCEEDED", "迭代容量已超出设定值", http.StatusUnprocessableEntity)
+
+	// ==========================================================================
+	// 版本日域（Domain: VERSION，代号 S6）
+	// ==========================================================================
+
+	// ErrVersionConflict 版本日数据冲突（HTTP 409 Conflict）。
+	//
+	// 触发场景：并发修改同一版本日、semver 唯一性冲突、乐观锁 version 字段比对失败。
+	ErrVersionConflict = New("VERSION.CONFLICT", "版本日状态冲突或版本号已被占用", http.StatusConflict)
+
+	// ErrVersionInvalidLifecycle 版本日生命周期非法（HTTP 422 Unprocessable Entity）。
+	//
+	// 触发场景：对已归档/已发布的版本日执行编辑、尝试回退到 planning。
+	ErrVersionInvalidLifecycle = New("VERSION.INVALID_LIFECYCLE", "当前版本日状态不允许该操作", http.StatusUnprocessableEntity)
+
+	// ErrVersionSemverInvalid 语义版本号非法（HTTP 422 Unprocessable Entity）。
+	//
+	// 触发场景：Semver 解析失败、leading zero、patch 非整数。
+	ErrVersionSemverInvalid = New("VERSION.SEMVER_INVALID", "版本号不符合语义版本规范", http.StatusUnprocessableEntity)
+
+	// ErrVersionNotQualityGate 质量门禁未通过（HTTP 422 Unprocessable Entity）。
+	//
+	// 触发场景：发布前存在致命/严重未关闭缺陷且未配置 forceRelease。
+	ErrVersionNotQualityGate = New("VERSION.QUALITY_GATE_BLOCKED", "质量门禁未通过：存在未关闭的致命/严重缺陷", http.StatusUnprocessableEntity)
+
+	// ErrVersionChecklistIncomplete 发布清单未完成（HTTP 422 Unprocessable Entity）。
+	//
+	// 触发场景：必要检查项未全部勾选试图发布。
+	ErrVersionChecklistIncomplete = New("VERSION.CHECKLIST_INCOMPLETE", "发布检查清单还有未完成的必要项", http.StatusUnprocessableEntity)
+
+	// ErrVersionNotFound 版本日不存在（HTTP 404 Not Found）。
+	ErrVersionNotFound = New("VERSION.NOT_FOUND", "版本日不存在", http.StatusNotFound)
 )
 
 // As 包装标准库 errors.As，方便调用方直接 errs.As(err, &appErr) 而无需额外导入 errors 包。

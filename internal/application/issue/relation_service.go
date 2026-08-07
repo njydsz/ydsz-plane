@@ -1,4 +1,8 @@
-// Package issue — 关联关系 & 依赖服务（6种关系 + FS/SS/FF/SF 依赖 + DFS 防环）。
+// Package issue — 工作项关联 & 依赖。
+//
+// 支持两种关系：
+//   - 关联 (Relation)：双向、无序，6 种语义（duplicate/relates_to/blocked_by/start_before/finish_before/implemented_by）。
+//   - 依赖 (Dependency)：有向、4 种类型（FS/SS/FF/SF），通过 BFS 防止循环依赖。
 package issue
 
 import (
@@ -9,7 +13,10 @@ import (
 	"github.com/njydsz/ydsz-plane/pkg/errs"
 )
 
-// RelationService 管理关联 (issue_relations) 和依赖 (issue_dependencies)。
+// RelationService 管理工作项之间的关联（无向）和依赖（有向）。
+//
+// 关联关系特性：ON CONFLICT 幂等（同 source+target+type 重复创建视为更新）。
+// 依赖关系特性：创建前 BFS 防环；删除不影响已建成的 DAG 其它节点。
 type RelationService struct {
 	db *pgxpool.Pool
 }
@@ -21,14 +28,14 @@ func NewRelationService(db *pgxpool.Pool) *RelationService {
 
 // --- 关联关系 ---
 
-// CreateRelationInput 创建关联的入参。
+// CreateRelationInput 创建关联关系的入参。
 type CreateRelationInput struct {
-	WorkspaceID   int64
-	ProjectID     int64
-	SourceIssueID int64
-	TargetIssueID int64
-	RelationType  string // duplicate | relates_to | blocked_by | start_before | finish_before | implemented_by
-	CreatedBy     int64
+	WorkspaceID   int64  // 工作空间 ID（RLS 隔离）。
+	ProjectID     int64  // 项目 ID。
+	SourceIssueID int64  // 源工作项 ID。
+	TargetIssueID int64  // 目标工作项 ID。
+	RelationType  string // 关联类型：duplicate | relates_to | blocked_by | start_before | finish_before | implemented_by
+	CreatedBy     int64  // 创建人 user_id。
 	validTypes    []string
 }
 
@@ -113,15 +120,15 @@ func (s *RelationService) ListRelations(ctx context.Context, wsID, issueID int64
 
 // --- 依赖 ---
 
-// CreateDependencyInput 创建依赖的入参。
+// CreateDependencyInput 建立依赖关系的入参。
 type CreateDependencyInput struct {
-	WorkspaceID    int64
-	ProjectID      int64
-	PredecessorID  int64
-	SuccessorID    int64
-	DependencyType string // FS | SS | FF | SF
-	LagDays        int
-	CreatedBy      int64
+	WorkspaceID    int64  // 工作空间 ID（RLS 隔离）。
+	ProjectID      int64  // 项目 ID。
+	PredecessorID  int64  // 前置工作项 ID。
+	SuccessorID    int64  // 后续工作项 ID。
+	DependencyType string // 依赖类型：FS (完成-开始) | SS (开始-开始) | FF (完成-完成) | SF (开始-完成)
+	LagDays        int    // 延后天数；语义由 DependencyType 决定（见 DurationModeByDependencyType）。
+	CreatedBy      int64  // 创建人 user_id。
 }
 
 // validDependencyTypes 有效的依赖类型集合。
@@ -177,8 +184,10 @@ func (s *RelationService) CreateDependency(ctx context.Context, in CreateDepende
 	return &dep, nil
 }
 
-// hasCycle DFS 环检测 — 从 successor 出发沿 predecessor 方向搜索是否回到 predecessor。
-// 如果是，添加 predecessor -> successor 将构成环。
+// hasCycle 检测在 predecessorID → successorID 之间添加依赖是否会形成环。
+//
+// 算法：从 successor 出发，沿 predecessor_id 边做 BFS；若可到达 predecessor，则添加新边后成环。
+// 时间复杂度 O(V+E)，V/E 为可达子图规模；工程上通常很小（几十个节点）。
 func (s *RelationService) hasCycle(ctx context.Context, predecessorID, successorID int64) (bool, error) {
 	// BFS/DFS：从 successor 开始，沿 predecessor_id 边搜索（即找 successor 的所有前置）。
 	// 如果找到 predecessorID，则添加 predecessorID -> successorID 会形成环。

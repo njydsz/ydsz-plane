@@ -1,4 +1,7 @@
-// Package issue — 工时记录服务。
+// Package issue — 工时记录。
+//
+// 记录用户在某工作项上花费的耗时（分钟），同步更新 issue.actual_effort / remaining_effort 汇总字段。
+// 所有写操作均通过 withTx() 在同一事务内完成「插入记录 + 更新汇总」，保证统计一致性。
 package issue
 
 import (
@@ -23,15 +26,15 @@ func NewTimeLogService(db *pgxpool.Pool) *TimeLogService {
 	return &TimeLogService{db: db}
 }
 
-// CreateInput 添加入工时。
+// CreateTimeLogInput 添加入工时的入参。
 type CreateTimeLogInput struct {
-	WorkspaceID     int64
-	ProjectID       int64
-	IssueID         int64
-	UserID          int64
-	SpentDate       time.Time
-	DurationMinutes int
-	Description     string
+	WorkspaceID     int64     // 工作空间 ID（RLS 隔离）。
+	ProjectID       int64     // 项目 ID。
+	IssueID         int64     // 工作项 ID。
+	UserID          int64     // 记录人 user_id。
+	SpentDate       time.Time // 花费日期（仅日期部分有意义）。
+	DurationMinutes int       // 持续分钟数，取值 [1, 1440]。
+	Description     string    // 工作内容描述（可选）。
 }
 
 // Create 添加工时记录（同步更新 issue.actual_effort, remaining_effort）。
@@ -148,7 +151,10 @@ func (s *TimeLogService) Delete(ctx context.Context, wsID, logID int64) error {
 	})
 }
 
-// WithTx 事务辅助。
+// withTx 在事务内执行 fn，并自动设置 RLS app.workspace_id。
+//
+// 提交由调用方在 fn 中返回 nil 时自动完成；fn 返回 error 时回滚。
+// 统一封装以避免各方法重复写 set_config + Begin + Rollback 样板。
 func (s *TimeLogService) withTx(ctx context.Context, wsID int64, fn func(tx pgx.Tx) error) error {
 	tx, err := s.db.Begin(ctx)
 	if err != nil {
