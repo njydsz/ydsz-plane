@@ -92,6 +92,8 @@ type CreateProjectRequest struct {
 	Icon string `json:"icon" binding:"omitempty,max=32"`
 	// Color Hex 主题色（如 `#2563eb`），7 字符定长。
 	Color string `json:"color" binding:"omitempty,hexcolor,len=7"`
+	// Template 项目模板代码：agile（敏捷） / waterfall（瀑布） / generic（通用看板），默认 generic。
+	Template string `json:"template" binding:"omitempty,oneof=agile waterfall generic"`
 }
 
 // UpdateProjectRequest 更新项目的请求体（指针字段 = 可选更新）。

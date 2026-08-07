@@ -23,7 +23,14 @@ func NewProjectInitService(db *pgxpool.Pool) *ProjectInitService {
 
 // InitializeForProject 为项目初始化状态模板集 + 流转规则。
 // 由 ProjectService.Create 在事务成功后调用（也可由独立 hook 调用）。
-func (s *ProjectInitService) InitializeForProject(ctx context.Context, wsID, projectID int64) error {
+//
+// 参数 templateCode 指定使用的预置模板：
+//   - "agile":     DevFlow + DefectFlow（Scrum 风格）
+//   - "waterfall": DevFlow + RequirementFlow（V 模型）
+//   - "generic":   DevFlow 精简集（看板）
+//
+// 默认值 "generic" 保证向后兼容。
+func (s *ProjectInitService) InitializeForProject(ctx context.Context, wsID, projectID int64, templateCode ...string) error {
 	tx, err := s.db.Begin(ctx)
 	if err != nil {
 		return errs.ErrInternal.Wrap(err)
@@ -34,34 +41,52 @@ func (s *ProjectInitService) InitializeForProject(ctx context.Context, wsID, pro
 		return errs.ErrInternal.Wrap(err)
 	}
 
-	// 初始化研发流状态
-	devStateIDs, err := s.insertTemplateSet(ctx, tx, wsID, projectID, DevFlowStates)
-	if err != nil {
-		return err
+	tplCode := ProjectTemplateCode(TemplateGeneric)
+	if len(templateCode) > 0 && ValidateTemplateCode(templateCode[0]) {
+		tplCode = ProjectTemplateCode(templateCode[0])
 	}
-	// 缺陷流
-	defectStateIDs, err := s.insertTemplateSet(ctx, tx, wsID, projectID, DefectFlowStates)
-	if err != nil {
-		return err
-	}
+	tpl := ProjectTemplateByCode(string(tplCode))
 
-	// 写流转规则 - dev_flow（通用，type_code=all）
+	// 初始化研发流状态（所有模板通用）
+	devStateIDs, err := s.insertTemplateSet(ctx, tx, wsID, projectID, DevFlowStates, "dev_flow")
+	if err != nil {
+		return err
+	}
 	if err := s.insertTransitions(ctx, tx, wsID, projectID, "all",
 		BuiltInTransitions["dev_flow"], devStateIDs); err != nil {
 		return err
 	}
-	// defect_flow
-	if err := s.insertTransitions(ctx, tx, wsID, projectID, string(TypeDefect),
-		BuiltInTransitions["defect_flow"], defectStateIDs); err != nil {
-		return err
+
+	// 按模板可选注入缺陷流 / 需求评审流
+	if tpl.ApplyDefectFlow {
+		defectStateIDs, err := s.insertTemplateSet(ctx, tx, wsID, projectID, DefectFlowStates, "defect_flow")
+		if err != nil {
+			return err
+		}
+		if err := s.insertTransitions(ctx, tx, wsID, projectID, string(TypeDefect),
+			BuiltInTransitions["defect_flow"], defectStateIDs); err != nil {
+			return err
+		}
+	}
+
+	if tpl.ApplyRequirementFlow {
+		reqStateIDs, err := s.insertTemplateSet(ctx, tx, wsID, projectID, RequirementFlowStates, "requirement_flow")
+		if err != nil {
+			return err
+		}
+		if err := s.insertTransitions(ctx, tx, wsID, projectID, string(TypeRequirement),
+			BuiltInTransitions["requirement_flow"], reqStateIDs); err != nil {
+			return err
+		}
 	}
 
 	return tx.Commit(ctx)
 }
 
 // insertTemplateSet 插入状态模板并返回 name → ID 映射。
+// templateSetLabel 写入 states.template_set 列，用于标识状态归属的模板分类。
 func (s *ProjectInitService) insertTemplateSet(ctx context.Context, tx pgx.Tx,
-	wsID, projectID int64, states []State) (map[string]int64, error) {
+	wsID, projectID int64, states []State, templateSetLabel string) (map[string]int64, error) {
 
 	ids := make(map[string]int64, len(states))
 	for _, st := range states {
@@ -71,7 +96,7 @@ func (s *ProjectInitService) insertTemplateSet(ctx context.Context, tx pgx.Tx,
 			VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
 			RETURNING id`,
 			wsID, projectID, st.Name, string(st.Group), st.Color, st.Sequence, st.IsDefault,
-			"dev_flow").Scan(&id)
+			templateSetLabel).Scan(&id)
 		if err != nil {
 			return nil, errs.ErrInternal.Wrap(err)
 		}

@@ -12,6 +12,7 @@ import (
 
 	amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/mq"
@@ -27,12 +28,17 @@ const routingPattern = "plane.events.#"
 
 // RunConsumer 启动阻塞型通知消费者循环。
 // 当 ctx 取消时优雅退出；连接断开时自动重连。
-func RunConsumer(ctx context.Context, mqClient *mq.Client, db *pgxpool.Pool, log *zap.Logger) {
+// rdb 用于通知风暴去重（可选；为 nil 时跳过去重）。
+func RunConsumer(ctx context.Context, mqClient *mq.Client, db *pgxpool.Pool, log *zap.Logger, rdb ...*redis.Client) {
 	log.Info("notification consumer: starting",
 		zap.String("queue", notifQueue),
 		zap.String("exchange", mq.EventExchange))
 
-	cons := newConsumer(db, log)
+	var redisCli *redis.Client
+	if len(rdb) > 0 {
+		redisCli = rdb[0]
+	}
+	cons := newConsumer(db, log, redisCli)
 
 	for {
 		select {

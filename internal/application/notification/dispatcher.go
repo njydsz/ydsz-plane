@@ -28,6 +28,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/mail"
+	"github.com/njydsz/ydsz-plane/internal/infrastructure/telemetry"
 )
 
 // 常量：最大重试次数 / tick 间隔
@@ -150,9 +151,14 @@ func (c *dispatchConfig) processOne(ctx context.Context, db *pgxpool.Pool, d *pe
 		err = fmt.Errorf("unknown channel: %s", d.Channel)
 	}
 
+	start := time.Now()
 	if err != nil {
+		telemetry.NotificationDelivered.WithLabelValues(string(d.Channel), "failed").Inc()
+		telemetry.NotificationDispatchDuration.WithLabelValues(string(d.Channel)).Observe(float64(time.Since(start).Milliseconds()))
 		return c.markFailed(ctx, db, d.ID, d.RetryCount, err.Error())
 	}
+	telemetry.NotificationDelivered.WithLabelValues(string(d.Channel), "sent").Inc()
+	telemetry.NotificationDispatchDuration.WithLabelValues(string(d.Channel)).Observe(float64(time.Since(start).Milliseconds()))
 	return c.markSent(ctx, db, d.ID)
 }
 

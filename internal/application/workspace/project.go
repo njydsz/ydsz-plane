@@ -27,6 +27,7 @@ type Project struct {
 	Network     string    `json:"network"`
 	Icon        string    `json:"icon,omitempty"`
 	Color       string    `json:"color,omitempty"`
+	Template    string    `json:"template"`
 	Status      string    `json:"status"`
 	SortOrder   float64   `json:"sort_order"`
 	CreatedBy   int64     `json:"created_by"`
@@ -45,6 +46,8 @@ type ProjectCreateInput struct {
 	Icon        string
 	Color       string
 	CreatedBy   int64
+	// Template 项目模板代码（agile / waterfall / generic），默认 generic。
+	Template string
 }
 
 // ProjectUpdateInput 入参。
@@ -77,15 +80,18 @@ func (s *ProjectService) Create(ctx context.Context, in ProjectCreateInput) (*Pr
 	if in.Network != "private" {
 		in.Network = "public"
 	}
+	if in.Template != "agile" && in.Template != "waterfall" {
+		in.Template = "generic"
+	}
 
 	var p Project
 	err := s.db.QueryRow(ctx, `
-		INSERT INTO projects (workspace_id, name, slug, identifier, description, network, icon, color, created_by)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-		RETURNING id, workspace_id, name, slug, identifier, description, network, icon, color, status, sort_order, created_by, created_at, updated_at`,
-		in.WorkspaceID, in.Name, slug, identifier, in.Description, in.Network, in.Icon, in.Color, in.CreatedBy).
+		INSERT INTO projects (workspace_id, name, slug, identifier, description, network, icon, color, template, created_by)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		RETURNING id, workspace_id, name, slug, identifier, description, network, icon, color, template, status, sort_order, created_by, created_at, updated_at`,
+		in.WorkspaceID, in.Name, slug, identifier, in.Description, in.Network, in.Icon, in.Color, in.Template, in.CreatedBy).
 		Scan(&p.ID, &p.WorkspaceID, &p.Name, &p.Slug, &p.Identifier, &p.Description,
-			&p.Network, &p.Icon, &p.Color, &p.Status, &p.SortOrder, &p.CreatedBy, &p.CreatedAt, &p.UpdatedAt)
+			&p.Network, &p.Icon, &p.Color, &p.Template, &p.Status, &p.SortOrder, &p.CreatedBy, &p.CreatedAt, &p.UpdatedAt)
 	if err != nil {
 		if strings.Contains(err.Error(), "projects_workspace_id_slug") ||
 			strings.Contains(err.Error(), "projects_workspace_id_identifier") {
