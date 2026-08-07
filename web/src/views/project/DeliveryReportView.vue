@@ -43,7 +43,7 @@ const sprintStatusLabel: Record<string, string> = {
 async function resolveWsId(): Promise<number> {
   if (wsIdVal) return wsIdVal;
   const { workspaceApi } = await import("@/api/services/workspace");
-  const ws = await workspaceApi.getBySlug(workspaceId.value);
+  const ws = await workspaceApi.get(workspaceId.value);
   wsIdVal = ws.id;
   return wsIdVal;
 }

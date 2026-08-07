@@ -112,7 +112,7 @@ const loading = ref(true)
 const error = ref<string | null>(null)
 const summary = ref<WorkbenchSummary | null>(null)
 
-const wsId = computed(() => wsStore.currentSlug)
+const wsId = computed(() => wsStore.currentId)
 
 /** 根据当前小时返回问候语 */
 const greeting = computed(() => {

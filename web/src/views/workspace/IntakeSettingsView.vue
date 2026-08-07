@@ -243,7 +243,7 @@ async function load() {
   loading.value = true;
   error.value = "";
   try {
-    const ws = await workspaceApi.getBySlug(workspaceId.value);
+    const ws = await workspaceApi.get(workspaceId.value);
     wsId.value = ws.id;
     const [chRes, projRes] = await Promise.all([
       intakeApi.listChannels(ws.id, { limit: 100 }),

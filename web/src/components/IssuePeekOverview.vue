@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 /**
  * IssuePeekOverview — 右侧抽屉式工作项预览。
  *
@@ -32,7 +32,7 @@ const states = ref<State[]>([]);
 const wsId = ref<number | null>(null);
 
 // ---- 派生 ----
-const wsSlug = computed(() => peek.target?.workspaceSlug ?? "");
+const wsId = computed(() => peek.target?.workspaceId ?? 0);
 const projectId = computed(() => peek.target?.projectId ?? 0);
 const issueId = computed(() => peek.target?.issueId ?? 0);
 
@@ -61,11 +61,11 @@ function severityText(s?: number | null): string {
 
 // ---- 方法 ----
 async function loadIssue() {
-  if (!wsSlug.value || !projectId.value || !issueId.value) return;
+  if (!wsId.value || !projectId.value || !issueId.value) return;
   loading.value = true;
   error.value = "";
   try {
-    const ws = await workspaceApi.getBySlug(wsSlug.value);
+    const ws = await workspaceApi.get(wsId.value);
     wsId.value = ws.id;
     const [iss, st] = await Promise.all([
       issueApi.getIssue(ws.id, projectId.value, issueId.value),
@@ -81,7 +81,7 @@ async function loadIssue() {
 }
 
 function openDetail() {
-  router.push(`/${wsSlug.value}/projects/${projectId.value}/issues/${issueId.value}`);
+  router.push(`/${wsId.value}/projects/${projectId.value}/issues/${issueId.value}`);
   peek.close();
 }
 
@@ -179,7 +179,7 @@ onUnmounted(() => {
             <div v-if="issue.sprint_id" class="peek__field">
               <span class="peek__field-label">迭代</span>
               <span class="peek__field-value">
-                <router-link :to="`/${wsSlug}/projects/${projectId}/sprints/${issue.sprint_id}`" class="link" @click.stop>
+                <router-link :to="`/${wsId}/projects/${projectId}/sprints/${issue.sprint_id}`" class="link" @click.stop>
                   #{{ issue.sprint_id }}
                 </router-link>
               </span>

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * CommandPalette (⌘K) — 全局命令面板。
  * 提供 Jump / Create / Search 三类命令源，支持模糊过滤、键盘导航、分组展示。
  */
@@ -462,7 +462,7 @@ function handleKeydown(e: KeyboardEvent) {
   if (e.key === 'c' && !e.ctrlKey && !e.metaKey && !e.altKey) {
     const target = e.target as HTMLElement
     const isInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable
-    if (!isInput && wsStore.currentSlug) {
+    if (!isInput && wsStore.currentId) {
       e.preventDefault()
       mode.value = "command"
       // Set filter to show create commands

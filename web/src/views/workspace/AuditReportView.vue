@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 /**
  * 审计日志报表页 — 展示工作空间管理操作日志，仅 owner/admin 可访问。
  * 参考：GitHub Audit Log、GitLab Event Log。
@@ -95,7 +95,7 @@ async function load() {
   loading.value = true;
   error.value = "";
   try {
-    ws.value = await workspaceApi.getBySlug(wsId.value);
+    ws.value = await workspaceApi.get(wsId.value);
     logs.value = await auditApi.list(ws.value.id, limit.value);
   } catch (e: any) {
     error.value = e.message ?? "加载失败";

@@ -173,7 +173,7 @@ func (s *Service) List(ctx context.Context, input ListInput) (*ListResult, error
 	}
 	defer rows.Close()
 
-	var items []Notification
+	var items = make([]Notification, 0)
 	for rows.Next() {
 		var n Notification
 		if err := rows.Scan(

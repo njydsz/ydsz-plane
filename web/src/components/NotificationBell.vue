@@ -1,4 +1,4 @@
-/**
+﻿/**
  * NotificationBell — 通知铃铛组件。
  * 未读计数 badge + 下拉面板（最多 10 条）+ 30s 轮询 + 主题感知。
  */
@@ -102,7 +102,7 @@
 
         <!-- 底部：查看全部 -->
         <div class="dropdown-footer">
-          <router-link :to="`/${wsStore.currentSlug}/notifications`" class="view-all-link" @click="open = false">
+          <router-link :to="`/${wsStore.currentId}/notifications`" class="view-all-link" @click="open = false">
             查看全部通知
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <polyline points="9 18 15 12 9 6" />

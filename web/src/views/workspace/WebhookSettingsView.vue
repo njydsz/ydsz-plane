@@ -97,7 +97,7 @@ async function load() {
   loading.value = true;
   error.value = "";
   try {
-    const ws = await workspaceApi.getBySlug(workspaceId.value);
+    const ws = await workspaceApi.get(workspaceId.value);
     wsId.value = ws.id;
     const res = await webhookApi.list(ws.id, { limit: 100 });
     hooks.value = res.items;

@@ -74,7 +74,7 @@ async function loadAll() {
   error.value = "";
   try {
     // 先根据 slug 拿 ID
-    const wsData = await workspaceApi.getBySlug(wsId.value);
+    const wsData = await workspaceApi.get(wsId.value);
     ws.value = wsData;
     wsId.value = wsData.id;
     editForm.name = wsData.name;

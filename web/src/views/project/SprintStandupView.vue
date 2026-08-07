@@ -36,7 +36,7 @@ let wsIdVal = 0;
 
 async function resolveWsId(): Promise<number> {
   if (wsIdVal) return wsIdVal;
-  const ws = await workspaceApi.getBySlug(workspaceId.value);
+  const ws = await workspaceApi.get(workspaceId.value);
   wsIdVal = ws.id;
   return wsIdVal;
 }
