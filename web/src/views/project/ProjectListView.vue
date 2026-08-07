@@ -54,10 +54,6 @@ function openSettings() {
   router.push(`/${wsSlug.value}/settings`);
 }
 
-defineProps({
-  workspace_id: [String, Number],
-});
-
 onMounted(load);
 </script>
 

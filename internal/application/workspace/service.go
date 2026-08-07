@@ -136,9 +136,9 @@ func (s *Service) GetBySlug(ctx context.Context, slug string) (*Workspace, error
 	var w Workspace
 	err := s.db.QueryRow(ctx, `
 		SELECT id, name, slug, coalesce(logo_url,''), timezone, language, status, owner_id,
-		       (SELECT count(*) FROM workspace_members WHERE workspace_id = id),
+		       (SELECT count(*) FROM workspace_members wm WHERE wm.workspace_id = w.id),
 		       created_at, updated_at
-		FROM workspaces WHERE slug = $1 AND status = 'active'`, slug).
+		FROM workspaces w WHERE slug = $1 AND status = 'active'`, slug).
 		Scan(&w.ID, &w.Name, &w.Slug, &w.LogoURL, &w.Timezone, &w.Language, &w.Status,
 			&w.OwnerID, &w.MemberCount, &w.CreatedAt, &w.UpdatedAt)
 	if err != nil {
