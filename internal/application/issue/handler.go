@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -468,10 +469,15 @@ func sortField(s string) string {
 	return s
 }
 
-func parseDate(s string) interface{} {
-	// 简化：应用层服务应解析 string → time.Time
-	// 这里直接返回字符串让 pgx 处理 YYYY-MM-DD
-	return s
+func parseDate(s string) time.Time {
+	if s == "" {
+		return time.Time{}
+	}
+	t, err := time.Parse("2006-01-02", s)
+	if err != nil {
+		return time.Time{}
+	}
+	return t
 }
 
 func fieldDetail(err error) errs.FieldDetail {

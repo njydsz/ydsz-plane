@@ -352,14 +352,12 @@ func (s *Service) Restore(ctx context.Context, wsID, issueID int64) error {
 
 // Transition 执行状态流转。
 func (s *Service) Transition(ctx context.Context, wsID, projectID, issueID, toStateID, userID int64) (*Issue, error) {
-	var result *Issue
 	err := s.withTx(ctx, wsID, func(tx pgx.Tx) error {
 		iss, err := s.getByIDTx(ctx, tx, issueID, wsID)
 		if err != nil {
 			return err
 		}
 		if iss.StateID == toStateID {
-			result = iss
 			return nil
 		}
 
@@ -401,7 +399,6 @@ func (s *Service) Transition(ctx context.Context, wsID, projectID, issueID, toSt
 			s.triggerProgressRollup(ctx, tx, *iss.ParentID)
 		}
 
-		result = iss
 		return nil
 	})
 	if err != nil {

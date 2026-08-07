@@ -73,6 +73,11 @@ var (
 	ErrInvalidTransition  = New("ISSUE.INVALID_STATE_TRANSITION", "当前状态不允许该流转", http.StatusUnprocessableEntity)
 	ErrWBSDepthExceeded   = New("ISSUE.WBS_DEPTH_EXCEEDED", "工作项层级最多支持三级", http.StatusUnprocessableEntity)
 	ErrCircularParent     = New("ISSUE.CIRCULAR_PARENT", "不能将工作项挂载到自己或其子级之下", http.StatusUnprocessableEntity)
+
+	// sprint domain (S5)
+	ErrSprintConflict     = New("SPRINT.CONFLICT", "迭代状态冲突", http.StatusConflict)
+	ErrSprintInvalidLifecycle = New("SPRINT.INVALID_LIFECYCLE", "当前迭代状态不允许该操作", http.StatusUnprocessableEntity)
+	ErrSprintCapacityExceeded = New("SPRINT.CAPACITY_EXCEEDED", "迭代容量已超出设定值", http.StatusUnprocessableEntity)
 )
 
 // As is a convenience re-export so callers can do errs.As(err, &appErr).

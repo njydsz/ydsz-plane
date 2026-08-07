@@ -4,7 +4,6 @@ package issue
 import (
 	"context"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/njydsz/ydsz-plane/pkg/errs"
@@ -43,25 +42,17 @@ func (s *ActivityService) ListByIssue(ctx context.Context, wsID, issueID int64, 
 	var activities []IssueActivity
 	for rows.Next() {
 		var a IssueActivity
-		var field, oldVal, newVal pgx.NullString
-		var actorID pgx.NullInt64
+		var field, oldVal, newVal *string
+		var actorID *int64
 		if err := rows.Scan(&a.ID, &a.WorkspaceID, &a.ProjectID, &a.IssueID, &a.Verb,
 			&field, &oldVal, &newVal, &a.OldRef, &a.NewRef,
 			&actorID, &a.ActorEmail, &a.ActorName, &a.CreatedAt); err != nil {
 			return nil, 0, errs.ErrInternal.Wrap(err)
 		}
-		if field.Valid {
-			a.Field = &field.String
-		}
-		if oldVal.Valid {
-			a.OldValue = &oldVal.String
-		}
-		if newVal.Valid {
-			a.NewValue = &newVal.String
-		}
-		if actorID.Valid {
-			a.ActorID = &actorID.Int64
-		}
+		a.Field = field
+		a.OldValue = oldVal
+		a.NewValue = newVal
+		a.ActorID = actorID
 		activities = append(activities, a)
 	}
 

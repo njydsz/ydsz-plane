@@ -24,6 +24,7 @@ import (
 )
 
 // Invitation 表示一条邀请记录（API 响应 DTO）。
+type Invitation struct {
 	ID          int64      `json:"id"`
 	WorkspaceID int64      `json:"workspace_id"`
 	InviterID   int64      `json:"inviter_id"`
