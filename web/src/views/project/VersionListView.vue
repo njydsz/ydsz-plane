@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 /**
  * 版本列表页 — 展示版本列表，支持创建与状态流转。
  * 业务规则：一个版本聚合多个迭代（1:N），版本日(target_date)只是版本的一个属性。
@@ -14,7 +14,7 @@ const route = useRoute();
 const router = useRouter();
 
 const projectId = computed(() => Number(route.params.projectId));
-const workspaceSlug = computed(() => String(route.params.workspaceId ?? ""));
+const workspaceId = computed(() => Number(route.params.workspaceId ?? 0));
 
 const versions = ref<Version[]>([]);
 const loading = ref(true);
@@ -56,7 +56,7 @@ const statusBadgeVariant: Record<VersionStatus, "warning" | "success" | "info" |
 async function resolveWsId(): Promise<number> {
   if (wsIdVal) return wsIdVal;
   const { workspaceApi } = await import("@/api/services/workspace");
-  const ws = await workspaceApi.getBySlug(workspaceSlug.value);
+  const ws = await workspaceApi.getBySlug(workspaceId.value);
   wsIdVal = ws.id;
   return wsIdVal;
 }

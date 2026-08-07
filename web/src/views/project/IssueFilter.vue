@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 /**
  * IssueFilter — 工作项通用过滤器组件。
  *
@@ -12,7 +12,7 @@ import type { IssueType, ListIssuesParams, StateGroup } from "@/api/services/iss
 // ---- Props ----
 const props = defineProps<{
   projectId: number;
-  workspaceSlug: string;
+  workspaceId: number;
 }>();
 
 const emit = defineEmits<{

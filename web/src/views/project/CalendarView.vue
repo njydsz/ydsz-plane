@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 /**
  * CalendarView — 项目日历视图。
  *
@@ -30,7 +30,7 @@ const router = useRouter();
 const wsStore = useWorkspaceStore();
 
 const projectId = computed(() => Number(route.params.projectId));
-const workspaceSlug = computed(() => String(route.params.workspaceId));
+const workspaceId = computed(() => Number(route.params.workspaceId));
 const wsId = computed(() => wsStore.current?.id ?? 0);
 
 const loading = ref(true);
@@ -172,7 +172,7 @@ function goToday() {
 }
 
 function goToIssue(issueId: number) {
-  void router.push(`/${workspaceSlug.value}/projects/${projectId.value}/issues/${issueId}`);
+  void router.push(`/${workspaceId.value}/projects/${projectId.value}/issues/${issueId}`);
 }
 
 /** 视图标题 */

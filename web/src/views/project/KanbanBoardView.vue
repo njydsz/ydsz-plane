@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 /**
  * 看板视图 — 按状态分列展示工作项。
  * 支持: 列间拖拽流转 / 列内拖拽排序 / 视觉反馈 / 中值插入排序。
@@ -36,10 +36,10 @@ async function load() {
   loading.value = true;
   error.value = "";
   try {
-    const wsSlug = String(route.params.workspaceId ?? "");
+    const wsId = Number(route.params.workspaceId ?? "");
     let wsIdVal: number;
-    if (wsSlug) {
-      const ws = await workspaceApi.getBySlug(wsSlug);
+    if (wsId) {
+      const ws = await workspaceApi.get(wsId);
       wsIdVal = ws.id;
     } else {
       wsIdVal = Number(route.params.wsId);
@@ -176,7 +176,7 @@ async function onColumnDrop(stateId: number, event: DragEvent) {
 
 function openIssue(issueId: number) {
   // 单击打开 Peek 预览抽屉；抽屉内有「打开详情」按钮执行路由跳转
-  peek.open(String(route.params.workspaceId), projectId.value, issueId);
+  peek.open(Number(route.params.workspaceId), projectId.value, issueId);
 }
 
 function priorityColor(priority: string): string {

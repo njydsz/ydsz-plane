@@ -1,9 +1,9 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 /**
  * IntakePublicView — 公开收件箱视图（无需登录）。
  *
  * 模式：
- *  - submit: 通过通道短链 /intake/:wsSlug/:slug 访问，展示提交表单
+ *  - submit: 通过通道短链 /intake/:wsId/:slug 访问，展示提交表单
  *  - track:  通过 /intake/track 访问，输入 tracking_id + email 查询状态
  */
 import { computed, onMounted, ref } from "vue";
@@ -22,7 +22,7 @@ import { AppLoadingState, AppErrorState, AppCard, AppButton } from "@/components
 
 const props = defineProps<{
   mode: "submit" | "track";
-  wsSlug?: string;
+  wsId?: string;
   slug?: string;
 }>();
 
@@ -59,7 +59,7 @@ const form = ref({
   issue_type: "",
 });
 
-/** 将 wsSlug（可能是短字符串或数字字符串）解析为 workspace 数字 ID */
+/** 将 wsId（可能是短字符串或数字字符串）解析为 workspace 数字 ID */
 async function resolveWorkspace(slug: string): Promise<number> {
   // 纯数字 → 直接当作 ID
   const asNumber = Number(slug);
@@ -78,7 +78,7 @@ async function fetchChannel() {
   loading.value = true;
   error.value = "";
   try {
-    const wsId = await resolveWorkspace(props.wsSlug!);
+    const wsId = await resolveWorkspace(props.wsId!);
     channel.value = await intakeApi.getPublicChannel(wsId, props.slug!);
     form.value.issue_type = channel.value.default_issue_type;
   } catch (e) {
@@ -142,7 +142,7 @@ async function handleTrack() {
 /* ------------------------------------------------------------------ */
 
 onMounted(() => {
-  if (props.mode === "submit" && props.wsSlug && props.slug) {
+  if (props.mode === "submit" && props.wsId && props.slug) {
     fetchChannel();
   } else if (props.mode === "track") {
     // 从 query 参数回填（方便邮件直链）

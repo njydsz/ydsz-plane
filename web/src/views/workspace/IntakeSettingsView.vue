@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 /**
  * IntakeSettingsView — 收件箱通道管理与工单审核。
  *
@@ -15,7 +15,7 @@ import { ApiError } from "@/api/client";
 import { AppLoadingState, AppErrorState } from "@/components";
 
 const route = useRoute();
-const workspaceSlug = computed(() => String(route.params.workspaceId));
+const workspaceId = computed(() => Number(route.params.workspaceId));
 
 const loading = ref(true);
 const error = ref("");
@@ -243,7 +243,7 @@ async function load() {
   loading.value = true;
   error.value = "";
   try {
-    const ws = await workspaceApi.getBySlug(workspaceSlug.value);
+    const ws = await workspaceApi.getBySlug(workspaceId.value);
     wsId.value = ws.id;
     const [chRes, projRes] = await Promise.all([
       intakeApi.listChannels(ws.id, { limit: 100 }),

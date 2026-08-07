@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 /**
  * 迭代列表页 — 展示全部迭代，支持创建 / 编辑 / 归档 / 状态筛选 / 分页。
  */
@@ -21,7 +21,7 @@ const route = useRoute();
 const router = useRouter();
 
 const projectId = computed(() => Number(route.params.projectId));
-const workspaceSlug = computed(() => String(route.params.workspaceId ?? ""));
+const workspaceId = computed(() => Number(route.params.workspaceId ?? 0));
 const { wsId, ready } = useWorkspaceContext();
 
 /* ------------------------------------------------------------------ */
@@ -221,11 +221,11 @@ async function confirmDelete() {
 /* ------------------------------------------------------------------ */
 
 function openSprint(sp: Sprint) {
-  router.push(`/${workspaceSlug.value}/projects/${projectId.value}/sprints/${sp.id}`);
+  router.push(`/${workspaceId.value}/projects/${projectId.value}/sprints/${sp.id}`);
 }
 
 function goPlanning() {
-  router.push(`/${workspaceSlug.value}/projects/${projectId.value}/sprints/planning`);
+  router.push(`/${workspaceId.value}/projects/${projectId.value}/sprints/planning`);
 }
 
 function fmtDate(d?: string): string {

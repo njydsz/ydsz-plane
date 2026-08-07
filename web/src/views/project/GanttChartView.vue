@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 /**
  * GanttChartView — 只读项目甘特图视图。
  *
@@ -25,7 +25,7 @@ const router = useRouter();
 const wsStore = useWorkspaceStore();
 
 const projectId = computed(() => Number(route.params.projectId));
-const workspaceSlug = computed(() => String(route.params.workspaceId));
+const workspaceId = computed(() => Number(route.params.workspaceId));
 const wsId = computed(() => wsStore.current?.id ?? 0);
 
 const loading = ref(true);
@@ -86,7 +86,7 @@ watch([wsId], () => { if (wsId.value) load(); });
 
 /** 跳转工作项详情 */
 function goToIssue(issueId: number) {
-  void router.push(`/${workspaceSlug.value}/projects/${projectId.value}/issues/${issueId}`);
+  void router.push(`/${workspaceId.value}/projects/${projectId.value}/issues/${issueId}`);
 }
 
 // --- 时间轴计算 ---

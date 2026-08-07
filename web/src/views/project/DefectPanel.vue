@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 /**
  * 缺陷面板 — 展示版本的缺陷列表与修复状态。
  */
@@ -10,7 +10,7 @@ import { analyticsApi } from "@/api/services/analytics";
 import { AppBadge, AppLoadingState, AppErrorState, AppEmptyState } from "@/components";
 
 const props = defineProps<{
-  workspaceSlug: string;
+  workspaceId: number;
   projectId: number;
   versionId: number;
 }>();
@@ -66,7 +66,7 @@ let wsIdVal = 0;
 async function resolveWsId(): Promise<number> {
   if (wsIdVal) return wsIdVal;
   const { workspaceApi } = await import("@/api/services/workspace");
-  const ws = await workspaceApi.getBySlug(props.workspaceSlug);
+  const ws = await workspaceApi.get(props.workspaceId);
   wsIdVal = ws.id;
   return wsIdVal;
 }

@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 /**
  * 版本详情页 — 展示进度、质量门禁、缺陷面板与迭代聚合。
  * 业务规则：一个版本聚合多个迭代（1:N），一个迭代只属于一个版本。
@@ -16,7 +16,7 @@ const route = useRoute();
 const router = useRouter();
 
 const projectId = computed(() => Number(route.params.projectId));
-const workspaceSlug = computed(() => String(route.params.workspaceId ?? ""));
+const workspaceId = computed(() => Number(route.params.workspaceId ?? 0));
 const versionId = computed(() => Number(route.params.versionId));
 
 const activeTab = ref<"overview" | "sprints" | "defects" | "notes">("overview");
@@ -94,7 +94,7 @@ const progressColor = computed(() => {
 async function resolveWsId(): Promise<number> {
   if (wsIdVal) return wsIdVal;
   const { workspaceApi } = await import("@/api/services/workspace");
-  const ws = await workspaceApi.getBySlug(workspaceSlug.value);
+  const ws = await workspaceApi.getBySlug(workspaceId.value);
   wsIdVal = ws.id;
   return wsIdVal;
 }
@@ -498,7 +498,7 @@ onMounted(async () => {
       <!-- ========== Defects Tab ========== -->
       <div v-if="activeTab === 'defects'" class="tab-content">
         <DefectPanel
-          :workspace-slug="workspaceSlug"
+          :workspace-slug="workspaceId"
           :project-id="projectId"
           :version-id="versionId"
         />

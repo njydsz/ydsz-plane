@@ -159,7 +159,7 @@ func (h *IssueHandler) createIssue(c *gin.Context) {
 		Name:             req.Name,
 		DescriptionHTML:  req.DescriptionHTML,
 		StateID:          req.StateID,
-		Priority:         IssuePriority(req.Priority),
+		Priority:         defaultPriority(req.Priority),
 		ParentID:         parentIDPtr,
 		Severity:         severityPtr,
 		FoundPhase:       foundPhasePtr,
@@ -912,6 +912,14 @@ func parseDate(s string) time.Time {
 
 func fieldDetail(err error) errs.FieldDetail {
 	return errs.FieldDetail{Field: "body", Reason: err.Error()}
+}
+
+// defaultPriority 请求未指定优先级时默认 'none'，满足数据库 CHECK 约束。
+func defaultPriority(p string) IssuePriority {
+	if p == "" {
+		return PriorityNone
+	}
+	return IssuePriority(p)
 }
 
 func writeErr(c *gin.Context, err error) {

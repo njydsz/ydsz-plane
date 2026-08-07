@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 /**
  * 排期规划页 — Backlog 与迭代间拖拽分配工作项。
  *
@@ -32,7 +32,7 @@ const route = useRoute();
 const router = useRouter();
 
 const projectId = computed(() => Number(route.params.projectId));
-const workspaceSlug = computed(() => String(route.params.workspaceId ?? ""));
+const workspaceId = computed(() => Number(route.params.workspaceId ?? 0));
 const { wsId, ready } = useWorkspaceContext();
 
 /* ------------------------------------------------------------------ */
@@ -249,7 +249,7 @@ async function moveToBacklog(item: SprintIssueView) {
 const typeLabel: Record<string, string> = { requirement: "需", task: "任", defect: "缺" };
 
 function openSprint(sp: Sprint) {
-  router.push(`/${workspaceSlug.value}/projects/${projectId.value}/sprints/${sp.id}`);
+  router.push(`/${workspaceId.value}/projects/${projectId.value}/sprints/${sp.id}`);
 }
 </script>
 
@@ -264,7 +264,7 @@ function openSprint(sp: Sprint) {
         <span v-if="capacityStats" class="capacity-badge" title="基于历史迭代完成点数的速率建议">
           速率: avg {{ capacityStats.avg }}pt / P50 {{ capacityStats.p50 }}pt
         </span>
-        <button class="btn btn-secondary" @click="router.push(`/${workspaceSlug}/projects/${projectId}/sprints`)">
+        <button class="btn btn-secondary" @click="router.push(`/${workspaceId}/projects/${projectId}/sprints`)">
           返回列表
         </button>
       </div>

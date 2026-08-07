@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 /**
  * 交付报告页 — 展示版本的交付统计与准出资格。
  */
@@ -12,7 +12,7 @@ import { AppBadge, AppButton, AppLoadingState, AppErrorState, ProgressBar } from
 const route = useRoute();
 
 const projectId = computed(() => Number(route.params.projectId));
-const workspaceSlug = computed(() => String(route.params.workspaceId ?? ""));
+const workspaceId = computed(() => Number(route.params.workspaceId ?? 0));
 const versionId = computed(() => Number(route.params.versionId));
 
 const version = ref<Version | null>(null);
@@ -43,7 +43,7 @@ const sprintStatusLabel: Record<string, string> = {
 async function resolveWsId(): Promise<number> {
   if (wsIdVal) return wsIdVal;
   const { workspaceApi } = await import("@/api/services/workspace");
-  const ws = await workspaceApi.getBySlug(workspaceSlug.value);
+  const ws = await workspaceApi.getBySlug(workspaceId.value);
   wsIdVal = ws.id;
   return wsIdVal;
 }

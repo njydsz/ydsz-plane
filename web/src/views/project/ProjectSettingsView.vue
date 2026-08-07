@@ -12,7 +12,7 @@ import { ApiError } from "@/api/client";
 import { AppLoadingState, AppErrorState } from "@/components";
 
 const route = useRoute();
-const workspaceSlug = String(route.params.workspaceId);
+const workspaceId = Number(route.params.workspaceId);
 const projectId = Number(route.params.projectId);
 
 const project = ref<Project | null>(null);
@@ -45,7 +45,7 @@ async function loadProject() {
   error.value = "";
   try {
     // 通过 slug 拿到 wsId，再拿 project
-    const ws = await workspaceApi.getBySlug(workspaceSlug);
+    const ws = await workspaceApi.get(workspaceId);
     project.value = await workspaceApi.getProject(ws.id, projectId);
     form.name = project.value.name;
     form.description = project.value.description ?? "";
@@ -68,7 +68,7 @@ async function save() {
 
   saving.value = true;
   try {
-    const ws = await workspaceApi.getBySlug(workspaceSlug);
+    const ws = await workspaceApi.get(workspaceId);
     const updated = await workspaceApi.updateProject(ws.id, projectId, {
       name: form.name.trim(),
       description: form.description.trim() || undefined,

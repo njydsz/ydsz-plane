@@ -150,7 +150,7 @@ func (s *Service) List(ctx context.Context, input ListInput) (*ListResult, error
 
 	// 计数
 	var total int64
-	countArgs := make([]interface{}, argIdx)
+	countArgs := make([]interface{}, len(args))
 	copy(countArgs, args)
 	err := s.db.QueryRow(ctx,
 		"SELECT COUNT(*) FROM notifications WHERE "+whereTotal, countArgs...,

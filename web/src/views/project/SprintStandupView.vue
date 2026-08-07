@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 /**
  * SprintStandupView — 站会模式视图（Sprint 5.9）。
  *
@@ -18,7 +18,7 @@ const route = useRoute();
 const router = useRouter();
 
 const projectId = computed(() => Number(route.params.projectId));
-const workspaceSlug = computed(() => String(route.params.workspaceId ?? ""));
+const workspaceId = computed(() => Number(route.params.workspaceId ?? 0));
 const sprintId = computed(() => Number(route.params.sprintId));
 
 const sprint = ref<Sprint | null>(null);
@@ -36,7 +36,7 @@ let wsIdVal = 0;
 
 async function resolveWsId(): Promise<number> {
   if (wsIdVal) return wsIdVal;
-  const ws = await workspaceApi.getBySlug(workspaceSlug.value);
+  const ws = await workspaceApi.getBySlug(workspaceId.value);
   wsIdVal = ws.id;
   return wsIdVal;
 }
@@ -175,7 +175,7 @@ onMounted(load);
     <!-- Header -->
     <header class="header">
       <div class="title-row">
-        <button class="back-btn" title="返回迭代详情" @click="router.push(`/${workspaceSlug}/projects/${projectId}/sprints/${sprintId}`)">←</button>
+        <button class="back-btn" title="返回迭代详情" @click="router.push(`/${workspaceId}/projects/${projectId}/sprints/${sprintId}`)">←</button>
         <div>
           <h1>每日站会</h1>
           <p v-if="sprint" class="meta">
@@ -192,7 +192,7 @@ onMounted(load);
     <AppLoadingState v-if="loading" />
     <AppErrorState v-else-if="error" :message="error" @retry="load" />
     <AppEmptyState v-else-if="!sprint || issues.length === 0" title="该迭代暂无工作项" description="前往排期规划页添加工作项">
-      <button class="btn btn-secondary" @click="router.push(`/${workspaceSlug}/projects/${projectId}/sprints/planning`)">前往排期规划</button>
+      <button class="btn btn-secondary" @click="router.push(`/${workspaceId}/projects/${projectId}/sprints/planning`)">前往排期规划</button>
     </AppEmptyState>
 
     <!-- 三栏分组视图 -->
@@ -225,7 +225,7 @@ onMounted(load);
             <p class="hint">点击前往工作项详情页更新状态</p>
             <button
               class="btn btn-sm btn-primary"
-              @click.stop="router.push(`/${workspaceSlug}/projects/${projectId}/issues/${iss.issue_id}`)"
+              @click.stop="router.push(`/${workspaceId}/projects/${projectId}/issues/${iss.issue_id}`)"
             >
               打开详情
             </button>

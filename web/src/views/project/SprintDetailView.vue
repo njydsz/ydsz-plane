@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 /**
  * 迭代详情页 — 展示进度、工作项列表、燃尽图、复盘与生命周期操作。
  *
@@ -31,7 +31,7 @@ const route = useRoute();
 const router = useRouter();
 
 const projectId = computed(() => Number(route.params.projectId));
-const workspaceSlug = computed(() => String(route.params.workspaceId ?? ""));
+const workspaceId = computed(() => Number(route.params.workspaceId ?? 0));
 const sprintId = computed(() => Number(route.params.sprintId));
 const { wsId, ready } = useWorkspaceContext();
 
@@ -205,7 +205,7 @@ function fmtDate(s?: string) {
 }
 
 function goPlanning() {
-  router.push(`/${workspaceSlug.value}/projects/${projectId.value}/sprints/planning`);
+  router.push(`/${workspaceId.value}/projects/${projectId.value}/sprints/planning`);
 }
 
 onMounted(() => {
@@ -240,7 +240,7 @@ watch(ready, (r) => {
           </template>
           <!-- active：站会 / 排期规划 / 结束 -->
           <template v-else-if="sprint.status === 'active'">
-            <button class="btn btn-secondary" @click="router.push(`/${workspaceSlug}/projects/${projectId}/sprints/${sprint.id}/standup`)">
+            <button class="btn btn-secondary" @click="router.push(`/${workspaceId}/projects/${projectId}/sprints/${sprint.id}/standup`)">
               站会模式
             </button>
             <button class="btn btn-secondary" @click="goPlanning">排期规划</button>

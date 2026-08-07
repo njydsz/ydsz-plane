@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 /**
  * 通知偏好设置页 — 管理事件订阅 / 渠道 / 摘要频率 / 免打扰。
  */
@@ -7,7 +7,7 @@ import { notificationApi, type NotificationPreference } from "@/api/services/not
 import { AppLoadingState, AppErrorState } from "@/components";
 import { workspaceApi, type Workspace } from "@/api/services/workspace";
 
-const props = defineProps<{ workspaceSlug: string }>();
+const props = defineProps<{ workspaceId: number }>();
 
 const ws = ref<Workspace | null>(null);
 const pref = ref<NotificationPreference | null>(null);
@@ -43,7 +43,7 @@ async function load() {
   loading.value = true;
   error.value = "";
   try {
-    ws.value = await workspaceApi.getBySlug(props.workspaceSlug);
+    ws.value = await workspaceApi.get(props.workspaceId);
     pref.value = await notificationApi.getPreference(ws.value.id);
   } catch (e: unknown) {
     error.value = e instanceof Error ? e.message : "加载失败";

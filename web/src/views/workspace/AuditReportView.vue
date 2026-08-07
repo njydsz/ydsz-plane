@@ -11,7 +11,7 @@ import { auditApi, type AuditLogEntry } from "@/api/services/audit";
 import { workspaceApi, type Workspace } from "@/api/services/workspace";
 
 const route = useRoute();
-const wsSlug = computed(() => String(route.params.workspaceId));
+const wsId = computed(() => Number(route.params.workspaceId));
 
 const ws = ref<Workspace | null>(null);
 const logs = ref<AuditLogEntry[]>([]);
@@ -95,7 +95,7 @@ async function load() {
   loading.value = true;
   error.value = "";
   try {
-    ws.value = await workspaceApi.getBySlug(wsSlug.value);
+    ws.value = await workspaceApi.getBySlug(wsId.value);
     logs.value = await auditApi.list(ws.value.id, limit.value);
   } catch (e: any) {
     error.value = e.message ?? "加载失败";

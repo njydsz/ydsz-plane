@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 /**
  * 工作项列表页 — 表格视图展示工作项。
  * 支持: 服务端排序 / 分页 / 列过滤 / 批量选择与删除。
@@ -66,10 +66,10 @@ async function load() {
   loading.value = true;
   error.value = "";
   try {
-    const wsSlug = String(route.params.workspaceId ?? "");
+    const wsId = Number(route.params.workspaceId ?? "");
     let wsIdVal: number;
-    if (wsSlug) {
-      const ws = await workspaceApi.getBySlug(wsSlug);
+    if (wsId) {
+      const ws = await workspaceApi.get(wsId);
       wsIdVal = ws.id;
     } else {
       wsIdVal = Number(route.params.wsId);
@@ -141,7 +141,7 @@ const totalPages = computed(() => Math.max(1, Math.ceil(total.value / perPage.va
 
 function openIssue(issueId: number) {
   // 单击打开 Peek 预览抽屉；抽屉内有「打开详情」按钮执行路由跳转
-  peek.open(String(route.params.workspaceId), projectId.value, issueId);
+  peek.open(Number(route.params.workspaceId), projectId.value, issueId);
 }
 
 function toggleSelect(issueId: number) {
@@ -306,7 +306,7 @@ const showExportDropdown = ref(false);
     <!-- 过滤器 -->
     <IssueFilter
       :project-id="projectId"
-      :workspace-slug="String(route.params.workspaceId)"
+      :workspace-slug="Number(route.params.workspaceId)"
       @filter-change="onFilterChange"
     />
 

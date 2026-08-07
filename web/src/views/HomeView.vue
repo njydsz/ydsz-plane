@@ -1,4 +1,4 @@
-/**
+﻿/**
  * HomeView — 工作台首页。
  * 展示聚合信息：快捷操作、我的任务、迭代概览与最近访问。数据来自 workbenchApi.getSummary。
  */
@@ -68,7 +68,7 @@
               <div class="sc-project">{{ currentSprint.project_name }}</div>
               <ProgressBar :percent="currentSprint.progress * 100" />
               <div class="sc-stats">{{ currentSprint.my_issue_count }} 项 · 剩 {{ currentSprint.days_remaining }} 天</div>
-              <router-link :to="`/${wsSlug}/projects/${currentSprint.project_id}/sprints/${currentSprint.sprint_id}`" class="sc-link">查看详情 →</router-link>
+              <router-link :to="`/${wsId}/projects/${currentSprint.project_id}/sprints/${currentSprint.sprint_id}`" class="sc-link">查看详情 →</router-link>
             </div>
             <div v-if="nextSprint" class="sprint-card">
               <div class="sc-status planned">规划中</div>
@@ -112,7 +112,7 @@ const loading = ref(true)
 const error = ref<string | null>(null)
 const summary = ref<WorkbenchSummary | null>(null)
 
-const wsSlug = computed(() => wsStore.currentSlug)
+const wsId = computed(() => wsStore.currentSlug)
 
 /** 根据当前小时返回问候语 */
 const greeting = computed(() => {
@@ -128,8 +128,8 @@ const quickActions = computed<QuickActionItem[]>(() => {
   const qa: QuickActionSet | undefined = summary.value?.quick_actions;
   if (!qa) return [];
   const out: QuickActionItem[] = [];
-  if (qa.can_create_issue) out.push({ type: 'create_issue', label: '新建工作项', icon: '➕', route: `/${wsSlug.value}/projects` });
-  if (qa.can_start_sprint) out.push({ type: 'create_sprint', label: '新建迭代', icon: '🏃', route: `/${wsSlug.value}/projects` });
+  if (qa.can_create_issue) out.push({ type: 'create_issue', label: '新建工作项', icon: '➕', route: `/${wsId.value}/projects` });
+  if (qa.can_start_sprint) out.push({ type: 'create_sprint', label: '新建迭代', icon: '🏃', route: `/${wsId.value}/projects` });
   return out;
 })
 
@@ -164,13 +164,13 @@ async function load() {
 
 /** 跳转到指定工作项详情页 */
 function goIssue(projectId: number, seqId: number) {
-  router.push(`/${wsSlug.value}/projects/${projectId}/issues/${seqId}`)
+  router.push(`/${wsId.value}/projects/${projectId}/issues/${seqId}`)
 }
 
 /** 跳转到最近访问的实体详情页（当前仅支持 issue） */
 function goRecent(item: any) {
   if (item.item_type === 'issue') {
-    router.push(`/${wsSlug.value}/projects/${item.project_id}/issues/${item.item_id}`)
+    router.push(`/${wsId.value}/projects/${item.project_id}/issues/${item.item_id}`)
   }
 }
 

@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 /**
  * 工作空间设置页 — 成员管理、邀请、角色变更与空间信息编辑。
  * 另含「访问令牌」tab：管理个人 API Token（用户级资源，用于脚本/集成）。
@@ -23,7 +23,7 @@ import { useAuthStore } from "@/stores/auth";
 const route = useRoute();
 const auth = useAuthStore();
 
-const wsSlug = computed(() => String(route.params.workspaceId));
+const wsId = computed(() => Number(route.params.workspaceId));
 const activeTab = ref<"info" | "members" | "invitations" | "api-tokens">("info");
 
 const wsId = ref(0); // 拿到 ID 后设置
@@ -74,7 +74,7 @@ async function loadAll() {
   error.value = "";
   try {
     // 先根据 slug 拿 ID
-    const wsData = await workspaceApi.getBySlug(wsSlug.value);
+    const wsData = await workspaceApi.getBySlug(wsId.value);
     ws.value = wsData;
     wsId.value = wsData.id;
     editForm.name = wsData.name;

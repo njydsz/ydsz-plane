@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 /**
  * 工作项详情页 — 展示描述、状态流转、活动日志与工时记录。
  */
@@ -18,7 +18,7 @@ import IssueCreateModal from "./IssueCreateModal.vue";
 import { AppLoadingState, AppErrorState, AppEmptyState } from "@/components";
 
 const props = defineProps<{
-  workspaceSlug: string;
+  workspaceId: number;
   projectId: number;
   issueId: number;
 }>();
@@ -125,7 +125,7 @@ async function load() {
   loading.value = true;
   error.value = "";
   try {
-    ws.value = await workspaceApi.getBySlug(props.workspaceSlug);
+    ws.value = await workspaceApi.get(props.workspaceId);
     const [iss, st, acts] = await Promise.all([
       issueApi.getIssue(ws.value.id, props.projectId, props.issueId),
       issueApi.listStates(ws.value.id, props.projectId),
@@ -159,7 +159,7 @@ async function doDelete() {
   try {
     await issueApi.deleteIssue(ws.value.id, props.projectId, props.issueId);
     toast.success("工作项已归档");
-    router.push(`/${props.workspaceSlug}/projects/${props.projectId}/board`);
+    router.push(`/${props.workspaceId}/projects/${props.projectId}/board`);
   } catch (e: unknown) {
     error.value = e instanceof Error ? e.message : "删除失败";
     toast.error(error.value);
@@ -167,7 +167,7 @@ async function doDelete() {
 }
 
 function goBack() {
-  router.push(`/${props.workspaceSlug}/projects/${props.projectId}/board`);
+  router.push(`/${props.workspaceId}/projects/${props.projectId}/board`);
 }
 
 function stateName(stateId: number): string {
@@ -422,7 +422,7 @@ onMounted(() => {
           <span v-if="issue.point != null" class="issue-detail__field">点数: {{ issue.point }}</span>
           <span v-if="issue.sprint_id" class="issue-detail__field">
             所属迭代:
-            <router-link :to="`/${workspaceSlug}/projects/${projectId}/sprints/${issue.sprint_id}`" class="link">
+            <router-link :to="`/${workspaceId}/projects/${projectId}/sprints/${issue.sprint_id}`" class="link">
               #{{ issue.sprint_id }}
             </router-link>
           </span>

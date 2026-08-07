@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 /**
  * 版本发布页 — 发布前检查清单、发布说明生成与确认发布。
  */
@@ -13,7 +13,7 @@ const route = useRoute();
 const router = useRouter();
 
 const projectId = computed(() => Number(route.params.projectId));
-const workspaceSlug = computed(() => String(route.params.workspaceId ?? ""));
+const workspaceId = computed(() => Number(route.params.workspaceId ?? 0));
 const versionId = computed(() => Number(route.params.versionId));
 
 const STEPS = [
@@ -62,7 +62,7 @@ const canPublish = computed(() => {
 async function resolveWsId(): Promise<number> {
   if (wsIdVal) return wsIdVal;
   const { workspaceApi } = await import("@/api/services/workspace");
-  const ws = await workspaceApi.getBySlug(workspaceSlug.value);
+  const ws = await workspaceApi.getBySlug(workspaceId.value);
   wsIdVal = ws.id;
   return wsIdVal;
 }

@@ -9,9 +9,9 @@
 import { defineStore } from "pinia"
 import { ref } from "vue"
 
-/** Peek 抽屉目标（workspaceSlug + projectId + issueId 三元组）。 */
+/** Peek 抽屉目标（workspaceId + projectId + issueId 三元组）。 */
 export interface PeekTarget {
-  workspaceSlug: string
+  workspaceId: number
   projectId: number
   issueId: number
 }
@@ -21,8 +21,8 @@ export const usePeekStore = defineStore("peek", () => {
   const target = ref<PeekTarget | null>(null)
   const visible = ref(false)
 
-  function open(wsSlug: string, projectId: number, issueId: number) {
-    target.value = { workspaceSlug: wsSlug, projectId, issueId }
+  function open(workspaceId: number, projectId: number, issueId: number) {
+    target.value = { workspaceId, projectId, issueId }
     visible.value = true
   }
 
@@ -31,11 +31,11 @@ export const usePeekStore = defineStore("peek", () => {
     target.value = null
   }
 
-  function toggle(wsSlug: string, projectId: number, issueId: number) {
+  function toggle(workspaceId: number, projectId: number, issueId: number) {
     if (visible.value && target.value?.issueId === issueId) {
       close()
     } else {
-      open(wsSlug, projectId, issueId)
+      open(workspaceId, projectId, issueId)
     }
   }
 

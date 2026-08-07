@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 /* eslint-disable vue/no-v-html -- highlight 由服务端 PostgreSQL ts_headline 生成：内容已被 ts_headline 自动 HTML 转义，仅包裹 <b> 高亮标签，属受信输出，无 XSS 注入面。 */
 /**
  * SearchView — 独立搜索结果页。
@@ -30,7 +30,7 @@ const router = useRouter();
 
 // ---- Route params ----
 const props = defineProps<{
-  workspaceSlug: string;
+  workspaceId: number;
 }>();
 
 // ---- State ----
@@ -54,7 +54,7 @@ const hasResults = computed(() => (results.value?.total ?? 0) > 0);
 
 // ---- Actions ----
 async function load() {
-  ws.value = await workspaceApi.getBySlug(props.workspaceSlug);
+  ws.value = await workspaceApi.get(props.workspaceId);
   if (query.value.trim()) {
     await runSearch(query.value);
   }
@@ -68,7 +68,7 @@ async function runSearch(q: string) {
   try {
     // 回写 URL（replaceState 避免历史堆栈污染）
     router.replace({
-      path: `/${props.workspaceSlug}/search`,
+      path: `/${props.workspaceId}/search`,
       query: { q },
     });
     const resp = await searchApi.searchWorkspace(ws.value.id, {

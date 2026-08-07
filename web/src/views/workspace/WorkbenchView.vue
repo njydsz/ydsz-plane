@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 /**
  * WorkbenchView — 个人工作台首屏。
  * 聚合：我的任务分桶（今日/逾期/进行中/即将/待规划）+ 迭代概览 + 最近访问 + 快捷操作。
@@ -19,7 +19,7 @@ import {
 import { workspaceApi, type Workspace } from "@/api/services/workspace";
 
 const props = defineProps<{
-  workspaceSlug: string;
+  workspaceId: number;
 }>();
 
 const ws = ref<Workspace | null>(null);
@@ -31,7 +31,7 @@ async function load() {
   loading.value = true;
   error.value = "";
   try {
-    ws.value = await workspaceApi.getBySlug(props.workspaceSlug);
+    ws.value = await workspaceApi.get(props.workspaceId);
     summary.value = await workbenchApi.getSummary(ws.value.id);
   } catch (e: unknown) {
     error.value = e instanceof Error ? e.message : "加载工作台失败";
@@ -78,11 +78,11 @@ const hasOverviews = computed(() => (summary.value?.sprint_overviews.length ?? 0
 const hasRecent = computed(() => (summary.value?.recent_items.length ?? 0) > 0);
 
 function issueRoute(issue: IssueDigest) {
-  return `/${props.workspaceSlug}/projects/${issue.group_id}/issues/${issue.id}`;
+  return `/${props.workspaceId}/projects/${issue.group_id}/issues/${issue.id}`;
 }
 
 function sprintRoute(sprint: SprintOverview) {
-  return `/${props.workspaceSlug}/projects/${sprint.project_id}/sprints/${sprint.sprint_id}`;
+  return `/${props.workspaceId}/projects/${sprint.project_id}/sprints/${sprint.sprint_id}`;
 }
 </script>
 
@@ -92,7 +92,7 @@ function sprintRoute(sprint: SprintOverview) {
     <header class="workbench__header">
       <div>
         <h1 class="workbench__title">工作台</h1>
-        <p class="workbench__subtitle">{{ ws?.name ?? workspaceSlug }} · 个人工作概览</p>
+        <p class="workbench__subtitle">{{ ws?.name ?? workspaceId }} · 个人工作概览</p>
       </div>
       <div class="workbench__actions">
         <span v-if="summary" class="workbench__stats">

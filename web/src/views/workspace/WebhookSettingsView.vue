@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 /**
  * WebhookSettingsView — 工作空间级 Webhook 订阅管理。
  *
@@ -52,7 +52,7 @@ const EVENT_OPTIONS: { value: WebhookEvent; label: string }[] = [
 /* ------------------------------------------------------------------ */
 
 const route = useRoute();
-const workspaceSlug = computed(() => String(route.params.workspaceId));
+const workspaceId = computed(() => Number(route.params.workspaceId));
 
 const loading = ref(true);
 const error = ref("");
@@ -97,7 +97,7 @@ async function load() {
   loading.value = true;
   error.value = "";
   try {
-    const ws = await workspaceApi.getBySlug(workspaceSlug.value);
+    const ws = await workspaceApi.getBySlug(workspaceId.value);
     wsId.value = ws.id;
     const res = await webhookApi.list(ws.id, { limit: 100 });
     hooks.value = res.items;

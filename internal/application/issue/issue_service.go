@@ -133,6 +133,9 @@ type BatchResult struct {
 
 // Create 创建工作项。
 func (s *Service) Create(ctx context.Context, in CreateIssueInput) (*Issue, error) {
+	if in.Priority == "" {
+		in.Priority = PriorityNone
+	}
 	if err := validateCreateInput(in); err != nil {
 		return nil, err
 	}
