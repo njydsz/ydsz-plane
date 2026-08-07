@@ -1,20 +1,13 @@
 import { defineStore } from "pinia";
 
-import { http } from "@/api/client";
+import { authApi } from "@/api/services/auth";
+import type { TokenPair } from "@/api/services/auth";
 
 export interface UserBrief {
   id: number;
   email: string;
   display_name: string;
   avatar_url: string;
-}
-
-interface TokenPair {
-  access_token: string;
-  refresh_token: string;
-  token_type: string;
-  expires_at: string;
-  user: UserBrief;
 }
 
 export const useAuthStore = defineStore("auth", {
@@ -27,13 +20,19 @@ export const useAuthStore = defineStore("auth", {
   },
   actions: {
     async login(email: string, password: string) {
-      const { data } = await http.post<TokenPair>("/auth/login", { email, password });
+      const { data } = await authApi.login({ email, password });
       this.user = data.user;
       this.loaded = true;
     },
+    async register(input: { email: string; password: string; display_name: string }) {
+      const { data } = await authApi.register(input);
+      this.user = data.user;
+      this.loaded = true;
+      return data as TokenPair;
+    },
     async fetchMe() {
       try {
-        const { data } = await http.get<UserBrief>("/me");
+        const { data } = await authApi.me();
         this.user = data;
       } catch {
         this.user = null;
