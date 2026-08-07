@@ -1,4 +1,8 @@
 <script setup lang="ts">
+/**
+ * 工作空间列表页 — 展示/创建工作空间，进入项目列表。
+ */
+
 import { onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 

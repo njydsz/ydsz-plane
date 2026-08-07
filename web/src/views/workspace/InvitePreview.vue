@@ -1,4 +1,8 @@
 <script setup lang="ts">
+/**
+ * 邀请预览页 — 公开展示邀请信息并接受邀请。
+ */
+
 import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 

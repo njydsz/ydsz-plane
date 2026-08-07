@@ -1,4 +1,8 @@
 <script setup lang="ts">
+/**
+ * 工作项列表页 — 表格视图展示工作项，支持筛选与分页。
+ */
+
 import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 

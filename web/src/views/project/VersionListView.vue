@@ -1,4 +1,8 @@
 <script setup lang="ts">
+/**
+ * 版本日列表页 — 展示版本日列表，支持创建与状态流转。
+ */
+
 import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 

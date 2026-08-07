@@ -1,4 +1,8 @@
 <script setup lang="ts">
+/**
+ * 工作空间设置页 — 成员管理、邀请、角色变更与空间信息编辑。
+ */
+
 import { computed, onMounted, reactive, ref } from "vue";
 import { useRoute } from "vue-router";
 

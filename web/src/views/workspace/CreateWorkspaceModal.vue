@@ -1,4 +1,8 @@
 <script setup lang="ts">
+/**
+ * 创建工作空间弹窗 — 名称/slug/时区/语言表单。
+ */
+
 import { computed, ref, watch } from "vue";
 import { workspaceApi, type Workspace } from "@/api/services/workspace";
 

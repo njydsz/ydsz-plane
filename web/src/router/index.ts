@@ -1,3 +1,11 @@
+/**
+ * 路由表 — 定义全部页面路由与全局鉴权守卫。
+ *
+ * 约定：
+ *  - meta.public=true 表示公开路由（无需登录，如登录/注册/邀请预览）；
+ *  - 其余路由要求已登录，未登录跳转 /login 并携带 redirect 回跳参数；
+ *  - 已登录用户访问认证页（login/register 等）会被重定向到首页。
+ */
 import { createRouter, createWebHistory } from "vue-router";
 
 import { useAuthStore } from "@/stores/auth";
@@ -186,6 +194,7 @@ const router = createRouter({
   ],
 });
 
+/** 全局前置守卫：恢复会话、强制登录、登录态下禁止访问认证页 */
 router.beforeEach(async (to) => {
   const auth = useAuthStore();
   if (!auth.loaded) {

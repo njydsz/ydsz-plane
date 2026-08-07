@@ -1,4 +1,8 @@
 <script setup lang="ts">
+/**
+ * 缺陷面板 — 展示版本日的缺陷列表与修复状态。
+ */
+
 import { onMounted, ref, computed } from "vue";
 
 import { versionApi, type BugVersionView } from "@/api/services/version";

@@ -1,4 +1,8 @@
 <script setup lang="ts">
+/**
+ * 重置密码页 — 通过邮件中的 token 设置新密码。
+ */
+
 import { reactive, ref } from "vue";
 import { useRoute } from "vue-router";
 

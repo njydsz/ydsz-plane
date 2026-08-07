@@ -1,4 +1,8 @@
 <script setup lang="ts">
+/**
+ * 首页 — 简单欢迎页（预留为工作台入口）。
+ */
+
 import { useAuthStore } from "@/stores/auth";
 
 const auth = useAuthStore();

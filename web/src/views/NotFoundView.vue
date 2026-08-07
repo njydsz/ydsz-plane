@@ -1,4 +1,8 @@
-<script setup lang="ts"></script>
+<script setup lang="ts">
+/**
+ * 404 页面 — 未知路由兜底展示。
+ */
+</script>
 
 <template>
   <div class="not-found">

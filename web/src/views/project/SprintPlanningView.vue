@@ -1,4 +1,8 @@
 <script setup lang="ts">
+/**
+ * 排期规划页 — Backlog 与迭代间拖拽分配工作项。
+ */
+
 import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 

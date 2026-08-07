@@ -1,4 +1,8 @@
 <script setup lang="ts">
+/**
+ * 注册页 — 创建新账号，成功后自动登录并跳转工作台。
+ */
+
 import { reactive, ref } from "vue";
 import { useRouter } from "vue-router";
 

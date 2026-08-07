@@ -10,6 +10,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/njydsz/ydsz-plane/internal/application/sprint"
+	"github.com/njydsz/ydsz-plane/internal/application/version"
 	"github.com/njydsz/ydsz-plane/internal/config"
 )
 
@@ -162,5 +163,128 @@ func TestSprintNotWiredWithoutHandler(t *testing.T) {
 	// 因为路由组从未注册。
 	if w.Code != http.StatusNotFound {
 		t.Errorf("status = %d, want 404 (routes not mounted)", w.Code)
+	}
+}
+
+// ==========================================================================
+// Version 路由冒烟测试（Sprint 6 出口检查）
+// ==========================================================================
+
+// stubVersionDeps 返回装配了 VersionHandler 的 Deps。
+func stubVersionDeps() *Deps {
+	d := stubDeps()
+	d.VersionHandler = version.NewHandler(nil)
+	return d
+}
+
+// TestVersionRouteMounting 验证 Version 路由已挂载，未认证请求返回 401。
+func TestVersionRouteMounting(t *testing.T) {
+	r := NewEngine(stubVersionDeps())
+	RegisterVersionRoutes(r, stubVersionDeps())
+
+	tests := []struct {
+		method string
+		path   string
+		want   int
+	}{
+		// 集合
+		{"GET", "/api/v1/workspaces/1/projects/1/versions", 401},
+		{"POST", "/api/v1/workspaces/1/projects/1/versions", 401},
+		{"GET", "/api/v1/workspaces/1/projects/1/versions/defects", 401},
+		// 单资源
+		{"GET", "/api/v1/workspaces/1/projects/1/versions/1", 401},
+		{"PATCH", "/api/v1/workspaces/1/projects/1/versions/1", 401},
+		{"DELETE", "/api/v1/workspaces/1/projects/1/versions/1", 401},
+		// 生命周期
+		{"POST", "/api/v1/workspaces/1/projects/1/versions/1/activate", 401},
+		{"POST", "/api/v1/workspaces/1/projects/1/versions/1/release", 401},
+		{"POST", "/api/v1/workspaces/1/projects/1/versions/1/archive", 401},
+		// 进度 / 质量 / 交付
+		{"GET", "/api/v1/workspaces/1/projects/1/versions/1/progress", 401},
+		{"GET", "/api/v1/workspaces/1/projects/1/versions/1/quality", 401},
+		{"GET", "/api/v1/workspaces/1/projects/1/versions/1/delivery-report", 401},
+		// Release Notes
+		{"GET", "/api/v1/workspaces/1/projects/1/versions/1/release-notes", 401},
+		{"POST", "/api/v1/workspaces/1/projects/1/versions/1/release-notes/regenerate", 401},
+		// 缺陷面板
+		{"GET", "/api/v1/workspaces/1/projects/1/versions/1/defects", 401},
+		// 迭代聚合
+		{"GET", "/api/v1/workspaces/1/projects/1/versions/1/sprints", 401},
+		{"POST", "/api/v1/workspaces/1/projects/1/versions/1/sprints", 401},
+		{"DELETE", "/api/v1/workspaces/1/projects/1/versions/1/sprints/1", 401},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.method+" "+tc.path, func(t *testing.T) {
+			w := httptest.NewRecorder()
+			req := mustReq(tc.method, tc.path, "")
+			r.ServeHTTP(w, req)
+			if w.Code != tc.want {
+				t.Errorf("status = %d, want %d", w.Code, tc.want)
+			}
+		})
+	}
+}
+
+// TestVersionNotWiredWithoutHandler 验证未设置 VersionHandler 时路由不会被注册。
+func TestVersionNotWiredWithoutHandler(t *testing.T) {
+	r := NewEngine(stubDeps())
+	RegisterVersionRoutes(r, stubDeps())
+
+	w := httptest.NewRecorder()
+	req := mustReq("GET", "/api/v1/workspaces/1/projects/1/versions", "")
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusNotFound {
+		t.Errorf("status = %d, want 404 (routes not mounted)", w.Code)
+	}
+}
+
+// TestVersionLifecycleRoutePatterns 验证全生命周期端点路径模式正确。
+func TestVersionLifecycleRoutePatterns(t *testing.T) {
+	// 状态流转可用端点
+	lifecyclePaths := []string{
+		"/api/v1/workspaces/1/projects/1/versions/1/activate",
+		"/api/v1/workspaces/1/projects/1/versions/1/release",
+		"/api/v1/workspaces/1/projects/1/versions/1/archive",
+	}
+
+	r := NewEngine(stubVersionDeps())
+	RegisterVersionRoutes(r, stubVersionDeps())
+
+	for _, path := range lifecyclePaths {
+		t.Run(path, func(t *testing.T) {
+			w := httptest.NewRecorder()
+			req := mustReq("POST", path, "")
+			r.ServeHTTP(w, req)
+			if w.Code != http.StatusUnauthorized {
+				t.Errorf("%s: status = %d, want 401 (auth required)", path, w.Code)
+			}
+		})
+	}
+}
+
+// TestVersionQueryEndpoints 验证所有查询端点均需要认证。
+func TestVersionQueryEndpoints(t *testing.T) {
+	r := NewEngine(stubVersionDeps())
+	RegisterVersionRoutes(r, stubVersionDeps())
+
+	queryPaths := []string{
+		"/api/v1/workspaces/1/projects/1/versions/1/progress",
+		"/api/v1/workspaces/1/projects/1/versions/1/quality",
+		"/api/v1/workspaces/1/projects/1/versions/1/delivery-report",
+		"/api/v1/workspaces/1/projects/1/versions/1/release-notes",
+		"/api/v1/workspaces/1/projects/1/versions/1/defects",
+		"/api/v1/workspaces/1/projects/1/versions/1/sprints",
+	}
+
+	for _, path := range queryPaths {
+		t.Run(path, func(t *testing.T) {
+			w := httptest.NewRecorder()
+			req := mustReq("GET", path, "")
+			r.ServeHTTP(w, req)
+			if w.Code != http.StatusUnauthorized {
+				t.Errorf("%s: status = %d, want 401", path, w.Code)
+			}
+		})
 	}
 }

@@ -1,4 +1,8 @@
 <script setup lang="ts">
+/**
+ * 登录页 — 邮箱+密码登录，支持限流错误提示与 redirect 回跳。
+ */
+
 import { reactive, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 

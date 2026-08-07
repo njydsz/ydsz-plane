@@ -1,4 +1,8 @@
 <script setup lang="ts">
+/**
+ * 忘记密码页 — 提交邮箱触发密码重置邮件。
+ */
+
 import { ref } from "vue";
 
 import { authApi } from "@/api/services/auth";

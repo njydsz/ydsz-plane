@@ -1,4 +1,8 @@
 <script setup lang="ts">
+/**
+ * 工作项详情页 — 展示描述、状态流转、活动日志与工时记录。
+ */
+
 import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 

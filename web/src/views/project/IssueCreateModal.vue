@@ -1,4 +1,8 @@
 <script setup lang="ts">
+/**
+ * 创建工作项弹窗 — 类型/标题/优先级/经办人/标签等表单。
+ */
+
 import { computed, ref, watch } from "vue";
 
 import { issueApi, type CreateIssueInput, type IssueType } from "@/api/services/issue";

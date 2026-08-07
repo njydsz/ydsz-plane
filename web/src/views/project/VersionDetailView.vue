@@ -1,4 +1,8 @@
 <script setup lang="ts">
+/**
+ * 版本日详情页 — 展示进度、质量门禁、缺陷面板与迭代聚合。
+ */
+
 import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 

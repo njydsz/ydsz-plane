@@ -1,4 +1,8 @@
 <script setup lang="ts">
+/**
+ * 迭代详情页 — 展示进度、工作项列表、燃尽图与复盘。
+ */
+
 import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 

@@ -1,4 +1,13 @@
 <script setup lang="ts">
+/**
+ * 工作空间布局组件 — 登录后应用的主框架。
+ *
+ * 职责：
+ *  - 左侧边栏：工作空间切换器（支持搜索过滤）、导航菜单、用户区；
+ *  - 顶部栏：页面标题/操作区；
+ *  - 主内容区：路由出口（项目列表/看板/迭代/版本日等子页面）。
+ *  - 挂载时按 URL slug 解析并切换当前工作空间。
+ */
 import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
@@ -26,11 +35,13 @@ const filteredWorkspaces = computed(() => {
   );
 });
 
+/** 角色 → 中文展示名映射 */
 function roleLabel(role?: string): string {
   const map: Record<string, string> = { owner: "所有者", admin: "管理员", member: "成员", guest: "访客" };
   return map[role ?? ""] ?? "";
 }
 
+/** 初始化：加载空间列表并按 URL slug 切换当前空间 */
 async function bootstrap() {
   await wsStore.load();
   if (slug.value) {
@@ -39,16 +50,19 @@ async function bootstrap() {
   // 注意：在根路由（工作空间列表页）不主动 redirect，由用户自主点击
 }
 
+/** 选中工作空间：关闭切换器并跳转到该项目列表 */
 function selectWs(ws: Workspace) {
   showSwitcher.value = false;
   router.push(`/${ws.slug}/projects`);
 }
 
+/** 跳转创建空间页（工作空间列表页） */
 function gotoCreate() {
   showSwitcher.value = false;
   router.push("/");
 }
 
+/** 跳转工作空间列表页 */
 function gotoList() {
   showSwitcher.value = false;
   router.push("/");

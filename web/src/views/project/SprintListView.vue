@@ -1,4 +1,8 @@
 <script setup lang="ts">
+/**
+ * 迭代列表页 — 展示全部迭代，支持创建/归档/进入详情。
+ */
+
 import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 

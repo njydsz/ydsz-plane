@@ -1,4 +1,8 @@
 <script setup lang="ts">
+/**
+ * 看板视图 — 按状态分列展示工作项，支持创建/详情跳转。
+ */
+
 import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 

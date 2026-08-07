@@ -1,4 +1,8 @@
 <script setup lang="ts">
+/**
+ * 项目列表页 — 展示当前工作空间下的全部项目，支持新建项目。
+ */
+
 import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
