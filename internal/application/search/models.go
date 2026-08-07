@@ -40,40 +40,42 @@ type SearchQuery struct {
 	Offset      int      `json:"offset"`
 }
 
-// SearchHit 单条搜索结果。
+// SearchHit 单条搜索结果（JSON 对齐前端 SearchResultItem）。
 type SearchHit struct {
-	DocType    string   `json:"doc_type"`
-	DocID      int64    `json:"doc_id"`
-	Title      string   `json:"title"`
-	Identifier string   `json:"identifier,omitempty"`
-	Highlights []string `json:"highlights"` // 匹配片段（含 <b> 标签）
-	Rank       float64  `json:"rank"`       // 相关性得分
-	Metadata   Metadata `json:"metadata"`
-	URL        string   `json:"url"` // 前端跳转路径
+	DocType     string  `json:"type"`                 // issue / sprint / version
+	DocID       int64   `json:"id"`
+	Title       string  `json:"name"`
+	Identifier  string  `json:"identifier,omitempty"` // YD-123
+	Description string  `json:"description"`          // 原始内容（供 debug）
+	Highlight   string  `json:"highlight"`            // 取第一条高亮片段
+	ProjectID   int64   `json:"project_id"`
+	ProjectName string  `json:"project_name"`
+	Rank        float64 `json:"rank"` // 相关性得分
+	URL         string  `json:"url"`  // 前端跳转路径
 }
 
-// Metadata 搜索结果元数据。
-type Metadata struct {
-	TypeCode  string `json:"type_code,omitempty"` // issue type
-	StateID   int64  `json:"state_id,omitempty"`
-	StateName string `json:"state_name,omitempty"`
-	Priority  string `json:"priority,omitempty"`
-}
-
-// SearchGroup 分组搜索结果。
-type SearchGroup struct {
-	DocType     string      `json:"doc_type"`
-	Total       int64       `json:"total"`
-	Hits        []SearchHit `json:"hits"`
+// SearchResults 按类型分组的搜索结果（前端期望格式）。
+type SearchResults struct {
+	Issues   []SearchHit `json:"issues"`
+	Sprints  []SearchHit `json:"sprints"`
+	Versions []SearchHit `json:"versions"`
 }
 
 // SearchResponse 搜索响应。
 type SearchResponse struct {
 	Query       string        `json:"query"`
 	Total       int           `json:"total"`        // 总命中数
-	Groups      []SearchGroup `json:"groups"`       // 按类型分组
+	Results     SearchResults `json:"results"`      // 按类型分组（前端期望格式）
+	Groups      []SearchGroup `json:"groups"`       // 保留向后兼容
 	TimeMs      int64         `json:"time_ms"`      // 查询耗时
 	Suggestions []string      `json:"suggestions"`  // 查询建议
+}
+
+// SearchGroup 向后兼容的分组结果。
+type SearchGroup struct {
+	DocType string      `json:"doc_type"`
+	Total   int64       `json:"total"`
+	Hits    []SearchHit `json:"hits"`
 }
 
 // --- Search History ---

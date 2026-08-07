@@ -40,7 +40,7 @@ func NewService(db *pgxpool.Pool) *Service {
 //  2. 按 doc_type 过滤
 //  3. 应用结构化过滤器
 //  4. 检索 + 排名 + 高亮
-//  5. 按类型分组返回
+//  5. 按类型分组返回（对齐前端 results.issues/sprints/versions 结构）
 func (s *Service) Search(ctx context.Context, q SearchQuery) (*SearchResponse, error) {
 	if q.Limit <= 0 || q.Limit > 50 {
 		q.Limit = 20
@@ -58,10 +58,11 @@ func (s *Service) Search(ctx context.Context, q SearchQuery) (*SearchResponse, e
 	tsQuery := toTSQuery(q.Query)
 	if tsQuery == "" {
 		return &SearchResponse{
-			Query:  q.Query,
-			Total:  0,
-			Groups: []SearchGroup{},
-			TimeMs: time.Since(start).Milliseconds(),
+			Query:   q.Query,
+			Total:   0,
+			Results: SearchResults{},
+			Groups:  []SearchGroup{},
+			TimeMs:  time.Since(start).Milliseconds(),
 		}, nil
 	}
 
@@ -141,7 +142,8 @@ func (s *Service) Search(ctx context.Context, q SearchQuery) (*SearchResponse, e
 	}
 	defer rows.Close()
 
-	// 按类型分组聚合
+	// 按类型分组聚合（维护 results 和 groups 双结构）
+	results := SearchResults{}
 	groupMap := map[string]*SearchGroup{}
 	for _, dt := range q.DocTypes {
 		groupMap[dt] = &SearchGroup{DocType: dt, Hits: []SearchHit{}}
@@ -158,25 +160,42 @@ func (s *Service) Search(ctx context.Context, q SearchQuery) (*SearchResponse, e
 			return nil, errs.ErrInternal.Wrap(err)
 		}
 
-		var meta Metadata
+		var meta struct {
+			TypeCode  string `json:"type_code"`
+			StateID   int64  `json:"state_id"`
+			StateName string `json:"state_name"`
+			Priority  string `json:"priority"`
+		}
 		_ = json.Unmarshal(metaRaw, &meta)
 
 		// 对 issue 补充 state_name
-		if dt == "issue" && meta.StateID > 0 {
+		if dt == "issue" && meta.StateID > 0 && meta.StateName == "" {
 			meta.StateName = s.lookupStateName(ctx, q.WorkspaceID, meta.StateID)
 		}
 
 		hit := SearchHit{
-			DocType:    dt,
-			DocID:      docID,
-			Title:      title,
-			Identifier: identifier,
-			Highlights: []string{highlight},
-			Rank:       rank,
-			Metadata:   meta,
-			URL:        buildDocURL(dt, docID, q.ProjectID),
+			DocType:     dt,
+			DocID:       docID,
+			Title:       title,
+			Identifier:  identifier,
+			Description: content,
+			Highlight:   highlight,
+			ProjectID:   q.ProjectID,
+			Rank:        rank,
+			URL:         buildDocURL(dt, docID, q.ProjectID),
 		}
 
+		// 填充 results 分类
+		switch dt {
+		case "issue":
+			results.Issues = append(results.Issues, hit)
+		case "sprint":
+			results.Sprints = append(results.Sprints, hit)
+		case "version":
+			results.Versions = append(results.Versions, hit)
+		}
+
+		// 维护 groups（向后兼容）
 		if g, ok := groupMap[dt]; ok {
 			g.Hits = append(g.Hits, hit)
 		}
@@ -196,10 +215,11 @@ func (s *Service) Search(ctx context.Context, q SearchQuery) (*SearchResponse, e
 	}
 
 	return &SearchResponse{
-		Query:  q.Query,
-		Total:  total,
-		Groups: groups,
-		TimeMs: time.Since(start).Milliseconds(),
+		Query:   q.Query,
+		Total:   total,
+		Results: results,
+		Groups:  groups,
+		TimeMs:  time.Since(start).Milliseconds(),
 	}, nil
 }
 

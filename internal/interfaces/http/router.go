@@ -67,9 +67,10 @@ type Deps struct {
 	VersionHandler      *version.Handler
 	WorkbenchHandler    *workbench.WorkbenchHandler
 	DashboardHandler    *dashboard.DashboardHandler
-	NotificationHandler *notif.Handler
-	AttachmentHandler   *attachment.Handler
-	WSHub               *ws.Hub
+	NotificationHandler      *notif.Handler
+	AttachmentHandler        *attachment.Handler
+	DefectAnalyticsHandler   *issue.DefectAnalyticsHandler
+	WSHub                    *ws.Hub
 }
 
 // RegisterIssueRoutes 注册工作项路由（在 NewEngine 之后调用）。
@@ -252,6 +253,21 @@ func RegisterAttachmentRoutes(r *gin.Engine, d *Deps) {
 		middleware.RequirePermission(d.WorkspaceStore, auth.PermWorkspaceRead),
 	)
 	d.AttachmentHandler.Register(projects)
+}
+
+// RegisterDefectAnalyticsRoutes 注册缺陷分析报表路由（项目级）。
+func RegisterDefectAnalyticsRoutes(r *gin.Engine, d *Deps) {
+	if d.DefectAnalyticsHandler == nil {
+		return
+	}
+	projects := r.Group("/api/v1/workspaces/:workspace_id/projects/:project_id")
+	projects.Use(
+		middleware.RequireAuth(d.principalParser()),
+		middleware.RequireWorkspaceParam(),
+		middleware.RequireProjectParam(),
+		middleware.RequirePermission(d.WorkspaceStore, auth.PermWorkspaceRead),
+	)
+	d.DefectAnalyticsHandler.Register(projects)
 }
 
 // RegisterWSRoutes 注册 WebSocket 实时推送路由。

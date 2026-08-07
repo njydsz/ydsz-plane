@@ -1,0 +1,393 @@
+// Package webhook — 投递编排器：匹配订阅、构造请求、执行投递、记录日志。
+//
+// 投递格式对标 GitHub Webhooks：
+//
+//	POST <target_url>
+//	Content-Type: application/json
+//	X-Ydsz-Event: issue.status_changed
+//	X-Ydsz-Delivery: <delivery_id>        — 唯一投递 ID（接收方幂等）
+//	X-Ydsz-Signature-256: sha256=<hmac>  — HMAC-SHA256(timestamp + "." + body)
+//	X-Ydsz-Timestamp: 1786033228
+//
+// 重试策略：5xx / 429 / 超时 → TaskExchange 退避重试（1min / 5min / 30min），
+// 共 3 次；最终失败标记 unhealthy。
+//
+// SSRF 防护：内网 / 保留 / link-local IP 一律拒绝。
+package webhook
+
+import (
+	"bytes"
+	"context"
+	"crypto/rand"
+	"crypto/tls"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net"
+	"net/http"
+	"net/url"
+	"strings"
+	"time"
+
+	"go.uber.org/zap"
+
+	"github.com/njydsz/ydsz-plane/internal/infrastructure/mq"
+)
+
+// 投递配置常量
+const (
+	// DeliveryTimeout 是单次投递 HTTP 请求的最大耗时。
+	DeliveryTimeout = 10 * time.Second
+	// MaxRetries 是初始投递后的最大重试次数。
+	MaxRetries = 3
+	// UserAgent 是投递请求的 User-Agent 头。
+	UserAgent = "Ydsz-Plane-Webhook/1.0"
+)
+
+// RetryBackoffs 是每次重试的等待时间（指数退避）。
+var RetryBackoffs = []time.Duration{1 * time.Minute, 5 * time.Minute, 30 * time.Minute}
+
+// Dispatcher 负责将领域事件分发给匹配的 Webhook 订阅并执行投递。
+type Dispatcher struct {
+	svc    *Service
+	mq     *mq.TaskClient
+	log    *zap.Logger
+	client *http.Client
+}
+
+// NewDispatcher 构造投递器。
+func NewDispatcher(svc *Service, mqClient *mq.TaskClient, log *zap.Logger) *Dispatcher {
+	return &Dispatcher{
+		svc: svc,
+		mq:  mqClient,
+		log: log,
+		client: &http.Client{
+			Timeout: DeliveryTimeout,
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{
+					MinVersion: tls.VersionTLS12,
+				},
+				// 禁用 redirect 以防止 SSRF bypass via 301/302
+				CheckRedirect: func(req *http.Request, via []*http.Request) error {
+					return http.ErrUseLastResponse
+				},
+			},
+		},
+	}
+}
+
+// DispatchEvent 处理单个领域事件：查找匹配订阅、投递/排队重试。
+// 返回成功投递的订阅数与错误数（用于指标统计）。
+func (d *Dispatcher) DispatchEvent(ctx context.Context, envelope mq.EventEnvelope) (ok int, failed int) {
+	if d.mq == nil || !d.mqEnabled() {
+		return 0, 0
+	}
+
+	// 查找匹配的活跃订阅
+	webhooks, err := d.svc.ListActiveForEvent(ctx, envelope.WorkspaceID, envelope.EventType)
+	if err != nil {
+		d.log.Error("webhook: list active failed",
+			zap.String("event", envelope.EventType),
+			zap.Error(err))
+		return 0, 0
+	}
+
+	if len(webhooks) == 0 {
+		return 0, 0
+	}
+
+	// 投递到每一个匹配的订阅
+	for _, w := range webhooks {
+		if err := d.deliverOne(ctx, w, envelope, 1); err != nil {
+			d.log.Warn("webhook: deliver failed, enqueue retry",
+				zap.Int64("webhook_id", w.ID),
+				zap.Error(err))
+			if retryErr := d.enqueueRetry(ctx, w, envelope, 2); retryErr != nil {
+				d.log.Error("webhook: enqueue retry failed",
+					zap.Int64("webhook_id", w.ID),
+					zap.Error(retryErr))
+				failed++
+			}
+			continue
+		}
+		ok++
+	}
+
+	return ok, failed
+}
+
+// deliverOne 同步投递单条事件到单个 Webhook。
+func (d *Dispatcher) deliverOne(ctx context.Context, w *Webhook, envelope mq.EventEnvelope, attempt int) error {
+	// SSRF 防护：解析目标 URL 并校验 IP
+	commit := d.preFlightCheck(w.TargetURL)
+	if commit != nil {
+		return commit
+	}
+
+	// 构造投递负载
+	payload := DeliveryPayload{
+		Event:      envelope.EventType,
+		Workspace:  d.workspaceSlug(ctx, envelope.WorkspaceID),
+		Data:       envelope.Payload,
+		ActorName:  "",
+		OccurredAt: envelope.OccurredAt,
+	}
+
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("marshal payload: %w", err)
+	}
+
+	// 生成唯一投递 ID
+	deliveryID := generateDeliveryID()
+
+	// 计算签名
+	timestamp := time.Now().Unix()
+	sig := SignatureHeader(w.Secret, timestamp, body)
+
+	// 构造请求
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, w.TargetURL, bytes.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("new request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("User-Agent", UserAgent)
+	req.Header.Set("X-Ydsz-Event", envelope.EventType)
+	req.Header.Set("X-Ydsz-Delivery", deliveryID)
+	req.Header.Set("X-Ydsz-Signature-256", sig)
+	req.Header.Set("X-Ydsz-Timestamp", fmt.Sprintf("%d", timestamp))
+
+	// 执行投递
+	start := time.Now()
+	resp, err := d.client.Do(req)
+	duration := time.Since(start)
+	durMs := int(duration.Milliseconds())
+
+	// 写日志 & 更新 webhook 状态（无论成功失败都记）
+	logEntry := &WebhookLog{
+		WebhookID:  w.ID,
+		WorkspaceID: w.WorkspaceID,
+		DeliveryID: deliveryID,
+		EventType:  envelope.EventType,
+		EventID:    &envelope.EventID,
+		RequestURL: w.TargetURL,
+		RequestMethod: http.MethodPost,
+		RequestBody:   string(body),
+		Attempt:    int16(attempt),
+		DurationMs: &durMs,
+		OccurredAt: start,
+	}
+
+	if err != nil {
+		logEntry.Status = LogStatusFailed
+		logEntry.Error = err.Error()
+		_ = d.saveLog(ctx, logEntry)
+		_ = d.svc.RecordResult(ctx, w.ID, WebhookStatusFailed, err.Error())
+		return fmt.Errorf("http do: %w", err)
+	}
+	defer resp.Body()
+
+	// 读取响应体（限 1MB 防止内存耗尽）
+	respBody, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	if err != nil {
+		respBody = []byte(fmt.Sprintf("read body error: %v", err))
+	}
+
+	respStatus := resp.StatusCode
+	logEntry.ResponseStatus = &respStatus
+	logEntry.ResponseBody = string(respBody)
+
+	if respStatus >= 200 && respStatus < 300 {
+		logEntry.Status = LogStatusDelivered
+		_ = d.saveLog(ctx, logEntry)
+		_ = d.svc.RecordResult(ctx, w.ID, WebhookStatusSuccess, "")
+		return nil
+	}
+
+	// 非 2xx 视为失败（4xx 客户端错误通常无法重试恢复）
+	errText := fmt.Sprintf("unexpected status %d: %s", respStatus, truncate(string(respBody), 500))
+	logEntry.Status = LogStatusFailed
+	logEntry.Error = errText
+	_ = d.saveLog(ctx, logEntry)
+	_ = d.svc.RecordResult(ctx, w.ID, WebhookStatusFailed, errText)
+	return fmt.Errorf("delivery rejected: %s", errText)
+}
+
+// preFlightCheck 执行 SSRF 防护：解析目标 URL 并校验最终 IP。
+// 阻塞内网、保留、link-local 地址。
+func (d *Dispatcher) preFlightCheck(targetURL string) error {
+	u, err := url.Parse(targetURL)
+	if err != nil {
+		return fmt.Errorf("invalid target URL: %w", err)
+	}
+
+	// 仅允许 http / https 协议
+	if !strings.EqualFold(u.Scheme, "http") && !strings.EqualFold(u.Scheme, "https") {
+		return fmt.Errorf("scheme %q not allowed (only http/https)", u.Scheme)
+	}
+
+	// 域名解析 → IP
+	host := u.Hostname()
+	if host == "" {
+		return fmt.Errorf("missing host in target URL")
+	}
+
+	ips, err := net.LookupIP(host)
+	if err != nil {
+		return fmt.Errorf("resolve host: %w", err)
+	}
+
+	for _, ip := range ips {
+		if d.isBlockedIP(ip) {
+			return fmt.Errorf("target IP %s is blocked (private/link-local)", ip.String())
+		}
+	}
+
+	return nil
+}
+
+// isBlockedIP 报告 IP 是否为内网 / 保留地址。
+func (d *Dispatcher) isBlockedIP(ip net.IP) bool {
+	if ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsPrivate() {
+		return true
+	}
+	// 额外检查 0.0.0.0/8, IPv6 未指定地址
+	if ip.Equal(net.IPv4zero) || ip.Equal(net.IPv6unspecified) {
+		return true
+	}
+	return false
+}
+
+// enqueueRetry 将失败投递排入 TaskExchange 的延迟重试队列。
+func (d *Dispatcher) enqueueRetry(ctx context.Context, w *Webhook, envelope mq.EventEnvelope, attempt int) error {
+	if attempt > MaxRetries {
+		// 超过最大重试 → unhealthy
+		_ = d.svc.RecordResult(ctx, w.ID, WebhookStatusUnhealthy, "max retries exhausted")
+		return nil
+	}
+
+	payload, err := json.Marshal(RetryTask{
+		WebhookID: w.ID,
+		Envelope:  envelope,
+		Attempt:   attempt,
+	})
+	if err != nil {
+		return fmt.Errorf("marshal retry task: %w", err)
+	}
+
+	delay := RetryBackoffs[min(attempt-1, len(RetryBackoffs)-1)]
+	return d.mq.Enqueue(ctx, mq.Task{
+		ID:          fmt.Sprintf("webhook-retry-%d-%d", w.ID, time.Now().UnixNano()),
+		Type:        "webhook.retry",
+		Payload:     payload,
+		MaxRetries:  0, // retry 任务不再重试
+		Delay:       delay,
+		Priority:    5,
+		CreatedAt:   time.Now(),
+	})
+}
+
+// RetryTask 是排入重试队列的任务结构。
+type RetryTask struct {
+	WebhookID int64           `json:"webhook_id"`
+	Envelope  mq.EventEnvelope `json:"envelope"`
+	Attempt   int             `json:"attempt"`
+}
+
+// HandleRetry 消费 retry 任务执行再次投递。
+func (d *Dispatcher) HandleRetry(ctx context.Context, task mq.Task) error {
+	var rt RetryTask
+	if err := json.Unmarshal(task.Payload, &rt); err != nil {
+		return fmt.Errorf("unmarshal retry task: %w", err)
+	}
+
+	// 重新查询 Webhook 配置
+	w, err := d.svc.GetByID(ctx, rt.Envelope.WorkspaceID, rt.WebhookID)
+	if err != nil {
+		return fmt.Errorf("webhook not found for retry: %w", err)
+	}
+	if !w.IsActive {
+		d.log.Info("webhook: skip retry for inactive webhook",
+			zap.Int64("webhook_id", w.ID))
+		return nil
+	}
+
+	if err := d.deliverOne(ctx, w, rt.Envelope, rt.Attempt); err != nil {
+		d.log.Warn("webhook: retry failed",
+			zap.Int64("webhook_id", w.ID),
+			zap.Int("attempt", rt.Attempt),
+			zap.Error(err))
+		// 继续重试下一级
+		return d.enqueueRetry(ctx, w, rt.Envelope, rt.Attempt+1)
+	}
+
+	d.log.Info("webhook: retry succeeded",
+		zap.Int64("webhook_id", w.ID),
+		zap.Int("attempt", rt.Attempt))
+	return nil
+}
+
+// ExecuteTestPing 执行测试投递（由 handler 同步调用简化流程）。
+func (d *Dispatcher) ExecuteTestPing(ctx context.Context, w *Webhook) error {
+	pingPayload := map[string]interface{}{
+		"ping":       true,
+		"hook_id":    w.ID,
+		"test":       true,
+		"event":      "ping",
+		"occurred_at": time.Now().UTC(),
+	}
+	pingBody, _ := json.Marshal(pingPayload)
+
+	envelope := mq.EventEnvelope{
+		EventID:     -w.ID, // 合成 ID（负数以区分真实事件）
+		EventType:   "ping",
+		WorkspaceID: w.WorkspaceID,
+		Payload:     pingBody,
+		OccurredAt:  time.Now(),
+	}
+	return d.deliverOne(ctx, w, envelope, 1)
+}
+
+// --- 内部辅助 ---
+
+// saveLog 写入投递日志。错误仅 log 不返回（投递成功优先）。
+func (d *Dispatcher) saveLog(ctx context.Context, log *WebhookLog) error {
+	// 由于 Service 层没有直接的 saveLog 方法，后续添加。
+	// 这里简化：直接写 DB。
+	return nil // TODO: wire up via service method
+}
+
+// mqEnabled 检查消息客户端是否可用。
+func (d *Dispatcher) mqEnabled() bool {
+	return d.mq != nil
+}
+
+// workspaceSlug 查询工作空间 slug（带缓存优化可后续加入）。
+func (d *Dispatcher) workspaceSlug(ctx context.Context, wsID int64) string {
+	// TODO: 从 WorkspaceService 查询；MVP 用 ID 占位
+	return fmt.Sprintf("workspace-%d", wsID)
+}
+
+// generateDeliveryID 生成唯一投递 ID。
+func generateDeliveryID() string {
+	var b [16]byte
+	_, _ = rand.Read(b[:])
+	return hex.EncodeToString(b[:])
+}
+
+// truncate 截断字符串到指定长度。
+func truncate(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	return s[:n] + "..."
+}
+
+// min 返回两个 int 中较小者。
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}

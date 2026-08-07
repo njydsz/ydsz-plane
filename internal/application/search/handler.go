@@ -2,9 +2,11 @@
 package search
 
 import (
+	"context"
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -47,7 +49,7 @@ func (h *SearchHandler) Register(r *gin.RouterGroup) {
 //	@Description	跨对象（issues/sprints/versions）全文检索 + 高亮
 //	@Tags			search
 //	@Produce		json
-//	@Param			query		query		string	true	"搜索词"
+//	@Param			q			query		string	true	"搜索词"
 //	@Param			doc_type	query		string	false	"过滤类型 (issue|sprint|version)"
 //	@Param			type		query		string	false	"工作项类型 (requirement|task|defect)"
 //	@Param			priority	query		string	false	"优先级"
@@ -61,10 +63,14 @@ func (h *SearchHandler) Search(c *gin.Context) {
 	projectID := c.GetInt64(middleware.CtxProjectID)
 	userID := c.GetInt64(middleware.CtxUserID)
 
-	query := c.Query("query")
+	// 支持 q / query 双参数（对齐 Jira/Plane 惯例 + 向后兼容）
+	query := c.Query("q")
+	if query == "" {
+		query = c.Query("query")
+	}
 	if strings.TrimSpace(query) == "" {
 		middleware.AbortWithError(c, errs.ErrValidation.WithDetails(errs.FieldDetail{
-			Field:  "query",
+			Field:  "q",
 			Reason: "搜索词不能为空",
 		}))
 		return
@@ -84,8 +90,11 @@ func (h *SearchHandler) Search(c *gin.Context) {
 		}
 	}
 
-	// 文档类型
+	// 文档类型（支持 types 多选 / doc_type 单选，对齐前后端）
 	var docTypes []string
+	if v := c.Query("types"); v != "" {
+		docTypes = append(docTypes, strings.Split(v, ",")...)
+	}
 	if v := c.Query("doc_type"); v != "" {
 		docTypes = append(docTypes, v)
 	}
@@ -107,7 +116,9 @@ func (h *SearchHandler) Search(c *gin.Context) {
 
 	// 异步记录搜索历史（不阻塞响应）
 	go func() {
-		_ = h.d.SearchSvc.RecordHistory(c.Request.Context(), RecordHistoryInput{
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		_ = h.d.SearchSvc.RecordHistory(ctx, RecordHistoryInput{
 			WorkspaceID: wsID,
 			UserID:      userID,
 			Query:       query,

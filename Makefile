@@ -1,6 +1,6 @@
 # Ydsz Plane — 常用开发命令（见 docs/architecture/03）
 
-.PHONY: dev up down migrate seed lint test build openapi reindex
+.PHONY: dev up down migrate seed seed-scale lint test build openapi reindex
 
 # 本地开发：基础设施容器 + 后端热重载(air) + 前端 vite
 dev: up
@@ -25,6 +25,11 @@ migrate-down:
 
 seed: migrate
 	go run ./scripts/seed
+
+# 大规模造数（100 万工作项，用于性能基线压测）
+# 用法：make seed-scale COUNT=100000 PROJECT=1
+seed-scale: migrate
+	go run ./scripts/seed-scale -count=$(or $(COUNT),1000000) -project=$(or $(PROJECT),1) -workers=$(or $(WORKERS),8)
 
 dev-api:
 	air -c .air.toml || go run ./cmd/api
