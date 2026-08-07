@@ -14,6 +14,7 @@ import { prefs } from "@/lib/prefs";
 import { toast } from "@/lib/toast";
 import IssueFilter from "./IssueFilter.vue";
 import { AppErrorState, AppEmptyState, InlineEdit, InlineSelectEdit, AppSkeleton } from "@/components";
+import { preferenceApi } from "@/api/services/preference";
 
 const route = useRoute();
 const issueStore = useIssueStore();
@@ -97,6 +98,15 @@ function onFilterChange(params: ListIssuesParams) {
   currentFilter.value = params;
   page.value = 1;  // 过滤条件变化时回到第一页
   load();
+  // 服务端持久化当前过滤（对标 Plane 的 View 保存，跨设备同步）
+  if (wsId.value && projectId.value) {
+    void preferenceApi.save(wsId.value, projectId.value, "list", {
+      filters: {
+        ...params,
+        sort: sortField.value,
+      },
+    }).catch(() => { /* 静默失败 */ });
+  }
 }
 
 function toggleSort(field: string) {

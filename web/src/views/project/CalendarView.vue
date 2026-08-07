@@ -455,7 +455,7 @@ function typeColor(type: string): string {
 
 .is-today .day-number {
   background: var(--brand-500);
-  color: #fff;
+  color: var(--text-on-brand);
   border-radius: 50%;
   width: 22px;
   height: 22px;
@@ -533,7 +533,7 @@ function typeColor(type: string): string {
   font-size: 10px;
   padding: 1px 5px;
   border-radius: 3px;
-  color: #fff;
+  color: var(--text-on-brand);
   flex-shrink: 0;
   margin-left: auto;
 }
@@ -570,7 +570,7 @@ function typeColor(type: string): string {
 
 .week-day-header.is-today .weekday-date {
   background: var(--brand-500);
-  color: #fff;
+  color: var(--text-on-brand);
   border-radius: 50%;
   width: 26px;
   height: 26px;

@@ -1,11 +1,8 @@
-<!--
-  工作台首页（HomeView）。
-  进入工作空间后展示聚合信息：快捷操作、我的任务（逾期/今日/进行中）、
-  迭代概览（当前/下一个）与最近访问。数据来自 workbenchApi.getSummary，
-  加载/错误/空态均有对应组件兜底。
--->
+/**
+ * HomeView — 工作台首页。
+ * 展示聚合信息：快捷操作、我的任务、迭代概览与最近访问。数据来自 workbenchApi.getSummary。
+ */
 <template>
-  <div class="workbench">
     <div class="wb-header">
       <h2>工作台</h2>
       <span class="wb-greeting">{{ greeting }}</span>

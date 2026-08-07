@@ -1,12 +1,8 @@
-<!--
-  全局搜索弹层组件。
-  通过 Ctrl/Cmd+K 快捷键唤起，在工作空间内对工作项/迭代/版本执行全文搜索，
-  支持键盘上下键导航选中项、Enter 打开、ESC 关闭，结果按实体类型分组展示。
-  搜索请求做 200ms 防抖，避免每次按键都触发后端请求。
-  注：highlight 由服务端 PostgreSQL ts_headline 生成（内容已转义，仅包裹 <b>），v-html 属受信输出。
--->
+/**
+ * GlobalSearch — 全局搜索弹层组件（⌘K）。
+ * 工作空间内全文搜索，支持键盘导航、分组展示，服务端 ts_headline 高亮。
+ */
 <template>
-  <Teleport to="body">
     <div v-if="open" class="search-overlay" @click.self="close">
       <div class="search-dialog">
         <div class="search-input-wrap">

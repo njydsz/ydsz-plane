@@ -70,6 +70,14 @@ function onDragStart(issue: Issue, event: DragEvent) {
   if (event.dataTransfer) {
     event.dataTransfer.effectAllowed = "move";
     event.dataTransfer.setData("text/plain", String(issue.id));
+    // 设置拖拽预览：一个半透明的小型标识卡（对标 Plane 的 drag ghost）
+    const ghost = document.createElement("div");
+    ghost.className = "kanban-ghost";
+    ghost.textContent = `${issue.identifier} · ${issue.name}`;
+    document.body.appendChild(ghost);
+    event.dataTransfer.setDragImage(ghost, 12, 12);
+    // 清理：setDragImage 后幽灵元素不再需要，但为避免累积在下一帧移除
+    requestAnimationFrame(() => ghost.remove());
   }
 }
 
@@ -440,11 +448,13 @@ onMounted(() => {
 .kanban__column--over {
   background: var(--brand-50);
   box-shadow: inset 0 0 0 2px var(--brand-400);
+  transition: background 0.15s ease, box-shadow 0.15s ease;
 }
 
 /* 列内排序 - 轻微高亮 */
 .kanban__column--reorder {
   box-shadow: inset 0 0 0 1px var(--brand-300);
+  transition: background 0.15s ease, box-shadow 0.15s ease;
 }
 
 .kanban__column-header {
@@ -531,6 +541,27 @@ onMounted(() => {
   background: var(--brand-500);
   border-radius: 2px;
   z-index: 1;
+  box-shadow: 0 0 6px var(--brand-400);
+}
+
+/* 拖拽幽灵卡片（setDragImage 使用，全局样式因 element 挂在 body 下） */
+:global(.kanban-ghost) {
+  position: fixed;
+  top: -1000px;
+  left: -1000px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--txt-primary);
+  background: var(--bg-surface-1);
+  border: 1px solid var(--border-accent-strong);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-popover);
+  white-space: nowrap;
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
 }
 
 .issue-card__header {

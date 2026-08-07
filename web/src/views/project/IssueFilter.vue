@@ -130,13 +130,55 @@ function onSearchInput() {
   searchTimer = setTimeout(emitFilter, 300);
 }
 
-onMounted(() => {
+// 选择变化立即触发
+watch([stateGroup, type, priority, severityFrom], () => emitFilter());
+
+// ---- 服务端视图偏好（对标 Plane 的 View 保存，跨设备同步） ----
+import { preferenceApi } from "@/api/services/preference";
+import { useWorkspaceContext } from "@/composables/useWorkspaceContext";
+
+const { wsId } = useWorkspaceContext();
+
+/** 将当前过滤保存到服务端偏好（供列表/看板视图调用） */
+async function saveServerPreference() {
+  const wsIdVal = wsId.value;
+  if (!wsIdVal || !props.projectId) return;
+  try {
+    await preferenceApi.save(wsIdVal, props.projectId, "list", {
+      filters: {
+        search: search.value,
+        group: stateGroup.value,
+        type: type.value,
+        priority: priority.value,
+        severity_from: severityFrom.value,
+      },
+    });
+  } catch { /* 静默失败，不影响本地体验 */ }
+}
+
+/** 从服务端偏好恢复过滤条件 */
+async function loadServerPreference() {
+  const wsIdVal = wsId.value;
+  if (!wsIdVal || !props.projectId) return;
+  try {
+    const vp = await preferenceApi.get(wsIdVal, props.projectId, "list");
+    const f = vp?.filters as Record<string, unknown> | undefined;
+    if (!f) return;
+    if (typeof f.search === "string") search.value = f.search;
+    if (typeof f.group === "string") stateGroup.value = f.group as StateGroup;
+    if (typeof f.type === "string") type.value = f.type as IssueType;
+    if (typeof f.priority === "string") priority.value = f.priority;
+    if (typeof f.severity_from === "number") severityFrom.value = f.severity_from;
+  } catch { /* ignore */ }
+}
+
+onMounted(async () => {
+  await loadServerPreference();
   loadFromStorage();
   emitFilter();
 });
 
-// 选择变化立即触发
-watch([stateGroup, type, priority, severityFrom], () => emitFilter());
+defineExpose({ saveServerPreference, loadServerPreference });
 </script>
 
 <template>

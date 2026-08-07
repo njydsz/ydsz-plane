@@ -1,13 +1,7 @@
-<!--
-  CommandPalette (Power-K) — 全局命令面板。
-  通过 Ctrl/Cmd+K 唤起，提供三类命令源：
-    1. Jump (跳转导航)    — 快速跳转到各页面
-    2. Create (创建)      — 快速创建 Issue / Project / Sprint 等
-    3. Search (搜索)      — 实体全文搜索
-
-  支持模糊过滤、键盘导航、分组展示、命令图标、快捷键提示。
-  参考 Plane 的 Power-K 设计（packages/web/core/components/power-k/）。
--->
+/**
+ * CommandPalette (⌘K) — 全局命令面板。
+ * 提供 Jump / Create / Search 三类命令源，支持模糊过滤、键盘导航、分组展示。
+ */
 <template>
   <Teleport to="body">
     <Transition name="cp-overlay">

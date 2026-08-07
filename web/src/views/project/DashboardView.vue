@@ -332,7 +332,7 @@ onMounted(load);
 
 .time-btn--active {
   background: var(--brand-500, #3f63f1);
-  color: #fff;
+  color: var(--text-on-brand);
 }
 
 .dashboard__header-right {
@@ -346,7 +346,7 @@ onMounted(load);
   font-size: 13px;
   font-family: inherit;
   background: var(--brand-500, #3f63f1);
-  color: #fff;
+  color: var(--text-on-brand);
   border: 1px solid var(--brand-500, #3f63f1);
   border-radius: var(--radius-sm, 6px);
   cursor: pointer;
@@ -440,7 +440,7 @@ onMounted(load);
   height: 48px;
   border-radius: 50%;
   background: var(--brand-500, #3f63f1);
-  color: #fff;
+  color: var(--text-on-brand);
   border: none;
   font-size: 24px;
   cursor: pointer;

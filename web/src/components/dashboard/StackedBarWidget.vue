@@ -1,3 +1,9 @@
+/**
+ * StackedBarWidget — 仪表盘小组件：堆叠柱状图（团队成员工作量分布）。
+ *
+ * 基于 ECharts 渲染，横向堆叠展示每位成员的待办 / 进行中 / 已完成工作项数，
+ * 用于快速识别团队负载均衡情况。空数据时展示空态占位。
+ */
 <script setup lang="ts">
 import type { EChartsCoreOption } from "echarts";
 import type { TeamWorkloadWidgetData } from "@/api/services/dashboard";
