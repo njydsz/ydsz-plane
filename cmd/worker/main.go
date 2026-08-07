@@ -1,6 +1,16 @@
-// Command worker runs asynchronous processing: the outbox relay (DB → Redis
-// Streams) and the Asynq task consumers (notifications, indexing, webhooks,
-// automation, ...).
+// Command worker runs asynchronous processing: the outbox relay (DB →
+// RabbitMQ EventExchange) and the Asynq task consumers (notifications,
+// indexing, webhooks, automation, ...).
+//
+// Messaging stack:
+//   - RabbitMQ carries the transactional outbox events: reliable at-least-once
+//     delivery, consumer acks, dead-letter routing, message TTL. Chosen over
+//     Redis Streams for enterprise-grade event delivery semantics (DLX, topic
+//     routing, publisher confirms).
+//   - Redis continues to back Asynq's job-queue semantics (delayed, cron,
+//     retriable tasks) and serves the caching / rate-limit / lock needs.
+//     Asynq's Redis broker is configured on DB (cfg.Redis.DB + 1) to keep
+//     Streams and queue payloads isolated.
 package main
 
 import (
@@ -16,6 +26,7 @@ import (
 	"github.com/njydsz/ydsz-plane/internal/config"
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/cache"
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/events"
+	"github.com/njydsz/ydsz-plane/internal/infrastructure/mq"
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/persistence"
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/telemetry"
 )
@@ -68,15 +79,26 @@ func run() error {
 	}
 	defer pool.Close()
 
-	// Redis client for outbox relay (Streams) + Asynq
+	// Redis client for Asynq broker + cache/lock/rate-limit.
+	// DB is offset by +1 relative to the API to keep Asynq queues
+	// isolated from cache/state keys.
 	rdb, err := cache.NewClient(ctx, cfg.Redis.Addr, cfg.Redis.Password, cfg.Redis.DB)
 	if err != nil {
 		return fmt.Errorf("worker: redis connect: %w", err)
 	}
 	defer func() { _ = rdb.Close() }()
 
-	// outbox relay: DB -> Redis Streams
-	relay := events.NewRelay(pool, rdb, log)
+	// RabbitMQ client for the transactional outbox event bus
+	// (DB → EventExchange topic). The outbox relay publishes domain
+	// events reliably with publisher confirms and subscriber acks.
+	mqClient, err := mq.NewClient(cfg.RabbitMQ.URL, mq.WithLogger(log))
+	if err != nil {
+		return fmt.Errorf("worker: rabbitmq connect: %w", err)
+	}
+	defer func() { _ = mqClient.Close() }()
+
+	// outbox relay: DB -> RabbitMQ EventExchange
+	relay := events.NewRelay(pool, mqClient, log)
 	go relay.Run(ctx)
 
 	// asynq task server (queues defined per domain; consumers mount in S2+)
@@ -103,7 +125,9 @@ func run() error {
 	mux := asynq.NewServeMux()
 	// mux.HandleFunc(events.TaskX, handler) — consumers are registered per Sprint.
 
-	log.Info("worker started", zap.String("redis", cfg.Redis.Addr))
+	log.Info("worker started",
+		zap.String("redis", cfg.Redis.Addr),
+		zap.String("rabbitmq", mq.RedactedURL(cfg.RabbitMQ.URL)))
 	errCh := make(chan error, 1)
 	go func() { errCh <- srv.Run(mux) }()
 

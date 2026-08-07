@@ -2,7 +2,7 @@ name: ydsz-plane
 
 services:
   postgres:
-    image: postgres:16-alpine
+    image: postgres:18-alpine
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: Limw1020
@@ -18,7 +18,7 @@ services:
       retries: 20
 
   redis:
-    image: redis:7-alpine
+    image: redis:8-alpine
     command: redis-server --appendonly yes --requirepass Limw1020
     ports:
       - "6379:6379"
@@ -28,6 +28,22 @@ services:
       test: ["CMD", "redis-cli", "-a", "Limw1020", "ping"]
       interval: 5s
       timeout: 3s
+      retries: 20
+
+  rabbitmq:
+    image: rabbitmq:4-management-alpine
+    ports:
+      - "5672:5672"    # AMQP
+      - "15672:15672"  # Management UI
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    volumes:
+      - rmqdata:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmqctl", "status"]
+      interval: 10s
+      timeout: 5s
       retries: 20
 
   # Mailpit - 本地邮件测试服务
@@ -71,12 +87,14 @@ services:
     depends_on:
       postgres: { condition: service_healthy }
       redis: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
     environment:
       YDSZ_SERVER_ENV: production
       YDSZ_SERVER_PORT: 8080
       YDSZ_DATABASE_URL: postgres://postgres:Limw1020@postgres:5432/ydsz-plane?sslmode=disable
       YDSZ_REDIS_ADDR: redis:6379
       YDSZ_REDIS_PASSWORD: Limw1020
+      YDSZ_RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
       YDSZ_AUTH_JWT_SECRET: ${YDSZ_AUTH_JWT_SECRET:?set YDSZ_AUTH_JWT_SECRET in .env}
       YDSZ_LOG_FORMAT: json
     ports:
@@ -90,11 +108,13 @@ services:
     command: ["/app/worker"]
     depends_on:
       api: { condition: service_started }
+      rabbitmq: { condition: service_healthy }
     environment:
       YDSZ_SERVER_ENV: production
       YDSZ_DATABASE_URL: postgres://postgres:Limw1020@postgres:5432/ydsz-plane?sslmode=disable
       YDSZ_REDIS_ADDR: redis:6379
       YDSZ_REDIS_PASSWORD: Limw1020
+      YDSZ_RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
       YDSZ_AUTH_JWT_SECRET: ${YDSZ_AUTH_JWT_SECRET:?set YDSZ_AUTH_JWT_SECRET in .env}
       YDSZ_LOG_FORMAT: json
     restart: unless-stopped
@@ -112,6 +132,7 @@ services:
 volumes:
   pgdata:
   redisdata:
+  rmqdata:
   mailpitdata:
   esdata:
   miniodata:

@@ -17,6 +17,7 @@ import (
 	"github.com/njydsz/ydsz-plane/internal/application/auth"
 	"github.com/njydsz/ydsz-plane/internal/application/issue"
 	"github.com/njydsz/ydsz-plane/internal/application/sprint"
+	"github.com/njydsz/ydsz-plane/internal/application/version"
 	"github.com/njydsz/ydsz-plane/internal/application/workspace"
 	"github.com/njydsz/ydsz-plane/internal/config"
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/cache"
@@ -129,6 +130,10 @@ func run() error {
 	sprintSvc := sprint.NewService(pool.Pool)
 	sprintHandler := sprint.NewHandler(sprintSvc)
 
+	// ---------- Version domain ----------
+	versionSvc := version.NewService(pool.Pool)
+	versionHandler := version.NewHandler(versionSvc)
+
 	// ---------- HTTP Engine ----------
 	engine := httpapi.NewEngine(&httpapi.Deps{
 		Cfg:            cfg,
@@ -152,6 +157,8 @@ func run() error {
 		IssueHandler: issueHandler,
 		// Sprint domain
 		SprintHandler: sprintHandler,
+		// Version domain
+		VersionHandler: versionHandler,
 	})
 
 	// 注册工作项路由（必须在 NewEngine 之后）
@@ -160,6 +167,7 @@ func run() error {
 		WorkspaceStore: wsStore,
 		IssueHandler:   issueHandler,
 		SprintHandler:  sprintHandler,
+		VersionHandler: versionHandler,
 	})
 
 	srv := &http.Server{

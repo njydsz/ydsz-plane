@@ -19,6 +19,7 @@ import (
 	"github.com/njydsz/ydsz-plane/internal/application/auth"
 	"github.com/njydsz/ydsz-plane/internal/application/issue"
 	"github.com/njydsz/ydsz-plane/internal/application/sprint"
+	"github.com/njydsz/ydsz-plane/internal/application/version"
 	"github.com/njydsz/ydsz-plane/internal/application/workspace"
 	"github.com/njydsz/ydsz-plane/internal/config"
 	"github.com/njydsz/ydsz-plane/internal/interfaces/middleware"
@@ -49,6 +50,7 @@ type Deps struct {
 	TimeLogSvc      *issue.TimeLogService
 	IssueHandler    *issue.IssueHandler
 	SprintHandler   *sprint.Handler
+	VersionHandler  *version.Handler
 }
 
 // RegisterIssueRoutes 注册工作项路由（在 NewEngine 之后调用）。
@@ -69,6 +71,9 @@ func RegisterIssueRoutes(r *gin.Engine, d *Deps) {
 	d.IssueHandler.Register(read, nil, nil)
 	if d.SprintHandler != nil {
 		d.SprintHandler.Register(projects)
+	}
+	if d.VersionHandler != nil {
+		d.VersionHandler.Register(projects)
 	}
 }
 

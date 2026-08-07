@@ -460,3 +460,7 @@ func redactURL(rawurl string) string {
 	}
 	return fmt.Sprintf("amqp://%s@%s:%d/%s", u.Username, u.Host, u.Port, u.Vhost)
 }
+
+// RedactedURL is the exported helper for callers that want to log the
+// connection endpoint without leaking credentials.
+func RedactedURL(rawurl string) string { return redactURL(rawurl) }

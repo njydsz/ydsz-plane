@@ -303,10 +303,10 @@ var (
 	// 版本日域（Domain: VERSION，代号 S6）
 	// ==========================================================================
 
-	// ErrVersionConflict 版本日数据冲突（HTTP 409 Conflict）。
+	// ErrVersionDataConflict 版本日数据冲突（HTTP 409 Conflict）。
 	//
 	// 触发场景：并发修改同一版本日、semver 唯一性冲突、乐观锁 version 字段比对失败。
-	ErrVersionConflict = New("VERSION.CONFLICT", "版本日状态冲突或版本号已被占用", http.StatusConflict)
+	ErrVersionDataConflict = New("VERSION.CONFLICT", "版本日状态冲突或版本号已被占用", http.StatusConflict)
 
 	// ErrVersionInvalidLifecycle 版本日生命周期非法（HTTP 422 Unprocessable Entity）。
 	//

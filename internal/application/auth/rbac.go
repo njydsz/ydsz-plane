@@ -34,6 +34,11 @@ const (
 	// Issue management
 	PermIssueCreate = "issue:create"
 	PermIssueDelete = "issue:delete"
+	// Version management
+	PermVersionCreate = "version:create"
+	PermVersionRelease = "version:release"
+	PermVersionDelete = "version:delete"
+	PermVersionUpdate = "version:update"
 )
 
 /* ------------------------------------------------------------------ */
@@ -79,6 +84,7 @@ var Roles = map[WorkspaceRole][]string{
 		PermProjectCreate, PermProjectDelete,
 		PermAuditRead,
 		PermIssueCreate, PermIssueDelete,
+		PermVersionCreate, PermVersionRelease, PermVersionDelete, PermVersionUpdate,
 	},
 	RoleAdmin: {
 		PermWorkspaceRead, PermWorkspaceUpdate,
@@ -86,11 +92,13 @@ var Roles = map[WorkspaceRole][]string{
 		PermProjectCreate, PermProjectDelete,
 		PermAuditRead,
 		PermIssueCreate, PermIssueDelete,
+		PermVersionCreate, PermVersionRelease, PermVersionDelete, PermVersionUpdate,
 	},
 	RoleMember: {
 		PermWorkspaceRead,
 		PermProjectCreate,
 		PermIssueCreate,
+		PermVersionCreate, PermVersionUpdate,
 	},
 	RoleGuest: {
 		PermWorkspaceRead,

@@ -41,6 +41,7 @@ type Config struct {
 	Server   ServerConfig   // HTTP server binding and runtime environment.
 	Database DatabaseConfig // PostgreSQL connection pool settings.
 	Redis    RedisConfig    // Redis client connection parameters.
+	RabbitMQ RabbitMQConfig // RabbitMQ connection parameters for the event bus.
 	Auth     AuthConfig     // JWT, bcrypt, and login rate-limit settings.
 	Log      LogConfig      // Log verbosity level and encoder format.
 	Features FeatureFlags   // Feature gates; each entry toggles a subsystem.
@@ -105,6 +106,14 @@ func (r RedisConfig) RedisOptions() *redis.Options {
 		Password: r.Password,
 		DB:       r.DB,
 	}
+}
+
+// RabbitMQConfig holds RabbitMQ client parameters for the event bus.
+type RabbitMQConfig struct {
+	// URL is the full AMQP connection string.
+	// Format: "amqp://user:pass@host:port/vhost" or "amqps://..." for TLS.
+	// Default: "amqp://guest:guest@127.0.0.1:5672/".
+	URL string
 }
 
 // AuthConfig groups authentication and authorization parameters.
@@ -244,6 +253,7 @@ func Load() (*Config, error) {
 	v.SetDefault("redis.addr", "127.0.0.1:6379")
 	v.SetDefault("redis.password", "Limw1020")
 	v.SetDefault("redis.db", 0)
+	v.SetDefault("rabbitmq.url", "amqp://guest:guest@127.0.0.1:5672/")
 	v.SetDefault("auth.jwt_issuer", "ydsz-plane")
 	v.SetDefault("auth.jwt_secret", "") // dev-only ephemeral secret (rotated each startup); production requires explicit value
 	v.SetDefault("auth.access_token_ttl", "15m")

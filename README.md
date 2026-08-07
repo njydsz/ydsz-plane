@@ -41,7 +41,7 @@ Ydsz Plane 是一款开源、自托管的现代项目管理工具，专为中小
 | 中间件链 | RequestID → Recovery → CORS → SecurityHeaders → RateLimit → AccessLog → Metrics → Auth | ✅ |
 | 前端骨架 | Vue 3.5 + Vite 6 + Pinia、登录页（亮/暗主题）、Axios 拦截器、auth store | ✅ |
 | 数据持久层 | pgx 连接池、租户上下文（SET LOCAL app.workspace_id）、RLS 策略模板、迁移工具 | ✅ |
-| 事件骨架 | 事务型 Outbox 表 + Relay（DB → Redis Streams）、Asynq Worker（default/notifications/automation 队列） | ✅ |
+| 事件骨架 | 事务型 Outbox 表 + Relay（DB → RabbitMQ EventExchange）、Asynq Worker（default/notifications/automation 队列） | ✅ |
 | 数据库迁移 | 0001_init（users / workspaces / workspace_members / domain_events / audit_logs）+ 0002_password_reset | ✅ |
 | 种子数据 | 5 用户 + 3 工作空间 + 多角色成员（owner/admin/member/guest）+ 幂等执行 | ✅ |
 
@@ -51,10 +51,10 @@ Ydsz Plane 是一款开源、自托管的现代项目管理工具，专为中小
 |------|----------|------|
 | 后端 | Go 1.26.5 + Gin 1.12 | 模块化单体（DDD 轻量分层） |
 | 前端 | Vue 3.5 + TypeScript + Vite 6 | 组合式 API、Pinia 状态管理 |
-| 数据库 | PostgreSQL 16 | ACID + JSONB + RLS 租户隔离 + 信创方言预留 |
-| 缓存/消息 | Redis 7 | 限流、分布式锁、会话辅助、Outbox Stream、WebSocket 扇出 |
-| 事件 | Redis Streams | Outbox 投递、实时推送扇出（替代 NATS JetStream） |
-| 任务队列 | Asynq | 异步任务（通知、索引、Webhook、自动化） |
+| 数据库 | PostgreSQL 18 | ACID + JSONB + RLS 租户隔离 + 信创方言预留 |
+| 缓存 | Redis 8 | 限流、分布式锁、会话辅助、Asynq Broker、WebSocket 扇出 |
+| 事件总线 | RabbitMQ 4 | Outbox 投递、可靠事件投递（替代 Redis Streams/NATS） |
+| 任务队列 | Asynq (Redis-backed) | 异步任务（通知、索引、Webhook、自动化） |
 | 全文检索 | Elasticsearch 8（可选 profile） | 全局搜索、分词（IK） |
 | 对象存储 | MinIO（可选 profile） | 附件、Logo |
 | 部署 | Docker Compose（一键）/ K8s（Phase 3） | 信创兼容：openEuler/麒麟 + ARM64 |
@@ -77,19 +77,27 @@ Ydsz Plane 是一款开源、自托管的现代项目管理工具，专为中小
               │  Application Services（用例编排/事务边界）        │
               │  Domain（限界上下文：iam / workspace / project   │
               │      / issue / sprint / version / ...）         │
-              │  Infrastructure（PG / Redis / ES / MinIO）       │
+              │  Infrastructure（PG / Redis / RabbitMQ / ES）   │
               └───────┬───────────────────────┬────────────────┘
                       │ 写事件 (Outbox)        │ 读
         ┌─────────────▼──────────┐   ┌────────▼───────┐
-        │  ydsz-plane-worker     │   │ PostgreSQL 16  │
-        │  (Asynq + Outbox Relay)│   │ Redis 7        │
-        │  · 通知投递             │   │ Elasticsearch  │
-        │  · ES 索引同步          │   │ MinIO          │
-        │  · Webhook 分发         │   │ RabbitMQ       │
-        │  · 自动化规则执行        │   └────────────────┘
-        │  · 迭代快照 / 效能计算   │
-        └────────────────────────┘
+        │  ydsz-plane-worker     │   │ PostgreSQL 18  │
+        │  (Asynq + Outbox Relay)│   │ Redis 8        │
+        │  · 通知投递             │   │   · Asynq      │
+        │  · ES 索引同步          │   │   · Cache      │
+        │  · Webhook 分发         │   │   · RateLimit  │
+        │  · 自动化规则执行        │   │ RabbitMQ 4     │
+        │  · 迭代快照 / 效能计算   │   │   · Event Bus  │
+        │                        │   │   · DLX / DLQ  │
+        └────────────────────────┘   └────────────────┘
 ```
+
+**双中间件分工**
+
+| 中间件 | 用途 | 选型理由 |
+|--------|------|----------|
+| Redis 8 | Asynq Broker、缓存、限流、分布式锁、WS 扇出 | 低延迟、单二进制部署、复用现有运维基础 |
+| RabbitMQ 4 | 事件总线（Outbox → Exchange → Queue）、DLX/DLQ、Topic 路由 | 可靠投递（consumer acks + publisher confirms）、死信队列、灵活路由模式 |
 
 ## 项目结构
 
@@ -210,6 +218,7 @@ make dev-worker   # go run ./cmd/worker
 | API Server | http://127.0.0.1:8080 | 后端 API |
 | Swagger UI | http://127.0.0.1:8080/swagger/index.html | API 文档 |
 | Web (Vite) | http://127.0.0.1:5173 | 前端开发服务器 |
+| RabbitMQ Mgmt | http://127.0.0.1:15672 | RabbitMQ Management UI (guest/guest) |
 | Mailpit UI | http://127.0.0.1:8025 | 邮件测试 Web UI |
 
 > 完整服务连接信息（Redis/MySQL/MinIO 等）请参考 [本地开发环境配置](docs/本地开发环境配置.md)
@@ -219,7 +228,7 @@ make dev-worker   # go run ./cmd/worker
 | 命令 | 说明 |
 |------|------|
 | `make dev` | 启动基础设施容器 + 提示 dev-api / dev-web |
-| `make up` | 启动 pg + redis + nats |
+| `make up` | 启动基础设施（pg + redis + rabbitmq + mailpit） |
 | `make down` | 停止所有容器 |
 | `make migrate` | 执行数据库迁移到最新 |
 | `make migrate-down` | 回滚 1 步 |
