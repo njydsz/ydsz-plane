@@ -12,6 +12,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redis/go-redis/v9"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 	"go.uber.org/zap"
 
 	"github.com/ydszopen/ydsz-plane/internal/application/auth"
@@ -50,6 +52,10 @@ func NewEngine(d *Deps) *gin.Engine {
 	r.GET("/healthz", healthz())
 	r.GET("/readyz", readyz(d))
 	r.GET("/metrics", gin.WrapH(promhttp.Handler())) // Prometheus scrape endpoint
+	// Swagger UI (only in development)
+	if d.Cfg.IsDev() {
+		r.GET("/swagger/*Any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	}
 
 	v1 := r.Group("/api/v1")
 	{
@@ -131,10 +137,22 @@ func readyz(d *Deps) gin.HandlerFunc {
 }
 
 type loginRequest struct {
-	Email    string `json:"email" binding:"required,email"`
-	Password string `json:"password" binding:"required,min=8"`
+	Email    string `json:"email" example:"alice@example.com"`
+	Password string `json:"password" example:"your-password"`
 }
 
+// login godoc
+//
+//	@Summary		登录
+//	@Description	使用邮箱和密码获取访问 / 刷新令牌对
+//	@Tags			auth
+//	@Accept			json
+//	@Produce		json
+//	@Param			body	body		loginRequest		true	"登录凭据"
+//	@Success		200		{object}	auth.TokenPair
+//	@Failure		401		{object}	errs.AppError
+//	@Failure		422		{object}	errs.AppError
+//	@Router			/auth/login [post]
 func login(d *Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req loginRequest
@@ -156,6 +174,17 @@ type refreshRequest struct {
 	RefreshToken string `json:"refresh_token"`
 }
 
+// refresh godoc
+//
+//	@Summary		刷新访问令牌
+//	@Description	使用刷新令牌（body 或 Cookie）获取新令牌对
+//	@Tags			auth
+//	@Accept			json
+//	@Produce		json
+//	@Param			body	body		refreshRequest	true	"刷新令牌"
+//	@Success		200		{object}	auth.TokenPair
+//	@Failure		401		{object}	errs.AppError
+//	@Router			/auth/refresh [post]
 func refresh(d *Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req refreshRequest
@@ -178,6 +207,18 @@ func refresh(d *Deps) gin.HandlerFunc {
 	}
 }
 
+// register godoc
+//
+//	@Summary		注册
+//	@Description	创建新用户并自动签发令牌
+//	@Tags			auth
+//	@Accept			json
+//	@Produce		json
+//	@Param			body	body		registerRequest	true	"注册信息"
+//	@Success		201		{object}	auth.TokenPair
+//	@Failure		409		{object}	errs.AppError	"邮箱已被注册"
+//	@Failure		422		{object}	errs.AppError
+//	@Router			/auth/register [post]
 func register(d *Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req registerRequest
@@ -200,11 +241,21 @@ func register(d *Deps) gin.HandlerFunc {
 }
 
 type registerRequest struct {
-	Email       string `json:"email" binding:"required,email"`
-	Password    string `json:"password" binding:"required,min=8"`
-	DisplayName string `json:"display_name" binding:"required,min=2,max=64"`
+	Email       string `json:"email" example:"alice@example.com"`
+	Password    string `json:"password" example:"new-password"`
+	DisplayName string `json:"display_name" example:"Alice"`
 }
 
+// me godoc
+//
+//	@Summary		获取当前用户
+//	@Description	返回调用者的用户简介
+//	@Tags			user
+//	@Produce		json
+//	@Security		Bearer
+//	@Success		200	{object}	auth.UserBrief
+//	@Failure		401	{object}	errs.AppError
+//	@Router			/me [get]
 func me(d *Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		uid := c.GetInt64(middleware.CtxUserID)

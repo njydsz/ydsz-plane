@@ -1,0 +1,180 @@
+definitions:
+  github_com_ydszopen_ydsz-plane_internal_application_auth.TokenPair:
+    properties:
+      access_token:
+        type: string
+      expires_at:
+        type: string
+      refresh_token:
+        type: string
+      token_type:
+        description: Bearer
+        type: string
+      user:
+        $ref: '#/definitions/github_com_ydszopen_ydsz-plane_internal_application_auth.UserBrief'
+    type: object
+  github_com_ydszopen_ydsz-plane_internal_application_auth.UserBrief:
+    properties:
+      avatar_url:
+        type: string
+      display_name:
+        type: string
+      email:
+        type: string
+      id:
+        type: integer
+    type: object
+  github_com_ydszopen_ydsz-plane_pkg_errs.AppError:
+    properties:
+      code:
+        type: string
+      details:
+        items:
+          $ref: '#/definitions/github_com_ydszopen_ydsz-plane_pkg_errs.FieldDetail'
+        type: array
+      message:
+        description: user-facing (zh)
+        type: string
+    type: object
+  github_com_ydszopen_ydsz-plane_pkg_errs.FieldDetail:
+    properties:
+      field:
+        type: string
+      reason:
+        type: string
+    type: object
+  internal_interfaces_http.loginRequest:
+    properties:
+      email:
+        example: alice@example.com
+        type: string
+      password:
+        example: your-password
+        type: string
+    type: object
+  internal_interfaces_http.refreshRequest:
+    properties:
+      refresh_token:
+        type: string
+    type: object
+  internal_interfaces_http.registerRequest:
+    properties:
+      display_name:
+        example: Alice
+        type: string
+      email:
+        example: alice@example.com
+        type: string
+      password:
+        example: new-password
+        type: string
+    type: object
+info:
+  contact: {}
+paths:
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      description: 使用邮箱和密码获取访问 / 刷新令牌对
+      parameters:
+      - description: 登录凭据
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_interfaces_http.loginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_ydszopen_ydsz-plane_internal_application_auth.TokenPair'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_ydszopen_ydsz-plane_pkg_errs.AppError'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/github_com_ydszopen_ydsz-plane_pkg_errs.AppError'
+      summary: 登录
+      tags:
+      - auth
+  /auth/refresh:
+    post:
+      consumes:
+      - application/json
+      description: 使用刷新令牌（body 或 Cookie）获取新令牌对
+      parameters:
+      - description: 刷新令牌
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_interfaces_http.refreshRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_ydszopen_ydsz-plane_internal_application_auth.TokenPair'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_ydszopen_ydsz-plane_pkg_errs.AppError'
+      summary: 刷新访问令牌
+      tags:
+      - auth
+  /auth/register:
+    post:
+      consumes:
+      - application/json
+      description: 创建新用户并自动签发令牌
+      parameters:
+      - description: 注册信息
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_interfaces_http.registerRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/github_com_ydszopen_ydsz-plane_internal_application_auth.TokenPair'
+        "409":
+          description: 邮箱已被注册
+          schema:
+            $ref: '#/definitions/github_com_ydszopen_ydsz-plane_pkg_errs.AppError'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/github_com_ydszopen_ydsz-plane_pkg_errs.AppError'
+      summary: 注册
+      tags:
+      - auth
+  /me:
+    get:
+      description: 返回调用者的用户简介
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_ydszopen_ydsz-plane_internal_application_auth.UserBrief'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_ydszopen_ydsz-plane_pkg_errs.AppError'
+      security:
+      - Bearer: []
+      summary: 获取当前用户
+      tags:
+      - user
+swagger: "2.0"

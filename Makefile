@@ -50,7 +50,8 @@ build:
 	cd web && pnpm build
 
 openapi:
-	swag init -g cmd/api/main.go -o api/openapi
+	swag init -g cmd/api/main.go --output docs/swagger --parseDependency --parseInternal
+	@echo "→ Swagger UI: http://localhost:8080/swagger/index.html"
 
 reindex:
 	go run ./scripts/reindex

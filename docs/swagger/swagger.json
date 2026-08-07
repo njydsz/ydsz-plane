@@ -1,0 +1,278 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "contact": {}
+    },
+    "paths": {
+        "/auth/login": {
+            "post": {
+                "description": "使用邮箱和密码获取访问 / 刷新令牌对",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "登录",
+                "parameters": [
+                    {
+                        "description": "登录凭据",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_interfaces_http.loginRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ydszopen_ydsz-plane_internal_application_auth.TokenPair"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ydszopen_ydsz-plane_pkg_errs.AppError"
+                        }
+                    },
+                    "422": {
+                        "description": "Unprocessable Entity",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ydszopen_ydsz-plane_pkg_errs.AppError"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/refresh": {
+            "post": {
+                "description": "使用刷新令牌（body 或 Cookie）获取新令牌对",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "刷新访问令牌",
+                "parameters": [
+                    {
+                        "description": "刷新令牌",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_interfaces_http.refreshRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ydszopen_ydsz-plane_internal_application_auth.TokenPair"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ydszopen_ydsz-plane_pkg_errs.AppError"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/register": {
+            "post": {
+                "description": "创建新用户并自动签发令牌",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "注册",
+                "parameters": [
+                    {
+                        "description": "注册信息",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_interfaces_http.registerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ydszopen_ydsz-plane_internal_application_auth.TokenPair"
+                        }
+                    },
+                    "409": {
+                        "description": "邮箱已被注册",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ydszopen_ydsz-plane_pkg_errs.AppError"
+                        }
+                    },
+                    "422": {
+                        "description": "Unprocessable Entity",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ydszopen_ydsz-plane_pkg_errs.AppError"
+                        }
+                    }
+                }
+            }
+        },
+        "/me": {
+            "get": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "返回调用者的用户简介",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "user"
+                ],
+                "summary": "获取当前用户",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ydszopen_ydsz-plane_internal_application_auth.UserBrief"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ydszopen_ydsz-plane_pkg_errs.AppError"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "github_com_ydszopen_ydsz-plane_internal_application_auth.TokenPair": {
+            "type": "object",
+            "properties": {
+                "access_token": {
+                    "type": "string"
+                },
+                "expires_at": {
+                    "type": "string"
+                },
+                "refresh_token": {
+                    "type": "string"
+                },
+                "token_type": {
+                    "description": "Bearer",
+                    "type": "string"
+                },
+                "user": {
+                    "$ref": "#/definitions/github_com_ydszopen_ydsz-plane_internal_application_auth.UserBrief"
+                }
+            }
+        },
+        "github_com_ydszopen_ydsz-plane_internal_application_auth.UserBrief": {
+            "type": "object",
+            "properties": {
+                "avatar_url": {
+                    "type": "string"
+                },
+                "display_name": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "github_com_ydszopen_ydsz-plane_pkg_errs.AppError": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "details": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_ydszopen_ydsz-plane_pkg_errs.FieldDetail"
+                    }
+                },
+                "message": {
+                    "description": "user-facing (zh)",
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_ydszopen_ydsz-plane_pkg_errs.FieldDetail": {
+            "type": "object",
+            "properties": {
+                "field": {
+                    "type": "string"
+                },
+                "reason": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_interfaces_http.loginRequest": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string",
+                    "example": "alice@example.com"
+                },
+                "password": {
+                    "type": "string",
+                    "example": "your-password"
+                }
+            }
+        },
+        "internal_interfaces_http.refreshRequest": {
+            "type": "object",
+            "properties": {
+                "refresh_token": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_interfaces_http.registerRequest": {
+            "type": "object",
+            "properties": {
+                "display_name": {
+                    "type": "string",
+                    "example": "Alice"
+                },
+                "email": {
+                    "type": "string",
+                    "example": "alice@example.com"
+                },
+                "password": {
+                    "type": "string",
+                    "example": "new-password"
+                }
+            }
+        }
+    }
+}
