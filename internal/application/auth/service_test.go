@@ -1,3 +1,4 @@
+// Package auth 测试：验证 RBAC 权限矩阵与 token 签发/解析行为。
 package auth
 
 import (
@@ -5,30 +6,31 @@ import (
 	"time"
 )
 
+// TestRolePermissionMatrix 验证权限矩阵中各角色被授予/拒绝的权限。
 func TestRolePermissionMatrix(t *testing.T) {
 	cases := []struct {
 		role WorkspaceRole
 		perm string
 		want bool
 	}{
-		// Owner: all
+		// Owner：全部权限
 		{RoleOwner, PermWorkspaceRead, true},
 		{RoleOwner, PermWorkspaceDelete, true},
 		{RoleOwner, PermMemberChangeRole, true},
 		{RoleOwner, PermProjectCreate, true},
-		// Admin: can't delete workspace, can't change role
+		// Admin：不可删除工作空间、不可变更角色
 		{RoleAdmin, PermWorkspaceRead, true},
 		{RoleAdmin, PermMemberInvite, true},
 		{RoleAdmin, PermProjectDelete, true},
 		{RoleAdmin, PermWorkspaceDelete, false},
 		{RoleAdmin, PermMemberChangeRole, false},
-		// Member: read + create
+		// Member：只读 + 创建
 		{RoleMember, PermWorkspaceRead, true},
 		{RoleMember, PermProjectCreate, true},
 		{RoleMember, PermIssueCreate, true},
 		{RoleMember, PermMemberInvite, false},
 		{RoleMember, PermProjectDelete, false},
-		// Guest: read only
+		// Guest：仅只读
 		{RoleGuest, PermWorkspaceRead, true},
 		{RoleGuest, PermProjectCreate, false},
 		{RoleGuest, PermIssueCreate, false},
@@ -42,6 +44,7 @@ func TestRolePermissionMatrix(t *testing.T) {
 	}
 }
 
+// TestRoleIsAtLeast 验证角色级别比较逻辑。
 func TestRoleIsAtLeast(t *testing.T) {
 	cases := []struct {
 		role WorkspaceRole
@@ -60,6 +63,7 @@ func TestRoleIsAtLeast(t *testing.T) {
 	}
 }
 
+// TestInvalidRole 验证未知角色枚举值被判定为非法。
 func TestInvalidRole(t *testing.T) {
 	if WorkspaceRole("hacker").IsValid() {
 		t.Errorf("unknown role should be invalid")
@@ -87,6 +91,7 @@ func TestTokenRoundTrip(t *testing.T) {
 	}
 }
 
+// TestParseAccessRejectsRefreshKind 验证 refresh 令牌不能当作 access 令牌使用。
 func TestParseAccessRejectsRefreshKind(t *testing.T) {
 	svc := NewService(nil, "test-secret", "ydsz-plane", 15*time.Minute, 720*time.Hour, 4, true)
 	pair, err := svc.issuePair(1, "a@b.c", "T", "")
@@ -98,6 +103,7 @@ func TestParseAccessRejectsRefreshKind(t *testing.T) {
 	}
 }
 
+// TestParseAccessRejectsWrongSecret 验证使用其他密钥签发的令牌会被拒绝。
 func TestParseAccessRejectsWrongSecret(t *testing.T) {
 	a := NewService(nil, "secret-a", "ydsz-plane", time.Minute, time.Hour, 4, true)
 	b := NewService(nil, "secret-b", "ydsz-plane", time.Minute, time.Hour, 4, true)
@@ -110,6 +116,7 @@ func TestParseAccessRejectsWrongSecret(t *testing.T) {
 	}
 }
 
+// TestHashPasswordVerifiable 验证生成的 bcrypt 散列与明文不同且长度合规。
 func TestHashPasswordVerifiable(t *testing.T) {
 	svc := NewService(nil, "s", "i", time.Minute, time.Hour, 4, true)
 	hash, err := svc.HashPassword("Admin@123")

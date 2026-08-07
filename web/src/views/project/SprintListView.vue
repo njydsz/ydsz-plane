@@ -125,8 +125,17 @@ onMounted(load);
       </div>
     </header>
 
-    <div v-if="loading" class="loading">加载中...</div>
-    <div v-else-if="error" class="error">{{ error }}</div>
+    <div v-if="loading" class="center-message">
+      <div class="skeleton-row" v-for="i in 3" :key="i">
+        <div class="skeleton-line" style="width:70%"></div>
+        <div class="skeleton-line" style="width:40%"></div>
+      </div>
+    </div>
+    <div v-else-if="error" class="center-message error">
+      <p>迭代列表加载失败</p>
+      <p class="detail">{{ error }}</p>
+      <button class="btn btn-secondary" @click="load">重试</button>
+    </div>
 
     <div v-else class="grid">
       <div
@@ -229,6 +238,40 @@ onMounted(load);
 }
 .error { color: var(--danger-500); }
 .empty .btn { margin-top: 12px; }
+
+.center-message {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 48px 0;
+  gap: 10px;
+  color: var(--text-tertiary);
+}
+.center-message.error { color: var(--danger-500); }
+.center-message p { margin: 0; font-size: 14px; }
+.center-message p.detail { font-size: 12px; opacity: 0.8; max-width: 400px; word-break: break-word; }
+
+.skeleton-row {
+  width: 100%;
+  max-width: 400px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+}
+.skeleton-line {
+  height: 12px;
+  background: var(--surface-2);
+  border-radius: 4px;
+  animation: pulse 1.5s infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.8; }
+}
 
 .grid {
   display: grid;

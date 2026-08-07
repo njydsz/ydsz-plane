@@ -54,7 +54,7 @@ func (h *Handler) Register(r *gin.RouterGroup) {
 
 // --- Sprint CRUD ---
 
-// createSprint godoc
+// createSprint 创建迭代（REST handler，Swagger 注解见下）。
 //
 //	@Summary		创建迭代
 //	@Description	在项目下创建 planned 迭代
@@ -112,7 +112,7 @@ func (h *Handler) createSprint(c *gin.Context) {
 	c.JSON(http.StatusCreated, sp)
 }
 
-// listSprints godoc
+// listSprints 列出迭代（REST handler，Swagger 注解见下）。
 //
 //	@Summary		列出迭代
 //	@Tags			sprint
@@ -142,7 +142,7 @@ func (h *Handler) listSprints(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"results": sprints, "total": total})
 }
 
-// getSprint godoc
+// getSprint 获取迭代详情（REST handler，Swagger 注解见下）。
 //
 //	@Summary		获取迭代详情
 //	@Tags			sprint
@@ -162,7 +162,7 @@ func (h *Handler) getSprint(c *gin.Context) {
 	c.JSON(http.StatusOK, sp)
 }
 
-// updateSprint godoc
+// updateSprint 更新迭代字段（REST handler，Swagger 注解见下）。
 //
 //	@Summary		更新迭代字段（仅 planned 状态可编辑）
 //	@Tags			sprint
@@ -224,7 +224,7 @@ func (h *Handler) updateSprint(c *gin.Context) {
 	c.JSON(http.StatusOK, sp)
 }
 
-// deleteSprint godoc
+// deleteSprint 归档迭代（REST handler，Swagger 注解见下）。
 //
 //	@Summary		归档迭代（仅 planned / completed 可删除）
 //	@Tags			sprint
@@ -243,7 +243,7 @@ func (h *Handler) deleteSprint(c *gin.Context) {
 
 // --- Lifecycle ---
 
-// startSprint godoc
+// startSprint 启动迭代（REST handler，Swagger 注解见下）。
 //
 //	@Summary		启动迭代
 //	@Description	将迭代从 planned 切换到 active；校验唯一 active 约束
@@ -251,7 +251,7 @@ func (h *Handler) deleteSprint(c *gin.Context) {
 //	@Produce		json
 //	@Success		200		{object}	Sprint
 //	@Failure		409		{object}	errs.AppError	"项目已有 active 迭代"
-//	@Router			/sprints/{sprint_id}:start [post]
+//	@Router			/sprints/{sprint_id}/start [post]
 func (h *Handler) startSprint(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	sprintID := int64Param(c, "sprint_id")
@@ -264,7 +264,7 @@ func (h *Handler) startSprint(c *gin.Context) {
 	c.JSON(http.StatusOK, sp)
 }
 
-// completeSprint godoc
+// completeSprint 结束迭代（REST handler，Swagger 注解见下）。
 //
 //	@Summary		结束迭代
 //	@Description	将迭代从 active 切换到 completed；处理未完成任务
@@ -272,7 +272,7 @@ func (h *Handler) startSprint(c *gin.Context) {
 //	@Accept			json
 //	@Produce		json
 //	@Success		200		{object}	Sprint
-//	@Router			/sprints/{sprint_id}:complete [post]
+//	@Router			/sprints/{sprint_id}/complete [post]
 func (h *Handler) completeSprint(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	sprintID := int64Param(c, "sprint_id")
@@ -298,7 +298,7 @@ func (h *Handler) completeSprint(c *gin.Context) {
 	c.JSON(http.StatusOK, sp)
 }
 
-// getSprintProgress godoc
+// getSprintProgress 获取迭代实时进度（REST handler，Swagger 注解见下）。
 //
 //	@Summary		获取迭代实时进度
 //	@Tags			sprint
@@ -319,7 +319,7 @@ func (h *Handler) getSprintProgress(c *gin.Context) {
 
 // --- Planning ---
 
-// listSprintIssues godoc
+// listSprintIssues 列出迭代内工作项（REST handler，Swagger 注解见下）。
 //
 //	@Summary		列出迭代内工作项
 //	@Tags			sprint
@@ -341,7 +341,7 @@ func (h *Handler) listSprintIssues(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"results": views, "total": total})
 }
 
-// addIssue godoc
+// addIssue 将工作项加入迭代（REST handler，Swagger 注解见下）。
 //
 //	@Summary		将工作项加入迭代（拖拽规划 / 中途加项）
 //	@Tags			sprint
@@ -374,7 +374,7 @@ func (h *Handler) addIssue(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
-// removeIssue godoc
+// removeIssue 从迭代移除工作项（REST handler，Swagger 注解见下）。
 //
 //	@Summary		从迭代移除工作项
 //	@Tags			sprint
@@ -395,7 +395,7 @@ func (h *Handler) removeIssue(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
-// getBacklog godoc
+// getBacklog 获取 Backlog 工作项列表（REST handler，Swagger 注解见下）。
 //
 //	@Summary		获取 Backlog 工作项列表（未规划进 active 迭代的未完成工作项）
 //	@Tags			sprint
@@ -419,7 +419,7 @@ func (h *Handler) getBacklog(c *gin.Context) {
 
 // --- Analytics ---
 
-// burndown godoc
+// burndown 获取迭代燃尽图数据（REST handler，Swagger 注解见下）。
 //
 //	@Summary		获取迭代燃尽图数据
 //	@Tags			sprint
@@ -438,7 +438,7 @@ func (h *Handler) burndown(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"sprint": sp, "points": points})
 }
 
-// getReview godoc
+// getReview 获取迭代复盘数据（REST handler，Swagger 注解见下）。
 //
 //	@Summary		获取迭代复盘数据
 //	@Tags			sprint
@@ -461,7 +461,7 @@ func (h *Handler) getReview(c *gin.Context) {
 	c.JSON(http.StatusOK, sp.ReviewSnapshot)
 }
 
-// suggestCapacity godoc
+// suggestCapacity 速率建议（推荐容量）（REST handler，Swagger 注解见下）。
 //
 //	@Summary		速率建议（推荐容量）
 //	@Description	基于近 N 期 completed 迭代的完成故事点统计

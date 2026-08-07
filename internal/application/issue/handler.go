@@ -82,7 +82,7 @@ func (h *IssueHandler) listStates(c *gin.Context) {
 
 // --- Issue handlers ---
 
-// createIssue godoc
+// createIssue 创建工作项（REST handler，Swagger 注解见下）。
 //
 //	@Summary		创建工作项
 //	@Description	在工作空间中创建需求/任务/缺陷
@@ -158,7 +158,7 @@ func (h *IssueHandler) createIssue(c *gin.Context) {
 	c.JSON(http.StatusCreated, iss)
 }
 
-// getIssue godoc
+// getIssue 获取工作项详情（REST handler，Swagger 注解见下）。
 //
 //	@Summary		获取工作项详情
 //	@Tags			issue
@@ -178,7 +178,7 @@ func (h *IssueHandler) getIssue(c *gin.Context) {
 	c.JSON(http.StatusOK, iss)
 }
 
-// updateIssue godoc
+// updateIssue 更新工作项（REST handler，Swagger 注解见下）。
 //
 //	@Summary		更新工作项
 //	@Tags			issue
@@ -241,7 +241,7 @@ func (h *IssueHandler) updateIssue(c *gin.Context) {
 	c.JSON(http.StatusOK, iss)
 }
 
-// deleteIssue godoc
+// deleteIssue 删除（归档）工作项（REST handler，Swagger 注解见下）。
 //
 //	@Summary		删除工作项（归档）
 //	@Tags			issue
@@ -258,7 +258,7 @@ func (h *IssueHandler) deleteIssue(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
-// transition godoc
+// transition 流转工作项状态（REST handler，Swagger 注解见下）。
 //
 //	@Summary		流转状态
 //	@Description	将工作项流转到目标状态
@@ -290,7 +290,7 @@ func (h *IssueHandler) transition(c *gin.Context) {
 	c.JSON(http.StatusOK, iss)
 }
 
-// listIssues godoc
+// listIssues 列出工作项（REST handler，Swagger 注解见下）。
 //
 //	@Summary		列出工作项
 //	@Tags			issue

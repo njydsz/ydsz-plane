@@ -274,7 +274,7 @@ func (s *Service) List(ctx context.Context, opts ListIssuesOptions) ([]Issue, in
 		return nil, 0, err
 	}
 
-	// Count
+	// 统计总数（分页元数据）
 	countWhere, countArgs := buildCountWhere(opts)
 	var total int64
 	_ = s.db.QueryRow(ctx, `SELECT count(*) FROM issues i `+countWhere, countArgs...).Scan(&total)
@@ -845,7 +845,7 @@ func buildUpdateSet(in UpdateIssueInput, current *Issue) ([]string, []interface{
 		sets = append(sets, "state_id = $"+strconv.Itoa(arg))
 		args = append(args, *in.StateID)
 		arg++
-		// exit completed
+		// 状态变更离开 completed 时清空完成时间
 		sets = append(sets, "completed_at = NULL")
 	}
 	if in.Priority != nil {

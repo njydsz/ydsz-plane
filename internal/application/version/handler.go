@@ -1,4 +1,4 @@
-// Package version — Version HTTP handlers (REST API)。
+// Package version — Version HTTP handlers（REST API）。
 package version
 
 import (

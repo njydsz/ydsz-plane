@@ -33,7 +33,7 @@ type Service struct {
 	registrationOpen bool          // 是否开放注册；false 时仅允许邀请注册。
 }
 
-// NewService constructs the auth service.
+// NewService 构造认证服务。
 func NewService(db *pgxpool.Pool, secret, issuer string, accessTTL, refreshTTL time.Duration, bcryptCost int, registrationOpen bool) *Service {
 	return &Service{
 		db:               db,
@@ -46,7 +46,7 @@ func NewService(db *pgxpool.Pool, secret, issuer string, accessTTL, refreshTTL t
 	}
 }
 
-// TokenPair is the login/refresh response payload.
+// TokenPair 是登录/刷新接口的响应负载。
 type TokenPair struct {
 	AccessToken  string    `json:"access_token"`
 	RefreshToken string    `json:"refresh_token"`
@@ -55,7 +55,7 @@ type TokenPair struct {
 	User         UserBrief `json:"user"`
 }
 
-// UserBrief is the embedded user summary in auth responses.
+// UserBrief 是认证响应中内嵌的用户概要。
 type UserBrief struct {
 	ID          int64  `json:"id"`
 	Email       string `json:"email"`
@@ -68,7 +68,7 @@ type claims struct {
 	Kind string `json:"kind"` // access | refresh
 }
 
-// Login authenticates by email+password and issues a token pair.
+// Login 使用邮箱+密码认证并签发令牌对。
 func (s *Service) Login(ctx context.Context, email, password string) (*TokenPair, error) {
 	var (
 		id          int64
@@ -97,8 +97,8 @@ func (s *Service) Login(ctx context.Context, email, password string) (*TokenPair
 	return s.issuePair(id, email, displayName, avatarURL)
 }
 
-// Refresh rotates a refresh token into a new pair. Reuse of an old refresh
-// token is rejected by kind/expiry checks (rotation storage lands in S2).
+// Refresh 将刷新令牌轮换为一对新令牌。旧刷新令牌的复用会被
+// 类型/有效期检查拒绝（轮换存储将在 S2 落地）。
 func (s *Service) Refresh(ctx context.Context, refreshToken string) (*TokenPair, error) {
 	c, err := s.parse(refreshToken)
 	if err != nil || c.Kind != "refresh" {
@@ -121,7 +121,7 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string) (*TokenPair,
 	return s.issuePair(uid, email, displayName, avatarURL)
 }
 
-// ParseAccess validates an access token and returns the user id.
+// ParseAccess 校验访问令牌并返回用户 ID。
 func (s *Service) ParseAccess(token string) (int64, error) {
 	c, err := s.parse(token)
 	if err != nil || c.Kind != "access" {
@@ -130,20 +130,20 @@ func (s *Service) ParseAccess(token string) (int64, error) {
 	return parseSubject(c.Subject)
 }
 
-// HashPassword hashes a plaintext password (used by registration/seed).
+// HashPassword 将明文密码散列（供注册/seed 使用）。
 func (s *Service) HashPassword(plain string) (string, error) {
 	h, err := bcrypt.GenerateFromPassword([]byte(plain), s.bcryptCost)
 	return string(h), err
 }
 
-// RegisterInput holds registration parameters.
+// RegisterInput 保存注册参数。
 type RegisterInput struct {
 	Email       string
 	Password    string
 	DisplayName string
 }
 
-// Register creates a new user and issues an access/refresh token pair.
+// Register 创建新用户并签发访问/刷新令牌对。
 func (s *Service) Register(ctx context.Context, in RegisterInput) (*TokenPair, error) {
 	if !s.registrationOpen {
 		return nil, errs.ErrForbidden
@@ -170,7 +170,7 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (*TokenPair, e
 		RETURNING id, email`,
 		in.Email, hash, in.DisplayName).Scan(&userID, &email)
 	if err != nil {
-		// Conflict → email taken
+		// 邮箱冲突 → 已注册
 		telemetry.AuthOperations.WithLabelValues("register", "conflict").Inc()
 		return nil, errs.New("AUTH.EMAIL_TAKEN", "该邮箱已被注册", 409)
 	}

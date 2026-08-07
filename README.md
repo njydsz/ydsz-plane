@@ -20,10 +20,10 @@
 
 ## 项目状态
 
-> **当前阶段：M0 ✅ + M0.5（增强基座）✅ — M1 架构就绪，待 Workspace CRUD API & 前端落地**
-> 最后更新：2026-08-08 · 架构基线版本 v1.1
+> **当前阶段：M0 ✅ + M0.5 ✅ + M1 ✅ + M2/M3/M4 API ✅ — 数据库迁移至 0007，核心域后端 API 全线贯通，前端视图骨架完备**
+> 最后更新：2026-08-08 · 架构基线版本 v1.2
 
-Ydsz Plane 是一款开源、自托管的现代项目管理工具，专为中小型敏捷开发团队设计。M0 工程基座及 M0.5 增强基座（完整可观测性、RBAC、安全纵深、API 文档）已全部完工；数据库 schema（users / workspaces / workspace_members / password_reset_tokens / audit_logs / domain_events）已就位，下一步落地 Workspace CRUD API 及前端即可进入 M2 工作项核心。
+Ydsz Plane 是一款开源、自托管的现代项目管理工具，专为中小型敏捷开发团队设计。M0 工程基座、M0.5 增强基座（RBAC/可观测性/安全纵深/Swagger）、M1 租户与项目骨架（Workspace CRUD/成员邀请/审计）、M2 工作项核心（Issue 全生命周期/状态机/关联/依赖/WBS）、M3 迭代管理（Sprint 生命周期/燃尽图/速率统计）、M4 版本日（版本聚合/发布/交付报告）的后端 API 与前端的视图骨架已全部就绪。数据库迁移脚本从 0001 递进至 0007（users → workspaces → issue_core → state_templates → sprint_core → version_core），覆盖全部核心域 schema。
 
 ## 已完成能力
 
@@ -31,19 +31,27 @@ Ydsz Plane 是一款开源、自托管的现代项目管理工具，专为中小
 
 | 模块 | 说明 | 状态 |
 |------|------|------|
-| 工程基座 | Monorepo（Go module + pnpm workspace）、CI（lint/test/build/e2e-smoke）、Docker Compose（pg/redis/nats）、Makefile | ✅ |
+| 工程基座 | Monorepo（Go module + pnpm workspace）、CI（lint/test(race)/build/e2e-smoke）、Docker Compose 全栈、Makefile | ✅ |
 | 鉴权链路 | 注册 / 登录（bcrypt + JWT access/refresh）、Cookie 会话、401 单飞刷新重放、忘记 / 重置密码端点 | ✅ |
-| RBAC | Owner/Admin/Member/Guest 四角色 × workspace_members 域、10 项权限中间件、权限 | ✅ |
-| API 文档 | swaggo 注解 + Swagger UI（`/swagger/index.html`）、7 条端点、Bearer 鉴权说明 | ✅ |
+| RBAC | Owner/Admin/Member/Guest 四角色 × workspace_members 域、10 项权限中间件、权限校验 | ✅ |
+| API 文档 | swaggo 注解 + Swagger UI（`/swagger/index.html`）、Bearer 鉴权说明、30+ 端点 | ✅ |
 | 邮件服务 | SMTP 抽象（Noop / SMTP 自动切换）、双版本 MIME 模板（密码重置 / 邀请） | ✅ |
 | 可观测性 | zap 结构化日志、Prometheus RED 指标（`/metrics`）、Go runtime 默认收集 | ✅ |
 | 安全纵深 | CSP / HSTS / COOP / CORP / Permissions-Policy / X-Frame-Options / X-Content-Type-Options 等 8 项安全头 | ✅ |
-| 中间件链 | RequestID → Recovery → CORS → SecurityHeaders → RateLimit → AccessLog → Metrics → Auth | ✅ |
-| 前端骨架 | Vue 3.5 + Vite 6 + Pinia、登录页（亮/暗主题）、Axios 拦截器、auth store | ✅ |
+| 中间件链 | RequestID → Recovery → CORS → SecurityHeaders → AccessLog → Metrics → Auth | ✅ |
+| Workspace API | CRUD（创建/读取/更新/归档/恢复）、Slug 唯一校验、项目集合管理 | ✅ |
+| 成员与邀请 | 成员列表/角色切换/移除、邮箱邀请（token+7 天有效+可撤销）、邀请审核模式 | ✅ |
+| 审计日志 | 空间级管理操作全量记录（invitation/workspace/member 操作）+ AuditService + 查询端点 | ✅ |
+| 前端骨架 | Vue 3.5 + Vite 6 + Pinia、WorkspaceLayout、设计令牌（CSS 变量）、路由守卫 | ✅ |
+| 前端视图 | 28 个页面（Login/Register/ForgotPassword/ResetPassword/Workspace/List/Settings/Project/List/Board/List/Settings/IssueDetail/Sprint/List/Planning/Detail/Standup/Version/List/Detail/Release/Report） | ✅ |
 | 数据持久层 | pgx 连接池、租户上下文（SET LOCAL app.workspace_id）、RLS 策略模板、迁移工具 | ✅ |
-| 事件骨架 | 事务型 Outbox 表 + Relay（DB → RabbitMQ EventExchange）、Asynq Worker（default/notifications/automation 队列） | ✅ |
-| 数据库迁移 | 0001_init（users / workspaces / workspace_members / domain_events / audit_logs）+ 0002_password_reset | ✅ |
+| 事件骨架 | 事务型 Outbox 表 + Relay（DB → RabbitMQ EventExchange）、Asynq Worker | ✅ |
+| 数据库迁移 | 0001~0007（users / workspaces / issue_core / state_templates / sprint_core / version_core） | ✅ |
 | 种子数据 | 5 用户 + 3 工作空间 + 多角色成员（owner/admin/member/guest）+ 幂等执行 | ✅ |
+| Issue API | CRUD + 状态流转 + 活动日志 + 工时记录 + 关联（6 种关系）+ 依赖（FS/SS/FF/SF + lag_days）+ WBS 三级 + 类型差异化字段（defect/task/requirement） | ✅ |
+| State API | 项目管理状态集 + 状态流转规则（state_transitions 按项目×类型维度配置） | ✅ |
+| Sprint API | CRUD + 生命周期（start/complete）+ 燃尽图数据 + Backlog 查询 + 容量规划 + 速率建议 + 复盘快照 | ✅ |
+| Version API | CRUD + 状态机（activate/release/archive）+ 进度聚合 + 交付报告 + Release Notes 生成 + 缺陷面板过滤 + 迭代聚合 | ✅ |
 
 ## 技术栈
 
@@ -251,20 +259,103 @@ make dev-worker   # go run ./cmd/worker
 已实现的路由（dev server http://localhost:8080）：
 
 ```
+# 系统
 GET  /healthz                              健康检查
 GET  /readyz                               就绪检查（含 PG / Redis 探针）
 GET  /metrics                              Prometheus RED 指标
 GET  /swagger/index.html                   Swagger UI（dev 模式）
+
+# 鉴权
 POST /api/v1/auth/login                    邮箱 + 密码登录（返回 access/refresh + cookie）
 POST /api/v1/auth/refresh                  通过 refresh cookie 换发令牌对
 POST /api/v1/auth/register                 新用户注册（需 features.registration_open=true）
 POST /api/v1/auth/forgot-password          触发密码重置邮件（202，防枚举）
 POST /api/v1/auth/reset-password           用一次性 token 重置密码
 GET  /api/v1/me                            Bearer / Cookie 获取当前用户简介
-WS   /api/v1/workspaces/:id/members        列工作空间成员（workspace:read 权限校验示例）
-```
 
-本地凭证：`make docker up && make migrate && make seed`
+# 工作空间
+GET  /api/v1/workspaces                    列出当前用户的工作空间
+POST /api/v1/workspaces                    创建工作空间
+GET  /api/v1/workspaces/slug/:slug         通过 slug 查 ID
+
+# 工作空间作用域
+GET  /api/v1/workspaces/:id                工作空间详情
+PATCH /api/v1/workspaces/:id               更新工作空间
+DELETE /api/v1/workspaces/:id              归档工作空间
+GET  /api/v1/workspaces/:id/members        成员列表
+PATCH /api/v1/workspaces/:id/members/:uid  修改成员角色
+DELETE /api/v1/workspaces/:id/members/:uid 移除成员
+POST /api/v1/workspaces/:id/invitations    发送邀请
+GET  /api/v1/workspaces/:id/invitations    邀请列表
+DELETE /api/v1/workspaces/:id/invitations/:iid  撤销邀请
+GET  /api/v1/workspaces/:id/audit-logs     审计日志
+
+# 项目
+GET  /api/v1/workspaces/:id/projects       项目列表
+POST /api/v1/workspaces/:id/projects       创建项目
+GET  /api/v1/workspaces/:id/projects/:pid  项目详情
+PATCH /api/v1/workspaces/:id/projects/:pid 更新项目
+DELETE /api/v1/workspaces/:id/projects/:pid 归档项目
+
+# 工作项
+GET  /api/v1/workspaces/:id/projects/:pid/states        状态列表
+GET  /api/v1/workspaces/:id/projects/:pid/issues        工作项列表（过滤/排序/搜索/分页）
+POST /api/v1/workspaces/:id/projects/:pid/issues        创建工作项
+GET  /api/v1/workspaces/:id/projects/:pid/issues/:iid   工作项详情
+PATCH /api/v1/workspaces/:id/projects/:pid/issues/:iid   更新工作项
+DELETE /api/v1/workspaces/:id/projects/:pid/issues/:iid   删除工作项
+POST /api/v1/workspaces/:id/projects/:pid/issues/:iid/transition  状态流转
+GET  /api/v1/workspaces/:id/projects/:pid/issues/:iid/activities  活动日志
+GET  /api/v1/workspaces/:id/projects/:pid/issues/:iid/time-logs   工时记录
+POST /api/v1/workspaces/:id/projects/:pid/issues/:iid/time-logs   记录工时
+GET  /api/v1/workspaces/:id/projects/:pid/issues/:iid/relations   关联列表
+POST /api/v1/workspaces/:id/projects/:pid/issues/:iid/relations   创建关联
+DELETE /api/v1/workspaces/:id/projects/:pid/issues/:iid/relations/:rid  删除关联
+GET  /api/v1/workspaces/:id/projects/:pid/issues/:iid/dependencies    依赖列表
+POST /api/v1/workspaces/:id/projects/:pid/issues/:iid/dependencies    创建依赖
+DELETE /api/v1/workspaces/:id/projects/:pid/issues/:iid/dependencies/:did  删除依赖
+
+# 迭代
+GET  /api/v1/workspaces/:id/projects/:pid/sprints        迭代列表
+POST /api/v1/workspaces/:id/projects/:pid/sprints        创建迭代
+GET  /api/v1/workspaces/:id/projects/:pid/sprints/backlog   Backlog
+GET  /api/v1/workspaces/:id/projects/:pid/sprints/suggest-capacity  速率建议
+GET  /api/v1/workspaces/:id/projects/:pid/sprints/:sid   迭代详情
+PATCH /api/v1/workspaces/:id/projects/:pid/sprints/:sid   更新迭代
+DELETE /api/v1/workspaces/:id/projects/:pid/sprints/:sid   删除迭代
+POST /api/v1/workspaces/:id/projects/:pid/sprints/:sid:start     启动迭代
+POST /api/v1/workspaces/:id/projects/:pid/sprints/:sid:complete  结束迭代
+GET  /api/v1/workspaces/:id/projects/:pid/sprints/:sid/progress   迭代进度
+GET  /api/v1/workspaces/:id/projects/:pid/sprints/:sid/issues    迭代工作项
+POST /api/v1/workspaces/:id/projects/:pid/sprints/:sid/issues    加入迭代
+DELETE /api/v1/workspaces/:id/projects/:pid/sprints/:sid/issues/:iid  移出迭代
+GET  /api/v1/workspaces/:id/projects/:pid/sprints/:sid/burndown  燃尽图
+GET  /api/v1/workspaces/:id/projects/:pid/sprints/:sid/review    复盘数据
+
+# 版本日
+GET  /api/v1/workspaces/:id/projects/:pid/versions          版本列表
+POST /api/v1/workspaces/:id/projects/:pid/versions          创建版本
+GET  /api/v1/workspaces/:id/projects/:pid/versions/defects  缺陷跨版本过滤
+GET  /api/v1/workspaces/:id/projects/:pid/versions/:vid     版本详情
+PATCH /api/v1/workspaces/:id/projects/:pid/versions/:vid     更新版本
+DELETE /api/v1/workspaces/:id/projects/:pid/versions/:vid     删除版本
+POST /api/v1/workspaces/:id/projects/:pid/versions/:vid/activate  激活版本
+POST /api/v1/workspaces/:id/projects/:pid/versions/:vid/release   发布版本
+POST /api/v1/workspaces/:id/projects/:pid/versions/:vid/archive   归档版本
+GET  /api/v1/workspaces/:id/projects/:pid/versions/:vid/progress  版本进度
+GET  /api/v1/workspaces/:id/projects/:pid/versions/:vid/quality   质量指标
+GET  /api/v1/workspaces/:id/projects/:pid/versions/:vid/delivery-report  交付报告
+GET  /api/v1/workspaces/:id/projects/:pid/versions/:vid/release-notes     Release Notes
+POST /api/v1/workspaces/:id/projects/:pid/versions/:vid/release-notes/regenerate  重生成 Notes
+GET  /api/v1/workspaces/:id/projects/:pid/versions/:vid/defects   缺陷面板
+GET  /api/v1/workspaces/:id/projects/:pid/versions/:vid/sprints   聚合迭代列表
+POST /api/v1/workspaces/:id/projects/:pid/versions/:vid/sprints   添加迭代
+DELETE /api/v1/workspaces/:id/projects/:pid/versions/:vid/sprints/:sid  移除迭代
+
+# 邀请
+POST /api/v1/invitations/accept            接受邀请
+GET  /api/v1/invitations/:token            邀请预览（公开）
+```
 
 ## 架构文档
 
@@ -312,38 +403,62 @@ WS   /api/v1/workspaces/:id/members        列工作空间成员（workspace:rea
 - [x] Axios 拦截器（401 单飞刷新 + 限流 429 回调 + Request ID）
 - [x] 统一 authApi Service 层 + auth Store
 
-### M1 租户与项目骨架（S2，架构就绪 → CRUD & 前端待落地）
+### M1 租户与项目骨架（S2 ✅ 已完成）
 
-#### 后端 schema 已就绪 ✅
+#### 后端 API 已交付 ✅
 
-- [x] users / workspaces / workspace_members / password_reset_tokens / audit_logs
+- [x] users / workspaces / workspace_members / password_reset_tokens / audit_logs / invitations / audit_logs
 - [x] 鉴权链路（注册/登录/刷新/RBAC）
 - [x] 邮件抽象 + 模板
-- [ ] **Workspace CRUD API**（创建/读取/更新/归档/恢复）
-- [ ] **成员邀请**（invitations 表 + 邮件链接 + 7 天有效 + 审核模式）
-- [ ] **API Token** 管理（创建/吊销/scopes）
-- [ ] **审计日志** 埋点（空间级管理操作）
+- [x] **Workspace CRUD API**（创建/读取/更新/归档/恢复）
+- [x] **成员邀请**（invitations 表 + 邮件链接 + 7 天有效 + 审核模式）
+- [x] **审计日志** 埋点（空间级管理操作）+ AuditService + 查询端点
+- [x] **项目 CRUD API**（创建/读取/更新/归档 + Identifier 生成 + RLS 策略）
 
-#### 前端待建设 ⏳
+#### 前端已交付 ✅
 
-- [ ] 空间列表 / 创建向导 / 设置页（信息/成员/邀请）
-- [ ] 成员管理页（列表/筛选/角色切换/移除二次确认）
-- [ ] 注册 / 忘记密码 / 重置密码页
-- [ ] WorkspaceLayout 完整侧边栏 + 项目导航
+- [x] 空间列表 / 创建向导 / 设置页（信息/成员/邀请）
+- [ ] API Token 管理页（创建/吊销/scopes） ⏳ P2
+- [x] WorkspaceLayout + 项目导航 + 路由守卫
+- [x] 邀请接受页（公开预览 + 登录后签收）
 
-### M2 工作项核心（S3–S4）
+### M2 工作项核心（S3–S4 ✅ 后端 API 已交付，前端视图就绪）
 
-- [ ] Issue 主表 + 状态机配置 + 三级 WBS
-- [ ] 需求 / 任务 / 缺陷全流程
-- [ ] 看板 / 列表视图
-- [ ] 活动日志时间线
+- [x] Issue 主表 + 状态机配置 + 三级 WBS + sequence_id 发号器
+- [x] 需求 / 任务 / 缺陷全流程（类型差异化字段 + 状态流转 + optimistic lock）
+- [x] 看板 / 列表视图前端组件（KanbanBoardView + IssueListView + IssueFilter）
+- [x] 活动日志时间线（ActivityService + issue_activities 表）
+- [x] 工时记录（TimeLogService + time_logs 表）
+- [x] 关联 6 种关系 + 依赖 FS/SS/FF/SF + lag_days（RelationService）
+- [x] 缺陷 P0 字段（severity/found_phase/root_cause/environment/reproduce_steps）
+- [x] 状态流转规则（state_transitions 按 project×type 维度配置）
+- [x] 工作项详情页 + 关联面板 + 缺陷面板前端
 
-### M3–M4：迭代与质量（S5–S7）
+### M3 迭代管理（S5 ✅ 后端 API 已交付，前端视图就绪）
 
-- [ ] Sprint 生命周期、燃尽图
-- [ ] 版本日聚合、Release Notes
-- [ ] 附件管理、站内通知
-- [ ] MVP v0.1 发布
+- [x] Sprint 生命周期（start/complete + 唯一 active 约束）
+- [x] 燃尽图数据接口（sprint_snapshots 表 + burndown 端点）
+- [x] Backlog 查询 + 容量规划 + 速率建议（VelocityStats）
+- [x] 迭代规划视图（Backlog↔Sprint 拖拽）+ 迭代详情 + 站会模式
+- [x] 复盘数据（ReviewSnapshot + 中途加项标记 added_midway）
+- [x] 前端视图：SprintList / SprintDetail / SprintPlanning / SprintStandup / BurndownChart
+
+### M4 版本日（S6 ✅ 后端 API 已交付，前端视图就绪）
+
+- [x] Version CRUD + 状态机（planning → active → released → archived）
+- [x] Semver 校验 + Release Notes 模板渲染 + 交付报告数据接口
+- [x] 进度聚合（跨迭代完成度汇总 + progress_snapshot）
+- [x] 缺陷发现/修复版本联动过滤 + 缺陷面板
+- [x] 发布检查清单（checklist JSON）+ 准出校验
+- [x] 前端视图：VersionList / VersionDetail / VersionRelease / DeliveryReport / DefectPanel
+
+### M5 MVP v0.1 发布（S7 ⏳ 进行中）
+
+- [ ] MinIO 附件上传/下载 + 图片粘贴
+- [ ] 评论 issue_comments（富文本 + @提及）
+- [ ] 通知系统（notifications + 站内信 + 默认规则）
+- [ ] WebSocket 实时推送
+- [ ] MVP 加固：错误页/空态/加载态走查 + 性能基线
 
 ### Phase 2+（S8–S12）
 

@@ -134,8 +134,22 @@ onMounted(load);
       </div>
     </header>
 
-    <div v-if="loading" class="loading">加载中...</div>
-    <div v-else-if="error" class="error">{{ error }}</div>
+    <div v-if="loading" class="center-message">
+      <div class="skeleton-card">
+        <div class="skeleton-line" style="width:60%"></div>
+        <div class="skeleton-line" style="width:40%"></div>
+        <div class="skeleton-line" style="width:80%"></div>
+        <div class="skeleton-line" style="width:30%"></div>
+      </div>
+    </div>
+    <div v-else-if="error" class="center-message error">
+      <p>{{ error }}</p>
+      <button class="btn btn-secondary" @click="load">重试</button>
+    </div>
+    <div v-else-if="!sprint" class="center-message empty">
+      <p>迭代不存在或已被删除</p>
+      <button class="btn btn-secondary" @click="router.back()">返回</button>
+    </div>
 
     <div v-else-if="sprint" class="content">
       <!-- 进度卡片 -->
@@ -266,6 +280,41 @@ onMounted(load);
 .loading, .error, .empty { text-align: center; padding: 24px 0; color: var(--text-tertiary); }
 .error { color: var(--danger-500); }
 .empty a { color: var(--brand-500); cursor: pointer; }
+
+.center-message {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 48px 0;
+  gap: 12px;
+  color: var(--text-tertiary);
+}
+.center-message.error { color: var(--danger-500); }
+.center-message.empty { color: var(--text-secondary); }
+.center-message p { margin: 0; font-size: 14px; }
+
+.skeleton-card {
+  width: 100%;
+  max-width: 400px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+}
+.skeleton-line {
+  height: 14px;
+  background: var(--surface-2);
+  border-radius: 4px;
+  animation: pulse 1.5s infinite;
+}
+.skeleton-line:last-child { height: 30px; }
+@keyframes pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.8; }
+}
 
 .content { display: flex; flex-direction: column; gap: 14px; }
 
