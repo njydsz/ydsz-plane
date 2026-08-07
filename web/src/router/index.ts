@@ -78,6 +78,18 @@ const router = createRouter({
           component: () => import("@/views/workspace/WorkspaceSettingsView.vue"),
           props: (route) => ({ workspace_id: route.params.workspaceSlug }),
         },
+        // S10 Webhook 管理
+        {
+          path: ":workspaceSlug/settings/webhooks",
+          name: "webhook-settings",
+          component: () => import("@/views/workspace/WebhookSettingsView.vue"),
+        },
+        // S10 收件箱管理
+        {
+          path: ":workspaceSlug/settings/intake",
+          name: "intake-settings",
+          component: () => import("@/views/workspace/IntakeSettingsView.vue"),
+        },
         {
           path: ":workspaceSlug/settings/notifications",
           name: "notification-preferences",
@@ -110,6 +122,26 @@ const router = createRouter({
           path: ":workspaceSlug/projects/:projectId/board",
           name: "project-board",
           component: () => import("@/views/project/KanbanBoardView.vue"),
+          props: (route) => ({
+            workspaceSlug: route.params.workspaceSlug,
+            projectId: Number(route.params.projectId),
+          }),
+        },
+        // S11 自动化规则
+        {
+          path: ":workspaceSlug/projects/:projectId/automation",
+          name: "project-automation",
+          component: () => import("@/views/project/AutomationView.vue"),
+          props: (route) => ({
+            workspaceSlug: route.params.workspaceSlug,
+            projectId: Number(route.params.projectId),
+          }),
+        },
+        // S11 效能度量
+        {
+          path: ":workspaceSlug/projects/:projectId/metrics",
+          name: "project-metrics",
+          component: () => import("@/views/project/MetricsView.vue"),
           props: (route) => ({
             workspaceSlug: route.params.workspaceSlug,
             projectId: Number(route.params.projectId),

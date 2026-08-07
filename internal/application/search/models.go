@@ -69,6 +69,8 @@ type SearchResponse struct {
 	Groups      []SearchGroup `json:"groups"`       // 保留向后兼容
 	TimeMs      int64         `json:"time_ms"`      // 查询耗时
 	Suggestions []string      `json:"suggestions"`  // 查询建议
+	Backend     string        `json:"backend,omitempty"` // 搜索后端标识 (pg|es)，用于监控
+	IsDegraded  bool          `json:"is_degraded,omitempty"` // JQL 解析是否降级
 }
 
 // SearchGroup 向后兼容的分组结果。

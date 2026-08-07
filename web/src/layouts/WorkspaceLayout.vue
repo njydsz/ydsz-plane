@@ -237,6 +237,46 @@ onMounted(bootstrap);
             <span class="nav-icon">☰</span>
             <span v-if="!collapsed">工作项列表</span>
           </router-link>
+          <router-link
+            :to="`/${wsStore.currentSlug}/projects/${currentProjectId}/metrics`"
+            class="nav-item nav-item--sub"
+            active-class="is-active"
+          >
+            <span class="nav-icon">📉</span>
+            <span v-if="!collapsed">效能度量</span>
+          </router-link>
+          <router-link
+            :to="`/${wsStore.currentSlug}/projects/${currentProjectId}/automation`"
+            class="nav-item nav-item--sub"
+            active-class="is-active"
+          >
+            <span class="nav-icon">⚡</span>
+            <span v-if="!collapsed">自动化</span>
+          </router-link>
+          <router-link
+            :to="`/${wsStore.currentSlug}/projects/${currentProjectId}/analytics`"
+            class="nav-item nav-item--sub"
+            active-class="is-active"
+          >
+            <span class="nav-icon">📋</span>
+            <span v-if="!collapsed">缺陷分析</span>
+          </router-link>
+          <router-link
+            :to="`/${wsStore.currentSlug}/projects/${currentProjectId}/gantt`"
+            class="nav-item nav-item--sub"
+            active-class="is-active"
+          >
+            <span class="nav-icon">📅</span>
+            <span v-if="!collapsed">甘特图</span>
+          </router-link>
+          <router-link
+            :to="`/${wsStore.currentSlug}/projects/${currentProjectId}/calendar`"
+            class="nav-item nav-item--sub"
+            active-class="is-active"
+          >
+            <span class="nav-icon">🗓</span>
+            <span v-if="!collapsed">日历</span>
+          </router-link>
         </template>
         <router-link
           :to="`/${wsStore.currentSlug}/settings`"
@@ -253,6 +293,22 @@ onMounted(bootstrap);
         >
           <span class="nav-icon">🔔</span>
           <span v-if="!collapsed">通知设置</span>
+        </router-link>
+        <router-link
+          :to="`/${wsStore.currentSlug}/settings/webhooks`"
+          class="nav-item"
+          active-class="is-active"
+        >
+          <span class="nav-icon">🔗</span>
+          <span v-if="!collapsed">Webhook</span>
+        </router-link>
+        <router-link
+          :to="`/${wsStore.currentSlug}/settings/intake`"
+          class="nav-item"
+          active-class="is-active"
+        >
+          <span class="nav-icon">📥</span>
+          <span v-if="!collapsed">收件箱</span>
         </router-link>
       </nav>
 

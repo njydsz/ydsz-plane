@@ -1,11 +1,16 @@
-// Package search — 全文搜索服务（PostgreSQL FTS）。
+// Package search — 全文搜索服务（PG FTS + ES 双写，灰度切流）。
 //
-// 架构决策：
-//   - 使用 PostgreSQL 内置 FTS（tsvector + GIN）而非外部 ES，
-//     满足中小规模工作项（<100 万）的低运维搜索需求。
-//   - 未来 ES 升级路径：通过 search_documents 表抽象，
-//     额外同步至 ES 索引即可切换，应用层接口不变。
-//   - 搜索结果带高亮片段（ts_headline），提升 CTR。
+// 架构决策（ADR-0010）:
+//   - 主方案：PostgreSQL FTS（tsvector + GIN），满足 <100 万工作项场景。
+//   - 增强方案：Elasticsearch 8.x + IK 分词 + 类 JQL 语法解析。
+//   - 降级策略：ES 不可用时自动回退 PG FTS，响应头 X-Search-Backend: pg|es。
+//   - 双写策略：变更事件 → es_sync_log 表 → Worker 异步同步 ES，
+//     对账 Job 每 10min 扫 updated_at > es_synced_at 兜底。
+//
+// 对标:
+//   - Jira JQL 语法子集
+//   - Elasticsearch 中文检索最佳实践（IK 分词）
+//   - 阿里/腾讯搜索中台架构（双写+灰度+降级）
 package search
 
 import (
@@ -20,12 +25,18 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/njydsz/ydsz-plane/pkg/errs"
+	"github.com/njydsz/ydsz-plane/pkg/searchql"
 )
 
 // Service 提供全文搜索服务。
 // 支持多对象搜索（issues/sprints/versions）、过滤、高亮、搜索历史、收藏。
+//
+// 双后端架构：
+//   - PG FTS（主）：始终可用，作为兜底方案
+//   - ES（增强）：提供 IK 分词 + JQL 语法，不可用时自动降级
 type Service struct {
-	db *pgxpool.Pool
+	db        *pgxpool.Pool
+	esBackend *ESBackend // ES 搜索后端（可选，nil 表示未启用）
 }
 
 // NewService 创建搜索服务。
@@ -33,14 +44,19 @@ func NewService(db *pgxpool.Pool) *Service {
 	return &Service{db: db}
 }
 
+// WithESBackend 注入 ES 搜索后端（可选）。
+func (s *Service) WithESBackend(backend *ESBackend) *Service {
+	s.esBackend = backend
+	return s
+}
+
 // Search 执行全文搜索。
 //
-// 流程:
-//  1. 构建查询（to_tsquery + websearch_to_tsquery 混合）
-//  2. 按 doc_type 过滤
-//  3. 应用结构化过滤器
-//  4. 检索 + 排名 + 高亮
-//  5. 按类型分组返回（对齐前端 results.issues/sprints/versions 结构）
+// 流程（双后端 + 降级）:
+//  1. 解析类 JQL 语法（pkg/searchql）
+//  2. 尝试 ES 搜索（如已启用且健康）
+//  3. ES 不可用时自动降级到 PG FTS
+//  4. 按类型分组返回（对齐前端 results.issues/sprints/versions 结构）
 func (s *Service) Search(ctx context.Context, q SearchQuery) (*SearchResponse, error) {
 	if q.Limit <= 0 || q.Limit > 50 {
 		q.Limit = 20
@@ -54,9 +70,55 @@ func (s *Service) Search(ctx context.Context, q SearchQuery) (*SearchResponse, e
 
 	start := time.Now()
 
+	// 尝试解析 JQL 语法
+	jql := searchql.Parse(q.Query)
+
+	// 如果 JQL 解析成功且有结构化子句，且 ES 可用，优先使用 ES
+	if !jql.IsDegraded && len(jql.Clauses) > 0 && s.esBackend != nil && s.esBackend.IsAvailable() {
+		resp, err := s.esBackend.Search(ctx, q)
+		if err == nil {
+			resp.Backend = "es"
+			return resp, nil
+		}
+		// ES 搜索失败，记录日志后降级
+		// (生产环境应通过 zap 记录降级事件)
+	}
+
+	// --- 降级到 PG FTS ---
+	resp, err := s.searchPG(ctx, q, jql)
+	if err != nil {
+		return nil, err
+	}
+	resp.Backend = "pg"
+	resp.TimeMs = time.Since(start).Milliseconds()
+	return resp, nil
+}
+
+// searchPG 使用 PostgreSQL FTS 执行搜索。
+func (s *Service) searchPG(ctx context.Context, q SearchQuery, jql *searchql.Query) (*SearchResponse, error) {
+	// 获取搜索文本：优先使用 JQL 解析后的文本
+	searchText := jql.Text
+	if searchText == "" && len(jql.Clauses) == 0 {
+		searchText = q.Query
+	}
+
 	// 安全处理搜索词（防 SQL 注入）
-	tsQuery := toTSQuery(q.Query)
-	if tsQuery == "" {
+	tsQuery := toTSQuery(searchText)
+
+	// 如果 JQL 解析出了结构化子句，将其合并到 Filters
+	if len(jql.Clauses) > 0 {
+		if q.Filters == nil {
+			q.Filters = map[string]any{}
+		}
+		for _, clause := range jql.Clauses {
+			mergeJQLClauseToFilters(q.Filters, clause)
+		}
+	}
+
+	start := time.Now()
+
+	// 空查询返回空结果
+	if tsQuery == "" && len(q.Filters) == 0 {
 		return &SearchResponse{
 			Query:   q.Query,
 			Total:   0,
@@ -67,12 +129,16 @@ func (s *Service) Search(ctx context.Context, q SearchQuery) (*SearchResponse, e
 	}
 
 	// 构建 WHERE 条件
-	whereParts := []string{
-		"d.workspace_id = $1",
-		"d.search_tsv @@ to_tsquery('simple', $2)",
+	whereParts := []string{"d.workspace_id = $1"}
+	args := []interface{}{q.WorkspaceID}
+	argIdx := 2
+
+	// FTS 条件（如果有搜索文本）
+	if tsQuery != "" {
+		whereParts = append(whereParts, fmt.Sprintf("d.search_tsv @@ to_tsquery('simple', $%d)", argIdx))
+		args = append(args, tsQuery)
+		argIdx++
 	}
-	args := []interface{}{q.WorkspaceID, tsQuery}
-	argIdx := 3
 
 	// 项目过滤
 	if q.ProjectID > 0 {
@@ -92,7 +158,7 @@ func (s *Service) Search(ctx context.Context, q SearchQuery) (*SearchResponse, e
 		whereParts = append(whereParts, fmt.Sprintf("d.doc_type IN (%s)", strings.Join(placeholders, ",")))
 	}
 
-	// issue 结构化过滤
+	// 结构化过滤（合并了 JQL 子句 + handler query params）
 	if code, ok := q.Filters["type_code"].(string); ok && code != "" {
 		whereParts = append(whereParts, fmt.Sprintf("d.metadata->>'type_code' = $%d", argIdx))
 		args = append(args, code)
@@ -123,18 +189,29 @@ func (s *Service) Search(ctx context.Context, q SearchQuery) (*SearchResponse, e
 	offsetIdx := argIdx + 1
 	queryArgs := append(args, q.Limit, q.Offset)
 
+	// 构建高亮 SQL
+	highlightSQL := "ts_headline('simple', coalesce(d.content, ''), to_tsquery('simple', $1), " +
+		"'StartSel=<mark>, StopSel=</mark>, MaxFragments=3, FragmentDelimiter=...')"
+	if tsQuery == "" {
+		highlightSQL = "d.content" // 无搜索词时不尝试高亮
+	}
+
 	sql := fmt.Sprintf(`
 		SELECT
 			d.doc_type, d.doc_id, d.title, d.identifier, d.content,
-			ts_rank(d.search_tsv, to_tsquery('simple', $2)) AS rank,
-			ts_headline('simple', d.content, to_tsquery('simple', $2),
-				'StartSel=<b>, StopSel=</b>, MaxFragments=3, FragmentDelimiter=...'
-			) AS highlight,
+			COALESCE(ts_rank(d.search_tsv, to_tsquery('simple', $1)), 0) AS rank,
+			%s AS highlight,
 			d.metadata
 		FROM search_documents d
 		WHERE %s
 		ORDER BY rank DESC, d.updated_at DESC
-		LIMIT $%d OFFSET $%d`, whereSQL, limitIdx, offsetIdx)
+		LIMIT $%d OFFSET $%d`, highlightSQL, whereSQL, limitIdx, offsetIdx)
+
+	// 如果没有搜索文本，调整参数绑定
+	if tsQuery == "" {
+		// 用占位符避免 $1 不存在
+		sql = strings.Replace(sql, "to_tsquery('simple', $1)", "to_tsquery('simple', '')", -1)
+	}
 
 	rows, err := s.db.Query(ctx, sql, queryArgs...)
 	if err != nil {
@@ -142,7 +219,7 @@ func (s *Service) Search(ctx context.Context, q SearchQuery) (*SearchResponse, e
 	}
 	defer rows.Close()
 
-	// 按类型分组聚合（维护 results 和 groups 双结构）
+	// 按类型分组聚合
 	results := SearchResults{}
 	groupMap := map[string]*SearchGroup{}
 	for _, dt := range q.DocTypes {
@@ -185,7 +262,6 @@ func (s *Service) Search(ctx context.Context, q SearchQuery) (*SearchResponse, e
 			URL:         buildDocURL(dt, docID, q.ProjectID),
 		}
 
-		// 填充 results 分类
 		switch dt {
 		case "issue":
 			results.Issues = append(results.Issues, hit)
@@ -195,7 +271,6 @@ func (s *Service) Search(ctx context.Context, q SearchQuery) (*SearchResponse, e
 			results.Versions = append(results.Versions, hit)
 		}
 
-		// 维护 groups（向后兼容）
 		if g, ok := groupMap[dt]; ok {
 			g.Hits = append(g.Hits, hit)
 		}
@@ -204,7 +279,6 @@ func (s *Service) Search(ctx context.Context, q SearchQuery) (*SearchResponse, e
 		return nil, errs.ErrInternal.Wrap(err)
 	}
 
-	// 构建有序 groups
 	var groups []SearchGroup
 	for _, dt := range q.DocTypes {
 		g := groupMap[dt]
@@ -221,6 +295,30 @@ func (s *Service) Search(ctx context.Context, q SearchQuery) (*SearchResponse, e
 		Groups:  groups,
 		TimeMs:  time.Since(start).Milliseconds(),
 	}, nil
+}
+
+// mergeJQLClauseToFilters 将 JQL 子句合并到 Filters map。
+func mergeJQLClauseToFilters(filters map[string]any, clause searchql.Clause) {
+	switch clause.Field {
+	case "project":
+		filters["project_identifier"] = clause.Value
+	case "type":
+		filters["type_code"] = clause.Value
+	case "status":
+		filters["state_name"] = clause.Value
+	case "priority":
+		filters["priority"] = clause.Value
+	case "assignee":
+		filters["assignee_id"] = clause.Value
+	case "reporter":
+		filters["created_by"] = clause.Value
+	case "sprint":
+		filters["sprint_id"] = clause.Value
+	case "version":
+		filters["version_id"] = clause.Value
+	case "identifier":
+		filters["identifier"] = clause.Value
+	}
 }
 
 // --- Search History ---

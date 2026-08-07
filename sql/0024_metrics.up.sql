@@ -18,12 +18,10 @@ CREATE TABLE metric_snapshots (
     dimensions      JSONB NOT NULL DEFAULT '{}'::jsonb,
     -- 元数据
     snapshot_date   DATE NOT NULL,           -- 快照日期（UTC）
-    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-    UNIQUE (workspace_id, project_id, granularity, ref_id, metric, snapshot_date)
-        WHERE project_id IS NOT NULL,
-    UNIQUE (workspace_id, granularity, metric, snapshot_date)
-        WHERE project_id IS NULL
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+CREATE UNIQUE INDEX idx_metric_snapshots_project ON metric_snapshots(workspace_id, project_id, granularity, ref_id, metric, snapshot_date) WHERE project_id IS NOT NULL;
+CREATE UNIQUE INDEX idx_metric_snapshots_workspace ON metric_snapshots(workspace_id, granularity, metric, snapshot_date) WHERE project_id IS NULL;
 -- 常用查询模式: WHERE metric=X AND snapshot_date BETWEEN ...
 CREATE INDEX idx_metric_snap_lookup ON metric_snapshots(project_id, metric, snapshot_date);
 CREATE INDEX idx_metric_snap_ws ON metric_snapshots(workspace_id, metric, snapshot_date DESC);

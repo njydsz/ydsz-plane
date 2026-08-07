@@ -45,11 +45,12 @@ func (h *SearchHandler) Register(r *gin.RouterGroup) {
 
 // Search 全局搜索（REST handler）。
 //
-//	@Summary		全文搜索
-//	@Description	跨对象（issues/sprints/versions）全文检索 + 高亮
+//	@Summary		全文搜索（支持类 JQL 语法）
+//	@Description	跨对象（issues/sprints/versions）全文检索 + 高亮 + JQL 结构化过滤
+//	@Description	JQL 示例: project:YD type:defect priority:high assignee:me()
 //	@Tags			search
 //	@Produce		json
-//	@Param			q			query		string	true	"搜索词"
+//	@Param			q			query		string	true	"搜索词（支持类 JQL 语法）"
 //	@Param			doc_type	query		string	false	"过滤类型 (issue|sprint|version)"
 //	@Param			type		query		string	false	"工作项类型 (requirement|task|defect)"
 //	@Param			priority	query		string	false	"优先级"
@@ -128,6 +129,14 @@ func (h *SearchHandler) Search(c *gin.Context) {
 	}()
 
 	c.JSON(http.StatusOK, resp)
+
+	// 响应头标识搜索后端，便于前端适配和运维监控
+	if resp.Backend != "" {
+		c.Header("X-Search-Backend", resp.Backend)
+	}
+	if resp.IsDegraded {
+		c.Header("X-Search-Degraded", "true")
+	}
 }
 
 // --- History ---

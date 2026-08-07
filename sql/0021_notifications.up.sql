@@ -32,21 +32,22 @@ CREATE TABLE IF NOT EXISTS notifications (
 );
 
 -- 索引：收件人未读查询（铃铛主查询）
-CREATE INDEX idx_notifications_recipient_unread
+CREATE INDEX IF NOT EXISTS idx_notifications_recipient_unread
     ON notifications(recipient_id, workspace_id, is_read, created_at DESC)
     WHERE is_archived = false;
 
 -- 索引：按事件类型回溯
-CREATE INDEX idx_notifications_entity
+CREATE INDEX IF NOT EXISTS idx_notifications_entity
     ON notifications(entity_type, entity_id);
 
 -- 索引：清理已归档通知
-CREATE INDEX idx_notifications_archived
+CREATE INDEX IF NOT EXISTS idx_notifications_archived
     ON notifications(created_at)
     WHERE is_archived = true;
 
 -- RLS
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS notifications_isolation ON notifications;
 CREATE POLICY notifications_isolation ON notifications
     USING (workspace_id = current_setting('app.workspace_id')::bigint);
 
@@ -82,6 +83,7 @@ CREATE TABLE IF NOT EXISTS notification_preferences (
 );
 
 ALTER TABLE notification_preferences ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS pref_isolation ON notification_preferences;
 CREATE POLICY pref_isolation ON notification_preferences
     USING (workspace_id = current_setting('app.workspace_id')::bigint);
 

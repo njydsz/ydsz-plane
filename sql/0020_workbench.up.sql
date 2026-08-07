@@ -13,9 +13,9 @@ CREATE TABLE workbench_configs (
     layout          JSONB NOT NULL DEFAULT '{}'::jsonb,  -- 拖拽布局配置
     widget_states   JSONB NOT NULL DEFAULT '{}'::jsonb,  -- 各 widget 展开/折叠状态
     focus_enabled   BOOLEAN NOT NULL DEFAULT FALSE,    -- 当前是否开启 Focus Mode
-    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-    UNIQUE (user_id, COALESCE(project_id, 0))  -- 每用户每项目唯一
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+CREATE UNIQUE INDEX idx_workbench_configs_user_project ON workbench_configs(user_id, COALESCE(project_id, 0));
 CREATE INDEX idx_workbench_configs_user ON workbench_configs(user_id, project_id);
 CREATE INDEX idx_workbench_configs_project ON workbench_configs(project_id) WHERE project_id IS NOT NULL;
 
