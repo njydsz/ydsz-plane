@@ -78,9 +78,7 @@ CREATE TABLE projects (
     created_by      BIGINT NOT NULL REFERENCES users(id),
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-    deleted_at      TIMESTAMPTZ,
-    UNIQUE (workspace_id, slug) WHERE deleted_at IS NULL,
-    UNIQUE (workspace_id, identifier) WHERE deleted_at IS NULL
+    deleted_at      TIMESTAMPTZ
 );
 
 ALTER TABLE projects ENABLE ROW LEVEL SECURITY;
@@ -90,6 +88,8 @@ CREATE POLICY tenant_isolation ON projects
     WITH CHECK (workspace_id = current_setting('app.workspace_id', true)::bigint);
 
 CREATE INDEX idx_projects_workspace ON projects(workspace_id) WHERE deleted_at IS NULL;
+CREATE UNIQUE INDEX idx_projects_workspace_slug ON projects(workspace_id, slug) WHERE deleted_at IS NULL;
+CREATE UNIQUE INDEX idx_projects_workspace_identifier ON projects(workspace_id, identifier) WHERE deleted_at IS NULL;
 
 -- ---------------------------------------------------------------
 -- updated_at 触发器
