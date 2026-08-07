@@ -310,14 +310,25 @@ const router = createRouter({
 /** 全局前置守卫：恢复会话、强制登录、登录态下禁止访问认证页 */
 router.beforeEach(async (to) => {
   const auth = useAuthStore();
-  if (!auth.loaded) {
+
+  // 仅在需要认证时才恢复会话：避免公开路由（如 /login）上
+  // 因 fetchMe 失败触发拦截器 redirect 导致循环刷新
+  const authPages = ["login", "register", "forgot-password", "reset-password"];
+  const isAuthPage = authPages.includes(String(to.name));
+
+  if (!auth.loaded && !isAuthPage && !to.meta.public) {
     await auth.fetchMe();
   }
+
+  // 确保状态已标记（跳过 fetchMe 时仍需标记 loaded）
+  if (!auth.loaded) {
+    auth.loaded = true;
+  }
+
   if (!to.meta.public && !auth.isAuthenticated) {
     return { name: "login", query: { redirect: to.fullPath } };
   }
-  const authPages = ["login", "register", "forgot-password", "reset-password"];
-  if (authPages.includes(String(to.name)) && auth.isAuthenticated) {
+  if (isAuthPage && auth.isAuthenticated) {
     return { name: "home" };
   }
   return true;

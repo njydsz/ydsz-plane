@@ -2280,9 +2280,17 @@ CREATE FUNCTION "public"."fips_mode"()
 DROP FUNCTION IF EXISTS "public"."fn_cleanup_search_document"();
 CREATE FUNCTION "public"."fn_cleanup_search_document"()
   RETURNS "pg_catalog"."trigger" AS $BODY$
+DECLARE
+    v_doc_type TEXT;
 BEGIN
+    CASE TG_TABLE_NAME
+        WHEN 'issues'   THEN v_doc_type := 'issue';
+        WHEN 'sprints'  THEN v_doc_type := 'sprint';
+        WHEN 'versions' THEN v_doc_type := 'version';
+        ELSE RETURN OLD;
+    END CASE;
     DELETE FROM search_documents
-    WHERE doc_type = 'issue' AND doc_id = OLD.id AND workspace_id = OLD.workspace_id;
+    WHERE doc_type = v_doc_type AND doc_id = OLD.id AND workspace_id = OLD.workspace_id;
     RETURN OLD;
 END;
 $BODY$
@@ -2299,10 +2307,12 @@ DECLARE
     v_title TEXT;
     v_content TEXT;
     v_metadata JSONB;
+    v_doc_type TEXT;
 BEGIN
-    -- 按表名分支
+    -- 按表名分发
     CASE TG_TABLE_NAME
         WHEN 'issues' THEN
+            v_doc_type := 'issue';
             v_title := COALESCE(NEW.name, '');
             v_content := COALESCE(NEW.description_stripped, '');
             v_metadata := jsonb_build_object(
@@ -2310,27 +2320,41 @@ BEGIN
                 'state_id', NEW.state_id,
                 'priority', NEW.priority
             );
-            INSERT INTO search_documents (workspace_id, project_id, doc_type, doc_id, title, identifier, content, search_tsv, metadata)
-            VALUES (
-                NEW.workspace_id, NEW.project_id, 'issue', NEW.id,
-                v_title, NEW.sequence_id::text, v_content,
-                to_tsvector('simple',
-                    coalesce(v_title, '') || ' ' ||
-                    coalesce(v_content, '')
-                ),
-                v_metadata
-            )
-            ON CONFLICT (workspace_id, doc_type, doc_id) DO UPDATE SET
-                title = EXCLUDED.title,
-                identifier = EXCLUDED.identifier,
-                content = EXCLUDED.content,
-                search_tsv = EXCLUDED.search_tsv,
-                metadata = EXCLUDED.metadata,
-                updated_at = now();
+        WHEN 'sprints' THEN
+            v_doc_type := 'sprint';
+            v_title := COALESCE(NEW.name, '');
+            v_content := COALESCE(NEW.goal, '');
+            v_metadata := jsonb_build_object('status', NEW.status);
+        WHEN 'versions' THEN
+            v_doc_type := 'version';
+            v_title := COALESCE(NEW.name, '');
+            v_content := COALESCE(NEW.description, '');
+            v_metadata := jsonb_build_object('status', NEW.status);
         ELSE
-            -- 其他类型延后处理
             RETURN NEW;
     END CASE;
+
+    INSERT INTO search_documents (workspace_id, project_id, doc_type, doc_id, title, identifier, content, search_tsv, metadata)
+    VALUES (
+        NEW.workspace_id, NEW.project_id, v_doc_type, NEW.id,
+        v_title,
+        CASE WHEN TG_TABLE_NAME = 'issues' THEN NEW.sequence_id::text
+             WHEN TG_TABLE_NAME = 'versions' THEN NEW.semver
+             ELSE NULL END,
+        v_content,
+        to_tsvector('simple',
+            coalesce(v_title, '') || ' ' ||
+            coalesce(v_content, '')
+        ),
+        v_metadata
+    )
+    ON CONFLICT (workspace_id, doc_type, doc_id) DO UPDATE SET
+        title = EXCLUDED.title,
+        identifier = EXCLUDED.identifier,
+        content = EXCLUDED.content,
+        search_tsv = EXCLUDED.search_tsv,
+        metadata = EXCLUDED.metadata,
+        updated_at = now();
     RETURN NEW;
 END;
 $BODY$
@@ -4159,6 +4183,14 @@ CREATE INDEX "idx_sprints_version" ON "public"."sprints" USING btree (
 CREATE TRIGGER "trg_sprints_updated_at" BEFORE UPDATE ON "public"."sprints"
 FOR EACH ROW
 EXECUTE PROCEDURE "public"."set_updated_at"();
+CREATE TRIGGER "trg_sprint_search_sync" AFTER INSERT OR UPDATE OF "name", "goal" ON "public"."sprints"
+FOR EACH ROW
+WHEN ((new.deleted_at IS NULL))
+EXECUTE PROCEDURE "public"."fn_refresh_search_document"();
+CREATE TRIGGER "trg_sprint_search_cleanup" AFTER UPDATE OF "deleted_at" ON "public"."sprints"
+FOR EACH ROW
+WHEN ((new.deleted_at IS NOT NULL))
+EXECUTE PROCEDURE "public"."fn_cleanup_search_document"();
 
 -- ----------------------------
 -- Checks structure for table sprints
@@ -4332,6 +4364,14 @@ EXECUTE PROCEDURE "public"."bump_version"();
 CREATE TRIGGER "trg_versions_updated_at" BEFORE UPDATE ON "public"."versions"
 FOR EACH ROW
 EXECUTE PROCEDURE "public"."set_updated_at"();
+CREATE TRIGGER "trg_version_search_sync" AFTER INSERT OR UPDATE OF "name", "description" ON "public"."versions"
+FOR EACH ROW
+WHEN ((new.deleted_at IS NULL))
+EXECUTE PROCEDURE "public"."fn_refresh_search_document"();
+CREATE TRIGGER "trg_version_search_cleanup" AFTER UPDATE OF "deleted_at" ON "public"."versions"
+FOR EACH ROW
+WHEN ((new.deleted_at IS NOT NULL))
+EXECUTE PROCEDURE "public"."fn_cleanup_search_document"();
 
 -- ----------------------------
 -- Checks structure for table versions
