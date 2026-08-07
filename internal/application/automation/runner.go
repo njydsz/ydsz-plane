@@ -76,7 +76,10 @@ func RunConsumer(ctx context.Context, mqClient *mq.Client, db *pgxpool.Pool, log
 func newEngine(db *pgxpool.Pool, log *zap.Logger) *Engine {
 	svc := NewService(db)
 	prov := NewDefaultContextProvider(db)
-	return NewEngine(svc, nil, prov, log)
+	exec := newActionExecutor(db)
+	eng := NewEngine(svc, exec, prov, log)
+	eng.db = db
+	return eng
 }
 
 // runConsumeLoop 单次消费循环：声明队列 → 消费。

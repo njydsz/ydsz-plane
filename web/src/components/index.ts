@@ -23,7 +23,7 @@ export { default as AttachmentUploader } from "./AttachmentUploader.vue";
 export { default as CommentForm } from "./CommentForm.vue";
 export { default as CommentItem } from "./CommentItem.vue";
 export { default as CommentList } from "./CommentList.vue";
-export { default as GlobalSearch } from "./GlobalSearch.vue";
+export { default as CommandPalette } from "./CommandPalette.vue";
 export { default as MiniGantt } from "./MiniGantt.vue";
 export { default as NotificationBell } from "./NotificationBell.vue";
 export { default as ProgressBar } from "./ProgressBar.vue";

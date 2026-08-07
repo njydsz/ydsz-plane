@@ -70,6 +70,9 @@ type Engine struct {
 	execDeps  ActionExecutor
 	ctxProv   ExecutionContextProvider
 	log       *zap.Logger
+	// db 供引擎内部 DB 查询使用（assignees / tech_lead / least_loaded）。
+	// 由 newEngine 注入；NewEngine 构造时可为 nil（不执行需 DB 的动作）。
+	db *pgxpool.Pool
 }
 
 // NewEngine 创建执行引擎。
@@ -250,7 +253,7 @@ func (e *Engine) executeAction(ctx context.Context, act Action, execCtx *Executi
 		return e.execDeps.TransitionIssueStatus(ctx, wsID, projectID, issueID, targetState)
 
 	case ActionAssign:
-		userID, err := resolveAssignTarget(act, execCtx)
+		userID, err := e.resolveAssignTarget(ctx, act, execCtx)
 		if err != nil {
 			return fmt.Errorf("assign: %w", err)
 		}
@@ -258,6 +261,11 @@ func (e *Engine) executeAction(ctx context.Context, act Action, execCtx *Executi
 
 	case ActionUpdateField:
 		return e.execDeps.UpdateIssueField(ctx, wsID, projectID, issueID, act.Field, act.Value)
+
+	case ActionCopyField:
+		// 把 act.Field 对应的目标字段设为 act.Value（先 resolveTemplate 再转换）。
+		resolved := resolveTemplate(toString(act.Value), execCtx)
+		return e.execDeps.UpdateIssueField(ctx, wsID, projectID, issueID, act.Field, resolved)
 
 	case ActionNotify:
 		return e.executeNotifyAction(ctx, act, execCtx)
@@ -596,16 +604,22 @@ func toFloat64(v any) (float64, bool) {
 // --- Template Variable Resolution ---
 
 // resolveTemplate: 替换模板中的 ${变量}。
+// 未解析的变量原样保留（不 panic）。
 func resolveTemplate(tpl string, ctx *ExecutionContext) string {
-	if ctx == nil {
+	if ctx == nil || ctx.Issue == nil {
 		return tpl
 	}
 	result := tpl
 	result = strings.ReplaceAll(result, "${issue.identifier}", ctx.Issue.Identifier)
 	result = strings.ReplaceAll(result, "${issue.name}", ctx.Issue.Name)
+	result = strings.ReplaceAll(result, "${issue.assignees}", "")
+	result = strings.ReplaceAll(result, "${project.tech_lead}", "")
+	result = strings.ReplaceAll(result, "${project.id}", fmt.Sprintf("%d", ctx.ProjectID))
 	result = strings.ReplaceAll(result, "${actor.name}", ctx.Actor.UserName)
-	if ctx.Issue != nil {
-		result = strings.ReplaceAll(result, "${project.id}", fmt.Sprintf("%d", ctx.ProjectID))
+	if ctx.Issue.EstimatePoints != nil {
+		result = strings.ReplaceAll(result, "${parent.estimate_points}", fmt.Sprintf("%d", *ctx.Issue.EstimatePoints))
+	} else {
+		result = strings.ReplaceAll(result, "${parent.estimate_points}", "0")
 	}
 	if ctx.Sprint != nil {
 		result = strings.ReplaceAll(result, "${sprint.name}", ctx.Sprint.Name)
@@ -619,17 +633,52 @@ func resolveTemplate(tpl string, ctx *ExecutionContext) string {
 }
 
 // resolveAssignTarget: 解析 assign 动作的目标用户。
-func resolveAssignTarget(act Action, ctx *ExecutionContext) (int64, error) {
+func (e *Engine) resolveAssignTarget(ctx context.Context, act Action, ctxExec *ExecutionContext) (int64, error) {
 	if act.Value != nil {
 		if uid, ok := toFloat64(act.Value); ok {
 			return int64(uid), nil
 		}
 	}
-	// config.strategy=least_loaded 需要查询最闲人
+	// config.strategy=least_loaded 查询最闲的成员
 	if strategy, _ := act.Config["strategy"].(string); strategy == "least_loaded" {
-		return 0, fmt.Errorf("least_loaded strategy requires DB query (not supported in dry-run)")
+		if e.db == nil {
+			return 0, fmt.Errorf("least_loaded strategy requires DB query (db not configured)")
+		}
+		role, _ := act.Config["role"].(string)
+		if role == "" {
+			role = "member"
+		}
+		userID, err := e.resolveLeastLoaded(ctx, ctxExec.WorkspaceID, ctxExec.ProjectID, role)
+		if err != nil {
+			return 0, fmt.Errorf("least_loaded: %w", err)
+		}
+		return userID, nil
 	}
 	return 0, fmt.Errorf("assign: unable to resolve target user")
+}
+
+// resolveLeastLoaded 查询项目下 open issue 数量最少的 role 成员。
+// 负载 = 该成员当前负责的未完成（state.group != completed）工作项数量。
+func (e *Engine) resolveLeastLoaded(ctx context.Context, wsID, projectID int64, role string) (int64, error) {
+	var userID int64
+	err := e.db.QueryRow(ctx, `
+		SELECT wm.user_id
+		FROM workspace_members wm
+		JOIN projects p ON p.id = $1 AND p.workspace_id = wm.workspace_id
+		WHERE wm.workspace_id = $2 AND wm.role = $3
+		ORDER BY (
+			SELECT count(*)
+			FROM issue_assignees ia
+			JOIN issues i ON i.id = ia.issue_id
+			JOIN states st ON st.id = i.state_id
+			WHERE ia.user_id = wm.user_id AND i.project_id = $1 AND i.deleted_at IS NULL
+			  AND st."group" != 'completed'
+		) ASC, wm.user_id ASC
+		LIMIT 1`, projectID, wsID, role).Scan(&userID)
+	if err != nil {
+		return 0, err
+	}
+	return userID, nil
 }
 
 func buildCreateIssueRequest(act Action, ctx *ExecutionContext) (CreateIssueRequest, error) {
@@ -663,13 +712,38 @@ func (e *Engine) extractProjectID(event mq.EventEnvelope) *int64 {
 	return nil
 }
 
-func (e *Engine) getIssueAssigneeIDs(_ context.Context, _ int64) []int64 {
-	// MVP: 暂返回空（实际需查 issue_assignees 表）
-	return nil
+func (e *Engine) getIssueAssigneeIDs(ctx context.Context, issueID int64) []int64 {
+	if e.db == nil {
+		return nil
+	}
+	rows, err := e.db.Query(ctx, `SELECT user_id FROM issue_assignees WHERE issue_id = $1`, issueID)
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+	var ids []int64
+	for rows.Next() {
+		var uid int64
+		if err := rows.Scan(&uid); err == nil {
+			ids = append(ids, uid)
+		}
+	}
+	return ids
 }
 
-func (e *Engine) getProjectTechLead(_ context.Context, _ int64) (int64, error) {
-	return 0, fmt.Errorf("getProjectTechLead: requires DB query integration")
+// getProjectTechLead 返回项目技术负责人 ID。
+// 注：projects 表无 tech_lead 列（SQL 0003 已确认），故以项目创建者 created_by 作为负责人代理。
+func (e *Engine) getProjectTechLead(ctx context.Context, projectID int64) (int64, error) {
+	if e.db == nil {
+		return 0, fmt.Errorf("getProjectTechLead: db not configured")
+	}
+	var leadID int64
+	err := e.db.QueryRow(ctx,
+		`SELECT created_by FROM projects WHERE id = $1 AND deleted_at IS NULL`, projectID).Scan(&leadID)
+	if err != nil {
+		return 0, fmt.Errorf("getProjectTechLead: %w", err)
+	}
+	return leadID, nil
 }
 
 // --- Context Provider Implementation (占位，实际需查 DB) ---
