@@ -15,8 +15,8 @@
 -- -----------------------------------------------------------------
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_issues_list_covering
     ON issues (project_id, updated_at DESC)
-    INCLUDE (id, public_id, sequence_id, type_code, name, state_id,
-             priority, point, target_date, progress, created_by, identifier)
+    INCLUDE (public_id, sequence_id, type_code, name, state_id,
+             priority, point, target_date, progress, created_by)
     WHERE deleted_at IS NULL;
 
 -- -----------------------------------------------------------------
