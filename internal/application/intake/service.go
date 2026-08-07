@@ -13,17 +13,22 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/njydsz/ydsz-plane/internal/application/issue"
 	"github.com/njydsz/ydsz-plane/pkg/errs"
 )
 
 // Service 提供 Intake 通道管理与收件工单生命周期。
 type Service struct {
-	db *pgxpool.Pool
+	db       *pgxpool.Pool
+	issueSvc *issue.Service
 }
 
 // NewService 创建 Intake 服务。
-func NewService(db *pgxpool.Pool) *Service {
-	return &Service{db: db}
+//
+// issueSvc 用于转正流程：accept 时在目标项目创建正式工作项。
+// 传 nil 时仍可正常提供通道管理与提交功能，但 ConvertToIssue 会返回错误。
+func NewService(db *pgxpool.Pool, issueSvc *issue.Service) *Service {
+	return &Service{db: db, issueSvc: issueSvc}
 }
 
 // --- Channel CRUD ---
@@ -305,6 +310,7 @@ type SubmitInput struct {
 
 // SubmitIssue 创建收件工单。
 // 由公开表单调用（免登录）。tracking_id 自动生成。
+// 提交成功后按通道的 auto_assign_rules 自动指派（关键词匹配）。
 func (s *Service) SubmitIssue(ctx context.Context, input SubmitInput) (*Issue, error) {
 	if input.Title == "" || input.SubmitterName == "" || input.SubmitterEmail == "" {
 		return nil, errs.Validation("INTAKE.FIELD_REQUIRED", "标题、姓名、邮箱必填")
@@ -318,13 +324,19 @@ func (s *Service) SubmitIssue(ctx context.Context, input SubmitInput) (*Issue, e
 		input.IssueType = IssueTypeRequirement
 	}
 
+	// 自动分配规则匹配（关键词 / 工作项类型）
+	var assignTo *int64
+	if a, err := s.MatchAndAssign(ctx, input.ChannelID, input.Title, input.IssueType); err == nil && a != nil {
+		assignTo = a
+	}
+
 	var is Issue
 	err := s.db.QueryRow(ctx, `
 		INSERT INTO intake_issues
 			(channel_id, workspace_id, tracking_id, submitter_name, submitter_email, submitter_user_id,
 			 title, description, issue_type, priority, custom_fields, attachment_ids,
-			 status, notify_on_status, created_at, updated_at)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'open',true,NOW(),NOW())
+			 assigned_to, status, notify_on_status, created_at, updated_at)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'open',true,NOW(),NOW())
 		RETURNING id, channel_id, workspace_id, project_id, tracking_id,
 			submitter_name, submitter_email, submitter_user_id,
 			title, description, issue_type, priority, custom_fields, attachment_ids,
@@ -333,7 +345,7 @@ func (s *Service) SubmitIssue(ctx context.Context, input SubmitInput) (*Issue, e
 		input.ChannelID, input.WorkspaceID, trackingID,
 		input.SubmitterName, input.SubmitterEmail, input.SubmitterUserID,
 		input.Title, input.Description, input.IssueType, input.Priority,
-		input.CustomFields, input.AttachmentIDs,
+		input.CustomFields, input.AttachmentIDs, assignTo,
 	).Scan(
 		&is.ID, &is.ChannelID, &is.WorkspaceID, &is.ProjectID, &is.TrackingID,
 		&is.SubmitterName, &is.SubmitterEmail, &is.SubmitterUserID,
@@ -346,6 +358,33 @@ func (s *Service) SubmitIssue(ctx context.Context, input SubmitInput) (*Issue, e
 		return nil, fmt.Errorf("intake.SubmitIssue: %w", err)
 	}
 	return &is, nil
+}
+
+// MatchAndAssign 公开入口：按通道自动分配规则顺序匹配，命中即返指派用户 ID。
+func (s *Service) MatchAndAssign(ctx context.Context, channelID int64, title, issueType string) (*int64, error) {
+	var rulesJSON json.RawMessage
+	err := s.db.QueryRow(ctx, `SELECT auto_assign_rules FROM intake_channels WHERE id = $1`, channelID).Scan(&rulesJSON)
+	if err != nil || len(rulesJSON) == 0 {
+		return nil, nil
+	}
+	var rules []AutoAssignRule
+	if err := json.Unmarshal(rulesJSON, &rules); err != nil {
+		return nil, err
+	}
+	titleLower := strings.ToLower(title)
+	for _, r := range rules {
+		if r.AssignTo == 0 {
+			continue
+		}
+		if r.Match.IssueType != "" && r.Match.IssueType != issueType {
+			continue
+		}
+		if r.Match.Keyword != "" && !strings.Contains(titleLower, strings.ToLower(r.Match.Keyword)) {
+			continue
+		}
+		return &r.AssignTo, nil
+	}
+	return nil, nil
 }
 
 // 查询收件工单列表（管理员视图）。
@@ -478,7 +517,7 @@ type ReviewDecision struct {
 }
 
 // ReviewIssue 管理员审核收件工单（accept/reject/archive）。
-// accept 时会在 ProjectService 创建正式 Issue（由调用方编排）。
+// accept 时如果提供了 TargetProjectID+TargetIssueType，自动转正为正式工作项。
 func (s *Service) ReviewIssue(ctx context.Context, workspaceID, issueID int64, decision ReviewDecision) (*Issue, error) {
 	iss, err := s.GetIssue(ctx, workspaceID, issueID)
 	if err != nil {
@@ -500,6 +539,7 @@ func (s *Service) ReviewIssue(ctx context.Context, workspaceID, issueID int64, d
 		return nil, errs.Validation("INTAKE.BAD_ACTION", "无效操作")
 	}
 
+	// 先更新状态（状态机守门）
 	_, err = s.db.Exec(ctx, `
 		UPDATE intake_issues
 		SET status = $1, status_reason = $2, reviewed_by = $3, reviewed_at = NOW(), updated_at = NOW()
@@ -508,7 +548,88 @@ func (s *Service) ReviewIssue(ctx context.Context, workspaceID, issueID int64, d
 	if err != nil {
 		return nil, fmt.Errorf("intake.ReviewIssue: %w", err)
 	}
+
+	// accept + 指定目标项目 → 转正流程：创建正式 Issue 并双向关联
+	// 状态已变，后续即使转正失败也不会重试（管理员可通过 POST /:id/convert 手动补转）
+	if decision.Action == "accept" && decision.TargetProjectID != nil && decision.TargetIssueType != "" {
+		if _, err := s.convertToIssue(ctx, workspaceID, iss, decision.TargetProjectID, decision.TargetIssueType, decision.ReviewerID); err != nil {
+			return nil, fmt.Errorf("intake.convert: %w", err)
+		}
+	}
+
 	return s.GetIssue(ctx, workspaceID, issueID)
+}
+
+// ConvertToIssue 将已审核的收件工单转正为需求/缺陷。
+// 独立入口，便于前端先审核再转正的分步流程。
+func (s *Service) ConvertToIssue(ctx context.Context, workspaceID, issueID int64, targetProjectID *int64, targetType string, operatorID int64) (*issue.Issue, error) {
+	if targetProjectID == nil || targetType == "" {
+		return nil, errs.Validation("INTAKE.CONVERT_TARGET_REQUIRED", "转正需要指定目标项目与工作项类型")
+	}
+	iss, err := s.GetIssue(ctx, workspaceID, issueID)
+	if err != nil {
+		return nil, err
+	}
+	if iss.Status == string(IntakeStatusArchived) || iss.Status == string(IntakeStatusRejected) {
+		return nil, errs.Validation("INTAKE.BAD_STATUS", "当前状态不允许转正")
+	}
+	// 若已转正，幂等返回原 Issue
+	if iss.ConvertedIssueID != nil {
+		return s.issueSvc.GetByID(ctx, workspaceID, *iss.ConvertedIssueID)
+	}
+	return s.convertToIssue(ctx, workspaceID, iss, targetProjectID, targetType, operatorID)
+}
+
+// convertToIssue 内部实现：在同一事务内创建正式 Issue 并回写关联。
+func (s *Service) convertToIssue(ctx context.Context, workspaceID int64, iss *Issue, targetProjectID *int64, targetType string, operatorID int64) (*issue.Issue, error) {
+	if s.issueSvc == nil {
+		return nil, errs.Validation("INTAKE.CONVERT_UNAVAILABLE", "服务未配置 Issue 依赖，无法转正")
+	}
+	priority := mapPriorityToIssue(iss.Priority)
+	createIn := issue.CreateIssueInput{
+		WorkspaceID:    workspaceID,
+		ProjectID:      *targetProjectID,
+		TypeCode:       issue.IssueTypeCode(targetType),
+		Name:           iss.Title,
+		DescriptionHTML: iss.Description,
+		Priority:       priority,
+		Source:         strPtr("intake"),
+		CreatedBy:      operatorID,
+	}
+	created, err := s.issueSvc.Create(ctx, createIn)
+	if err != nil {
+		return nil, fmt.Errorf("intake.convert.createIssue: %w", err)
+	}
+	// 双向关联：intake_issues.converted_issue_id → issues.id
+	if err := s.LinkConvertedIssue(ctx, workspaceID, iss.ID, created.ID, targetProjectID); err != nil {
+		return nil, fmt.Errorf("intake.convert.link: %w", err)
+	}
+	// 若 intake 有自动或手动指派，同步到新 Issue
+	if iss.AssignedTo != nil {
+		_, _ = s.issueSvc.Update(ctx, workspaceID, created.ID, issue.UpdateIssueInput{Assignees: []int64{*iss.AssignedTo}})
+	}
+	return created, nil
+}
+
+// mapPriorityToIssue 将 intake 优先级数字映射到 Issue 枚举。
+func mapPriorityToIssue(p int16) issue.IssuePriority {
+	switch {
+	case p >= 5:
+		return issue.PriorityUrgent
+	case p >= 4:
+		return issue.PriorityHigh
+	case p >= 3:
+		return issue.PriorityMedium
+	case p >= 1:
+		return issue.PriorityLow
+	default:
+		return issue.PriorityMedium
+	}
+}
+
+// strPtr 返回字符串指针（辅助函数）。
+func strPtr(s string) *string {
+	return &s
 }
 
 // LinkConvertedIssue 在 intake 工单上记录转正的 Issue ID。

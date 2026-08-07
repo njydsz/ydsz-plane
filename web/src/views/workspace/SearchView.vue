@@ -49,17 +49,6 @@ const history = ref<SearchHistoryItem[]>([]);
 const bookmarks = ref<SearchBookmark[]>([]);
 
 // ---- Computed ----
-const allHits = computed((): SearchResultItem[] => {
-  if (!results.value) return [];
-  const r = value.results;
-  return [...r.issues, ...r.sprints, ...r.versions];
-});
-
-const filteredHits = computed((): SearchResultItem[] => {
-  if (activeTab.value === "all") return allHits.value;
-  return allHits.value.filter((h) => h.type === activeTab.value);
-});
-
 const hasResults = computed(() => (results.value?.total ?? 0) > 0);
 
 // ---- Actions ----

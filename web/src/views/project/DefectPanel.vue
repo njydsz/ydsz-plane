@@ -6,6 +6,7 @@
 import { onMounted, ref, computed } from "vue";
 
 import { versionApi, type BugVersionView } from "@/api/services/version";
+import { analyticsApi } from "@/api/services/analytics";
 import { AppBadge, AppLoadingState, AppErrorState, AppEmptyState } from "@/components";
 
 const props = defineProps<{
@@ -70,6 +71,18 @@ async function resolveWsId(): Promise<number> {
   return wsIdVal;
 }
 
+/* 导出（CSV / xlsx）— 按当前版本过滤 */
+const showExportDropdown = ref(false);
+
+function openExport(format: string) {
+  if (!wsIdVal) return;
+  window.open(
+    analyticsApi.exportUrl(wsIdVal, props.projectId, format, { version_id: props.versionId }),
+    "_blank",
+  );
+  showExportDropdown.value = false;
+}
+
 async function load() {
   loading.value = true;
   error.value = "";
@@ -106,6 +119,32 @@ onMounted(load);
         >
           {{ severityLabel[Number(sev)] ?? sev }}: {{ count }}
         </span>
+        <div class="defect-panel__export">
+          <div class="defect-panel__export-wrap" @mouseleave="showExportDropdown = false">
+            <button
+              class="defect-panel__export-btn"
+              @mouseenter="showExportDropdown = true"
+            >
+              导出
+            </button>
+            <div v-if="showExportDropdown" class="defect-panel__export-menu">
+              <a
+                class="defect-panel__export-item"
+                href="#"
+                @click.prevent="openExport('csv')"
+              >
+                导出 CSV
+              </a>
+              <a
+                class="defect-panel__export-item"
+                href="#"
+                @click.prevent="openExport('xlsx')"
+              >
+                导出 Excel (.xlsx)
+              </a>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- Table -->
@@ -212,6 +251,52 @@ onMounted(load);
   font-size: 11px;
   color: var(--text-tertiary);
   font-family: var(--font-mono);
+}
+.defect-panel__export {
+  margin-left: auto;
+}
+.defect-panel__export-wrap {
+  position: relative;
+}
+.defect-panel__export-btn {
+  padding: 4px 12px;
+  font-size: 12px;
+  font-family: inherit;
+  border: 1px solid var(--brand-500);
+  border-radius: var(--radius-sm);
+  background: var(--brand-500);
+  color: var(--text-on-brand, #fff);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.defect-panel__export-btn:hover {
+  background: var(--brand-600);
+}
+.defect-panel__export-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  min-width: 150px;
+  background: var(--surface-1);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-popover);
+  z-index: 50;
+  overflow: hidden;
+}
+.defect-panel__export-item {
+  display: block;
+  padding: 8px 14px;
+  font-size: 13px;
+  color: var(--text-primary);
+  text-decoration: none;
+  transition: background 0.1s;
+}
+.defect-panel__export-item:hover {
+  background: var(--surface-2);
+}
+.defect-panel__export-item + .defect-panel__export-item {
+  border-top: 1px solid var(--border-subtle);
 }
 
 .defect-panel__empty {

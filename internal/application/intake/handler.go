@@ -56,6 +56,7 @@ func (h *Handler) Register(r *gin.RouterGroup) {
 		issues.GET("", h.ListIssues)
 		issues.GET("/:issue_id", h.GetIssue)
 		issues.POST("/:issue_id/review", h.ReviewIssue)
+		issues.POST("/:issue_id/convert", h.ConvertToIssue)
 	}
 }
 
@@ -253,6 +254,32 @@ func (h *Handler) ReviewIssue(c *gin.Context) {
 	c.JSON(http.StatusOK, is)
 }
 
+// ConvertToIssue 将已审核（或待审核）的收件工单转正为需求/缺陷。
+// 支持先审核再转正的分步流程；也支持幂等（已转正时返回已有 Issue）。
+func (h *Handler) ConvertToIssue(c *gin.Context) {
+	wsID := c.GetInt64("workspace_id")
+	issueID := c.GetInt64("issue_id")
+	userID := c.GetInt64("user_id")
+
+	var req convertRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		respondError(c, errs.Validation("INTAKE.INVALID_REQUEST", "无效请求"))
+		return
+	}
+
+	created, err := h.svc.ConvertToIssue(c.Request.Context(), wsID, issueID, req.TargetProjectID, req.TargetIssueType, userID)
+	if err != nil {
+		respondError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"converted_issue_id": created.ID,
+		"identifier":        created.Identifier,
+		"type":              created.TypeCode,
+		"project_id":        created.ProjectID,
+	})
+}
+
 // --- 公开路由处理器（免登录） ---
 
 // PublicHandler 公开提交与跟踪处理器。
@@ -382,6 +409,12 @@ func (h *PublicHandler) TrackIssue(c *gin.Context) {
 }
 
 // --- 请求 DTO ---
+
+// convertRequest 转正请求 DTO。
+type convertRequest struct {
+	TargetProjectID *int64 `json:"target_project_id" binding:"required"`
+	TargetIssueType string `json:"target_issue_type" binding:"required"`
+}
 
 type createChannelRequest struct {
 	Slug             string          `json:"slug" binding:"required"`

@@ -4,11 +4,13 @@
 package issue
 
 import (
+	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/njydsz/ydsz-plane/internal/interfaces/http/export"
 	"github.com/njydsz/ydsz-plane/internal/interfaces/middleware"
 	"github.com/njydsz/ydsz-plane/pkg/errs"
 )
@@ -28,6 +30,7 @@ func (h *DefectAnalyticsHandler) Register(r *gin.RouterGroup) {
 	analytics := r.Group("/analytics")
 	{
 		analytics.GET("/defects", h.getDefectAnalytics)
+		analytics.GET("/defects/export", h.exportDefectAnalytics)
 	}
 }
 
@@ -62,6 +65,11 @@ func analyticsQuery(c *gin.Context) AnalyticsQuery {
 			q.ModuleID = &v
 		}
 	}
+	if vid := c.Query("version_id"); vid != "" {
+		if v, err := atoi64(vid); err == nil {
+			q.VersionID = &v
+		}
+	}
 	return q
 }
 
@@ -91,6 +99,75 @@ func (h *DefectAnalyticsHandler) getDefectAnalytics(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, data)
+}
+
+// exportDefectAnalytics 导出缺陷明细为 CSV 或 xlsx 文件。
+//
+//	@Summary		导出缺陷明细
+//	@Description	按与聚合分析相同的过滤条件导出缺陷明细列表（CSV / xlsx）
+//	@Tags			analytics
+//	@Accept			json
+//	@Produce		application/octet-stream
+//	@Param			workspace_id	path		int		true	"工作空间 ID"
+//	@Param			project_id		path		int		true	"项目 ID"
+//	@Param			format			query		string	false	"导出格式：csv（默认）| xlsx"
+//	@Param			date_from		query		string	false	"起始日期（YYYY-MM-DD）"
+//	@Param			date_to			query		string	false	"结束日期（YYYY-MM-DD）"
+//	@Param			severity_from	query		int		false	"最低严重程度（1-5）"
+//	@Param			severity_to		query		int		false	"最高严重程度（1-5）"
+//	@Param			module_id		query		int		false	"按模块过滤"
+//	@Param			version_id		query		int		false	"按版本过滤（发现或修复版本）"
+//	@Failure		400				{object}	errs.AppError
+//	@Failure		401				{object}	errs.AppError
+//	@Router			/analytics/defects/export [get]
+func (h *DefectAnalyticsHandler) exportDefectAnalytics(c *gin.Context) {
+	q := analyticsQuery(c)
+	rows, err := h.svc.ExportDefects(c.Request.Context(), q, 5000)
+	if err != nil {
+		writeErr(c, err)
+		return
+	}
+
+	headers := []string{"编号", "名称", "严重程度", "状态", "发现阶段", "根因分类", "模块", "创建时间", "完成时间", "缺陷龄(天)"}
+	data := make([][]string, 0, len(rows))
+	for _, r := range rows {
+		severity := ""
+		if r.Severity != nil {
+			severity = fmt.Sprintf("%s(S%d)", severityLabels[*r.Severity], *r.Severity)
+		}
+		foundPhase := ""
+		if r.FoundPhase != nil {
+			foundPhase = *r.FoundPhase
+		}
+		rootCause := ""
+		if r.RootCause != nil {
+			rootCause = *r.RootCause
+		}
+		completedAt := ""
+		if r.CompletedAt != nil {
+			completedAt = r.CompletedAt.Format("2006-01-02 15:04")
+		}
+		data = append(data, []string{
+			r.Identifier,
+			r.Name,
+			severity,
+			r.StateName,
+			foundPhase,
+			rootCause,
+			r.ModuleNames,
+			r.CreatedAt.Format("2006-01-02 15:04"),
+			completedAt,
+			fmt.Sprintf("%.1f", r.AgeDays),
+		})
+	}
+
+	date := time.Now().Format("20060102")
+	switch c.Query("format") {
+	case "xlsx":
+		export.WriteXLSX(c, "缺陷明细", "defects-export-"+date+".xlsx", headers, data)
+	default:
+		export.WriteCSV(c, "defects-export-"+date+".csv", headers, data)
+	}
 }
 
 // atoi 简易字符串 → int。

@@ -17,6 +17,8 @@ import (
 
 	"go.uber.org/zap"
 
+	"github.com/njydsz/ydsz-plane/internal/application/automation"
+	"github.com/njydsz/ydsz-plane/internal/application/metrics"
 	notifApp "github.com/njydsz/ydsz-plane/internal/application/notification"
 	"github.com/njydsz/ydsz-plane/internal/application/sprint"
 	"github.com/njydsz/ydsz-plane/internal/config"
@@ -165,6 +167,20 @@ func run() error {
 	sprintSvc := sprint.NewService(pool.Pool)
 	go runDailySnapshotCron(ctx, sprintSvc, log)
 
+	// ----- Automation 规则引擎事件消费者 -----
+	//
+	// 订阅 EventExchange 的 plane.events.# 路由，对到达的领域事件
+	// 执行匹配的自动化规则（触发器-条件-动作）。
+	go automation.RunConsumer(ctx, mqClient, pool.Pool, log)
+
+	// ----- Metrics 效能快照定时任务 -----
+	//
+	// 每天 01:30 UTC（北京时间 09:30）对所有活跃项目执行效能快照聚合：
+	// velocity / wip / lead_time_p50 / lead_time_p85 / defect_density / escape_rate / DORA。
+	// 经 metric_snapshots 的 ON CONFLICT (workspace_id, project_id, granularity, metric, snapshot_date) 保证幂等。
+	metricsSvc := metrics.NewService(pool.Pool)
+	go runMetricsSnapshotCron(ctx, metricsSvc, log)
+
 	log.Info("worker started",
 		zap.String("rabbitmq", mq.RedactedURL(cfg.RabbitMQ.URL)),
 		zap.Strings("task_queues", worker.QueueNames()),
@@ -203,7 +219,7 @@ func runDailySnapshotCron(ctx context.Context, svc *sprint.Service, log *zap.Log
 				if dateKey == lastRunDate {
 					continue // 今天已执行过
 				}
-				lastRunDate = dateKey
+					lastRunDate = dateKey
 
 				snapCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
 				count, failures := svc.SnapshotAllActive(snapCtx)
@@ -214,6 +230,52 @@ func runDailySnapshotCron(ctx context.Context, svc *sprint.Service, log *zap.Log
 					zap.Int("snapshots", count),
 					zap.Int("failures", failures),
 				)
+			}
+		}
+	}
+}
+
+// runMetricsSnapshotCron 运行 30 分钟粒度的定时器，在 01:30 UTC 触发效能快照聚合。
+// 设计目标:
+//   - 幂等：metric_snapshots 的 ON CONFLICT DO UPDATE
+//   - 单个项目失败不阻塞其他项目（内部已容错）
+//   - 便于接入 Prometheus / 告警（日志含执行数量与耗时）
+func runMetricsSnapshotCron(ctx context.Context, svc *metrics.Service, log *zap.Logger) {
+	ticker := time.NewTicker(30 * time.Minute)
+	defer ticker.Stop()
+
+	var lastRunDate string
+
+	for {
+		select {
+		case <-ctx.Done():
+			log.Info("metrics snapshot cron: shutting down")
+			return
+		case t := <-ticker.C:
+			utc := t.UTC()
+			dateKey := utc.Format("2006-01-02")
+			// 01:30 UTC（北京 09:30）触发，±15 分钟容忍窗口
+			if utc.Hour() == 1 && utc.Minute() >= 30 && utc.Minute() < 45 {
+				if dateKey == lastRunDate {
+					continue
+				}
+				lastRunDate = dateKey
+
+				start := time.Now()
+				count, err := svc.AggregateDailySnapshots(ctx, dateKey)
+				elapsed := time.Since(start)
+
+				if err != nil {
+					log.Warn("metrics snapshot cron: failed",
+						zap.String("date", dateKey),
+						zap.Error(err),
+						zap.Duration("elapsed", elapsed))
+				} else {
+					log.Info("metrics snapshot cron: completed",
+						zap.String("date", dateKey),
+						zap.Int("snapshots_written", count),
+						zap.Duration("elapsed", elapsed))
+				}
 			}
 		}
 	}

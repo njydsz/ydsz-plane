@@ -78,7 +78,22 @@ type AnalyticsQuery struct {
 	SeverityFrom   *int
 	SeverityTo     *int
 	ModuleID       *int64
+	VersionID      *int64 // 版本过滤（found_version_id OR fix_version_id）
 	IncludeDeleted bool
+}
+
+// DefectExportRow 缺陷导出明细行。
+type DefectExportRow struct {
+	Identifier  string
+	Name        string
+	Severity    *int
+	StateName   string
+	FoundPhase  *string
+	RootCause   *string
+	ModuleNames string
+	CreatedAt   time.Time
+	CompletedAt *time.Time
+	AgeDays     float64
 }
 
 // DefectAnalyticsService 缺陷聚合分析服务。
@@ -102,8 +117,39 @@ var severityLabels = map[int]string{
 
 // GetAnalytics 聚合缺陷全量统计数据。
 func (s *DefectAnalyticsService) GetAnalytics(ctx context.Context, q AnalyticsQuery) (*DefectAnalytics, error) {
+	baseWhere, args := s.buildBaseWhere(q)
 	analytics := &DefectAnalytics{}
 
+	// 并行执行各维度聚合
+	var err error
+	if err = s.aggregateBase(ctx, baseWhere, args, analytics); err != nil {
+		return nil, err
+	}
+	if analytics.SeverityDist, err = s.severityDist(ctx, baseWhere, args); err != nil {
+		return nil, err
+	}
+	if analytics.PhaseDist, err = s.phaseDist(ctx, baseWhere, args); err != nil {
+		return nil, err
+	}
+	if analytics.ModuleDist, err = s.moduleDist(ctx, baseWhere, args); err != nil {
+		return nil, err
+	}
+	if analytics.RootCauseDist, err = s.rootCauseDist(ctx, baseWhere, args); err != nil {
+		return nil, err
+	}
+	if analytics.AgeBuckets, err = s.ageBuckets(ctx, baseWhere, args); err != nil {
+		return nil, err
+	}
+	if analytics.Trend, err = s.trend(ctx, baseWhere, args); err != nil {
+		return nil, err
+	}
+
+	return analytics, nil
+}
+
+// buildBaseWhere 构建基础 where 条件（限定缺陷类型 + 项目 + 过滤参数）。
+// 返回 SQL 片段与绑定参数，供各维度聚合与明细查询复用。
+func (s *DefectAnalyticsService) buildBaseWhere(q AnalyticsQuery) (string, []interface{}) {
 	// 基础 where 条件（限定缺陷类型 + 项目）
 	baseWhere := `WHERE i.type_code = 'defect' AND i.workspace_id = $1 AND i.project_id = $2`
 	args := []interface{}{q.WorkspaceID, q.ProjectID}
@@ -137,32 +183,71 @@ func (s *DefectAnalyticsService) GetAnalytics(ctx context.Context, q AnalyticsQu
 		args = append(args, *q.ModuleID)
 		argIdx++
 	}
+	if q.VersionID != nil {
+		baseWhere += ` AND (i.found_version_id = $` + strconv.Itoa(argIdx) + ` OR i.fix_version_id = $` + strconv.Itoa(argIdx) + `)`
+		args = append(args, *q.VersionID)
+		argIdx++
+	}
+	return baseWhere, args
+}
 
-	// 并行执行各维度聚合
-	var err error
-	if err = s.aggregateBase(ctx, baseWhere, args, analytics); err != nil {
-		return nil, err
+// ExportDefects 查询缺陷明细（供 CSV/XLSX 导出）。
+// limit 控制最大导出条数，避免一次性导出海量数据拖垮连接。
+func (s *DefectAnalyticsService) ExportDefects(ctx context.Context, q AnalyticsQuery, limit int) ([]DefectExportRow, error) {
+	if limit <= 0 || limit > 5000 {
+		limit = 5000 // 导出上限保护
 	}
-	if analytics.SeverityDist, err = s.severityDist(ctx, baseWhere, args); err != nil {
-		return nil, err
-	}
-	if analytics.PhaseDist, err = s.phaseDist(ctx, baseWhere, args); err != nil {
-		return nil, err
-	}
-	if analytics.ModuleDist, err = s.moduleDist(ctx, baseWhere, args); err != nil {
-		return nil, err
-	}
-	if analytics.RootCauseDist, err = s.rootCauseDist(ctx, baseWhere, args); err != nil {
-		return nil, err
-	}
-	if analytics.AgeBuckets, err = s.ageBuckets(ctx, baseWhere, args); err != nil {
-		return nil, err
-	}
-	if analytics.Trend, err = s.trend(ctx, baseWhere, args); err != nil {
-		return nil, err
-	}
+	baseWhere, args := s.buildBaseWhere(q)
+	args = append(args, limit)
 
-	return analytics, nil
+	rows, err := s.db.Query(ctx, `
+		SELECT
+			i.identifier,
+			i.name,
+			i.severity,
+			COALESCE(st.name, '') AS state_name,
+			i.found_phase,
+			i.root_cause_category,
+			i.created_at,
+			i.completed_at,
+			COALESCE(EXTRACT(EPOCH FROM (COALESCE(i.completed_at, now()) - i.created_at)) / 86400, 0) AS age_days,
+			COALESCE((
+				SELECT string_agg(m.name, '、' ORDER BY m.name)
+				FROM issue_modules im JOIN modules m ON m.id = im.module_id
+				WHERE im.issue_id = i.id
+			), '') AS module_names
+		FROM issues i
+		LEFT JOIN states st ON st.id = i.state_id
+		`+baseWhere+`
+		ORDER BY i.created_at DESC
+		LIMIT $`+strconv.Itoa(len(args)), args...)
+	if err != nil {
+		return nil, errs.ErrInternal.Wrap(err)
+	}
+	defer rows.Close()
+
+	var result []DefectExportRow
+	for rows.Next() {
+		var r DefectExportRow
+		var sev *int
+		var foundPhase, rootCause, moduleNames *string
+		var completedAt *time.Time
+		if err := rows.Scan(
+			&r.Identifier, &r.Name, &sev, &r.StateName,
+			&foundPhase, &rootCause, &r.CreatedAt, &completedAt, &r.AgeDays, &moduleNames,
+		); err != nil {
+			return nil, errs.ErrInternal.Wrap(err)
+		}
+		r.Severity = sev
+		r.FoundPhase = foundPhase
+		r.RootCause = rootCause
+		r.CompletedAt = completedAt
+		if moduleNames != nil {
+			r.ModuleNames = *moduleNames
+		}
+		result = append(result, r)
+	}
+	return result, rows.Err()
 }
 
 // aggregateBase 统计基础指标：总数/未解决/已解决/平均龄。

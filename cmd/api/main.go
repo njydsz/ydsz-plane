@@ -232,7 +232,7 @@ defectAnalyticsHandler := issue.NewDefectAnalyticsHandler(defectAnalyticsSvc)
 	})
 
 	// ---------- Intake (S10) ----------
-	intakeSvc := intake.NewService(pool.Pool)
+	intakeSvc := intake.NewService(pool.Pool, issueSvc)
 	intakeHandler := intake.NewHandler(&intake.HandlerDeps{
 		IntakeSvc:      intakeSvc,
 		WorkspaceStore: wsStore,
@@ -285,6 +285,8 @@ defectAnalyticsHandler := issue.NewDefectAnalyticsHandler(defectAnalyticsSvc)
 		// Intake domain (S10)
 		IntakeHandler:       intakeHandler,
 		IntakePublicHandler: intakePublicHandler,
+		// Automation domain (S11)
+		AutomationHandler:   automationHandler,
 	})
 
 	// 注册工作项路由（必须在 NewEngine 之后）
@@ -411,6 +413,14 @@ defectAnalyticsHandler := issue.NewDefectAnalyticsHandler(defectAnalyticsSvc)
 		// 在高流量下限制空闲连接占用，同时保留典型突发请求的 keep-alive 收益。
 		IdleTimeout: 120 * time.Second,
 	}
+
+	// 注册自动化路由（S11，项目级）
+	httpapi.RegisterAutomationRoutes(engine, &httpapi.Deps{
+		Auth:              authSvc,
+		PrincipalParser:   parsePrincipal,
+		WorkspaceStore:    wsStore,
+		AutomationHandler: automationHandler,
+	})
 
 	errCh := make(chan error, 1)
 	go func() {
