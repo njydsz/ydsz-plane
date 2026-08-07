@@ -52,9 +52,9 @@ Ydsz Plane 是一款开源、自托管的现代项目管理工具，专为中小
 | 后端 | Go 1.26.5 + Gin 1.12 | 模块化单体（DDD 轻量分层） |
 | 前端 | Vue 3.5 + TypeScript + Vite 6 | 组合式 API、Pinia 状态管理 |
 | 数据库 | PostgreSQL 18 | ACID + JSONB + RLS 租户隔离 + 信创方言预留 |
-| 缓存 | Redis 8 | 限流、分布式锁、会话辅助、Asynq Broker、WebSocket 扇出 |
+| 缓存 | Redis 8 | 限流、分布式锁、会话辅助、WebSocket 扇出 |
 | 事件总线 | RabbitMQ 4 | Outbox 投递、可靠事件投递（替代 Redis Streams/NATS） |
-| 任务队列 | Asynq (Redis-backed) | 异步任务（通知、索引、Webhook、自动化） |
+| 任务队列 | RabbitMQ 4 | 异步任务（通知、索引、Webhook、自动化）延迟/优先级/死信/Retry-with-backoff |
 | 全文检索 | Elasticsearch 8（可选 profile） | 全局搜索、分词（IK） |
 | 对象存储 | MinIO（可选 profile） | 附件、Logo |
 | 部署 | Docker Compose（一键）/ K8s（Phase 3） | 信创兼容：openEuler/麒麟 + ARM64 |
@@ -96,8 +96,8 @@ Ydsz Plane 是一款开源、自托管的现代项目管理工具，专为中小
 
 | 中间件 | 用途 | 选型理由 |
 |--------|------|----------|
-| Redis 8 | Asynq Broker、缓存、限流、分布式锁、WS 扇出 | 低延迟、单二进制部署、复用现有运维基础 |
-| RabbitMQ 4 | 事件总线（Outbox → Exchange → Queue）、DLX/DLQ、Topic 路由 | 可靠投递（consumer acks + publisher confirms）、死信队列、灵活路由模式 |
+| Redis 8 | 缓存、分布式锁、限流、WebSocket 扇出 | 低延迟、单二进制部署、复用现有运维基础 |
+| RabbitMQ 4 | 任务队列 + 事件总线（Outbox → Exchange → Queue）、DLX/DLQ、延迟队列、Topic 路由 | 可靠投递（consumer acks + publisher confirms）、死信队列、灵活路由模式 |
 
 ## 项目结构
 

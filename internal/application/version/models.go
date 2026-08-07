@@ -123,6 +123,15 @@ type NoteIssueRef struct {
 	StateName  string `json:"state_name"`
 }
 
+// ReleaseNotesData Release Notes 渲染数据源。
+type ReleaseNotesData struct {
+	VersionName      string         `json:"version_name"`
+	Semver           string         `json:"semver"`
+	RequirementsDone []NoteIssueRef `json:"requirements_done,omitempty"`
+	BugsFixed        []NoteIssueRef `json:"bugs_fixed,omitempty"`
+	KnownIssues      []NoteIssueRef `json:"known_issues,omitempty"`
+}
+
 // --- 输入 ---
 
 // CreateVersionInput 创建版本日的入参。

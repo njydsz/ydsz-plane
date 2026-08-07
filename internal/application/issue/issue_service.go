@@ -55,6 +55,9 @@ type CreateIssueInput struct {
 	TargetDate       *time.Time
 	IsDraft          bool
 	CreatedBy        int64
+	FoundVersionID   *int64
+	FixVersionID     *int64
+	ReleaseVersionID *int64
 }
 
 // UpdateIssueInput 更新工作项的入参。
@@ -73,22 +76,28 @@ type UpdateIssueInput struct {
 	Modules           []int64
 	Source            *string
 	Version           int
+	FoundVersionID    *int64
+	FixVersionID      *int64
+	ReleaseVersionID  *int64
 }
 
 // ListIssuesOptions 工作项列表查询选项。
 type ListIssuesOptions struct {
-	WorkspaceID int64
-	ProjectID   int64
-	StateID     *int64
-	Group       *StateGroup
-	TypeCode    *IssueTypeCode
-	Priority    *IssuePriority
-	ParentID    *int64
-	Search      string
-	SortBy      string
-	SortDesc    bool
-	Limit       int
-	Offset      int
+	WorkspaceID      int64
+	ProjectID        int64
+	StateID          *int64
+	Group            *StateGroup
+	TypeCode         *IssueTypeCode
+	Priority         *IssuePriority
+	ParentID         *int64
+	Search           string
+	SortBy           string
+	SortDesc         bool
+	Limit            int
+	Offset           int
+	FoundVersionID   *int64
+	FixVersionID     *int64
+	ReleaseVersionID *int64
 }
 
 // --- CRUD ---
@@ -146,6 +155,7 @@ func (s *Service) GetByID(ctx context.Context, wsID, issueID int64) (*Issue, err
 	var stateName, stateColor, identifier string
 	var stateGroup StateGroup
 
+	var foundVerID, fixVerID, releaseVerID sql.NullInt64
 	err := s.db.QueryRow(ctx, `
 		SELECT i.id, i.public_id, i.workspace_id, i.project_id, i.sequence_id,
 		       i.type_code, i.parent_id, i.depth, i.name,
@@ -154,7 +164,8 @@ func (s *Service) GetByID(ctx context.Context, wsID, issueID int64) (*Issue, err
 		       i.priority, i.severity, i.found_phase, i.category, i.point,
 		       i.start_date, i.target_date, i.completed_at, i.progress,
 		       i.is_draft, i.version, i.created_by, i.created_at, i.updated_at,
-		       p.identifier
+		       p.identifier,
+		       i.found_version_id, i.fix_version_id, i.release_version_id
 		FROM issues i
 		JOIN states s ON s.id = i.state_id
 		JOIN projects p ON p.id = i.project_id
@@ -167,7 +178,8 @@ func (s *Service) GetByID(ctx context.Context, wsID, issueID int64) (*Issue, err
 		&iss.Priority, &severity, &foundPhase, &category, &point,
 		&iss.StartDate, &targetDate, &completedAt, &iss.Progress,
 		&iss.IsDraft, &iss.Version, &iss.CreatedBy, &iss.CreatedAt, &iss.UpdatedAt,
-		&identifier)
+		&identifier,
+		&foundVerID, &fixVerID, &releaseVerID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, errs.ErrNotFound
@@ -202,6 +214,18 @@ func (s *Service) GetByID(ctx context.Context, wsID, issueID int64) (*Issue, err
 	}
 	if completedAt.Valid {
 		iss.CompletedAt = &completedAt.Time
+	}
+	if foundVerID.Valid {
+		v := foundVerID.Int64
+		iss.FoundVersionID = &v
+	}
+	if fixVerID.Valid {
+		v := fixVerID.Int64
+		iss.FixVersionID = &v
+	}
+	if releaseVerID.Valid {
+		v := releaseVerID.Int64
+		iss.ReleaseVersionID = &v
 	}
 
 	iss.Identifier = identifier + "-" + strconv.FormatInt(iss.SequenceID, 10)
@@ -374,6 +398,23 @@ func (s *Service) Transition(ctx context.Context, wsID, projectID, issueID, toSt
 			return err
 		}
 
+		// 缺陷完成时必填校验: root_cause_category + fix_version_id
+		if toGroup == GroupCompleted && iss.TypeCode == TypeDefect {
+			var rc sql.NullString
+			var fv sql.NullInt64
+			if scanErr := tx.QueryRow(ctx,
+				`SELECT root_cause_category, fix_version_id FROM issues WHERE id = $1 AND workspace_id = $2`,
+				issueID, wsID).Scan(&rc, &fv); scanErr != nil {
+				return errs.ErrInternal.Wrap(scanErr)
+			}
+			if !rc.Valid || rc.String == "" {
+				return errs.ErrValidation.WithDetails(errs.FieldDetail{Field: "root_cause_category", Reason: "缺陷关闭时根因分类为必填"})
+			}
+			if !fv.Valid {
+				return errs.ErrValidation.WithDetails(errs.FieldDetail{Field: "fix_version_id", Reason: "缺陷关闭时修复版本为必填"})
+			}
+		}
+
 		// 更新
 		completedAtClause := "NULL"
 		progress := iss.Progress
@@ -445,13 +486,15 @@ func (s *Service) insertIssue(ctx context.Context, in CreateIssueInput, stateID,
 			INSERT INTO issues (workspace_id, project_id, sequence_id, type_code, parent_id, depth,
 				name, description_json, description_html, state_id, priority,
 				severity, found_phase, reproduce_steps, category, source,
-				point, start_date, target_date, is_draft, created_by)
-			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
+				point, start_date, target_date, is_draft, created_by,
+				found_version_id, fix_version_id, release_version_id)
+			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)
 			RETURNING id`,
 			in.WorkspaceID, in.ProjectID, seqID, string(in.TypeCode), parent, depth,
 			in.Name, in.DescriptionHTML, in.DescriptionHTML, stateID, string(in.Priority),
 			in.Severity, in.FoundPhase, in.ReproduceSteps, in.Category, in.Source,
-			in.Point, in.StartDate, in.TargetDate, in.IsDraft, in.CreatedBy).Scan(&issueID)
+			in.Point, in.StartDate, in.TargetDate, in.IsDraft, in.CreatedBy,
+			in.FoundVersionID, in.FixVersionID, in.ReleaseVersionID).Scan(&issueID)
 		if err != nil {
 			return mapPgError(err)
 		}
@@ -678,6 +721,16 @@ func buildIssueWhere(opts ListIssuesOptions) (string, []interface{}) {
 		args = append(args, "%"+opts.Search+"%")
 		arg++
 	}
+	if opts.FoundVersionID != nil {
+		clauses = append(clauses, "i.found_version_id = $"+strconv.Itoa(arg))
+		args = append(args, *opts.FoundVersionID)
+		arg++
+	}
+	if opts.FixVersionID != nil {
+		clauses = append(clauses, "i.fix_version_id = $"+strconv.Itoa(arg))
+		args = append(args, *opts.FixVersionID)
+		arg++
+	}
 
 	return "WHERE " + strings.Join(clauses, " AND "), args
 }
@@ -823,6 +876,21 @@ func buildUpdateSet(in UpdateIssueInput, current *Issue) ([]string, []interface{
 	if in.Category != nil {
 		sets = append(sets, "category = $"+strconv.Itoa(arg))
 		args = append(args, *in.Category)
+		arg++
+	}
+	if in.FoundVersionID != nil {
+		sets = append(sets, "found_version_id = $"+strconv.Itoa(arg))
+		args = append(args, *in.FoundVersionID)
+		arg++
+	}
+	if in.FixVersionID != nil {
+		sets = append(sets, "fix_version_id = $"+strconv.Itoa(arg))
+		args = append(args, *in.FixVersionID)
+		arg++
+	}
+	if in.ReleaseVersionID != nil {
+		sets = append(sets, "release_version_id = $"+strconv.Itoa(arg))
+		args = append(args, *in.ReleaseVersionID)
 		arg++
 	}
 

@@ -88,6 +88,9 @@ type Issue struct {
 	Source            *string        `json:"source,omitempty"`
 	Point             *int           `json:"point,omitempty"`
 	SprintID          *int64         `json:"sprint_id,omitempty"`
+	FoundVersionID    *int64         `json:"found_version_id,omitempty"`
+	FixVersionID      *int64         `json:"fix_version_id,omitempty"`
+	ReleaseVersionID  *int64         `json:"release_version_id,omitempty"`
 	Progress          int            `json:"progress"`
 	StartDate         *time.Time     `json:"start_date,omitempty"`
 	TargetDate        *time.Time     `json:"target_date,omitempty"`

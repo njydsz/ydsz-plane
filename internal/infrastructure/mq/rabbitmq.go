@@ -317,8 +317,44 @@ func (c *Client) Publish(ctx context.Context, exchange, routingKey string, envel
 	}
 }
 
-// PublishEvent is a convenience wrapper that publishes to the EventExchange
-// with the standard routing-key scheme.
+// PublishRaw sends a message using a caller-supplied amqp.Publishing struct.
+// Use this when you need fine-grained control over TTL (delayed tasks),
+// Priority, Expiration, or other headers not exposed by the ergonomic
+// Publish / PublishEvent methods. Publisher-confirm and mandatory routing
+// are still enforced.
+//
+// Unlike Publish, the caller is responsible for setting Body, ContentType,
+// DeliveryMode, MessageId, Type, Timestamp, and any application headers.
+func (c *Client) PublishRaw(ctx context.Context, exchange, routingKey string, msg amqp.Publishing) error {
+	c.chanMU.Lock()
+	defer c.chanMU.Unlock()
+	c.mu.RLock()
+	ch := c.ch
+	connected := c.connected
+	c.mu.RUnlock()
+	if !connected {
+		return errors.New("mq: not connected")
+	}
+
+	confirmCh := ch.NotifyPublish(make(chan amqp.Confirmation, 1))
+	returnCh := ch.NotifyReturn(make(chan amqp.Return, 1))
+
+	if err := ch.PublishWithContext(ctx, exchange, routingKey, true, false, msg); err != nil {
+		return fmt.Errorf("mq: publish: %w", err)
+	}
+
+	select {
+	case confirm := <-confirmCh:
+		if !confirm.Ack {
+			return fmt.Errorf("mq: nack received for routing key %s", routingKey)
+		}
+		return nil
+	case ret := <-returnCh:
+		return fmt.Errorf("mq: message returned (no route): key=%s reason=%s", routingKey, ret.ReplyText)
+	case <-ctx.Done():
+		return fmt.Errorf("mq: publish cancelled: %w", ctx.Err())
+	}
+}
 func (c *Client) PublishEvent(ctx context.Context, envelope EventEnvelope) error {
 	envelope.Exchange = EventExchange
 	envelope.RoutingKey = RoutingKey(envelope.AggregateType, envelope.EventType)

@@ -863,7 +863,9 @@ func scanVersion(row pgx.Row) (*Version, error) {
 		v.TargetDate = &td.String
 	}
 	if arc.Valid {
-		v.ArchivedAt = &arc.Time
+		if t, perr := time.Parse(time.RFC3339, arc.String); perr == nil {
+			v.ArchivedAt = &t
+		}
 	}
 	if len(cbRaw) > 0 {
 		var items []ChecklistItem

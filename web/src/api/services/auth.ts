@@ -52,4 +52,12 @@ export const authApi = {
       requestId: r.headers["x-request-id"],
     }));
   },
+
+  forgotPassword(email: string): Promise<void> {
+    return http.post("/auth/forgot-password", { email });
+  },
+
+  resetPassword(token: string, newPassword: string): Promise<void> {
+    return http.post("/auth/reset-password", { token, new_password: newPassword });
+  },
 };

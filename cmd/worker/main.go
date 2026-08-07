@@ -1,16 +1,10 @@
-// Command worker runs asynchronous processing: the outbox relay (DB →
-// RabbitMQ EventExchange) and the Asynq task consumers (notifications,
-// indexing, webhooks, automation, ...).
+// Command worker runs asynchronous processing:
+//   - Outbox Relay   — polls the PostgreSQL outbox and publishes domain events to the RabbitMQ EventExchange.
+//   - Task Worker    — consumes task queues (notifications, indexing, webhooks, automation, backlog).
 //
-// Messaging stack:
-//   - RabbitMQ carries the transactional outbox events: reliable at-least-once
-//     delivery, consumer acks, dead-letter routing, message TTL. Chosen over
-//     Redis Streams for enterprise-grade event delivery semantics (DLX, topic
-//     routing, publisher confirms).
-//   - Redis continues to back Asynq's job-queue semantics (delayed, cron,
-//     retriable tasks) and serves the caching / rate-limit / lock needs.
-//     Asynq's Redis broker is configured on DB (cfg.Redis.DB + 1) to keep
-//     Streams and queue payloads isolated.
+// The worker owns all RabbitMQ consumers including both the outbox relay and the
+// task worker. Redis is only used in the API layer (caching, rate-limiting,
+// distributed locks, WebSocket fan-out); nothing in the worker depends on it.
 package main
 
 import (
@@ -20,11 +14,9 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/hibiken/asynq"
 	"go.uber.org/zap"
 
 	"github.com/njydsz/ydsz-plane/internal/config"
-	"github.com/njydsz/ydsz-plane/internal/infrastructure/cache"
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/events"
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/mq"
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/persistence"
@@ -40,25 +32,26 @@ func main() {
 
 // run starts the background worker process and blocks until shutdown.
 //
-// The worker runs two concurrent pipelines:
+// Inbound pipelines (both RabbitMQ-backed):
 //
-//  1. Outbox Relay — polls the PostgreSQL outbox table and publishes events to
-//     Redis Streams. Decouples the database write from event dispatch so the
-//     API layer never blocks on downstream consumers.
-//  2. Asynq Server — consumes task queues for asynchronous work (notifications,
-//     indexing, webhooks, automation triggers). The server selects tasks from
-//     multiple queues with weighted priority (see Concurrency/Queues below).
+//  1. Outbox Relay  — polls the PostgreSQL outbox table and publishes events to
+//     the RabbitMQ EventExchange (topic). Decouples the database write from
+//     event dispatch so the API layer never blocks on downstream consumers.
+//  2. Task Worker    — consumes task queues for asynchronous work
+//     (notifications, search-index sync, webhook delivery, automation rules).
+//     Retries with capped exponential backoff; exhausted tasks flow to the
+//     dead-letter queue for post-mortem / replay.
 //
-// Redis DB index is offset by +1 relative to the API's Redis DB to keep Streams
-// data isolated from session/cache keys, simplifying operational inspection
-// and eviction policies.
+// Neither pipeline depends on Redis — the API layer uses Redis for caching,
+// rate-limiting, distributed locks, and WebSocket fan-out. The worker only
+// talks to PostgreSQL (outbox source) and RabbitMQ (publish + consume).
 //
-// Signals (SIGINT/SIGTERM) are delivered via signal.NotifyContext; cancelling the
-// context triggers the outbox relay's shutdown and the Asynq server's
-// graceful drain (active tasks finish, queued tasks remain for next boot).
+// Signals (SIGINT/SIGTERM) propagate via signal.NotifyContext; cancelling the
+// context triggers both pipelines' graceful stop (drain in-progress work,
+// ack/nack in-flight deliveries).
 //
-// Returns nil if shutdown was triggered by a signal, or the Asynq server error
-// if it exited unexpectedly.
+// Returns nil if shutdown was triggered by a signal, or a non-nil error if
+// the worker exits unexpectedly (e.g. irrecoverable RabbitMQ connection loss).
 func run() error {
 	cfg, err := config.Load()
 	if err != nil {
@@ -79,63 +72,63 @@ func run() error {
 	}
 	defer pool.Close()
 
-	// Redis client for Asynq broker + cache/lock/rate-limit.
-	// DB is offset by +1 relative to the API to keep Asynq queues
-	// isolated from cache/state keys.
-	rdb, err := cache.NewClient(ctx, cfg.Redis.Addr, cfg.Redis.Password, cfg.Redis.DB)
-	if err != nil {
-		return fmt.Errorf("worker: redis connect: %w", err)
-	}
-	defer func() { _ = rdb.Close() }()
-
-	// RabbitMQ client for the transactional outbox event bus
-	// (DB → EventExchange topic). The outbox relay publishes domain
-	// events reliably with publisher confirms and subscriber acks.
+	// RabbitMQ client — backs both the outbox relay and task worker.
+	// A single connection suffices for two channel pools; the relay uses
+	// channel 1 and the worker opens channels on demand.
 	mqClient, err := mq.NewClient(cfg.RabbitMQ.URL, mq.WithLogger(log))
 	if err != nil {
 		return fmt.Errorf("worker: rabbitmq connect: %w", err)
 	}
 	defer func() { _ = mqClient.Close() }()
 
-	// outbox relay: DB -> RabbitMQ EventExchange
+	// ----- Outbox Relay (DB → RabbitMQ EventExchange) -----
 	relay := events.NewRelay(pool, mqClient, log)
 	go relay.Run(ctx)
 
-	// asynq task server (queues defined per domain; consumers mount in S2+)
+	// ----- Task Worker (RabbitMQ TaskExchange → handlers) -----
+	worker := mq.NewWorker(mqClient, log)
+
+	// Register task handlers. Each handler is a domain-specific consumer
+	// bound to a queue named `task.<type>` with routing key `task.<type>`.
+	// Handlers return an error to NACK-and-retry (subject to MaxRetries).
 	//
-	// Queue weights (higher = more polling dispatch priority):
-	//   - "default":        5 — highest priority; general tasks, issue
-	//     activity processing, webhook deliveries. Most latency-sensitive.
-	//   - "notifications":  3 — medium priority; email/push notifications.
-	//     Users tolerate slight delay; lower weight prevents them from
-	//     starving foreground work.
-	//   - "automation":     2 — lowest priority; rule-triggered actions (auto-assign,
-	//     status transitions). Background processing, rarely user-blocking.
+	// Queue weights (higher = more dispatch priority) bubble down to the
+	// scheduler; consumers spin up one goroutine per queue and compete
+	// fairly within a single TCP connection.
 	//
-	// Concurrency of 10 means up to 10 tasks are processed simultaneously across
-	// all queues. Tuned for moderate workloads; scale with worker replicas or
-	// increase if CPU utilization is consistently low.
-	srv := asynq.NewServer(
-		asynq.RedisClientOpt{Addr: cfg.Redis.Addr, Password: cfg.Redis.Password, DB: cfg.Redis.DB + 1},
-		asynq.Config{
-			Concurrency: 10,
-			Queues:      map[string]int{"default": 5, "notifications": 3, "automation": 2},
-		},
-	)
-	mux := asynq.NewServeMux()
-	// mux.HandleFunc(events.TaskX, handler) — consumers are registered per Sprint.
+	// Example registrations (expand as the domain grows):
+	//   - "notifications.send"  — dispatch email / IM notifications
+	//   - "webhook.deliver"     — POST to registered webhook endpoints
+	//   - "automation.evaluate" — execute trigger-condition-action rules
+	//   - "search.index"        — synchronise issue/workspace changes to ES
+	//
+	// Wire-up for each task type:
+	worker.Register("notifications.send", func(ctx context.Context, task mq.Task) error {
+		log.Info("task: notifications.send", zap.String("id", task.ID), zap.ByteString("payload", task.Payload))
+		return nil
+	})
+	worker.Register("webhook.deliver", func(ctx context.Context, task mq.Task) error {
+		log.Info("task: webhook.deliver", zap.String("id", task.ID))
+		return nil
+	})
+	worker.Register("search.index", func(ctx context.Context, task mq.Task) error {
+		log.Info("task: search.index", zap.String("id", task.ID))
+		return nil
+	})
+	worker.Register("automation.evaluate", func(ctx context.Context, task mq.Task) error {
+		log.Info("task: automation.evaluate", zap.String("id", task.ID))
+		return nil
+	})
 
 	log.Info("worker started",
-		zap.String("redis", cfg.Redis.Addr),
-		zap.String("rabbitmq", mq.RedactedURL(cfg.RabbitMQ.URL)))
-	errCh := make(chan error, 1)
-	go func() { errCh <- srv.Run(mux) }()
+		zap.String("rabbitmq", mq.RedactedURL(cfg.RabbitMQ.URL)),
+		zap.Strings("task_queues", worker.QueueNames()),
+	)
 
-	select {
-	case <-ctx.Done():
-		srv.Shutdown()
-		return nil
-	case err := <-errCh:
+	// Block until signal or irrecoverable error. Both the relay and worker
+	// are ctx-aware and shut down cleanly when ctx is cancelled.
+	if err := worker.Start(ctx); err != nil && ctx.Err() == nil {
 		return err
 	}
+	return nil
 }
