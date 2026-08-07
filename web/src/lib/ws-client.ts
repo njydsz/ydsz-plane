@@ -25,15 +25,27 @@ class WSClient {
   private maxReconnectAttempts = 10
   private intentionalClose = false
   private workspaceId: number | null = null
+  private userId: number | undefined
+
+  /** 当前连接的 workspaceId（未连接时为 null） */
+  get currentWorkspaceId(): number | null {
+    return this.workspaceId
+  }
+
+  /** 当前连接的用户 ID（未连接时为 undefined） */
+  get currentUserId(): number | undefined {
+    return this.userId
+  }
 
   /** 建立 WebSocket 连接 */
   connect(workspaceId: number, userId?: number) {
     this.intentionalClose = false
     this.workspaceId = workspaceId
+    this.userId = userId
 
     const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:'
     const host = location.host
-    this.url = `${protocol}//${host}/ws?workspace_id=${workspaceId}`
+    this.url = `${protocol}//${host}/ws/${workspaceId}`
 
     this.createSocket()
   }

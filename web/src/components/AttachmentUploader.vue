@@ -13,7 +13,7 @@
  */
 import { onMounted, ref } from "vue";
 import { attachmentApi, type Attachment } from "@/api/services/attachment";
-import AppEmptyState from "./AppEmptyState.vue";
+import { toast } from "@/lib/toast";
 
 const props = defineProps<{
   workspaceId: number;
@@ -94,9 +94,11 @@ async function handleFileSelect(files: FileList | null) {
 
     // 3. 刷新附件列表
     await loadAttachments();
+    toast.success(`已上传 ${file.name}`);
     emit("change");
   } catch (e: unknown) {
     error.value = e instanceof Error ? e.message : "上传失败";
+    toast.error(error.value);
   } finally {
     uploading.value = false;
     if (fileInput.value) fileInput.value.value = "";
@@ -108,9 +110,11 @@ async function handleDelete(att: Attachment) {
   try {
     await attachmentApi.deleteAttachment(props.workspaceId, props.projectId, att.id);
     attachments.value = attachments.value.filter((a) => a.id !== att.id);
+    toast.success(`已删除 ${att.file_name}`);
     emit("change");
   } catch (e: unknown) {
     error.value = e instanceof Error ? e.message : "删除失败";
+    toast.error(error.value);
   }
 }
 

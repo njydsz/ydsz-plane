@@ -1,14 +1,30 @@
 <script setup lang="ts">
 /**
- * 迭代详情页 — 展示进度、工作项列表、燃尽图与复盘。
+ * 迭代详情页 — 展示进度、工作项列表、燃尽图、复盘与生命周期操作。
+ *
+ * P1 增强：
+ *  - 编辑迭代（仅 planned 状态，复用表单）
+ *  - 结束迭代时支持「移至下一迭代」策略（next_sprint_id 联动选择）
+ *  - Active 状态快捷入口：站会模式 / 排期规划
+ *  - 燃尽图 loading / error 态透传
  */
 
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
-import { sprintApi, type BurndownPoint, type Sprint, type SprintIssueView } from "@/api/services/sprint";
-import { workspaceApi } from "@/api/services/workspace";
+import {
+  sprintApi,
+  type BurndownPoint,
+  type Sprint,
+  type SprintIssueView,
+} from "@/api/services/sprint";
+import { useWorkspaceContext } from "@/composables/useWorkspaceContext";
+import SprintStatusBadge from "@/components/sprint/SprintStatusBadge.vue";
 import BurndownChart from "./BurndownChart.vue";
+
+/* ------------------------------------------------------------------ */
+/* 路由上下文                                                           */
+/* ------------------------------------------------------------------ */
 
 const route = useRoute();
 const router = useRouter();
@@ -16,6 +32,11 @@ const router = useRouter();
 const projectId = computed(() => Number(route.params.projectId));
 const workspaceSlug = computed(() => String(route.params.workspaceSlug ?? ""));
 const sprintId = computed(() => Number(route.params.sprintId));
+const { wsId, ready } = useWorkspaceContext();
+
+/* ------------------------------------------------------------------ */
+/* 状态                                                                 */
+/* ------------------------------------------------------------------ */
 
 const sprint = ref<Sprint | null>(null);
 const issues = ref<SprintIssueView[]>([]);
@@ -24,33 +45,29 @@ const loading = ref(true);
 const error = ref("");
 const busy = ref(false);
 
-// complete modal
-const showComplete = ref(false);
-const strategy = ref<"backlog" | "next_sprint" | "keep">("backlog");
-const completeError = ref("");
+/** planned 迭代列表（供 next_sprint 选择与编辑校验） */
+const plannedSprints = ref<Sprint[]>([]);
 
-let wsIdVal = 0;
-
-async function resolveWsId(): Promise<number> {
-  if (wsIdVal) return wsIdVal;
-  const ws = await workspaceApi.getBySlug(workspaceSlug.value);
-  wsIdVal = ws.id;
-  return wsIdVal;
-}
+/* ------------------------------------------------------------------ */
+/* 数据加载                                                             */
+/* ------------------------------------------------------------------ */
 
 async function load() {
   loading.value = true;
   error.value = "";
   try {
-    const wsId = await resolveWsId();
     const [spRes, issRes, bdRes] = await Promise.all([
-      sprintApi.getSprint(wsId, projectId.value, sprintId.value),
-      sprintApi.listSprintIssues(wsId, projectId.value, sprintId.value),
-      sprintApi.burndown(wsId, projectId.value, sprintId.value).catch(() => ({ points: [] })),
+      sprintApi.getSprint(wsId.value, projectId.value, sprintId.value),
+      sprintApi.listSprintIssues(wsId.value, projectId.value, sprintId.value),
+      sprintApi.burndown(wsId.value, projectId.value, sprintId.value).catch(() => ({ points: [] as BurndownPoint[] })),
     ]);
     sprint.value = spRes;
     issues.value = issRes.results;
-    burndown.value = (bdRes as { points: BurndownPoint[] }).points;
+    burndown.value = bdRes.points;
+
+    // 加载 planned 迭代（用于 next_sprint 联动）
+    const listRes = await sprintApi.listSprints(wsId.value, projectId.value, { status: "planned" });
+    plannedSprints.value = listRes.results.filter((s) => s.id !== sprintId.value);
   } catch (e: unknown) {
     error.value = e instanceof Error ? e.message : "加载失败";
   } finally {
@@ -58,12 +75,17 @@ async function load() {
   }
 }
 
+/* ------------------------------------------------------------------ */
+/* 生命周期：启动                                                       */
+/* ------------------------------------------------------------------ */
+
 async function startSprint() {
   if (!sprint.value) return;
   busy.value = true;
+  error.value = "";
   try {
-    const wsId = await resolveWsId();
-    sprint.value = await sprintApi.startSprint(wsId, projectId.value, sprint.value.id);
+    sprint.value = await sprintApi.startSprint(wsId.value, projectId.value, sprint.value.id);
+    await load();
   } catch (e: unknown) {
     error.value = e instanceof Error ? e.message : "启动失败";
   } finally {
@@ -71,17 +93,37 @@ async function startSprint() {
   }
 }
 
+/* ------------------------------------------------------------------ */
+/* 生命周期：结束（含 next_sprint 联动）                                 */
+/* ------------------------------------------------------------------ */
+
+const showComplete = ref(false);
+const strategy = ref<"backlog" | "next_sprint" | "keep">("backlog");
+const nextSprintId = ref<number | null>(null);
+const completeError = ref("");
+
+function openComplete() {
+  strategy.value = "backlog";
+  nextSprintId.value = plannedSprints.value[0]?.id ?? null;
+  completeError.value = "";
+  showComplete.value = true;
+}
+
 async function submitComplete() {
   if (!sprint.value) return;
+  if (strategy.value === "next_sprint" && nextSprintId.value == null) {
+    completeError.value = "请选择目标迭代";
+    return;
+  }
   busy.value = true;
   completeError.value = "";
   try {
-    const wsId = await resolveWsId();
-    sprint.value = await sprintApi.completeSprint(wsId, projectId.value, sprint.value.id, {
+    sprint.value = await sprintApi.completeSprint(wsId.value, projectId.value, sprint.value.id, {
       strategy: strategy.value,
-      // next_sprint_id 暂不传递（需 select 联动）
+      next_sprint_id: strategy.value === "next_sprint" ? nextSprintId.value ?? undefined : undefined,
     });
     showComplete.value = false;
+    await load();
   } catch (e: unknown) {
     completeError.value = e instanceof Error ? e.message : "结束失败";
   } finally {
@@ -89,20 +131,88 @@ async function submitComplete() {
   }
 }
 
-function statusColor(s: string): string {
-  const map: Record<string, string> = {
-    planned: "var(--text-tertiary)",
-    active: "var(--success-500)",
-    completed: "var(--brand-500)",
+/* ------------------------------------------------------------------ */
+/* 编辑迭代                                                             */
+/* ------------------------------------------------------------------ */
+
+const showEdit = ref(false);
+const editError = ref("");
+const editForm = ref({
+  name: "",
+  description: "",
+  goal: "",
+  start_date: "",
+  end_date: "",
+  capacity: undefined as number | undefined,
+});
+
+function openEdit() {
+  if (!sprint.value) return;
+  editError.value = "";
+  editForm.value = {
+    name: sprint.value.name,
+    description: sprint.value.description ?? "",
+    goal: sprint.value.goal ?? "",
+    start_date: sprint.value.start_date ?? "",
+    end_date: sprint.value.end_date ?? "",
+    capacity: sprint.value.capacity,
   };
-  return map[s] ?? "var(--text-tertiary)";
+  showEdit.value = true;
 }
+
+async function saveEdit() {
+  if (!sprint.value) return;
+  if (!editForm.value.name.trim()) {
+    editError.value = "迭代名称不能为空";
+    return;
+  }
+  busy.value = true;
+  editError.value = "";
+  try {
+    await sprintApi.updateSprint(wsId.value, projectId.value, sprint.value.id, {
+      name: editForm.value.name,
+      description: editForm.value.description || undefined,
+      goal: editForm.value.goal || undefined,
+      start_date: editForm.value.start_date || undefined,
+      end_date: editForm.value.end_date || undefined,
+      capacity: editForm.value.capacity,
+      version: 0,
+    });
+    showEdit.value = false;
+    await load();
+  } catch (e: unknown) {
+    editError.value = e instanceof Error ? e.message : "保存失败";
+  } finally {
+    busy.value = false;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* 工具                                                                 */
+/* ------------------------------------------------------------------ */
+
+const typeLabel: Record<string, string> = { requirement: "需", task: "任", defect: "缺" };
+const groupLabel: Record<string, string> = {
+  backlog: "待办",
+  started: "进行中",
+  completed: "已完成",
+  cancelled: "取消",
+};
 
 function fmtDate(s?: string) {
   return s ? s.slice(0, 10) : "?";
 }
 
-onMounted(load);
+function goPlanning() {
+  router.push(`/${workspaceSlug.value}/projects/${projectId.value}/sprints/planning`);
+}
+
+onMounted(() => {
+  if (ready.value) void load();
+});
+watch(ready, (r) => {
+  if (r) void load();
+});
 </script>
 
 <template>
@@ -113,27 +223,29 @@ onMounted(load);
         <div>
           <h1 v-if="sprint">{{ sprint.name }}</h1>
           <p v-if="sprint" class="meta">
-            <span class="badge" :style="{ color: statusColor(sprint.status) }">
-              {{ ({ planned: "未开始", active: "进行中", completed: "已完成" } as Record<string, string>)[sprint.status] }}
-            </span>
+            <SprintStatusBadge :status="sprint.status" />
             <span v-if="sprint.start_date" class="date">{{ fmtDate(sprint.start_date) }} → {{ fmtDate(sprint.end_date) }}</span>
           </p>
         </div>
       </div>
       <div class="actions">
         <template v-if="sprint">
-          <button v-if="sprint.status === 'active'" class="btn btn-secondary" @click="router.push(`/${workspaceSlug}/projects/${projectId}/sprints/${sprint.id}/standup`)">
-            站会模式
-          </button>
-          <button v-if="sprint.status === 'planned'" class="btn btn-primary" :disabled="busy" @click="startSprint">
-            启动迭代
-          </button>
-          <button v-if="sprint.status === 'active'" class="btn btn-danger" :disabled="busy" @click="showComplete = true">
-            结束迭代
-          </button>
-          <button v-if="sprint.status === 'completed'" class="btn btn-secondary" disabled>
-            已结束
-          </button>
+          <!-- planned：编辑 + 启动 -->
+          <template v-if="sprint.status === 'planned'">
+            <button class="btn btn-secondary" :disabled="busy" @click="openEdit">编辑</button>
+            <button class="btn btn-primary" :disabled="busy" @click="startSprint">
+              {{ busy ? "处理中..." : "启动迭代" }}
+            </button>
+          </template>
+          <!-- active：站会 / 排期规划 / 结束 -->
+          <template v-else-if="sprint.status === 'active'">
+            <button class="btn btn-secondary" @click="router.push(`/${workspaceSlug}/projects/${projectId}/sprints/${sprint.id}/standup`)">
+              站会模式
+            </button>
+            <button class="btn btn-secondary" @click="goPlanning">排期规划</button>
+            <button class="btn btn-danger" :disabled="busy" @click="openComplete">结束迭代</button>
+          </template>
+          <button v-else class="btn btn-secondary" disabled>已结束</button>
         </template>
       </div>
     </header>
@@ -175,7 +287,7 @@ onMounted(load);
         </div>
         <div v-if="sprint.progress?.by_state_group" class="state-bars">
           <div class="bar-row" v-for="(pts, group) in sprint.progress.by_state_group" :key="group">
-            <span class="grp">{{ ({ backlog: "待办", started: "进行中", completed: "已完成", cancelled: "取消" } as Record<string, string>)[group] ?? group }}</span>
+            <span class="grp">{{ groupLabel[group] ?? group }}</span>
             <div class="bar">
               <div class="fill" :class="`fill-${group}`" :style="{ width: sprint.progress!.total_points > 0 ? (pts / sprint.progress!.total_points) * 100 + '%' : '0%' }"></div>
             </div>
@@ -187,8 +299,12 @@ onMounted(load);
       <!-- 燃尽图 -->
       <section class="burndown-card">
         <h2>燃尽图</h2>
-        <div v-if="burndown.length === 0" class="empty">暂无快照数据</div>
-        <BurndownChart v-else :points="burndown" :start-date="sprint.start_date" :end-date="sprint.end_date" />
+        <BurndownChart
+          :points="burndown"
+          :start-date="sprint.start_date"
+          :end-date="sprint.end_date"
+          :loading="loading"
+        />
       </section>
 
       <!-- 工作项列表 -->
@@ -197,13 +313,13 @@ onMounted(load);
         <div class="issues-list">
           <div v-for="iss in issues" :key="iss.issue_id" class="issue-row">
             <span class="type-badge" :class="`type-${iss.type_code}`">
-              {{ ({ requirement: "需", task: "任", defect: "缺" } as Record<string, string>)[iss.type_code] }}
+              {{ typeLabel[iss.type_code] ?? "?" }}
             </span>
             <span class="name">{{ iss.name }}</span>
             <span :style="{ color: iss.state_color }" class="state">{{ iss.state_name }}</span>
             <span v-if="iss.point != null" class="point">{{ iss.point }}pt</span>
           </div>
-          <div v-if="issues.length === 0" class="empty">暂无工作项。前往 <a @click="router.push(`/${workspaceSlug}/projects/${projectId}/sprints/planning`)">排期规划</a></div>
+          <div v-if="issues.length === 0" class="empty">暂无工作项。前往 <a @click="goPlanning">排期规划</a></div>
         </div>
       </section>
 
@@ -217,6 +333,38 @@ onMounted(load);
           <div class="stat"><span class="num">+{{ sprint.review_snapshot.joined_issues }}</span><span class="label">中途加入</span></div>
         </div>
       </section>
+    </div>
+
+    <!-- 编辑迭代 modal -->
+    <div v-if="showEdit" class="modal-overlay" @click.self="showEdit = false">
+      <div class="modal">
+        <header>
+          <h2>编辑迭代</h2>
+          <button class="close" @click="showEdit = false">×</button>
+        </header>
+        <form @submit.prevent="saveEdit">
+          <label>名称 <span class="req">*</span>
+            <input v-model="editForm.name" maxlength="80" />
+          </label>
+          <label>目标
+            <input v-model="editForm.goal" maxlength="500" />
+          </label>
+          <div class="row">
+            <label>开始日期 <input v-model="editForm.start_date" type="date" /></label>
+            <label>结束日期 <input v-model="editForm.end_date" type="date" /></label>
+          </div>
+          <label>容量（故事点）
+            <input v-model.number="editForm.capacity" type="number" min="0" step="1" />
+          </label>
+          <div v-if="editError" class="error">{{ editError }}</div>
+          <footer>
+            <button type="button" class="btn btn-secondary" @click="showEdit = false">取消</button>
+            <button type="submit" class="btn btn-primary" :disabled="busy">
+              {{ busy ? "保存中..." : "保存" }}
+            </button>
+          </footer>
+        </form>
+      </div>
     </div>
 
     <!-- 结束迭代 modal -->
@@ -239,8 +387,15 @@ onMounted(load);
             <input type="radio" v-model="strategy" value="next_sprint" />
             <div>
               <strong>移至下一迭代</strong>
-              <span>保留在计划中但需要在排期时重新规划（本版本简化为取消 sprint_id）</span>
+              <span>未完成任务结转至指定的计划中迭代</span>
             </div>
+          </label>
+          <label v-if="strategy === 'next_sprint'" class="next-select">
+            目标迭代
+            <select v-model.number="nextSprintId">
+              <option v-for="sp in plannedSprints" :key="sp.id" :value="sp.id">{{ sp.name }}</option>
+              <option v-if="plannedSprints.length === 0" value="" disabled>暂无计划中的迭代，请先创建</option>
+            </select>
           </label>
           <label class="radio">
             <input type="radio" v-model="strategy" value="keep" />
@@ -277,9 +432,8 @@ onMounted(load);
 .back-btn:hover { background: var(--surface-3); }
 .header h1 { margin: 0; font-size: 20px; }
 .meta { display: flex; gap: 8px; align-items: center; margin: 4px 0 0; }
-.badge { font-size: 12px; padding: 2px 8px; border-radius: 12px; background: var(--surface-3); font-weight: 500; }
 .date { font-size: 11px; color: var(--text-tertiary); font-family: var(--font-mono); }
-.actions { display: flex; gap: 8px; }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
 .loading, .error, .empty { text-align: center; padding: 24px 0; color: var(--text-tertiary); }
 .error { color: var(--danger-500); }
@@ -350,15 +504,6 @@ section h2 { margin: 0 0 12px; font-size: 14px; font-weight: 600; }
 .fill-cancelled { background: var(--text-tertiary); }
 .val { width: 40px; font-family: var(--font-mono); color: var(--text-tertiary); }
 
-.burndown-svg { background: var(--surface-2); border-radius: var(--radius-sm); }
-.burndown-svg .grid { stroke: var(--border-subtle); stroke-width: 1; }
-.burndown-svg .axis { stroke: var(--text-tertiary); stroke-width: 1; }
-.burndown-svg .axis-label { font-size: 10px; fill: var(--text-tertiary); }
-.burndown-svg .ideal { stroke: var(--warning-500); stroke-width: 1.5; stroke-dasharray: 4 3; fill: none; }
-.burndown-svg .remaining { stroke: var(--brand-500); stroke-width: 2; fill: none; }
-.burndown-svg .done { stroke: var(--success-500); stroke-width: 2; fill: none; }
-.burndown-svg .dot { fill: var(--brand-500); }
-
 .issues-list { display: flex; flex-direction: column; gap: 4px; }
 .issue-row {
   display: flex; align-items: center; gap: 8px; padding: 6px 8px;
@@ -409,6 +554,27 @@ section h2 { margin: 0 0 12px; font-size: 14px; font-weight: 600; }
 }
 .radio div { display: flex; flex-direction: column; gap: 2px; font-size: 12px; }
 .radio span { color: var(--text-tertiary); font-size: 11px; }
+
+.next-select {
+  display: flex; flex-direction: column; gap: 4px; font-size: 12px;
+  color: var(--text-secondary); margin: -4px 0 8px 26px;
+}
+.next-select select {
+  font-size: 13px; padding: 6px 10px; border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm); background: var(--surface-2); color: var(--text-primary);
+}
+
+form { display: flex; flex-direction: column; gap: 10px; }
+label { font-size: 12px; color: var(--text-secondary); display: flex; flex-direction: column; gap: 4px; }
+.req { color: var(--danger-500); }
+input {
+  font-size: 13px; padding: 6px 10px; border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm); background: var(--surface-2); color: var(--text-primary);
+  font-family: inherit;
+}
+input:focus { outline: none; border-color: var(--brand-500); }
+
+.row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 
 form footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
 </style>

@@ -62,6 +62,7 @@ export interface Issue {
   completed_at?: string;
   is_draft: boolean;
   version: number;
+  sort_order?: number;
   sprint_id?: number;
   found_version_id?: number;
   fix_version_id?: number;
@@ -180,6 +181,7 @@ export interface CreateIssueInput {
   severity?: number;
   found_phase?: string;
   reproduce_steps?: Record<string, unknown>;
+  environment?: Record<string, unknown>;
   category?: string;
   source?: string;
   assignees?: number[];
@@ -187,6 +189,8 @@ export interface CreateIssueInput {
   modules?: number[];
   point?: number;
   is_draft?: boolean;
+  found_version_id?: number;
+  fix_version_id?: number;
 }
 
 /** 更新工作项入参（可选字段 + 乐观锁 version） */
@@ -285,6 +289,16 @@ export const issueApi = {
       http.post(`/workspaces/${wsId}/projects/${projectId}/issues/batch`, input),
     ),
 
+  // --- 导出 CSV ---
+  exportUrl: (wsId: number, projectId: number, params?: ListIssuesParams) => {
+    const qs = new URLSearchParams();
+    if (params?.type) qs.set("type", params.type);
+    if (params?.state_id) qs.set("state_id", String(params.state_id));
+    if (params?.search) qs.set("search", params.search);
+    const q = qs.toString();
+    return `/api/v1/workspaces/${wsId}/projects/${projectId}/issues/export${q ? "?" + q : ""}`;
+  },
+
   // --- 活动日志 ---
   listActivities: (wsId: number, projectId: number, issueId: number, limit = 50, offset = 0) =>
     wrap<{ results: IssueActivity[]; total: number }>(
@@ -305,6 +319,16 @@ export const issueApi = {
     input: { spent_date: string; duration_minutes: number; description?: string },
   ) =>
     wrap<TimeLog>(http.post(`/workspaces/${wsId}/projects/${projectId}/issues/${issueId}/time-logs`, input)),
+  updateTimeLog: (
+    wsId: number,
+    projectId: number,
+    issueId: number,
+    logId: number,
+    input: { spent_date: string; duration_minutes: number; description?: string },
+  ) =>
+    wrap<TimeLog>(http.patch(`/workspaces/${wsId}/projects/${projectId}/issues/${issueId}/time-logs/${logId}`, input)),
+  deleteTimeLog: (wsId: number, projectId: number, issueId: number, logId: number) =>
+    wrap<void>(http.delete(`/workspaces/${wsId}/projects/${projectId}/issues/${issueId}/time-logs/${logId}`)),
 
   // --- 关联关系 ---
   listRelations: (wsId: number, projectId: number, issueId: number) =>

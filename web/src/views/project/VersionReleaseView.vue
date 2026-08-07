@@ -53,8 +53,6 @@ const canProceedFromChecklist = computed(() => {
   return checklistAllDone.value || forceChecklist.value;
 });
 
-const canProceedFromNotes = computed(() => true); // always can proceed
-
 const canPublish = computed(() => {
   return canProceedFromChecklist.value && qualityPassed.value;
 });

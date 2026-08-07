@@ -1,7 +1,7 @@
 /**
  * 工作空间域 API — axios 调用 + 类型化返回。
  */
-import { http, type ApiResponse } from "../client";
+import { http } from "../client";
 
 /** 工作空间（含当前用户角色与成员数可选字段） */
 export interface Workspace {

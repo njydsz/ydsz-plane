@@ -14,16 +14,18 @@ import (
 
 	"go.uber.org/zap"
 
+	"github.com/njydsz/ydsz-plane/internal/application/apitoken"
 	"github.com/njydsz/ydsz-plane/internal/application/attachment"
 	"github.com/njydsz/ydsz-plane/internal/application/auth"
+	"github.com/njydsz/ydsz-plane/internal/application/dashboard"
 	"github.com/njydsz/ydsz-plane/internal/application/issue"
 	notif "github.com/njydsz/ydsz-plane/internal/application/notification"
+	"github.com/njydsz/ydsz-plane/internal/application/preference"
 	"github.com/njydsz/ydsz-plane/internal/application/search"
 	"github.com/njydsz/ydsz-plane/internal/application/sprint"
 	"github.com/njydsz/ydsz-plane/internal/application/version"
 	"github.com/njydsz/ydsz-plane/internal/application/workbench"
 	"github.com/njydsz/ydsz-plane/internal/application/workspace"
-	"github.com/njydsz/ydsz-plane/internal/application/dashboard"
 	"github.com/njydsz/ydsz-plane/internal/config"
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/cache"
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/mail"
@@ -96,6 +98,16 @@ func run() error {
 	wsSvc := workspace.NewService(pool.Pool)
 	memberSvc := workspace.NewMemberService(pool.Pool)
 	projectSvc := workspace.NewProjectService(pool.Pool)
+	apiTokenSvc := apitoken.NewService(pool.Pool)
+
+	// 复合认证解析器：先试会话 JWT，失败后尝试个人 API Token（ydz_ 前缀）。
+	// 两种凭证最终都归一为 auth.Principal，中间件据此区分来源并施加 scope 收敛。
+	parsePrincipal := func(token string) (auth.Principal, error) {
+		if uid, err := authSvc.ParseAccess(token); err == nil {
+			return auth.Principal{UserID: uid, Kind: auth.PrincipalJWT}, nil
+		}
+		return apiTokenSvc.ResolvePrincipal(ctx, token)
+	}
 
 	// 邮件服务：未配置 SMTP → Noop（dev/CI 不打真实邮件）
 	var mailSvc mail.EmailService
@@ -113,6 +125,18 @@ func run() error {
 	invitationSvc := workspace.NewInvitationService(pool.Pool, mailSvc, cfg.Email.AppBaseURL)
 	auditSvc := workspace.NewAuditService(pool.Pool)
 
+	// ---------- Notification domain (before Issue, for event fan-out) ----------
+	notifSvc := notif.NewService(pool.Pool)
+	notifHandler := notif.NewHandler(&notif.HandlerDeps{
+		NotificationSvc: notifSvc,
+		WorkspaceStore:  wsStore,
+	})
+
+	// ---------- WebSocket Hub (before Issue, for real-time broadcast) ----------
+	wsHub := ws.NewHub(rdb)
+	go wsHub.Run()
+	defer wsHub.Shutdown()
+
 	// ---------- Issue domain ----------
 	issueSvc := issue.NewService(pool.Pool)
 	stateSvc := issue.NewStateService(pool.Pool)
@@ -121,18 +145,29 @@ func run() error {
 	relationSvc := issue.NewRelationService(pool.Pool)
 	commentSvc := issue.NewCommentService(pool.Pool)
 	issueHandler := issue.NewIssueHandler(&issue.HandlerDeps{
-		IssueSvc:       issueSvc,
-		StateSvc:       stateSvc,
-		ActivitySvc:    activitySvc,
-		TimeLogSvc:     timeLogSvc,
-		RelationSvc:    relationSvc,
-		CommentSvc:     commentSvc,
-		WorkspaceStore: wsStore,
+		IssueSvc:        issueSvc,
+		StateSvc:        stateSvc,
+		ActivitySvc:     activitySvc,
+		TimeLogSvc:      timeLogSvc,
+		RelationSvc:     relationSvc,
+		CommentSvc:      commentSvc,
+		WorkspaceStore:  wsStore,
+		NotificationSvc: notifSvc,
+		WSHub:           wsHub,
+		UserNameQuery: func(ctx context.Context, userID int64) string {
+			var name string
+			_ = pool.Pool.QueryRow(ctx,
+				`SELECT COALESCE(display_name,'') FROM users WHERE id=$1`, userID).Scan(&name)
+			return name
+		},
 	})
 
 	// ---------- Sprint domain ----------
 	sprintSvc := sprint.NewService(pool.Pool)
-	sprintHandler := sprint.NewHandler(sprintSvc)
+	sprintHandler := sprint.NewHandler(sprintSvc,
+		sprint.WithNotification(notifSvc),
+		sprint.WithWSHub(wsHub),
+	)
 
 	// ---------- Version domain ----------
 	versionSvc := version.NewService(version.Deps{
@@ -162,13 +197,6 @@ func run() error {
 		DashboardSvc: dashboardSvc,
 	})
 
-	// ---------- Notification domain ----------
-	notifSvc := notif.NewService(pool.Pool)
-	notifHandler := notif.NewHandler(&notif.HandlerDeps{
-		NotificationSvc: notifSvc,
-		WorkspaceStore:  wsStore,
-	})
-
 	// ---------- Attachment / Storage ----------
 	stClient, err := storage.New(cfg.Storage)
 	if err != nil {
@@ -177,26 +205,27 @@ func run() error {
 	attSvc := attachment.NewService(pool.Pool, stClient)
 	attHandler := attachment.NewHandler(&attachment.HandlerDeps{AttachmentSvc: attSvc})
 
-	// ---------- WebSocket Hub ----------
-	wsHub := ws.NewHub(rdb)
-	go wsHub.Run()
-	defer wsHub.Shutdown()
+	// ---------- View Preference ----------
+	prefSvc := preference.NewService(pool.Pool)
+	prefHandler := preference.NewHandler(prefSvc)
 
 	// ---------- HTTP Engine ----------
 	engine := httpapi.NewEngine(&httpapi.Deps{
-		Cfg:            cfg,
-		Log:            log,
-		DB:             pool.Pool,
-		Redis:          rdb,
-		Auth:           authSvc,
-		ResetSvc:       resetSvc,
-		WorkspaceStore: wsStore,
-		WorkspaceSvc:   wsSvc,
-		MemberSvc:      memberSvc,
-		InvitationSvc:  invitationSvc,
-		ProjectSvc:     projectSvc,
-		AuditSvc:       auditSvc,
-		Mail:           mailSvc,
+		Cfg:             cfg,
+		Log:             log,
+		DB:              pool.Pool,
+		Redis:           rdb,
+		Auth:            authSvc,
+		ResetSvc:        resetSvc,
+		PrincipalParser: parsePrincipal,
+		ApiTokenSvc:     apiTokenSvc,
+		WorkspaceStore:  wsStore,
+		WorkspaceSvc:    wsSvc,
+		MemberSvc:       memberSvc,
+		InvitationSvc:   invitationSvc,
+		ProjectSvc:      projectSvc,
+		AuditSvc:        auditSvc,
+		Mail:            mailSvc,
 		// Issue domain
 		IssueSvc:     issueSvc,
 		StateSvc:     stateSvc,
@@ -212,9 +241,9 @@ func run() error {
 		// Notification domain
 		NotificationHandler: notifHandler,
 		// Attachment domain
-		AttachmentHandler:   attHandler,
+		AttachmentHandler: attHandler,
 		// WebSocket Hub
-		WSHub:               wsHub,
+		WSHub: wsHub,
 		// Sprint domain
 		SprintHandler: sprintHandler,
 		// Version domain
@@ -223,35 +252,48 @@ func run() error {
 
 	// 注册工作项路由（必须在 NewEngine 之后）
 	httpapi.RegisterIssueRoutes(engine, &httpapi.Deps{
-		Auth:           authSvc,
-		WorkspaceStore: wsStore,
-		IssueHandler:   issueHandler,
+		Auth:            authSvc,
+		PrincipalParser: parsePrincipal,
+		WorkspaceStore:  wsStore,
+		IssueHandler:    issueHandler,
 	})
 
 	// 注册迭代路由（独立于 Issue 路由）
 	httpapi.RegisterSprintRoutes(engine, &httpapi.Deps{
-		Auth:           authSvc,
-		WorkspaceStore: wsStore,
-		SprintHandler:  sprintHandler,
+		Auth:            authSvc,
+		PrincipalParser: parsePrincipal,
+		WorkspaceStore:  wsStore,
+		SprintHandler:   sprintHandler,
 	})
 
 	// 注册版本路由（独立于 Issue 路由）
 	httpapi.RegisterVersionRoutes(engine, &httpapi.Deps{
-		Auth:           authSvc,
-		WorkspaceStore: wsStore,
-		VersionHandler: versionHandler,
+		Auth:            authSvc,
+		PrincipalParser: parsePrincipal,
+		WorkspaceStore:  wsStore,
+		VersionHandler:  versionHandler,
+	})
+
+	// 注册视图偏好路由（项目级）
+	httpapi.RegisterPreferenceRoutes(engine, &httpapi.Deps{
+		Auth:            authSvc,
+		PrincipalParser: parsePrincipal,
+		WorkspaceStore:  wsStore,
+		PrefHandler:     prefHandler,
 	})
 
 	// 注册搜索路由（项目级 + 工作空间级）
 	httpapi.RegisterSearchRoutes(engine, &httpapi.Deps{
-		Auth:           authSvc,
-		WorkspaceStore: wsStore,
-		SearchHandler:  searchHandler,
+		Auth:            authSvc,
+		PrincipalParser: parsePrincipal,
+		WorkspaceStore:  wsStore,
+		SearchHandler:   searchHandler,
 	})
 
 	// 注册工作台路由（项目级 + 工作空间级）
 	httpapi.RegisterWorkbenchRoutes(engine, &httpapi.Deps{
 		Auth:             authSvc,
+		PrincipalParser:  parsePrincipal,
 		WorkspaceStore:   wsStore,
 		WorkbenchHandler: workbenchHandler,
 	})
@@ -259,6 +301,7 @@ func run() error {
 	// 注册仪表盘路由（项目级 + 工作空间级）
 	httpapi.RegisterDashboardRoutes(engine, &httpapi.Deps{
 		Auth:             authSvc,
+		PrincipalParser:  parsePrincipal,
 		WorkspaceStore:   wsStore,
 		DashboardHandler: dashboardHandler,
 	})
@@ -266,6 +309,7 @@ func run() error {
 	// 注册通知路由
 	httpapi.RegisterNotificationRoutes(engine, &httpapi.Deps{
 		Auth:                authSvc,
+		PrincipalParser:     parsePrincipal,
 		WorkspaceStore:      wsStore,
 		NotificationHandler: notifHandler,
 	})
@@ -273,15 +317,17 @@ func run() error {
 	// 注册附件路由
 	httpapi.RegisterAttachmentRoutes(engine, &httpapi.Deps{
 		Auth:              authSvc,
+		PrincipalParser:   parsePrincipal,
 		WorkspaceStore:    wsStore,
 		AttachmentHandler: attHandler,
 	})
 
 	// 注册 WebSocket 路由
 	httpapi.RegisterWSRoutes(engine, &httpapi.Deps{
-		Auth:           authSvc,
-		WorkspaceStore: wsStore,
-		WSHub:          wsHub,
+		Auth:            authSvc,
+		PrincipalParser: parsePrincipal,
+		WorkspaceStore:  wsStore,
+		WSHub:           wsHub,
 	})
 
 	srv := &http.Server{

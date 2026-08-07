@@ -122,6 +122,57 @@ func (s *TimeLogService) ListByIssue(ctx context.Context, wsID, issueID int64, l
 	return logs, total, rows.Err()
 }
 
+// Update 更新工时记录（差值回写汇总）。
+func (s *TimeLogService) Update(ctx context.Context, wsID, logID int64, durationMinutes int, description string, spentDate time.Time) (*TimeLog, error) {
+	if durationMinutes <= 0 || durationMinutes > 1440 {
+		return nil, errs.ErrValidation.WithDetails(errs.FieldDetail{
+			Field: "duration_minutes", Reason: "工时必须介于 1-1440 分钟（24h）"})
+	}
+
+	var tl TimeLog
+	err := s.withTx(ctx, wsID, func(tx pgx.Tx) error {
+		// 读取当前值
+		var issueID int64
+		var oldMinutes int
+		err := tx.QueryRow(ctx, `
+			SELECT issue_id, duration_minutes FROM time_logs WHERE id = $1 AND workspace_id = $2 AND deleted_at IS NULL`,
+			logID, wsID).Scan(&issueID, &oldMinutes)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return errs.ErrNotFound
+			}
+			return err
+		}
+
+		// 更新记录
+		err = tx.QueryRow(ctx, `
+			UPDATE time_logs
+			SET duration_minutes = $1, description = $2, spent_date = $3, updated_at = now()
+			WHERE id = $4 AND workspace_id = $5 AND deleted_at IS NULL
+			RETURNING id, workspace_id, project_id, issue_id, user_id, spent_date, duration_minutes, description, created_at, updated_at`,
+			durationMinutes, description, spentDate, logID, wsID).
+			Scan(&tl.ID, &tl.WorkspaceID, &tl.ProjectID, &tl.IssueID, &tl.UserID,
+				&tl.SpentDate, &tl.DurationMinutes, &tl.Description, &tl.CreatedAt, &tl.UpdatedAt)
+		if err != nil {
+			return err
+		}
+
+		// 差值回写 issue 汇总
+		diff := durationMinutes - oldMinutes
+		_, err = tx.Exec(ctx, `
+			UPDATE issues SET
+				actual_effort = greatest(coalesce(actual_effort,0) + $1 / 60.0, 0),
+				remaining_effort = greatest(coalesce(remaining_effort,0) - $1 / 60.0, 0),
+				updated_at = now()
+			WHERE id = $2 AND deleted_at IS NULL`, diff, issueID)
+		return err
+	})
+	if err != nil {
+		return nil, errs.ErrInternal.Wrap(err)
+	}
+	return &tl, nil
+}
+
 // Delete 删除工时记录（回写汇总）。
 func (s *TimeLogService) Delete(ctx context.Context, wsID, logID int64) error {
 	return s.withTx(ctx, wsID, func(tx pgx.Tx) error {

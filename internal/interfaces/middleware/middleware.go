@@ -14,6 +14,7 @@ import (
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 
+	"github.com/njydsz/ydsz-plane/internal/application/auth"
 	"github.com/njydsz/ydsz-plane/pkg/errs"
 )
 
@@ -23,6 +24,8 @@ const (
 	CtxUserID      = "user_id"
 	CtxWorkspaceID = "workspace_id"
 	CtxProjectID   = "project_id"
+	CtxAuthKind    = "auth_kind"
+	CtxAuthScopes  = "auth_scopes"
 )
 
 // SecurityHeaders 添加纵深防御型 HTTP 响应头。这些头补充反向代理 nginx
@@ -192,9 +195,18 @@ func AbortWithError(c *gin.Context, e *errs.AppError) {
 	c.Abort()
 }
 
-// RequireAuth 校验访问令牌（见 internal/application/auth）并注入用户 ID。
-// 以工厂函数实现，避免 import cycle。
-func RequireAuth(parseToken func(token string) (userID int64, err error)) gin.HandlerFunc {
+// RequireAuth 校验访问凭证（JWT 或 API Token）并注入认证主体。
+//
+// parse 由上层装配（见 cmd/api/main.go 的复合解析器）：先尝试 JWT
+// ParseAccess，失败后交给 API Token 服务查表校验（含 scope 与过期时间）。
+// 校验通过后向 ctx 注入：
+//
+//	user_id     — 主体用户 ID
+//	auth_kind   — 凭证类型（"jwt" | "api_token"）
+//	auth_scopes — API Token 携带的 scope 白名单（仅 api_token 非空）
+//
+// 任何凭证无效场景统一返回 401，不区分具体原因（防探测）。
+func RequireAuth(parse func(token string) (auth.Principal, error)) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		token := bearerToken(c)
 		if token == "" {
@@ -202,22 +214,35 @@ func RequireAuth(parseToken func(token string) (userID int64, err error)) gin.Ha
 			c.Abort()
 			return
 		}
-		uid, err := parseToken(token)
+		p, err := parse(token)
 		if err != nil {
-			respondError(c, errs.ErrTokenExpired)
+			respondError(c, errs.ErrUnauthorized)
 			c.Abort()
 			return
 		}
-		c.Set(CtxUserID, uid)
+		c.Set(CtxUserID, p.UserID)
+		c.Set(CtxAuthKind, string(p.Kind))
+		if len(p.Scopes) > 0 {
+			c.Set(CtxAuthScopes, p.Scopes)
+		}
 		c.Next()
 	}
 }
 
+// bearerToken 从请求中提取访问凭证，优先级：
+//
+//  1. Authorization: Bearer <token>
+//  2. X-Api-Key: <token>（API Token 规范头，见 docs/architecture/05）
+//  3. Cookie: ydsz_access=<token>（SPA 会话）
 func bearerToken(c *gin.Context) string {
 	h := c.GetHeader("Authorization")
 	const prefix = "Bearer "
 	if len(h) > len(prefix) && h[:len(prefix)] == prefix {
 		return h[len(prefix):]
+	}
+	// 脚本/集成使用 X-Api-Key 头携带 API Token
+	if k := c.GetHeader("X-Api-Key"); k != "" {
+		return k
 	}
 	// SPA 的 cookie 会话
 	if ck, err := c.Cookie("ydsz_access"); err == nil {

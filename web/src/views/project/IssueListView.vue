@@ -6,9 +6,10 @@
 import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
-import { type Issue, type IssueType, type ListIssuesParams, type State, issueApi } from "@/api/services/issue";
+import { type IssueType, type ListIssuesParams, type State, issueApi } from "@/api/services/issue";
 import { workspaceApi } from "@/api/services/workspace";
 import { useIssueStore } from "@/stores/issue";
+import { prefs } from "@/lib/prefs";
 import IssueFilter from "./IssueFilter.vue";
 
 const route = useRoute();
@@ -206,7 +207,14 @@ const columns: { key: string; label: string; width?: string; sortable?: boolean 
   { key: "updated_at", label: "更新时间", width: "130px", sortable: true },
 ];
 
-onMounted(load);
+onMounted(() => {
+  prefs.setLastView(projectId.value, "list");
+  load();
+});
+
+const exportUrl = computed(() =>
+  issueApi.exportUrl(wsId.value, projectId.value, currentFilter.value),
+);
 </script>
 
 <template>
@@ -217,6 +225,11 @@ onMounted(load);
         <p class="hint">共 {{ total }} 个工作项</p>
       </div>
       <div class="list-view__header-right">
+        <a
+          :href="exportUrl"
+          class="btn btn--sm btn--export"
+          download
+        >导出 CSV</a>
         <div class="view-switcher">
           <router-link
             :to="`/${route.params.workspaceSlug}/projects/${projectId}/board`"
@@ -453,6 +466,8 @@ onMounted(load);
 .btn--danger { background: var(--danger-500); color: #fff; border: none; }
 .btn--danger:hover { background: var(--danger-600); }
 .btn--ghost { background: none; color: var(--text-secondary); }
+.btn--export { background: var(--success-500); color: #fff; text-decoration: none; border: none; font-size: 12px; }
+.btn--export:hover { background: var(--success-600); }
 .btn--ghost:hover { background: var(--surface-3); }
 
 /* 表格 */

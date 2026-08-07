@@ -9,18 +9,39 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	notif "github.com/njydsz/ydsz-plane/internal/application/notification"
+	"github.com/njydsz/ydsz-plane/internal/infrastructure/ws"
 	"github.com/njydsz/ydsz-plane/internal/interfaces/middleware"
 	"github.com/njydsz/ydsz-plane/pkg/errs"
 )
 
 // Handler 是 Gin handler 集合。
 type Handler struct {
-	svc *Service
+	svc             *Service
+	NotificationSvc *notif.Service
+	WSHub           *ws.Hub
+}
+
+// HandlerOption 可选依赖注入（保持 NewHandler(svc) 旧签名向后兼容）。
+type HandlerOption func(*Handler)
+
+// WithNotification 注入通知服务（为 nil 时跳过通知）。
+func WithNotification(svc *notif.Service) HandlerOption {
+	return func(h *Handler) { h.NotificationSvc = svc }
+}
+
+// WithWSHub 注入 WebSocket Hub（为 nil 时跳过实时广播）。
+func WithWSHub(hub *ws.Hub) HandlerOption {
+	return func(h *Handler) { h.WSHub = hub }
 }
 
 // NewHandler 构造 handler。
-func NewHandler(svc *Service) *Handler {
-	return &Handler{svc: svc}
+func NewHandler(svc *Service, opts ...HandlerOption) *Handler {
+	h := &Handler{svc: svc}
+	for _, o := range opts {
+		o(h)
+	}
+	return h
 }
 
 // Register 注册 Sprint 路由（使用已校验 auth / workspace / project 的父路由组）。
@@ -255,12 +276,18 @@ func (h *Handler) deleteSprint(c *gin.Context) {
 func (h *Handler) startSprint(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	sprintID := int64Param(c, "sprint_id")
+	userID := c.GetInt64(middleware.CtxUserID)
 
 	sp, err := h.svc.Start(c.Request.Context(), wsID, sprintID)
 	if err != nil {
 		writeErr(c, err)
 		return
 	}
+
+	// 通知迭代内工作项的指派者（失败不影响主流程）
+	h.notifyLifecycleChange(c.Request.Context(), wsID, sprintID, userID, "用户",
+		notif.EventSprintStarted, sp.Name)
+
 	c.JSON(http.StatusOK, sp)
 }
 
@@ -276,6 +303,7 @@ func (h *Handler) startSprint(c *gin.Context) {
 func (h *Handler) completeSprint(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	sprintID := int64Param(c, "sprint_id")
+	userID := c.GetInt64(middleware.CtxUserID)
 
 	var req struct {
 		Strategy     string `json:"strategy" binding:"required,oneof=backlog next_sprint keep"`
@@ -295,6 +323,11 @@ func (h *Handler) completeSprint(c *gin.Context) {
 		writeErr(c, err)
 		return
 	}
+
+	// 通知迭代内工作项的指派者（失败不影响主流程）
+	h.notifyLifecycleChange(c.Request.Context(), wsID, sprintID, userID, "用户",
+		notif.EventSprintCompleted, sp.Name)
+
 	c.JSON(http.StatusOK, sp)
 }
 

@@ -435,6 +435,23 @@ func (s *Service) AddIssue(ctx context.Context, wsID int64, in AddIssueInput) er
 			// sprint_id 列允许 NULL，此更新可选；此处忽略重复
 		}
 
+		// 容量校验：仅对"新加入"的工作项生效（重排 upsert 不校验）
+		var alreadyInSprint bool
+		if err := tx.QueryRow(ctx,
+			`SELECT EXISTS(SELECT 1 FROM sprint_issues WHERE sprint_id = $1 AND issue_id = $2)`,
+			in.SprintID, in.IssueID).Scan(&alreadyInSprint); err != nil {
+			return errs.ErrInternal.Wrap(err)
+		}
+		if !alreadyInSprint && sp.Capacity != nil && *sp.Capacity > 0 {
+			over, err := s.wouldExceedCapacityTx(ctx, tx, sp, in.IssueID)
+			if err != nil {
+				return err
+			}
+			if over {
+				return errs.ErrSprintCapacityExceeded
+			}
+		}
+
 		// 写 sprint_issues
 		_, err = tx.Exec(ctx, `
 			INSERT INTO sprint_issues (sprint_id, issue_id, added_midway, sort_order, added_by)
@@ -443,6 +460,31 @@ func (s *Service) AddIssue(ctx context.Context, wsID int64, in AddIssueInput) er
 			in.SprintID, in.IssueID, addedMidway, in.SortOrder, in.AddedBy)
 		return err
 	})
+}
+
+// wouldExceedCapacityTx 判断加入 in.IssueID 后迭代总点数是否超出容量。
+// 使用行级锁（FOR UPDATE）读取当前总点数，避免并发规划时超卖容量。
+func (s *Service) wouldExceedCapacityTx(ctx context.Context, tx pgx.Tx, sp *Sprint, issueID int64) (bool, error) {
+	var incomingPoint int
+	if err := tx.QueryRow(ctx,
+		`SELECT COALESCE(point, 0) FROM issues WHERE id = $1 AND deleted_at IS NULL`, issueID).Scan(&incomingPoint); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return false, errs.ErrNotFound
+		}
+		return false, errs.ErrInternal.Wrap(err)
+	}
+
+	var currentPoints int
+	if err := tx.QueryRow(ctx, `
+		SELECT COALESCE(SUM(i.point), 0)
+		FROM sprint_issues si
+		JOIN issues i ON i.id = si.issue_id
+		WHERE si.sprint_id = $1 AND i.deleted_at IS NULL
+		FOR UPDATE OF si`, sp.ID).Scan(&currentPoints); err != nil {
+		return false, errs.ErrInternal.Wrap(err)
+	}
+
+	return float64(currentPoints+incomingPoint) > *sp.Capacity, nil
 }
 
 // RemoveIssue 从迭代移除工作项。
@@ -527,6 +569,30 @@ func (s *Service) ListSprintIssues(ctx context.Context, wsID, sprintID int64, li
 		views = append(views, v)
 	}
 	return views, total, rows.Err()
+}
+
+// AssigneeIDs 返回迭代内工作项的去重指派者（用于生命周期通知）。
+func (s *Service) AssigneeIDs(ctx context.Context, wsID, sprintID int64) ([]int64, error) {
+	rows, err := s.db.Query(ctx, `
+		SELECT DISTINCT ia.user_id
+		FROM sprint_issues si
+		JOIN issue_assignees ia ON ia.issue_id = si.issue_id
+		WHERE si.sprint_id = $1
+		ORDER BY ia.user_id`, sprintID)
+	if err != nil {
+		return nil, errs.ErrInternal.Wrap(err)
+	}
+	defer rows.Close()
+
+	var ids []int64
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, errs.ErrInternal.Wrap(err)
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
 }
 
 // BacklogItem Backlog 视图。
@@ -722,13 +788,15 @@ func (s *Service) WriteDailySnapshot(ctx context.Context, wsID int64) (int, erro
 }
 
 // writeSnapshotTx 在迭代内写一个日快照（内嵌事务）。
+// RemovedPoints 通过对比上一次快照的 issue 集合计算（中途移除的点数）。
 func (s *Service) writeSnapshotTx(ctx context.Context, tx pgx.Tx, wsID int64, sp *Sprint) error {
 	today := time.Now().UTC().Truncate(24 * time.Hour)
 	projectID := sp.ProjectID
 
-	// 聚合：当前迭代内工作项的总/已完成点数，按状态分组
+	// 聚合：当前迭代内工作项的总/已完成点数，按状态分组；并收集 issue 集合
 	var totalPoints, donePoints, addedPoints sql.NullFloat64
 	var totalIssues, doneIssues int
+	var currentIssueIDs []int64
 	byState := map[string]float64{}
 
 	err := tx.QueryRow(ctx, `
@@ -737,12 +805,13 @@ func (s *Service) writeSnapshotTx(ctx context.Context, tx pgx.Tx, wsID int64, sp
 			coalesce(sum(CASE WHEN sg."group" = 'completed' AND i.point IS NOT NULL THEN i.point ELSE 0 END), 0),
 			count(*),
 			count(*) FILTER (WHERE sg."group" = 'completed'),
-			coalesce(sum(CASE WHEN si.added_midway AND i.point IS NOT NULL THEN i.point ELSE 0 END), 0)
+			coalesce(sum(CASE WHEN si.added_midway AND i.point IS NOT NULL THEN i.point ELSE 0 END), 0),
+			coalesce(array_agg(i.id) FILTER (WHERE i.id IS NOT NULL), ARRAY[]::bigint[])
 		FROM sprint_issues si
 		JOIN issues i ON i.id = si.issue_id
 		JOIN states sg ON sg.id = i.state_id
 		WHERE si.sprint_id = $1 AND i.deleted_at IS NULL`, sp.ID).Scan(
-		&totalPoints, &donePoints, &totalIssues, &doneIssues, &addedPoints)
+		&totalPoints, &donePoints, &totalIssues, &doneIssues, &addedPoints, &currentIssueIDs)
 	if err != nil {
 		return errs.ErrInternal.Wrap(err)
 	}
@@ -768,14 +837,21 @@ func (s *Service) writeSnapshotTx(ctx context.Context, tx pgx.Tx, wsID int64, sp
 		byState[grp] = pts
 	}
 
+	// 计算 RemovedPoints：对比上一次快照的 issue 集合，被移出且本次仍存在的差异
+	removedPoints, err := s.removedPointsSinceTx(ctx, tx, sp.ID, today, currentIssueIDs)
+	if err != nil {
+		return err
+	}
+
 	data := SnapshotData{
-		TotalPoints:  totalPoints.Float64,
-		DonePoints:   donePoints.Float64,
-		TotalIssues:  totalIssues,
-		DoneIssues:   doneIssues,
-		ByStateGroup: byState,
-		AddedPoints:  addedPoints.Float64,
-		RemovedPoints: 0, // removed 在非 start 时已被移出；可进一步按流程算
+		TotalPoints:   totalPoints.Float64,
+		DonePoints:    donePoints.Float64,
+		TotalIssues:   totalIssues,
+		DoneIssues:    doneIssues,
+		ByStateGroup:  byState,
+		AddedPoints:   addedPoints.Float64,
+		RemovedPoints: removedPoints,
+		IssueIDs:      currentIssueIDs,
 	}
 
 	payload, _ := json.Marshal(data)
@@ -785,6 +861,51 @@ func (s *Service) writeSnapshotTx(ctx context.Context, tx pgx.Tx, wsID int64, sp
 		ON CONFLICT (sprint_id, snapshot_date) DO UPDATE SET data = EXCLUDED.data`,
 		wsID, projectID, sp.ID, today, payload)
 	return err
+}
+
+// removedPointsSinceTx 对比上一次快照的 issue 集合，计算本次被中途移除的工作项点数。
+//
+// 兼容性：旧快照（无 issue_ids 字段）视为无集合，返回 0，不阻断新快照写入。
+func (s *Service) removedPointsSinceTx(ctx context.Context, tx pgx.Tx, sprintID int64, today time.Time, currentIDs []int64) (float64, error) {
+	// 读取上一次（严格早于今天）快照的 issue 集合
+	var raw []byte
+	err := tx.QueryRow(ctx, `
+		SELECT data->'issue_ids'::text FROM sprint_snapshots
+		WHERE sprint_id = $1 AND snapshot_date < $2
+		ORDER BY snapshot_date DESC LIMIT 1`, sprintID, today).Scan(&raw)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return 0, nil // 首个快照，无历史可对比
+		}
+		return 0, errs.ErrInternal.Wrap(err)
+	}
+
+	var prevIDs []int64
+	if err := json.Unmarshal(raw, &prevIDs); err != nil || len(prevIDs) == 0 {
+		return 0, nil // 旧数据无该字段 / 空集合，无法对比
+	}
+
+	cur := make(map[int64]bool, len(currentIDs))
+	for _, id := range currentIDs {
+		cur[id] = true
+	}
+	var removed []int64
+	for _, id := range prevIDs {
+		if !cur[id] {
+			removed = append(removed, id)
+		}
+	}
+	if len(removed) == 0 {
+		return 0, nil
+	}
+
+	var sum sql.NullFloat64
+	if err := tx.QueryRow(ctx,
+		`SELECT coalesce(sum(point), 0) FROM issues WHERE id = ANY($1) AND deleted_at IS NULL`,
+		removed).Scan(&sum); err != nil {
+		return 0, errs.ErrInternal.Wrap(err)
+	}
+	return sum.Float64, nil
 }
 
 // BurndownData 返回燃尽图数据序列。

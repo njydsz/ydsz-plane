@@ -32,13 +32,6 @@ const fixRatePercent = computed(() => Math.round((version.value?.quality?.fix_ra
 
 const qualityGatePassed = computed(() => (version.value?.quality?.critical_bugs ?? 0) === 0);
 
-const statusLabel: Record<string, string> = {
-  planning: "规划中",
-  active: "进行中",
-  released: "已发布",
-  archived: "已归档",
-};
-
 const sprintStatusLabel: Record<string, string> = {
   planned: "未开始",
   active: "进行中",

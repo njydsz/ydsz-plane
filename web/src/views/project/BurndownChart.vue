@@ -296,19 +296,10 @@ const option = computed<EChartsOption>(() => {
 });
 
 /* ------------------------------------------------------------------ */
-/* 事件回调                                                             */
+/* ECharts 实例引用 — 供外部获取底层图表实例                              */
 /* ------------------------------------------------------------------ */
 
-const emit = defineEmits<{
-  pointClick: [point: BPoint, index: number];
-}>();
-
-function onChartClick(params: unknown) {
-  const p = params as { seriesName?: string; dataIndex?: number };
-  if (p.dataIndex !== undefined && props.points[p.dataIndex]) {
-    emit("pointClick", props.points[p.dataIndex], p.dataIndex);
-  }
-}
+defineExpose({ chartRef });
 </script>
 
 <template>
@@ -334,7 +325,6 @@ function onChartClick(params: unknown) {
       :option="option"
       :style="{ height: chartHeight }"
       autoresize
-      @click="(e: any) => onChartClick(e)"
     />
   </div>
 </template>

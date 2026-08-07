@@ -10,6 +10,7 @@
 import { computed, nextTick, ref, watch } from "vue";
 import { issueApi, type IssueComment, type CreateCommentInput, type UpdateCommentInput } from "@/api/services/issue";
 import { useAuthStore } from "@/stores/auth";
+import { toast } from "@/lib/toast";
 import CommentItem from "./CommentItem.vue";
 import CommentForm from "./CommentForm.vue";
 import AppEmptyState from "./AppEmptyState.vue";
@@ -76,12 +77,12 @@ const repliesByParent = computed(() => {
 
 /* ---- 操作 ---- */
 
-async function handleCreate(payload: { content_html: string; content_stripped: string; parent_id?: number | null }) {
+async function handleCreate(payload: { content_html: string; content_json: string; content_stripped: string; parent_id?: number | null }) {
   if (submitting.value) return;
   submitting.value = true;
   try {
     const input: CreateCommentInput = {
-      content_json: JSON.stringify({ type: "doc", content: [] }),
+      content_json: payload.content_json || JSON.stringify({ type: "doc", content: [] }),
       content_html: payload.content_html,
       content_stripped: payload.content_stripped,
     };
@@ -92,9 +93,11 @@ async function handleCreate(payload: { content_html: string; content_stripped: s
 
     // 重置状态
     replyingTo.value = null;
+    toast.success("评论已发布");
     await loadComments();
   } catch (e: unknown) {
     error.value = e instanceof Error ? e.message : "发表评论失败";
+    toast.error(error.value);
   } finally {
     submitting.value = false;
   }
@@ -111,12 +114,12 @@ function handleStartEdit(comment: IssueComment) {
   replyingTo.value = null;
 }
 
-async function handleUpdate(payload: { content_html: string; content_stripped: string }) {
+async function handleUpdate(payload: { content_html: string; content_json: string; content_stripped: string }) {
   if (!editingComment.value || submitting.value) return;
   submitting.value = true;
   try {
     const input: UpdateCommentInput = {
-      content_json: JSON.stringify({ type: "doc", content: [] }),
+      content_json: payload.content_json || JSON.stringify({ type: "doc", content: [] }),
       content_html: payload.content_html,
       content_stripped: payload.content_stripped,
     };
@@ -125,9 +128,11 @@ async function handleUpdate(payload: { content_html: string; content_stripped: s
       editingComment.value.id, input,
     );
     editingComment.value = null;
+    toast.success("评论已更新");
     await loadComments();
   } catch (e: unknown) {
     error.value = e instanceof Error ? e.message : "编辑评论失败";
+    toast.error(error.value);
   } finally {
     submitting.value = false;
   }
@@ -136,9 +141,11 @@ async function handleUpdate(payload: { content_html: string; content_stripped: s
 async function handleDelete(comment: IssueComment) {
   try {
     await issueApi.deleteComment(props.workspaceId, props.projectId, props.issueId, comment.id);
+    toast.success("评论已删除");
     await loadComments();
   } catch (e: unknown) {
     error.value = e instanceof Error ? e.message : "删除评论失败";
+    toast.error(error.value);
   }
 }
 

@@ -1,9 +1,9 @@
 // Package dto — HTTP API 请求 DTO。
 //
 // 设计原则：
-//  - DTO 与域模型（domain model）解耦：handler 层负责 DTO → domain 入参转换。
-//  - 所有 Update 请求使用指针字段区分「未传」(nil) 与「显式置零」("")。
-//  - binding tag 做第一轮结构校验，复杂业务校验在 application 层完成。
+//   - DTO 与域模型（domain model）解耦：handler 层负责 DTO → domain 入参转换。
+//   - 所有 Update 请求使用指针字段区分「未传」(nil) 与「显式置零」("")。
+//   - binding tag 做第一轮结构校验，复杂业务校验在 application 层完成。
 //
 // 校验规则遵循 Gin binding 约定：required / min / max / oneof / email / url / hexcolor。
 package dto
@@ -58,6 +58,20 @@ type SendInvitationRequest struct {
 type AcceptInvitationRequest struct {
 	// Token 邀请 URL 中携带的随机 token（原始值，非 hash）。
 	Token string `json:"token" binding:"required"`
+}
+
+// --- API Token ---
+
+// CreateApiTokenRequest 创建个人 API Token 的请求体。
+type CreateApiTokenRequest struct {
+	// Name 令牌名称（用途备注），1-80 字符。
+	Name string `json:"name" binding:"required,min=1,max=80"`
+	// Scopes 权限范围白名单（至少 1 个，全部须命中 apitoken 白名单）。
+	// 可选值：read:workspace write:workspace read:issues write:issues
+	// read:sprints write:sprints read:versions write:versions read:audit *
+	Scopes []string `json:"scopes" binding:"required,min=1,max=20,dive,oneof=read:workspace write:workspace read:issues write:issues read:sprints write:sprints read:versions write:versions read:audit *"`
+	// ExpiresInSeconds 有效期（秒），60 ~ 31536000（365 天）；缺省表示永不过期。
+	ExpiresInSeconds *int64 `json:"expires_in_seconds,omitempty" binding:"omitempty,min=60,max=31536000"`
 }
 
 // --- Project ---

@@ -4,10 +4,12 @@
  */
 
 import { computed, onMounted, ref } from "vue";
-import { useRoute, useRouter } from "vue-router";
+import { useRouter } from "vue-router";
 
 import { issueApi, type Issue, type IssueActivity, type State, type TimeLog } from "@/api/services/issue";
 import { workspaceApi, type Workspace } from "@/api/services/workspace";
+import { toast } from "@/lib/toast";
+import RichTextEditor from "@/components/RichTextEditor.vue";
 import CommentList from "@/components/CommentList.vue";
 import AttachmentUploader from "@/components/AttachmentUploader.vue";
 import RelationPanel from "./RelationPanel.vue";
@@ -19,7 +21,6 @@ const props = defineProps<{
   issueId: number;
 }>();
 
-const route = useRoute();
 const router = useRouter();
 
 const ws = ref<Workspace | null>(null);
@@ -48,6 +49,13 @@ const editField = ref<string | null>(null);
 const editValue = ref("");
 const editSaving = ref(false);
 const editError = ref("");
+
+// 描述编辑器（TipTap）状态
+const editingDesc = ref(false);
+const descHtml = ref("");
+const descJsonValue = ref("{}");
+const descSaving = ref(false);
+const descError = ref("");
 
 // 一键提缺陷
 const showDefectModal = ref(false);
@@ -78,8 +86,10 @@ async function doTransition(toStateId: number) {
   showTransitionMenu.value = false;
   try {
     issue.value = await issueApi.transition(ws.value.id, props.projectId, props.issueId, toStateId);
+    toast.success("状态已流转");
   } catch (e: unknown) {
     transitionError.value = e instanceof Error ? e.message : "流转失败";
+    toast.error(transitionError.value);
   }
 }
 
@@ -87,9 +97,11 @@ async function doDelete() {
   if (!ws.value || !confirm("确定要归档该工作项吗？")) return;
   try {
     await issueApi.deleteIssue(ws.value.id, props.projectId, props.issueId);
+    toast.success("工作项已归档");
     router.push(`/${props.workspaceSlug}/projects/${props.projectId}/board`);
   } catch (e: unknown) {
     error.value = e instanceof Error ? e.message : "删除失败";
+    toast.error(error.value);
   }
 }
 
@@ -147,11 +159,26 @@ async function submitTimeLog() {
     newTimeDesc.value = "";
     newDurationHours.value = 1;
     newDurationMinutes.value = 0;
+    toast.success("工时已记录");
     await loadTimeLogs();
   } catch (e: unknown) {
     timeLogError.value = e instanceof Error ? e.message : "记录失败";
+    toast.error(timeLogError.value);
   } finally {
     timeLogSubmitting.value = false;
+  }
+}
+
+async function deleteTimeLog(logId: number) {
+  if (!ws.value) return;
+  if (!window.confirm("确定删除该条工时记录吗？")) return;
+  try {
+    await issueApi.deleteTimeLog(ws.value.id, props.projectId, props.issueId, logId);
+    toast.success("工时记录已删除");
+    await loadTimeLogs();
+  } catch (e: unknown) {
+    timeLogError.value = e instanceof Error ? e.message : "删除失败";
+    toast.error(timeLogError.value);
   }
 }
 
@@ -167,6 +194,38 @@ function fmtDurationHours(hours: number): string {
   if (hours < 0.01) return "0 分钟";
   const totalMins = Math.round(hours * 60);
   return fmtDuration(totalMins);
+}
+
+// --- 描述编辑器 ---
+function startEditDesc() {
+  if (!issue.value) return;
+  editingDesc.value = true;
+  descHtml.value = issue.value.description_html || "";
+  descJsonValue.value = "{}";
+  descError.value = "";
+}
+
+async function saveDesc() {
+  if (!ws.value || !issue.value || descSaving.value) return;
+  descSaving.value = true;
+  descError.value = "";
+  try {
+    issue.value = await issueApi.updateIssue(
+      ws.value.id, props.projectId, props.issueId,
+      { description_html: descHtml.value, version: issue.value.version } as Parameters<typeof issueApi.updateIssue>[3],
+    );
+    editingDesc.value = false;
+  } catch (e: unknown) {
+    descError.value = e instanceof Error ? e.message : "保存失败";
+  } finally {
+    descSaving.value = false;
+  }
+}
+
+function cancelEditDesc() {
+  editingDesc.value = false;
+  descHtml.value = "";
+  descError.value = "";
 }
 
 // --- 行内编辑 ---
@@ -217,7 +276,7 @@ async function saveEdit() {
 
     issue.value = await issueApi.updateIssue(
       ws.value.id, props.projectId, props.issueId,
-      input as Parameters<typeof issueApi.updateIssue>[3],
+      input as unknown as Parameters<typeof issueApi.updateIssue>[3],
     );
     cancelEdit();
   } catch (e: unknown) {
@@ -239,7 +298,7 @@ onMounted(() => {
       <button class="btn btn--ghost" @click="goBack">← 返回看板</button>
       <div class="issue-detail__actions">
         <button
-          v-if="issue.type_code === 'requirement'"
+          v-if="issue && issue.type_code === 'requirement'"
           class="btn btn--sm"
           @click="showDefectModal = true"
         >
@@ -304,17 +363,31 @@ onMounted(() => {
         <div class="issue-detail__section">
           <div class="section-head">
             <h3>描述</h3>
-            <button class="btn btn--sm btn--ghost" @click="startEdit('description_html', issue.description_html ?? '')">编辑</button>
-          </div>
-          <div v-if="editField === 'description_html'" class="edit-row">
-            <textarea v-model="editValue" class="edit-textarea" rows="8" autofocus></textarea>
-            <div class="edit-row__actions">
-              <button class="btn btn--sm btn--primary" @click="saveEdit" :disabled="editSaving">{{ editSaving ? "保存中..." : "保存" }}</button>
-              <button class="btn btn--sm" @click="cancelEdit" :disabled="editSaving">取消</button>
-              <span v-if="editError" class="form-error">{{ editError }}</span>
+            <div v-if="!editingDesc" class="section-head__actions">
+              <button class="btn btn--sm btn--ghost" @click="startEditDesc">编辑</button>
             </div>
           </div>
-          <div v-else-if="issue.description_html" class="issue-detail__desc" v-html="issue.description_html"></div>
+          <!-- 编辑模式：TipTap 富文本编辑器 -->
+          <div v-if="editingDesc" class="edit-row">
+            <RichTextEditor
+              v-model:content-html="descHtml"
+              v-model:content-json="descJsonValue"
+              placeholder="输入工作项描述..."
+              :min-height="'200px'"
+            />
+            <div class="edit-row__actions">
+              <button class="btn btn--sm btn--primary" @click="saveDesc" :disabled="descSaving">{{ descSaving ? "保存中..." : "保存" }}</button>
+              <button class="btn btn--sm" @click="cancelEditDesc" :disabled="descSaving">取消</button>
+              <span v-if="descError" class="form-error">{{ descError }}</span>
+            </div>
+          </div>
+          <!-- 展示模式：TipTap 只读渲染 -->
+          <div v-else-if="issue.description_html" class="issue-detail__desc">
+            <RichTextEditor
+              :content-html="issue.description_html"
+              :editable="false"
+            />
+          </div>
           <p v-else class="text-muted">暂无描述，点击编辑添加</p>
 
           <!-- 附件 -->
@@ -445,6 +518,7 @@ onMounted(() => {
               <span class="timelog-item__duration">{{ fmtDuration(tl.duration_minutes) }}</span>
             </div>
             <div v-if="tl.description" class="timelog-item__desc">{{ tl.description }}</div>
+            <button class="timelog-item__delete" title="删除工时记录" @click="deleteTimeLog(tl.id)">✕</button>
           </div>
         </div>
         <div v-else-if="!showTimeLogForm" class="text-muted">暂无工时记录</div>
@@ -881,5 +955,28 @@ onMounted(() => {
   font-size: 11px;
   color: var(--text-tertiary);
   margin-top: 4px;
+}
+
+.timelog-item {
+  position: relative;
+}
+
+.timelog-item__delete {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  border: none;
+  background: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  font-size: 11px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.timelog-item:hover .timelog-item__delete {
+  opacity: 1;
+}
+.timelog-item__delete:hover {
+  color: var(--danger-500);
 }
 </style>

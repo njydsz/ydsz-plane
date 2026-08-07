@@ -105,6 +105,12 @@ export const http = axios.create({
   headers: { "Content-Type": "application/json" },
 });
 
+/**
+ * apiClient — http 的别名导出（兼容存量 service 的命名约定）。
+ * 新代码建议统一使用 http；两个引用指向同一 axios 实例。
+ */
+export const apiClient = http;
+
 /* ------------------------------------------------------------------ */
 /* 请求拦截器：X-Request-ID                                             */
 /* ------------------------------------------------------------------ */

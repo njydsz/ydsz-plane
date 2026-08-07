@@ -2,6 +2,9 @@
 package issue
 
 import (
+	"context"
+	"encoding/csv"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -9,8 +12,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	notif "github.com/njydsz/ydsz-plane/internal/application/notification"
 	"github.com/njydsz/ydsz-plane/internal/application/auth"
 	"github.com/njydsz/ydsz-plane/internal/interfaces/middleware"
+	"github.com/njydsz/ydsz-plane/internal/infrastructure/ws"
 	"github.com/njydsz/ydsz-plane/pkg/errs"
 )
 
@@ -24,6 +29,11 @@ type HandlerDeps struct {
 	CommentSvc     *CommentService
 	ProjectInit    *ProjectInitService
 	WorkspaceStore *auth.WorkspaceMembershipStore
+	// 通知与实时推送（可为 nil，未配置时静默跳过）
+	NotificationSvc *notif.Service
+	WSHub           *ws.Hub
+	// UserNameQuery 按用户 ID 查展示名（用于通知 actor 文案；nil 时回退 "用户"）
+	UserNameQuery func(ctx context.Context, userID int64) string
 }
 
 // IssueHandler Gin handler 集合。
@@ -48,6 +58,7 @@ func (h *IssueHandler) Register(r *gin.RouterGroup, wsMiddleware []gin.HandlerFu
 	r.GET("/issues", h.listIssues)
 	r.POST("/issues", h.createIssue)
 	r.POST("/issues/batch", h.batchIssues)
+	r.GET("/issues/export", h.exportIssues)
 
 	// 单资源
 	issue := r.Group("/issues/:issue_id")
@@ -59,6 +70,8 @@ func (h *IssueHandler) Register(r *gin.RouterGroup, wsMiddleware []gin.HandlerFu
 		issue.GET("/activities", h.listActivities)
 		issue.GET("/time-logs", h.listTimeLogs)
 		issue.POST("/time-logs", h.createTimeLog)
+		issue.PATCH("/time-logs/:log_id", h.updateTimeLog)
+		issue.DELETE("/time-logs/:log_id", h.deleteTimeLog)
 		issue.GET("/relations", h.listRelations)
 		issue.POST("/relations", h.createRelation)
 		issue.DELETE("/relations/:relation_id", h.deleteRelation)
@@ -163,6 +176,11 @@ func (h *IssueHandler) createIssue(c *gin.Context) {
 		writeErr(c, err)
 		return
 	}
+
+	// 通知被指派者 + 广播工作项创建
+	h.notifyIssueCreated(c.Request.Context(), wsID, req.Assignees, userID,
+		h.actorName(c, userID), iss.Name, iss.ID)
+	h.broadcastIssueUpdated(c.Request.Context(), wsID, projectID, iss.ID)
 
 	c.JSON(http.StatusCreated, iss)
 }
@@ -351,6 +369,8 @@ func (h *IssueHandler) transition(c *gin.Context) {
 		writeErr(c, err)
 		return
 	}
+	// 广播状态变更（看板实时刷新）
+	h.broadcastIssueUpdated(c.Request.Context(), wsID, projectID, iss.ID)
 	c.JSON(http.StatusOK, iss)
 }
 
@@ -485,6 +505,72 @@ func (h *IssueHandler) listIssues(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"results": issues, "total": total, "limit": opts.Limit, "offset": opts.Offset})
 }
 
+// exportIssues 导出工作项为 CSV 文件。
+func (h *IssueHandler) exportIssues(c *gin.Context) {
+	wsID := c.GetInt64(middleware.CtxWorkspaceID)
+	projectID := c.GetInt64(middleware.CtxProjectID)
+
+	opts := ListIssuesOptions{
+		WorkspaceID: wsID,
+		ProjectID:   projectID,
+		Limit:       5000, // 导出上限
+		Offset:      0,
+		Search:      c.Query("search"),
+	}
+	if v := c.Query("type"); v != "" {
+		t := IssueTypeCode(v)
+		opts.TypeCode = &t
+	}
+	if v := c.Query("state_id"); v != "" {
+		if id, err := strconv.ParseInt(v, 10, 64); err == nil {
+			opts.StateID = &id
+		}
+	}
+
+	issues, _, err := h.d.IssueSvc.List(c.Request.Context(), opts)
+	if err != nil {
+		writeErr(c, err)
+		return
+	}
+
+	c.Header("Content-Type", "text/csv; charset=utf-8")
+	c.Header("Content-Disposition",
+		fmt.Sprintf("attachment; filename=issues-export-%s.csv", time.Now().Format("20060102")))
+	// BOM for Excel
+	_, _ = c.Writer.Write([]byte{0xEF, 0xBB, 0xBF})
+
+	w := csv.NewWriter(c.Writer)
+	_ = w.Write([]string{"编号", "类型", "名称", "状态", "优先级", "严重级别", "点数", "指派人", "创建时间", "更新时间"})
+
+	for _, iss := range issues {
+		assignees := ""
+		if len(iss.Assignees) > 0 {
+			assignees = strings.Trim(strings.Join(strings.Fields(fmt.Sprint(iss.Assignees)), ","), "[]")
+		}
+		severity := ""
+		if iss.Severity != nil {
+			severity = fmt.Sprintf("S%d", *iss.Severity)
+		}
+		stateName := ""
+		if iss.State != nil {
+			stateName = iss.State.Name
+		}
+		_ = w.Write([]string{
+			iss.Identifier,
+			string(iss.TypeCode),
+			iss.Name,
+			stateName,
+			string(iss.Priority),
+			severity,
+			fmt.Sprintf("%d", func() int { if iss.Point != nil { return *iss.Point }; return 0 }()),
+			assignees,
+			iss.CreatedAt.Format("2006-01-02 15:04"),
+			iss.UpdatedAt.Format("2006-01-02 15:04"),
+		})
+	}
+	w.Flush()
+}
+
 // --- Activity handlers ---
 
 func (h *IssueHandler) listActivities(c *gin.Context) {
@@ -547,6 +633,40 @@ func (h *IssueHandler) createTimeLog(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusCreated, tl)
+}
+
+func (h *IssueHandler) updateTimeLog(c *gin.Context) {
+	wsID := c.GetInt64(middleware.CtxWorkspaceID)
+	logID := int64Param(c, "log_id")
+
+	var req struct {
+		SpentDate       string `json:"spent_date" binding:"required"`
+		DurationMinutes int    `json:"duration_minutes" binding:"required,min=1,max=1440"`
+		Description     string `json:"description"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		middleware.AbortWithError(c, errs.ErrValidation.WithDetails(fieldDetail(err)))
+		return
+	}
+
+	tl, err := h.d.TimeLogSvc.Update(c.Request.Context(), wsID, logID,
+		req.DurationMinutes, req.Description, parseDate(req.SpentDate))
+	if err != nil {
+		writeErr(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, tl)
+}
+
+func (h *IssueHandler) deleteTimeLog(c *gin.Context) {
+	wsID := c.GetInt64(middleware.CtxWorkspaceID)
+	logID := int64Param(c, "log_id")
+
+	if err := h.d.TimeLogSvc.Delete(c.Request.Context(), wsID, logID); err != nil {
+		writeErr(c, err)
+		return
+	}
+	c.Status(http.StatusNoContent)
 }
 
 // --- request/response types ---
@@ -819,6 +939,12 @@ func (h *IssueHandler) createComment(c *gin.Context) {
 		writeErr(c, err)
 		return
 	}
+
+	// 通知被 @ 提及的用户 + 广播评论事件
+	h.notifyCommentCreated(c.Request.Context(), wsID, issueID, req.Mentions, userID,
+		comment.CreatorName, h.issueTitle(c, wsID, issueID))
+	h.broadcastIssueUpdated(c.Request.Context(), wsID, projectID, issueID)
+
 	c.JSON(http.StatusCreated, comment)
 }
 

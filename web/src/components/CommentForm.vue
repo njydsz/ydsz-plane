@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * CommentForm — 评论输入表单（支持编辑模式）
+ * CommentForm — 评论输入表单（基于 TipTap 富文本编辑器）
  *
  * Props:
  *   loading      — 是否提交中
@@ -12,6 +12,7 @@
  *   @cancel — 取消编辑/回复
  */
 import { computed, ref, watch } from "vue";
+import RichTextEditor from "./RichTextEditor.vue";
 
 const props = defineProps<{
   loading?: boolean;
@@ -20,12 +21,13 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  submit: [payload: { content_html: string; content_stripped: string; parent_id?: number | null }];
+  submit: [payload: { content_html: string; content_json: string; content_stripped: string; parent_id?: number | null }];
   cancel: [];
 }>();
 
-const content = ref("");
-const textareaRef = ref<HTMLTextAreaElement | null>(null);
+const contentHtml = ref("");
+const contentJson = ref("{}");
+const editorRef = ref<InstanceType<typeof RichTextEditor> | null>(null);
 
 const isEditing = computed(() => !!props.initialValue);
 const isReplying = computed(() => props.parentId != null);
@@ -33,52 +35,41 @@ const isReplying = computed(() => props.parentId != null);
 const placeholder = computed(() => {
   if (isEditing.value) return "编辑评论...";
   if (isReplying.value) return "输入回复...";
-  return "添加评论... 支持 Markdown";
+  return "添加评论... 支持富文本格式";
 });
 
-const canSubmit = computed(() => content.value.trim().length > 0 && !props.loading);
+const canSubmit = computed(() => {
+  // 从 HTML 中提取纯文本判断是否有内容
+  const tmp = document.createElement("div");
+  tmp.innerHTML = contentHtml.value;
+  return (tmp.textContent?.trim().length ?? 0) > 0 && !props.loading;
+});
 
 watch(
   () => props.initialValue,
   (val) => {
     if (val) {
-      content.value = stripBasicHtml(val);
+      contentHtml.value = val;
     }
   },
   { immediate: true },
 );
 
-function stripBasicHtml(html: string): string {
-  return html.replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]+>/g, "");
-}
-
 function handleSubmit() {
-  const trimmed = content.value.trim();
-  if (!trimmed || props.loading) return;
+  if (!canSubmit.value) return;
 
-  // 简单 Markdown → HTML 转换
-  const html = simpleMarkdownToHtml(trimmed);
+  const tmp = document.createElement("div");
+  tmp.innerHTML = contentHtml.value;
+  const stripped = tmp.textContent?.trim() || "";
 
   emit("submit", {
-    content_html: html,
-    content_stripped: trimmed,
+    content_html: contentHtml.value,
+    content_json: contentJson.value,
+    content_stripped: stripped,
     parent_id: props.parentId,
   });
-  content.value = "";
-}
-
-function simpleMarkdownToHtml(text: string): string {
-  return text
-    .split("\n\n")
-    .map((p) => {
-      let line = p
-        .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-        .replace(/\*(.+?)\*/g, "<em>$1</em>")
-        .replace(/`([^`]+)`/g, "<code>$1</code>")
-        .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
-      return `<p>${line}</p>`;
-    })
-    .join("");
+  contentHtml.value = "";
+  contentJson.value = "{}";
 }
 
 function handleKeydown(e: KeyboardEvent) {
@@ -95,28 +86,27 @@ function handleKeydown(e: KeyboardEvent) {
 }
 
 function focus() {
-  textareaRef.value?.focus();
+  editorRef.value?.editor?.chain().focus().run();
 }
 
 defineExpose({ focus });
 </script>
 
 <template>
-  <div class="comment-form">
-    <textarea
-      ref="textareaRef"
-      v-model="content"
-      class="comment-form__textarea"
+  <div class="comment-form" @keydown="handleKeydown">
+    <RichTextEditor
+      ref="editorRef"
+      v-model:content-html="contentHtml"
+      v-model:content-json="contentJson"
       :placeholder="placeholder"
-      rows="3"
-      @keydown="handleKeydown"
-    ></textarea>
+      compact
+    />
 
     <div class="comment-form__footer">
       <span class="comment-form__hint">
         <template v-if="isEditing">Esc 取消 · </template>
         <template v-if="isReplying">Esc 取消 · </template>
-        Ctrl+Enter 提交 · 支持 **粗体** `代码` [链接](url)
+        Ctrl+Enter 提交
       </span>
 
       <div class="comment-form__actions">
@@ -143,31 +133,6 @@ defineExpose({ focus });
 <style scoped>
 .comment-form {
   margin-bottom: 16px;
-}
-
-.comment-form__textarea {
-  width: 100%;
-  min-height: 80px;
-  padding: 10px 12px;
-  font-size: 13px;
-  font-family: inherit;
-  line-height: 1.5;
-  color: var(--text-primary, #1f2937);
-  background: var(--surface-2, #f9fafb);
-  border: 1px solid var(--border-default, #d1d5db);
-  border-radius: var(--radius-md, 8px);
-  outline: none;
-  resize: vertical;
-  transition: border-color 0.15s;
-}
-
-.comment-form__textarea:focus {
-  border-color: var(--brand-500, #3b82f6);
-  background: var(--surface-1, #fff);
-}
-
-.comment-form__textarea::placeholder {
-  color: var(--text-tertiary, #9ca3af);
 }
 
 .comment-form__footer {

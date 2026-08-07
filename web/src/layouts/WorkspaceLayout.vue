@@ -8,18 +8,21 @@
  *  - 主内容区：路由出口（项目列表/看板/迭代/版本等子页面）。
  *  - 挂载时按 URL slug 解析并切换当前工作空间。
  */
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
 import type { Workspace } from "@/api/services/workspace";
 import { useAuthStore } from "@/stores/auth";
 import { useWorkspaceStore } from "@/stores/workspace";
+import { useNotificationStore } from "@/stores/notification";
+import { wsClient } from "@/lib/ws-client";
 import NotificationBell from "@/components/NotificationBell.vue";
 
 const route = useRoute();
 const router = useRouter();
 const auth = useAuthStore();
 const wsStore = useWorkspaceStore();
+const notifStore = useNotificationStore();
 
 const collapsed = ref(false);
 const showSwitcher = ref(false);
@@ -50,6 +53,52 @@ async function bootstrap() {
   }
   // 注意：在根路由（工作空间列表页）不主动 redirect，由用户自主点击
 }
+
+/* ===== WebSocket 实时通知 ===== */
+
+/** 当前空间 ID（number 时建立连接） */
+const currentWsId = computed(() => currentWs.value?.id ?? null);
+
+/** 新通知到达时刷新未读数 */
+function handleNotification() {
+  if (!currentWsId.value) return;
+  void notifStore.fetchUnreadCount(currentWsId.value);
+  // 若铃铛面板已打开（items 非空），同步列表
+  if (notifStore.items.length > 0) {
+    void notifStore.fetchList(currentWsId.value, { limit: 20 });
+  }
+}
+
+/** 工作项/迭代/版本变更也会刷新未读数（可能伴随新通知） */
+function handleAnyChange() {
+  if (!currentWsId.value) return;
+  void notifStore.fetchUnreadCount(currentWsId.value);
+}
+
+watch(
+  currentWsId,
+  (id) => {
+    // 切换空间：断开旧连接，建立新连接
+    wsClient.disconnect();
+    if (id != null) {
+      wsClient.connect(id, auth.user?.id);
+      wsClient.on("notification.created", handleNotification);
+      wsClient.on("notification.updated", handleNotification);
+      wsClient.on("issue.updated", handleAnyChange);
+      wsClient.on("issue.created", handleAnyChange);
+      wsClient.on("comment.created", handleAnyChange);
+      wsClient.on("sprint.started", handleAnyChange);
+      wsClient.on("version.released", handleAnyChange);
+      // 初始拉取未读数
+      void notifStore.fetchUnreadCount(id);
+    }
+  },
+  { immediate: true },
+);
+
+onUnmounted(() => {
+  wsClient.disconnect();
+});
 
 /** 选中工作空间：关闭切换器并跳转到该项目列表 */
 function selectWs(ws: Workspace) {
@@ -134,6 +183,14 @@ onMounted(bootstrap);
         >
           <span class="nav-icon">⚙</span>
           <span v-if="!collapsed">设置</span>
+        </router-link>
+        <router-link
+          :to="`/${wsStore.currentSlug}/settings/notifications`"
+          class="nav-item"
+          active-class="is-active"
+        >
+          <span class="nav-icon">🔔</span>
+          <span v-if="!collapsed">通知设置</span>
         </router-link>
       </nav>
 

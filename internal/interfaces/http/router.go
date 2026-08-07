@@ -16,32 +16,38 @@ import (
 	ginSwagger "github.com/swaggo/gin-swagger"
 	"go.uber.org/zap"
 
-	"github.com/njydsz/ydsz-plane/internal/application/auth"
+	"github.com/njydsz/ydsz-plane/internal/application/apitoken"
 	"github.com/njydsz/ydsz-plane/internal/application/attachment"
+	"github.com/njydsz/ydsz-plane/internal/application/auth"
 	"github.com/njydsz/ydsz-plane/internal/application/dashboard"
 	"github.com/njydsz/ydsz-plane/internal/application/issue"
 	notif "github.com/njydsz/ydsz-plane/internal/application/notification"
+	"github.com/njydsz/ydsz-plane/internal/application/preference"
 	"github.com/njydsz/ydsz-plane/internal/application/search"
 	"github.com/njydsz/ydsz-plane/internal/application/sprint"
 	"github.com/njydsz/ydsz-plane/internal/application/version"
 	"github.com/njydsz/ydsz-plane/internal/application/workbench"
 	"github.com/njydsz/ydsz-plane/internal/application/workspace"
 	"github.com/njydsz/ydsz-plane/internal/config"
-	"github.com/njydsz/ydsz-plane/internal/interfaces/middleware"
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/mail"
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/telemetry"
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/ws"
+	"github.com/njydsz/ydsz-plane/internal/interfaces/middleware"
 	"github.com/njydsz/ydsz-plane/pkg/errs"
 )
 
 // Deps 携带各 handler 的依赖。
 type Deps struct {
-	Cfg             *config.Config
-	Log             *zap.Logger
-	DB              *pgxpool.Pool
-	Redis           *redis.Client
-	Auth            *auth.Service
-	ResetSvc        *auth.PasswordResetService
+	Cfg      *config.Config
+	Log      *zap.Logger
+	DB       *pgxpool.Pool
+	Redis    *redis.Client
+	Auth     *auth.Service
+	ResetSvc *auth.PasswordResetService
+	// PrincipalParser 解析访问凭证（JWT 或 API Token）为认证主体。
+	// 由 cmd/api/main.go 装配复合解析器；未设置时回退为 JWT-only（测试环境）。
+	PrincipalParser func(token string) (auth.Principal, error)
+	ApiTokenSvc     *apitoken.Service
 	WorkspaceStore  *auth.WorkspaceMembershipStore
 	WorkspaceSvc    *workspace.Service
 	MemberSvc       *workspace.MemberService
@@ -50,16 +56,17 @@ type Deps struct {
 	AuditSvc        *workspace.AuditService
 	Mail            mail.EmailService
 	// Issue 域
-	IssueSvc        *issue.Service
-	StateSvc        *issue.StateService
-	ActivitySvc     *issue.ActivityService
-	TimeLogSvc      *issue.TimeLogService
-	IssueHandler    *issue.IssueHandler
-	SearchHandler   *search.SearchHandler
-	SprintHandler    *sprint.Handler
-	VersionHandler   *version.Handler
-	WorkbenchHandler *workbench.WorkbenchHandler
-	DashboardHandler *dashboard.DashboardHandler
+	IssueSvc            *issue.Service
+	StateSvc            *issue.StateService
+	ActivitySvc         *issue.ActivityService
+	TimeLogSvc          *issue.TimeLogService
+	IssueHandler        *issue.IssueHandler
+	PrefHandler         *preference.Handler
+	SearchHandler       *search.SearchHandler
+	SprintHandler       *sprint.Handler
+	VersionHandler      *version.Handler
+	WorkbenchHandler    *workbench.WorkbenchHandler
+	DashboardHandler    *dashboard.DashboardHandler
 	NotificationHandler *notif.Handler
 	AttachmentHandler   *attachment.Handler
 	WSHub               *ws.Hub
@@ -72,7 +79,7 @@ func RegisterIssueRoutes(r *gin.Engine, d *Deps) {
 	}
 	v1 := r.Group("/api/v1/workspaces/:workspace_id")
 	v1.Use(
-		middleware.RequireAuth(d.Auth.ParseAccess),
+		middleware.RequireAuth(d.principalParser()),
 		middleware.RequireWorkspaceParam(),
 	)
 	projects := v1.Group("/projects/:project_id")
@@ -83,6 +90,21 @@ func RegisterIssueRoutes(r *gin.Engine, d *Deps) {
 	d.IssueHandler.Register(read, nil, nil)
 }
 
+// RegisterPreferenceRoutes 注册视图偏好路由（项目级）。
+func RegisterPreferenceRoutes(r *gin.Engine, d *Deps) {
+	if d.PrefHandler == nil {
+		return
+	}
+	projects := r.Group("/api/v1/workspaces/:workspace_id/projects/:project_id")
+	projects.Use(
+		middleware.RequireAuth(d.principalParser()),
+		middleware.RequireWorkspaceParam(),
+		middleware.RequireProjectParam(),
+		middleware.RequirePermission(d.WorkspaceStore, auth.PermWorkspaceRead),
+	)
+	d.PrefHandler.Register(projects)
+}
+
 // RegisterSprintRoutes 注册迭代路由（独立于 Issue 路由，可在 IssueHandler 未就绪时注册）。
 func RegisterSprintRoutes(r *gin.Engine, d *Deps) {
 	if d.SprintHandler == nil {
@@ -90,7 +112,7 @@ func RegisterSprintRoutes(r *gin.Engine, d *Deps) {
 	}
 	v1 := r.Group("/api/v1/workspaces/:workspace_id")
 	v1.Use(
-		middleware.RequireAuth(d.Auth.ParseAccess),
+		middleware.RequireAuth(d.principalParser()),
 		middleware.RequireWorkspaceParam(),
 	)
 	projects := v1.Group("/projects/:project_id")
@@ -105,7 +127,7 @@ func RegisterVersionRoutes(r *gin.Engine, d *Deps) {
 	}
 	v1 := r.Group("/api/v1/workspaces/:workspace_id")
 	v1.Use(
-		middleware.RequireAuth(d.Auth.ParseAccess),
+		middleware.RequireAuth(d.principalParser()),
 		middleware.RequireWorkspaceParam(),
 	)
 	projects := v1.Group("/projects/:project_id")
@@ -122,7 +144,7 @@ func RegisterSearchRoutes(r *gin.Engine, d *Deps) {
 	// ----- 项目级搜索（含过滤） -----
 	project := r.Group("/api/v1/workspaces/:workspace_id/projects/:project_id/search")
 	project.Use(
-		middleware.RequireAuth(d.Auth.ParseAccess),
+		middleware.RequireAuth(d.principalParser()),
 		middleware.RequireWorkspaceParam(),
 		middleware.RequireProjectParam(),
 		middleware.RequirePermission(d.WorkspaceStore, auth.PermWorkspaceRead),
@@ -132,7 +154,7 @@ func RegisterSearchRoutes(r *gin.Engine, d *Deps) {
 	// ----- 工作空间级全局搜索（跨项目） -----
 	wsSearch := r.Group("/api/v1/workspaces/:workspace_id/search")
 	wsSearch.Use(
-		middleware.RequireAuth(d.Auth.ParseAccess),
+		middleware.RequireAuth(d.principalParser()),
 		middleware.RequireWorkspaceParam(),
 		middleware.RequirePermission(d.WorkspaceStore, auth.PermWorkspaceRead),
 	)
@@ -148,7 +170,7 @@ func RegisterSearchRoutes(r *gin.Engine, d *Deps) {
 	// ----- 工作台（项目级） -----
 	projectWb := r.Group("/api/v1/workspaces/:workspace_id/projects/:project_id/workbench")
 	projectWb.Use(
-		middleware.RequireAuth(d.Auth.ParseAccess),
+		middleware.RequireAuth(d.principalParser()),
 		middleware.RequireWorkspaceParam(),
 		middleware.RequireProjectParam(),
 		middleware.RequirePermission(d.WorkspaceStore, auth.PermWorkspaceRead),
@@ -158,7 +180,7 @@ func RegisterSearchRoutes(r *gin.Engine, d *Deps) {
 	// ----- 工作台（工作空间级，跨项目汇总） -----
 	wsWb := r.Group("/api/v1/workspaces/:workspace_id/workbench")
 	wsWb.Use(
-		middleware.RequireAuth(d.Auth.ParseAccess),
+		middleware.RequireAuth(d.principalParser()),
 		middleware.RequireWorkspaceParam(),
 		middleware.RequirePermission(d.WorkspaceStore, auth.PermWorkspaceRead),
 	)
@@ -183,7 +205,7 @@ func RegisterDashboardRoutes(r *gin.Engine, d *Deps) {
 	// 项目级仪表盘
 	project := r.Group("/api/v1/workspaces/:workspace_id/projects/:project_id/dashboard")
 	project.Use(
-		middleware.RequireAuth(d.Auth.ParseAccess),
+		middleware.RequireAuth(d.principalParser()),
 		middleware.RequireWorkspaceParam(),
 		middleware.RequireProjectParam(),
 		middleware.RequirePermission(d.WorkspaceStore, auth.PermWorkspaceRead),
@@ -193,7 +215,7 @@ func RegisterDashboardRoutes(r *gin.Engine, d *Deps) {
 	// 工作空间级仪表盘（跨项目汇总）
 	ws := r.Group("/api/v1/workspaces/:workspace_id/dashboard")
 	ws.Use(
-		middleware.RequireAuth(d.Auth.ParseAccess),
+		middleware.RequireAuth(d.principalParser()),
 		middleware.RequireWorkspaceParam(),
 		middleware.RequirePermission(d.WorkspaceStore, auth.PermWorkspaceRead),
 	)
@@ -209,7 +231,7 @@ func RegisterNotificationRoutes(r *gin.Engine, d *Deps) {
 	}
 	ws := r.Group("/api/v1/workspaces/:workspace_id")
 	ws.Use(
-		middleware.RequireAuth(d.Auth.ParseAccess),
+		middleware.RequireAuth(d.principalParser()),
 		middleware.RequireWorkspaceParam(),
 		middleware.RequirePermission(d.WorkspaceStore, auth.PermWorkspaceRead),
 	)
@@ -224,7 +246,7 @@ func RegisterAttachmentRoutes(r *gin.Engine, d *Deps) {
 	}
 	projects := r.Group("/api/v1/workspaces/:workspace_id/projects/:project_id")
 	projects.Use(
-		middleware.RequireAuth(d.Auth.ParseAccess),
+		middleware.RequireAuth(d.principalParser()),
 		middleware.RequireWorkspaceParam(),
 		middleware.RequireProjectParam(),
 		middleware.RequirePermission(d.WorkspaceStore, auth.PermWorkspaceRead),
@@ -240,7 +262,7 @@ func RegisterWSRoutes(r *gin.Engine, d *Deps) {
 	}
 	wsGroup := r.Group("/ws/:workspace_id")
 	wsGroup.Use(
-		middleware.RequireAuth(d.Auth.ParseAccess),
+		middleware.RequireAuth(d.principalParser()),
 		middleware.RequireWorkspaceParam(),
 	)
 	wsGroup.GET("", func(c *gin.Context) {
@@ -282,62 +304,67 @@ func NewEngine(d *Deps) *gin.Engine {
 			return "auth:" + c.ClientIP()
 		})
 		{
-		authGroup.POST("/login", rl, login(d))
-		authGroup.POST("/refresh", rl, refresh(d))
-		authGroup.POST("/register", rl, register(d))
-		authGroup.POST("/forgot-password", rl, forgotPassword(d))
-		authGroup.POST("/reset-password", rl, resetPassword(d))
-	}
+			authGroup.POST("/login", rl, login(d))
+			authGroup.POST("/refresh", rl, refresh(d))
+			authGroup.POST("/register", rl, register(d))
+			authGroup.POST("/forgot-password", rl, forgotPassword(d))
+			authGroup.POST("/reset-password", rl, resetPassword(d))
+		}
 
 	// 已认证路由（需要有效 access token + 用户级限流）
 	authed := v1.Group("")
-	authed.Use(middleware.RequireAuth(d.Auth.ParseAccess))
-	authed.Use(middleware.RateLimit(d.Redis, 100, func(c *gin.Context) string {
-		return "user:" + userKey(c)
-	}))
-	{
-		authed.GET("/me", me(d))
-
-		// ----- 工作空间集合路由（无需 :workspace_id） -----
-		authed.GET("/workspaces", listWorkspaces(d))
-		authed.POST("/workspaces", createWorkspace(d))
-
-		// 邀请接受链接（public-ish，需登录但无需 workspace 成员；在 RequireAuth 之后）
-		authed.POST("/invitations/accept", acceptInvitation(d))
-		authed.GET("/invitations/:token", getInvitationPreview(d))
-
-		// 通过 slug 查 ID（前端路由使用 slug）
-		authed.GET("/workspaces/slug/:slug", getWorkspaceBySlug(d))
-
-		// ----- 工作空间作用域路由 -----
-		ws := authed.Group("/workspaces/:workspace_id")
-		ws.Use(middleware.RequireWorkspaceParam(), middleware.RequirePermission(d.WorkspaceStore, auth.PermWorkspaceRead))
+	authed.Use(middleware.RequireAuth(d.principalParser()))
+		authed.Use(middleware.RateLimit(d.Redis, 100, func(c *gin.Context) string {
+			return "user:" + userKey(c)
+		}))
 		{
-			ws.GET("", getWorkspace(d))
-			ws.PATCH("", requireWsPermission(d, auth.PermWorkspaceUpdate), updateWorkspace(d))
-			ws.DELETE("", requireWsPermission(d, auth.PermWorkspaceDelete), archiveWorkspace(d))
+			authed.GET("/me", me(d))
 
-			// 成员
-			ws.GET("/members", listMembers(d))
-			ws.PATCH("/members/:user_id", requireWsPermission(d, auth.PermMemberChangeRole), changeMemberRole(d))
-			ws.DELETE("/members/:user_id", requireWsPermission(d, auth.PermMemberRemove), removeMember(d))
+			// ----- 个人 API Token 管理（用户级，与工作空间无关） -----
+			authed.GET("/me/api-tokens", listMyApiTokens(d))
+			authed.POST("/me/api-tokens", createApiToken(d))
+			authed.DELETE("/me/api-tokens/:token_id", revokeApiToken(d))
 
-			// 邀请
-			ws.POST("/invitations", requireWsPermission(d, auth.PermMemberInvite), sendInvitation(d))
-			ws.GET("/invitations", listInvitations(d))
-			ws.DELETE("/invitations/:invitation_id", requireWsPermission(d, auth.PermMemberInvite), revokeInvitation(d))
+			// ----- 工作空间集合路由（无需 :workspace_id） -----
+			authed.GET("/workspaces", listWorkspaces(d))
+			authed.POST("/workspaces", createWorkspace(d))
 
-			// 审计（owner/admin only）
-			ws.GET("/audit-logs", requireWsPermission(d, auth.PermAuditRead), listAuditLogs(d))
+			// 邀请接受链接（public-ish，需登录但无需 workspace 成员；在 RequireAuth 之后）
+			authed.POST("/invitations/accept", acceptInvitation(d))
+			authed.GET("/invitations/:token", getInvitationPreview(d))
 
-			// 项目
-			ws.GET("/projects", requireWsPermission(d, auth.PermWorkspaceRead), listProjects(d))
-			ws.POST("/projects", requireWsPermission(d, auth.PermProjectCreate), createProject(d))
-			ws.GET("/projects/:project_id", requireWsPermission(d, auth.PermWorkspaceRead), getProject(d))
-			ws.PATCH("/projects/:project_id", requireWsPermission(d, auth.PermProjectCreate), updateProject(d))
-			ws.DELETE("/projects/:project_id", requireWsPermission(d, auth.PermProjectDelete), archiveProject(d))
+			// 通过 slug 查 ID（前端路由使用 slug）
+			authed.GET("/workspaces/slug/:slug", getWorkspaceBySlug(d))
+
+			// ----- 工作空间作用域路由 -----
+			ws := authed.Group("/workspaces/:workspace_id")
+			ws.Use(middleware.RequireWorkspaceParam(), middleware.RequirePermission(d.WorkspaceStore, auth.PermWorkspaceRead))
+			{
+				ws.GET("", getWorkspace(d))
+				ws.PATCH("", requireWsPermission(d, auth.PermWorkspaceUpdate), updateWorkspace(d))
+				ws.DELETE("", requireWsPermission(d, auth.PermWorkspaceDelete), archiveWorkspace(d))
+
+				// 成员
+				ws.GET("/members", listMembers(d))
+				ws.PATCH("/members/:user_id", requireWsPermission(d, auth.PermMemberChangeRole), changeMemberRole(d))
+				ws.DELETE("/members/:user_id", requireWsPermission(d, auth.PermMemberRemove), removeMember(d))
+
+				// 邀请
+				ws.POST("/invitations", requireWsPermission(d, auth.PermMemberInvite), sendInvitation(d))
+				ws.GET("/invitations", listInvitations(d))
+				ws.DELETE("/invitations/:invitation_id", requireWsPermission(d, auth.PermMemberInvite), revokeInvitation(d))
+
+				// 审计（owner/admin only）
+				ws.GET("/audit-logs", requireWsPermission(d, auth.PermAuditRead), listAuditLogs(d))
+
+				// 项目
+				ws.GET("/projects", requireWsPermission(d, auth.PermWorkspaceRead), listProjects(d))
+				ws.POST("/projects", requireWsPermission(d, auth.PermProjectCreate), createProject(d))
+				ws.GET("/projects/:project_id", requireWsPermission(d, auth.PermWorkspaceRead), getProject(d))
+				ws.PATCH("/projects/:project_id", requireWsPermission(d, auth.PermProjectCreate), updateProject(d))
+				ws.DELETE("/projects/:project_id", requireWsPermission(d, auth.PermProjectDelete), archiveProject(d))
+			}
 		}
-	}
 	}
 
 	r.NoRoute(middleware.NoRoute())
@@ -347,6 +374,27 @@ func NewEngine(d *Deps) *gin.Engine {
 // requireWsPermission 是组合中间件的语法糖。Gin 不支持链式式中文传递权限常量。
 func requireWsPermission(d *Deps, perm string) gin.HandlerFunc {
 	return middleware.RequirePermission(d.WorkspaceStore, perm)
+}
+
+// principalParser 返回认证主体解析器。
+//
+// 生产环境由 cmd/api/main.go 注入复合解析器（JWT → API Token 双通道）；
+// 测试环境（stubDeps 未注入）回退为 JWT-only：Auth 为空时一律 401，
+// 保证冒烟测试对"未认证请求返回 401"的断言仍然成立。
+func (d *Deps) principalParser() func(token string) (auth.Principal, error) {
+	if d.PrincipalParser != nil {
+		return d.PrincipalParser
+	}
+	return func(token string) (auth.Principal, error) {
+		if d.Auth == nil {
+			return auth.Principal{}, errs.ErrUnauthorized
+		}
+		uid, err := d.Auth.ParseAccess(token)
+		if err != nil {
+			return auth.Principal{}, err
+		}
+		return auth.Principal{UserID: uid, Kind: auth.PrincipalJWT}, nil
+	}
 }
 
 func userKey(c *gin.Context) string {

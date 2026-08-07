@@ -1,83 +1,75 @@
 /**
- * useWorkspaceContext — 工作空间与项目上下文解析 composable。
+ * useWorkspaceContext — 从路由解析 workspace/project 上下文的通用 composable。
  *
- * 消除 4+ 个 Sprint 视图中重复的 resolveWsId / resolveProjectId 逻辑。
- * 设计参考：VueUse 的 createSharedComposable 模式（但保持独立以避免额外依赖）。
+ * 解决 4 个 Sprint 视图（及其他项目域视图）重复实现 resolveWsId() 的问题：
+ *  1) 从路由参数解析 workspaceSlug → workspaceId（带缓存）
+ *  2) 从路由参数解析 projectId
+ *  3) 暴露 ready 信号，供 watchEffect 驱动按需加载
  */
 
-import { computed, ref, watchEffect, type Ref } from "vue";
+import { computed, ref, watchEffect } from "vue";
 import { useRoute } from "vue-router";
-import { useWorkspaceStore } from "@/stores/workspace";
+import { workspaceApi } from "@/api/services/workspace";
 
-/** 工作空间 + 项目上下文 */
 export interface WorkspaceContext {
-  /** 工作空间 ID（数值） */
-  wsId: Ref<number>;
-  /** 项目 ID（数值） */
-  projectId: Ref<number>;
-  /** 工作空间 slug */
-  workspaceSlug: Ref<string>;
-  /** 是否正在解析中 */
-  loading: Ref<boolean>;
-  /** 解析错误信息 */
-  error: Ref<string | null>;
-  /** 上下文是否已就绪（两个 ID 均为正数） */
-  ready: Ref<boolean>;
+  /** 工作空间 ID ref（解析成功后 > 0） */
+  wsId: Readonly<import("vue").Ref<number>>;
+  /** 项目 ID ref（从路由解析） */
+  projectId: Readonly<import("vue").Ref<number>>;
+  /** 上下文是否已就绪（slug 解析成功且 projectId 有效） */
+  ready: Readonly<import("vue").Ref<boolean>>;
+  /** 解析失败的错误信息 */
+  error: Readonly<import("vue").Ref<string | null>>;
+  /** 手动强制重新解析（如 slug 变化） */
+  resolve: () => Promise<void>;
 }
 
-/**
- * 从路由参数解析工作空间与项目上下文。
- *
- * 用法：
- * ```ts
- * const { wsId, projectId, workspaceSlug, ready } = useWorkspaceContext()
- * watchEffect(() => { if (ready.value) loadData(wsId.value, projectId.value) })
- * ```
- */
+let cache = new Map<string, number>();
+
+/** 解析工作空间 slug → ID，带进程内缓存 */
+export async function resolveWorkspaceId(slug: string): Promise<number> {
+  const cached = cache.get(slug);
+  if (cached) return cached;
+  const ws = await workspaceApi.getBySlug(slug);
+  cache.set(slug, ws.id);
+  return ws.id;
+}
+
 export function useWorkspaceContext(): WorkspaceContext {
   const route = useRoute();
-  const wsStore = useWorkspaceStore();
 
-  const workspaceSlug = ref<string>("");
+  const workspaceSlug = computed(() => String(route.params.workspaceSlug ?? ""));
+  const projectId = computed(() => Number(route.params.projectId));
+
   const wsId = ref(0);
-  const projectId = ref(0);
-  const loading = ref(false);
   const error = ref<string | null>(null);
+  const resolving = ref(false);
 
   const ready = computed(() => wsId.value > 0 && projectId.value > 0);
 
-  watchEffect(async () => {
-    const slug = (route.params.workspaceSlug as string) ?? "";
-    const pidRaw = route.params.projectId as string | undefined;
-
-    workspaceSlug.value = slug;
-
-    if (!slug || !pidRaw) {
-      wsId.value = 0;
-      projectId.value = 0;
+  async function resolve() {
+    if (!workspaceSlug.value || projectId.value <= 0) {
+      error.value = "路由缺少 workspaceSlug 或 projectId 参数";
       return;
     }
+    if (resolving.value) return;
+    resolving.value = true;
+    error.value = null;
+    try {
+      wsId.value = await resolveWorkspaceId(workspaceSlug.value);
+    } catch (e: unknown) {
+      error.value = e instanceof Error ? e.message : "工作空间解析失败";
+    } finally {
+      resolving.value = false;
+    }
+  }
 
-    const pid = Number(pidRaw);
-    projectId.value = Number.isNaN(pid) ? 0 : pid;
-
-    if (!Number.isNaN(pid) && pid > 0) {
-      // 解析 workspace slug -> id
-      if (slug) {
-        loading.value = true;
-        try {
-          const ws = await wsStore.resolveBySlug(slug);
-          wsId.value = ws?.id ?? 0;
-          error.value = ws ? null : `工作空间 "${slug}" 未找到`;
-        } catch (e: unknown) {
-          error.value = e instanceof Error ? e.message : "工作空间解析失败";
-          wsId.value = 0;
-        } finally {
-          loading.value = false;
-        }
-      }
+  // 路由参数变化时自动重解析
+  watchEffect(() => {
+    if (workspaceSlug.value && projectId.value > 0) {
+      void resolve();
     }
   });
 
-  return { wsId, projectId, workspaceSlug, loading, error, ready };
+  return { wsId, projectId, ready, error, resolve };
 }

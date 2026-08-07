@@ -93,6 +93,8 @@ type SnapshotData struct {
 	ByStateGroup map[string]float64 `json:"by_state_group,omitempty"`
 	AddedPoints  float64            `json:"added_points"`
 	RemovedPoints float64           `json:"removed_points"`
+	// IssueIDs 快照时刻迭代内的工作项集合（用于跨快照对比计算 RemovedPoints）。
+	IssueIDs []int64 `json:"issue_ids,omitempty"`
 }
 
 // BurndownPoint 燃尽图单点。

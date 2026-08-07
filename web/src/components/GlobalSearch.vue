@@ -56,7 +56,7 @@
             <div v-if="store.results.results.versions?.length" class="result-group">
               <div class="group-title">版本</div>
               <div
-                v-for="(item, idx) in store.results.results.versions"
+                v-for="item in store.results.results.versions"
                 :key="item.id"
                 class="result-item"
                 @click="goVersion(item)"

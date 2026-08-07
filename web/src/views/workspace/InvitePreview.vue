@@ -38,7 +38,7 @@ async function accept() {
   accepting.value = true;
   error.value = "";
   try {
-    const inv = await workspaceApi.acceptInvitation(token.value);
+    await workspaceApi.acceptInvitation(token.value);
     router.push(`/`);
     // 接受成功后刷新授权状态
   } catch (e: any) {
@@ -102,6 +102,7 @@ onMounted(load);
   </div>
 </template>
 
+<style scoped>
 .invite-page {
   display: flex;
   align-items: center;

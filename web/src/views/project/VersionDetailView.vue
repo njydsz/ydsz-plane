@@ -268,7 +268,7 @@ onMounted(async () => {
         <div class="detail-header__actions">
           <AppButton
             v-if="version.status === 'planning'"
-            variant="warning"
+            variant="secondary"
             size="sm"
             :loading="actionLoading === 'activate'"
             @click="transition('activate')"
@@ -277,7 +277,7 @@ onMounted(async () => {
           </AppButton>
           <AppButton
             v-if="version.status === 'active'"
-            variant="success"
+            variant="primary"
             size="sm"
             @click="goRelease"
           >

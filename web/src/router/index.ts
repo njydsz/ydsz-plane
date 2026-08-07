@@ -60,6 +60,12 @@ const router = createRouter({
           props: (route) => ({ workspace_id: route.params.workspaceSlug }),
         },
         {
+          path: ":workspaceSlug/settings/notifications",
+          name: "notification-preferences",
+          component: () => import("@/views/workspace/NotificationPreferencesView.vue"),
+          props: (route) => ({ workspaceSlug: route.params.workspaceSlug }),
+        },
+        {
           path: ":workspaceSlug/projects",
           name: "projects",
           component: () => import("@/views/project/ProjectListView.vue"),

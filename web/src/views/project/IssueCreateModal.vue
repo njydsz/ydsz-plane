@@ -5,7 +5,8 @@
 
 import { computed, ref, watch } from "vue";
 
-import { issueApi, type CreateIssueInput, type IssueType } from "@/api/services/issue";
+import { type CreateIssueInput, type IssueType } from "@/api/services/issue";
+import { versionApi, type Version } from "@/api/services/version";
 import { useIssueStore } from "@/stores/issue";
 
 const props = defineProps<{
@@ -42,6 +43,11 @@ const isDraft = ref(false);
 // 缺陷专属字段
 const severity = ref<number>(3);
 const foundPhase = ref("");
+const reproduceSteps = ref("");
+const environment = ref("");
+const foundVersionId = ref<number | null>(null);
+const fixVersionId = ref<number | null>(null);
+const versions = ref<Version[]>([]);
 
 // ---- 派生 ----
 const requiresExtraFields = computed(() => selectedType.value === "defect");
@@ -50,6 +56,14 @@ const canSubmit = computed(() => {
   if (!name.value.trim()) return false;
   return true;
 });
+
+// 加载版本列表（缺陷表单用）
+async function loadVersions() {
+  try {
+    const res = await versionApi.listVersions(props.workspaceId, props.projectId);
+    versions.value = Array.isArray(res) ? res : (res as { results: Version[] }).results ?? [];
+  } catch { /* 版本列表不可用时静默忽略 */ }
+}
 
 const typeOptions: { value: IssueType; label: string; desc: string }[] = [
   { value: "requirement", label: "需求", desc: "产品需求或用户故事，可分解为子需求" },
@@ -72,7 +86,12 @@ watch(
       isDraft.value = false;
       severity.value = 3;
       foundPhase.value = "";
+      reproduceSteps.value = "";
+      environment.value = "";
+      foundVersionId.value = null;
+      fixVersionId.value = null;
       errorMsg.value = "";
+      loadVersions();
     }
   },
 );
@@ -115,6 +134,18 @@ async function submit() {
     input.severity = severity.value;
     if (foundPhase.value.trim()) {
       input.found_phase = foundPhase.value.trim();
+    }
+    if (reproduceSteps.value.trim()) {
+      input.reproduce_steps = { steps: reproduceSteps.value.trim() };
+    }
+    if (environment.value.trim()) {
+      input.environment = { value: environment.value.trim() };
+    }
+    if (foundVersionId.value != null) {
+      input.found_version_id = foundVersionId.value;
+    }
+    if (fixVersionId.value != null) {
+      input.fix_version_id = fixVersionId.value;
     }
   }
 
@@ -245,6 +276,43 @@ function cancel() {
                   <option value="customer">用户反馈</option>
                 </select>
               </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group form-group--inline">
+                <label class="form-label">发现版本</label>
+                <select v-model="foundVersionId" class="form-select">
+                  <option :value="null">-- 请选择 --</option>
+                  <option v-for="v in versions" :key="v.id" :value="v.id">{{ v.name }}</option>
+                </select>
+              </div>
+              <div class="form-group form-group--inline">
+                <label class="form-label">修复版本</label>
+                <select v-model="fixVersionId" class="form-select">
+                  <option :value="null">-- 请选择 --</option>
+                  <option v-for="v in versions" :key="v.id" :value="v.id">{{ v.name }}</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">复现步骤</label>
+              <textarea
+                v-model="reproduceSteps"
+                class="form-input form-input--textarea"
+                rows="3"
+                placeholder="描述缺陷的复现路径：1. 操作步骤 2. 预期结果 3. 实际结果"
+              ></textarea>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">环境</label>
+              <input
+                v-model="environment"
+                type="text"
+                class="form-input"
+                placeholder="如：Chrome 120 / Windows 11 / 测试环境"
+              />
             </div>
           </div>
 

@@ -1,15 +1,17 @@
 // Package middleware — 工作空间级 RBAC 中间件。
 //
 // 中间件链顺序（外层 → 内层）：
-//   RequireAuth → RequireWorkspaceParam → RequirePermission / RequireProjectParam → handler
+//
+//	RequireAuth → RequireWorkspaceParam → RequirePermission / RequireProjectParam → handler
 //
 // RequirePermission 校验用户在当前 workspace 拥有指定 permission；
 // 校验通过后把 workspace_role 写入 ctx，供 handler 做二次鉴权。
 //
 // 错误语义：
-//   401 Unauthorized — 未登录或 token 无效（由 RequireAuth 返回）。
-//   403 Forbidden — 已登录但权限不足。
-//   422 — workspace_id / project_id 格式错误。
+//
+//	401 Unauthorized — 未登录或 token 无效（由 RequireAuth 返回）。
+//	403 Forbidden — 已登录但权限不足。
+//	422 — workspace_id / project_id 格式错误。
 package middleware
 
 import (
@@ -17,6 +19,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/njydsz/ydsz-plane/internal/application/apitoken"
 	"github.com/njydsz/ydsz-plane/internal/application/auth"
 	"github.com/njydsz/ydsz-plane/pkg/errs"
 )
@@ -73,6 +76,28 @@ func RequirePermission(store *auth.WorkspaceMembershipStore, perm string) gin.Ha
 			c.Abort()
 			return
 		}
+
+		// API Token 双重要求：RBAC 角色通过后，还必须持有覆盖该权限的 scope。
+		// 这是"个人令牌收敛"的关键防线（GitHub PAT 模型）：
+		// 即使角色允许，token scope 不足依然 403。
+		if c.GetString(CtxAuthKind) == string(auth.PrincipalAPIToken) {
+			rawScopes, _ := c.Get(CtxAuthScopes)
+			owned, _ := rawScopes.([]string)
+			required, ok := apitoken.PermissionScope(perm)
+			// 未纳入 scope 映射的权限：仅全权限（*）令牌放行，否则保守拒绝。
+			if !ok {
+				if !apitoken.ScopeCovers(owned, apitoken.ScopeAll) {
+					respondError(c, errs.ErrForbidden)
+					c.Abort()
+					return
+				}
+			} else if !apitoken.ScopeCovers(owned, required) {
+				respondError(c, errs.ErrForbidden)
+				c.Abort()
+				return
+			}
+		}
+
 		c.Set("workspace_role", string(m.Role))
 		c.Next()
 	}

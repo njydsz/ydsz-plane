@@ -3,12 +3,13 @@
  * 看板视图 — 按状态分列展示工作项。
  * 支持: 列间拖拽流转 / 列内拖拽排序 / 视觉反馈 / 中值插入排序。
  */
-import { computed, onMounted, ref, nextTick } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
 import { workspaceApi } from "@/api/services/workspace";
 import { issueApi, type Issue } from "@/api/services/issue";
 import { useIssueStore } from "@/stores/issue";
+import { prefs } from "@/lib/prefs";
 import IssueCreateModal from "./IssueCreateModal.vue";
 
 const route = useRoute();
@@ -101,8 +102,8 @@ function onCardDragOver(stateId: number, index: number, event: DragEvent) {
 
 async function onColumnDrop(stateId: number, event: DragEvent) {
   event.preventDefault();
-  const issue = dragIssue.value;
-  if (!issue) return;
+  const dragged = dragIssue.value;
+  if (!dragged) return;
 
   const targetIdx = dropIndex.value;
   dragIssue.value = null;
@@ -111,9 +112,9 @@ async function onColumnDrop(stateId: number, event: DragEvent) {
 
   try {
     // 跨列流转
-    if (issue.state_id !== stateId) {
-      issue = await issueApi.transition(wsId.value, projectId.value, issue.id, stateId);
-    }
+    const issue = dragged.state_id !== stateId
+      ? await issueApi.transition(wsId.value, projectId.value, dragged.id, stateId)
+      : dragged;
 
     // 列内排序
     const columnIssues = issuesInState(stateId);
@@ -151,7 +152,10 @@ function priorityColor(priority: string): string {
   return map[priority] ?? "var(--text-tertiary)";
 }
 
-onMounted(load);
+onMounted(() => {
+  prefs.setLastView(projectId.value, "board");
+  load();
+});
 </script>
 
 <template>
