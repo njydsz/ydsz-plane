@@ -185,11 +185,11 @@ async function revokeInvitation(inv: Invitation) {
 function roleLabel(role: string): string {
   return { owner: "所有者", admin: "管理员", member: "成员", guest: "访客" }[role] ?? role;
 }
-function formatDate(s: string): string {
+function formatDate(s: string | undefined): string {
   return s ? s.slice(0, 10) : "-";
 }
-function invStatusLabel(s: string): string {
-  return { pending: "待处理", accepted: "已接受", revoked: "已撤销", expired: "已过期" }[s] ?? s;
+function invStatusLabel(s: string | undefined): string {
+  return { pending: "待处理", accepted: "已接受", revoked: "已撤销", expired: "已过期" }[s ?? ""] ?? s ?? "-";
 }
 
 onMounted(loadAll);

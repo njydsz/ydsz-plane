@@ -16,11 +16,12 @@ import (
 
 // HandlerDeps handler 依赖。
 type HandlerDeps struct {
-	IssueSvc     *Service
-	StateSvc     *StateService
-	ActivitySvc  *ActivityService
-	TimeLogSvc   *TimeLogService
-	ProjectInit  *ProjectInitService
+	IssueSvc       *Service
+	StateSvc       *StateService
+	ActivitySvc    *ActivityService
+	TimeLogSvc     *TimeLogService
+	RelationSvc    *RelationService
+	ProjectInit    *ProjectInitService
 	WorkspaceStore *auth.WorkspaceMembershipStore
 }
 
@@ -56,6 +57,12 @@ func (h *IssueHandler) Register(r *gin.RouterGroup, wsMiddleware []gin.HandlerFu
 		issue.GET("/activities", h.listActivities)
 		issue.GET("/time-logs", h.listTimeLogs)
 		issue.POST("/time-logs", h.createTimeLog)
+		issue.GET("/relations", h.listRelations)
+		issue.POST("/relations", h.createRelation)
+		issue.DELETE("/relations/:relation_id", h.deleteRelation)
+		issue.GET("/dependencies", h.listDependencies)
+		issue.POST("/dependencies", h.createDependency)
+		issue.DELETE("/dependencies/:dep_id", h.deleteDependency)
 	}
 }
 

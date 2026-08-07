@@ -8,6 +8,7 @@ import (
 
 	"go.uber.org/zap"
 
+	"github.com/njydsz/ydsz-plane/internal/application/sprint"
 	"github.com/njydsz/ydsz-plane/internal/config"
 )
 

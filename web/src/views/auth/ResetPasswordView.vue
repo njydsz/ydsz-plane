@@ -6,7 +6,6 @@ import { authApi } from "@/api/services/auth";
 import { ApiError } from "@/api/client";
 
 const route = useRoute();
-const router = useRouter();
 
 const token = ref(String(route.query.token ?? ""));
 const form = reactive({

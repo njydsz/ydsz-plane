@@ -118,6 +118,9 @@ onMounted(load);
       </div>
       <div class="actions">
         <template v-if="sprint">
+          <button v-if="sprint.status === 'active'" class="btn btn-secondary" @click="router.push(`/${workspaceSlug}/projects/${projectId}/sprints/${sprint.id}/standup`)">
+            站会模式
+          </button>
           <button v-if="sprint.status === 'planned'" class="btn btn-primary" :disabled="busy" @click="startSprint">
             启动迭代
           </button>

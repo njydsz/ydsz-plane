@@ -1,5 +1,5 @@
-// Package persistence provides the PostgreSQL connection pool and the tenant
-// context helper that enforces row-level security (see docs/architecture/04).
+// Package persistence 提供 PostgreSQL 连接池与强制行级安全（RLS）的
+// 租户上下文辅助函数（见 docs/architecture/04）。
 package persistence
 
 import (
@@ -10,12 +10,16 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// Pool wraps pgxpool.Pool with tenant-aware helpers.
+// Pool 包装 pgxpool.Pool 并提供租户感知辅助函数。
 type Pool struct {
 	*pgxpool.Pool
 }
 
-// NewPool creates a connection pool and verifies connectivity.
+// NewPool 创建连接池并验证连通性。
+//
+// 参数：
+//   - url：libpq 连接串。
+//   - maxConns：最大连接数；<=0 时使用 pgxpool 默认值。
 func NewPool(ctx context.Context, url string, maxConns int32) (*Pool, error) {
 	cfg, err := pgxpool.ParseConfig(url)
 	if err != nil {
@@ -35,15 +39,15 @@ func NewPool(ctx context.Context, url string, maxConns int32) (*Pool, error) {
 	return &Pool{pool}, nil
 }
 
-// WithTenantTx runs fn inside a transaction with the tenant context set, so
-// that RLS policies (current_setting('app.workspace_id')) isolate rows.
-// The SET LOCAL is transaction-scoped and safe under connection pooling.
+// WithTenantTx 在设置了租户上下文的事务内执行 fn，
+// 使 RLS 策略（current_setting('app.workspace_id')）按行隔离数据。
+// SET LOCAL 仅作用于当前事务，在连接池下是安全的。
 func (p *Pool) WithTenantTx(ctx context.Context, workspaceID int64, fn func(tx pgx.Tx) error) error {
 	tx, err := p.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("persistence: begin tx: %w", err)
 	}
-	defer func() { _ = tx.Rollback(ctx) }() // no-op after Commit
+	defer func() { _ = tx.Rollback(ctx) }() // Commit 后为 no-op
 
 	if _, err := tx.Exec(ctx, "SELECT set_config('app.workspace_id', $1, true)", workspaceID); err != nil {
 		return fmt.Errorf("persistence: set tenant: %w", err)
@@ -57,5 +61,5 @@ func (p *Pool) WithTenantTx(ctx context.Context, workspaceID int64, fn func(tx p
 	return nil
 }
 
-// Ping delegates to the underlying pool (used by /readyz).
+// Ping 委托给底层连接池（供 /readyz 探活使用）。
 func (p *Pool) Ping(ctx context.Context) error { return p.Pool.Ping(ctx) }

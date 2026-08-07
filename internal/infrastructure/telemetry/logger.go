@@ -1,6 +1,5 @@
-// Package telemetry initializes structured logging (zap), and later metrics
-// and tracing. Log fields follow the convention:
-// ts/level/msg/request_id/tenant/user/trace_id.
+// Package telemetry 初始化结构化日志（zap），后续将扩展指标与链路追踪。
+// 日志字段遵循约定：ts/level/msg/request_id/tenant/user/trace_id。
 package telemetry
 
 import (
@@ -10,8 +9,9 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-// NewLogger builds a zap logger from config values.
-// format: "json" (production) or "console" (development).
+// NewLogger 根据配置值构建 zap logger。
+// format 取值："json"（生产环境）或 "console"（开发环境）。
+// 生产环境默认不开启颜色编码，便于日志采集系统解析。
 func NewLogger(level, format string) (*zap.Logger, error) {
 	lvl, err := zapcore.ParseLevel(level)
 	if err != nil {

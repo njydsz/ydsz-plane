@@ -245,7 +245,63 @@ onMounted(() => {
 
         <!-- 工时 -->
         <h3 style="margin-top: 24px">工时</h3>
-        <div class="text-muted">工时记录功能即将上线</div>
+        <div class="timelog-summary" v-if="totalMinutes > 0">
+          累计 {{ fmtDuration(totalMinutes) }}
+          <span v-if="issue.actual_effort != null" class="timelog-effort">
+            · 实耗 {{ fmtDuration(issue.actual_effort) }}
+          </span>
+          <span v-if="issue.remaining_effort != null" class="timelog-effort">
+            · 剩余 {{ fmtDuration(issue.remaining_effort) }}
+          </span>
+        </div>
+
+        <button v-if="!showTimeLogForm" class="btn btn--sm btn--outline" @click="showTimeLogForm = true">
+          ＋ 记录工时
+        </button>
+
+        <!-- 工时记录表单 -->
+        <div v-if="showTimeLogForm" class="timelog-form">
+          <div v-if="timeLogError" class="form-error">{{ timeLogError }}</div>
+          <div class="timelog-form__row">
+            <input
+              v-model="newSpentDate"
+              type="date"
+              class="timelog-input"
+              :max="new Date().toISOString().slice(0, 10)"
+            />
+          </div>
+          <div class="timelog-form__row timelog-form__duration">
+            <input v-model.number="newDurationHours" type="number" class="timelog-input timelog-input--sm" min="0" max="24" />
+            <span class="timelog-label">小时</span>
+            <input v-model.number="newDurationMinutes" type="number" class="timelog-input timelog-input--sm" min="0" max="59" step="15" />
+            <span class="timelog-label">分钟</span>
+          </div>
+          <textarea
+            v-model="newTimeDesc"
+            class="timelog-textarea"
+            placeholder="工时描述（可选）"
+            rows="2"
+          ></textarea>
+          <div class="timelog-form__actions">
+            <button class="btn btn--sm" @click="showTimeLogForm = false" :disabled="timeLogSubmitting">取消</button>
+            <button class="btn btn--sm btn--primary" @click="submitTimeLog" :disabled="timeLogSubmitting">
+              {{ timeLogSubmitting ? "保存中..." : "保存" }}
+            </button>
+          </div>
+        </div>
+
+        <!-- 工时列表 -->
+        <div v-if="timeLogsLoading" class="text-muted" style="margin-top:8px">加载中...</div>
+        <div v-else-if="timeLogs.length > 0" class="timelog-list">
+          <div v-for="tl in timeLogs.slice(0, 10)" :key="tl.id" class="timelog-item">
+            <div class="timelog-item__meta">
+              <span class="timelog-item__date">{{ tl.spent_date.slice(0, 10) }}</span>
+              <span class="timelog-item__duration">{{ fmtDuration(tl.duration_minutes) }}</span>
+            </div>
+            <div v-if="tl.description" class="timelog-item__desc">{{ tl.description }}</div>
+          </div>
+        </div>
+        <div v-else-if="!showTimeLogForm" class="text-muted">暂无工时记录</div>
       </aside>
     </div>
   </div>
@@ -431,4 +487,167 @@ onMounted(() => {
   color: var(--text-tertiary);
 }
 .error { color: var(--danger-500); }
+
+/* ===== Time Log ===== */
+.timelog-summary {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+
+.timelog-effort {
+  color: var(--text-tertiary);
+  font-weight: 400;
+}
+
+.btn--sm {
+  padding: 4px 10px;
+  font-size: 12px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  border: 1px solid var(--border-default);
+  background: var(--surface-1);
+  color: var(--text-secondary);
+  font-family: inherit;
+}
+
+.btn--sm:hover:not(:disabled) {
+  background: var(--surface-3);
+}
+
+.btn--outline {
+  border: 1px dashed var(--border-strong);
+  background: none;
+  color: var(--text-tertiary);
+  width: 100%;
+  text-align: center;
+}
+
+.btn--outline:hover {
+  border-color: var(--brand-500);
+  color: var(--brand-500);
+}
+
+.btn--primary {
+  background: var(--brand-500);
+  color: #fff;
+  border-color: var(--brand-500);
+}
+
+.btn--primary:hover:not(:disabled) {
+  background: var(--brand-600);
+}
+
+.btn:disabled,
+.btn--sm:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.timelog-form {
+  padding: 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  margin-top: 8px;
+}
+
+.timelog-form__row {
+  margin-bottom: 8px;
+}
+
+.timelog-form__duration {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.timelog-label {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin: 0 4px;
+}
+
+.timelog-input {
+  padding: 5px 8px;
+  font-size: 12px;
+  font-family: inherit;
+  color: var(--text-primary);
+  background: var(--surface-1);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  outline: none;
+  width: 100%;
+}
+
+.timelog-input:focus {
+  border-color: var(--brand-500);
+}
+
+.timelog-input--sm {
+  width: 72px;
+}
+
+.timelog-textarea {
+  width: 100%;
+  padding: 6px 8px;
+  font-size: 12px;
+  font-family: inherit;
+  color: var(--text-primary);
+  background: var(--surface-1);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  outline: none;
+  resize: vertical;
+  margin-bottom: 8px;
+}
+
+.timelog-textarea:focus {
+  border-color: var(--brand-500);
+}
+
+.timelog-form__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.timelog-list {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.timelog-item {
+  padding: 8px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+
+.timelog-item__meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.timelog-item__date {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+}
+
+.timelog-item__duration {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.timelog-item__desc {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  margin-top: 4px;
+}
 </style>

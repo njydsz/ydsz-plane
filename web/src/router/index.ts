@@ -113,6 +113,17 @@ const router = createRouter({
             sprintId: Number(route.params.sprintId),
           }),
         },
+        // 站会模式
+        {
+          path: ":workspaceSlug/projects/:projectId/sprints/:sprintId/standup",
+          name: "sprint-standup",
+          component: () => import("@/views/project/SprintStandupView.vue"),
+          props: (route) => ({
+            workspaceSlug: route.params.workspaceSlug,
+            projectId: Number(route.params.projectId),
+            sprintId: Number(route.params.sprintId),
+          }),
+        },
         // 版本日聚合
         {
           path: ":workspaceSlug/projects/:projectId/versions",

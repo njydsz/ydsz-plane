@@ -1,27 +1,24 @@
-// Package events implements the transactional outbox pattern:
-// domain events are written to the domain_events table inside the business
-// transaction, then a background relay publishes them to RabbitMQ
-// (EventExchange) and marks them published. Consumers must be idempotent
-// on event id.
+// Package events 实现事务性 outbox 模式：
+// 领域事件在业务事务内写入 domain_events 表，随后后台 relay 将它们发布到
+// RabbitMQ（EventExchange）并标记为已发布。消费者必须按事件 ID 幂等处理。
 //
-// Messaging stack (post-M1 upgrade):
-//   - RabbitMQ: EventExchange (topic, at-least-once delivery with consumer
-//     acks, dead-letter routing, message TTL). Handles domain events that
-//     must be processed reliably (notifications, webhooks, ES indexing,
-//     audit trail, automation rules).
-//   - Redis Streams: retained for low-latency real-time push (WebSocket
-//     fan-out), rate limiting, distributed locks, and Asynq task broker.
+// 消息栈（M1 升级后）：
+//   - RabbitMQ：EventExchange（topic、at-least-once 投递 + 消费者 ack、
+//     死信路由、消息 TTL）。处理必须可靠投递的领域事件（通知、webhook、
+//     ES 索引、审计轨迹、自动化规则）。
+//   - Redis Streams：保留用于低延迟实时推送（WebSocket 扇出）、限流、
+//     分布式锁与 Asynq 任务代理。
 //
-// RabbitMQ topology for events:
-//   - Exchange "plane.events" (topic, durable)
-//   - Routing key: plane.events.<aggregate_type>.<event_type>
-//   - Dead-letter exchange "plane.dlx" routes poisoned messages.
-//   - Messages are persistent (DeliveryMode=2) and survive broker restarts.
+// 事件 RabbitMQ 拓扑：
+//   - Exchange "plane.events"（topic、持久化）
+//   - 路由键：plane.events.<aggregate_type>.<event_type>
+//   - 死信 exchange "plane.dlx" 路由有毒消息。
+//   - 消息持久化（DeliveryMode=2），broker 重启后仍然存在。
 //
-// Retry & observability:
-//   - Failed Nacks requeue the message (limited by DLX threshold).
-//   - Prometheus counters track published/nack counts (added in S3+).
-//   - Structured logs carry event_id, worker_id, routing_key for tracing.
+// 重试与可观测性：
+//   - Nack 失败的消息重新入队（受 DLX 阈值限制）。
+//   - Prometheus 计数器跟踪发布/nack 数量（S3+ 加入）。
+//   - 结构化日志携带 event_id、worker_id、routing_key 便于追踪。
 package events
 
 import (
@@ -39,7 +36,7 @@ import (
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/mq"
 )
 
-// Event is a domain-event record stored in PostgreSQL outbox (domain_events).
+// Event 是存储在 PostgreSQL outbox（domain_events）中的领域事件记录。
 type Event struct {
 	ID            int64           `json:"id"`
 	WorkspaceID   int64           `json:"workspace_id"`
@@ -50,7 +47,7 @@ type Event struct {
 	OccurredAt    time.Time       `json:"occurred_at"`
 }
 
-// toEnvelope converts an outbox record to an mq.EventEnvelope.
+// toEnvelope 将 outbox 记录转换为 mq.EventEnvelope。
 func (e Event) toEnvelope() mq.EventEnvelope {
 	return mq.EventEnvelope{
 		EventID:       e.ID,
@@ -65,14 +62,14 @@ func (e Event) toEnvelope() mq.EventEnvelope {
 	}
 }
 
-// Recorder writes events into the outbox within an existing transaction.
+// Recorder 在既有事务内将事件写入 outbox。
 type Recorder struct{}
 
-// NewRecorder constructs a Recorder.
+// NewRecorder 构造 Recorder。
 func NewRecorder() *Recorder { return &Recorder{} }
 
-// Record inserts an event into domain_events. Must be called inside the
-// business transaction so event and state commit atomically.
+// Record 向 domain_events 插入一条事件。必须在业务事务内调用，
+// 以保证事件与状态变更原子提交。
 func (r *Recorder) Record(ctx context.Context, tx pgx.Tx, e Event) error {
 	const q = `INSERT INTO domain_events
 		(workspace_id, aggregate_type, aggregate_id, event_type, payload)
@@ -83,20 +80,20 @@ func (r *Recorder) Record(ctx context.Context, tx pgx.Tx, e Event) error {
 	return nil
 }
 
-// Querier is the minimal DB surface the relay needs (the pool satisfies it).
+// Querier 是 relay 所需的最小 DB 接口（连接池满足该接口）。
 type Querier interface {
 	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
 	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
 }
 
-// Relay polls unpublished events and publishes them to RabbitMQ.
+// Relay 轮询未发布事件并发布到 RabbitMQ。
 //
-// Lifecycle:
-//  1. NewRelay(initialises the RabbitMQ client and declares topology).
-//  2. Run(ctx) starts the polling loop until ctx is cancelled.
-//  3. On shutdown ctx cancel, in-flight batch completes before return.
+// 生命周期：
+//  1. NewRelay 初始化 RabbitMQ 客户端并声明拓扑。
+//  2. Run(ctx) 启动轮询循环直至 ctx 取消。
+//  3. 关闭时 ctx 取消后，进行中的批次完成后返回。
 //
-// Observability: each batch cycle logs published count, error, and latency.
+// 可观测性：每个批次周期记录已发布数量、错误与延迟。
 type Relay struct {
 	db     Querier
 	mq     *mq.Client
@@ -105,14 +102,13 @@ type Relay struct {
 	period time.Duration
 }
 
-// NewRelay constructs a Relay with an already-initialised MQ client.
-// The caller is responsible for closing the MQ client via Relay.Close
-// or by passing a shared client.
+// NewRelay 使用已初始化的 MQ 客户端构造 Relay。
+// 调用方负责通过 Relay.Close 关闭 MQ 客户端，或共享客户端由外部关闭。
 func NewRelay(db Querier, mqClient *mq.Client, log *zap.Logger) *Relay {
 	return &Relay{db: db, mq: mqClient, log: log, batch: 200, period: 500 * time.Millisecond}
 }
 
-// Run starts the polling loop until ctx is cancelled.
+// Run 启动轮询循环直至 ctx 取消。
 func (r *Relay) Run(ctx context.Context) {
 	r.log.Info("outbox relay started",
 		zap.Int("batch", r.batch),
@@ -139,7 +135,7 @@ func (r *Relay) Run(ctx context.Context) {
 	}
 }
 
-// publishBatch polls unpublished events and publishes each to RabbitMQ.
+// publishBatch 轮询未发布事件并逐条发布到 RabbitMQ。
 func (r *Relay) publishBatch(ctx context.Context) error {
 	rows, err := r.db.Query(ctx, `
 		SELECT id, workspace_id, aggregate_type, aggregate_id, event_type, payload, occurred_at
@@ -183,8 +179,8 @@ func (r *Relay) publishBatch(ctx context.Context) error {
 	return nil
 }
 
-// Close releases the underlying RabbitMQ client held by the relay.
-// Callers may skip this if the client is shared and closed elsewhere.
+// Close 释放 relay 持有的底层 RabbitMQ 客户端。
+// 若客户端是共享的且在其他地方关闭，调用方可跳过此方法。
 func (r *Relay) Close() error {
 	if r.mq != nil {
 		return r.mq.Close()
@@ -192,10 +188,9 @@ func (r *Relay) Close() error {
 	return nil
 }
 
-// EnqueueTask publishes a background task envelope to the TaskExchange.
-// This is the lightweight path for fire-and-forget async work that does
-// not require the full job-queue semantics of Asynq (e.g. event-driven
-// reactions in automation rules, real-time indexing fan-out).
+// EnqueueTask 向 TaskExchange 发布后台任务信封。
+// 这是 fire-and-forget 异步工作的轻量路径，不需要 Asynq 完整任务队列语义
+// （如自动化规则中的事件驱动反应、实时索引扇出）。
 func EnqueueTask(ctx context.Context, client *mq.Client, taskType string, workspaceID int64, payload json.RawMessage) error {
 	if client == nil {
 		return errors.New("events: mq client is nil")
@@ -211,11 +206,10 @@ func EnqueueTask(ctx context.Context, client *mq.Client, taskType string, worksp
 }
 
 // --------------------------------------------------------------------------
-// Legacy consumer helpers (kept for the WebSocket fan-out path).
-// The RealTime relay that used to consume Redis Streams still lives
-// alongside RabbitMQ: WS fan-out favours Redis P/S latency for sub-100ms
-// delivery, while RabbitMQ handles the durable, replay-friendly event
-// streams.
+// 遗留消费者辅助（保留给 WebSocket 扇出路径）。
+// 原先消费 Redis Streams 的 RealTime relay 仍与 RabbitMQ 并存：
+// WS 扇出倾向 Redis P/S 的亚 100ms 延迟，RabbitMQ 负责持久、
+// 可重放的事件流。
 // --------------------------------------------------------------------------
 
-var _ = sql.ErrNoRows // keep import if SQL helpers added later
+var _ = sql.ErrNoRows // 保留导入，供后续新增 SQL 辅助时使用
