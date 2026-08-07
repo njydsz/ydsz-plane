@@ -446,13 +446,6 @@ type updateIssueRequest struct {
 	Version           int     `json:"version" binding:"required"`
 }
 
-type issueListResponse struct {
-	Results []Issue `json:"results"`
-	Total   int64   `json:"total"`
-	Limit   int     `json:"limit"`
-	Offset  int     `json:"offset"`
-}
-
 // --- helpers ---
 
 func int64Param(c *gin.Context, key string) int64 {
@@ -494,5 +487,3 @@ func writeErr(c *gin.Context, err error) {
 	middleware.AbortWithError(c, errs.ErrInternal)
 }
 
-// 确保接口满足（编译期检查）。
-var _ = issueListResponse{}

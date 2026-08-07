@@ -38,6 +38,27 @@ const router = createRouter({
           name: "projects",
           component: () => import("@/views/project/ProjectListView.vue"),
         },
+        // 项目看板视图
+        {
+          path: ":workspaceSlug/projects/:projectId/board",
+          name: "project-board",
+          component: () => import("@/views/project/KanbanBoardView.vue"),
+          props: (route) => ({
+            workspaceSlug: route.params.workspaceSlug,
+            projectId: Number(route.params.projectId),
+          }),
+        },
+        // 工作项详情页
+        {
+          path: ":workspaceSlug/projects/:projectId/issues/:issueId",
+          name: "issue-detail",
+          component: () => import("@/views/project/IssueDetailView.vue"),
+          props: (route) => ({
+            workspaceSlug: route.params.workspaceSlug,
+            projectId: Number(route.params.projectId),
+            issueId: Number(route.params.issueId),
+          }),
+        },
       ],
     },
     {

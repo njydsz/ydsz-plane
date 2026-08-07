@@ -3,7 +3,6 @@ package issue
 
 import (
 	"context"
-	"strconv"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -82,6 +81,3 @@ func (s *ActivityService) appendActivity(ctx context.Context, issueID, wsID, pro
 		VALUES ($1,$2,$3,$4,$5,$6,$7)`,
 		wsID, projectID, issueID, verb, actorID, oldVal, newVal)
 }
-
-// 转换辅助（避免循环导入）。
-func _int(i int) string { return strconv.Itoa(i) }
