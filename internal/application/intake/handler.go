@@ -8,9 +8,6 @@
 package intake
 
 import (
-	"context"
-	"database/sql"
-	"fmt"
 	"net/http"
 	"strconv"
 
@@ -281,7 +278,7 @@ type PublicChannelView struct {
 
 // GetPublicChannel 公开获取通道配置（渲染表单）。
 func (h *PublicHandler) GetPublicChannel(c *gin.Context) {
-	wsID, err := resolveWorkspaceID(c, h.svc.db, c.Param("workspace"))
+	wsID, err := h.svc.ResolveWorkspaceID(c.Request.Context(), c.Param("workspace"))
 	if err != nil || wsID == 0 {
 		respondError(c, errs.NotFound("WORKSPACE.NOT_FOUND", "工作空间不存在"))
 		return
@@ -308,7 +305,7 @@ func (h *PublicHandler) GetPublicChannel(c *gin.Context) {
 
 // SubmitPublicIssue 公开提交工单（免登录）。
 func (h *PublicHandler) SubmitPublicIssue(c *gin.Context) {
-	wsID, err := resolveWorkspaceID(c, h.svc.db, c.Param("workspace"))
+	wsID, err := h.svc.ResolveWorkspaceID(c.Request.Context(), c.Param("workspace"))
 	if err != nil || wsID == 0 {
 		respondError(c, errs.NotFound("WORKSPACE.NOT_FOUND", "工作空间不存在"))
 		return
@@ -429,28 +426,6 @@ type submitPublicRequest struct {
 
 // --- 辅助函数 ---
 
-// resolveWorkspaceID 从 URL 参数解析工作空间 ID（支持 slug）。
-// 对外公开接口使用 slug 避免暴露内部 ID。
-func resolveWorkspaceID(c *gin.Context, db *sql.DB, key string) (int64, error) {
-	if key == "" {
-		return 0, fmt.Errorf("missing workspace key")
-	}
-	// 尝试解析为 digital ID
-	if id, err := strconv.ParseInt(key, 10, 64); err == nil {
-		return id, nil
-	}
-	// 当作 slug 查询
-	var id int64
-	if err := db.QueryRowContext(c.Request.Context(),
-		`SELECT id FROM workspaces WHERE slug = $1 AND is_active = true`, key).Scan(&id); err != nil {
-		if err == sql.ErrNoRows {
-			return 0, nil
-		}
-		return 0, err
-	}
-	return id, nil
-}
-
 func respondError(c *gin.Context, err error) {
 	var appErr *errs.AppError
 	if errs.As(err, &appErr) {
@@ -461,5 +436,3 @@ func respondError(c *gin.Context, err error) {
 		"error": gin.H{"code": "INTERNAL.ERROR", "message": "服务内部错误"},
 	})
 }
-
-var _ = context.Background // keep import

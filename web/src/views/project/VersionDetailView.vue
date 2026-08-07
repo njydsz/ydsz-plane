@@ -8,7 +8,7 @@ import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
 import { versionApi, type Version } from "@/api/services/version";
-import { AppBadge, AppButton, ProgressBar, MiniGantt, AppEmptyState } from "@/components";
+import { AppBadge, AppButton, ProgressBar, MiniGantt, AppEmptyState, AppLoadingState, AppErrorState } from "@/components";
 import type { GanttSprint } from "@/components/MiniGantt.vue";
 import DefectPanel from "./DefectPanel.vue";
 
@@ -228,19 +228,8 @@ onMounted(async () => {
 
 <template>
   <div class="version-detail">
-    <!-- Loading -->
-    <div v-if="loading" class="skeleton-detail">
-      <div class="skeleton-line" style="width:50%"></div>
-      <div class="skeleton-line" style="width:30%"></div>
-      <div class="skeleton-line" style="width:100%; height:80px;"></div>
-    </div>
-
-    <!-- Error -->
-    <div v-else-if="error" class="center-message error">
-      <p class="center-message__title">加载版本详情失败</p>
-      <p class="center-message__detail">{{ error }}</p>
-      <AppButton variant="secondary" size="sm" @click="load">重试</AppButton>
-    </div>
+    <AppLoadingState v-if="loading" />
+    <AppErrorState v-else-if="error" :message="error" @retry="load" />
 
     <template v-else-if="version">
       <!-- Header -->

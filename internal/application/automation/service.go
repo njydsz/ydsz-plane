@@ -44,7 +44,11 @@ func (s *Service) Create(ctx context.Context, in CreateRuleInput) (*Rule, error)
 	// DSL 校验
 	result := ValidateDSL(in.DSL)
 	if !result.Valid {
-		return nil, errs.ErrValidation.WithDetails(result.Errors...)
+		details := make([]errs.FieldDetail, 0, len(result.Errors))
+		for _, msg := range result.Errors {
+			details = append(details, errs.FieldDetail{Field: "dsl", Reason: msg})
+		}
+		return nil, errs.ErrValidation.WithDetails(details...)
 	}
 
 	triggerType := in.DSL.Trigger.Type
@@ -99,7 +103,11 @@ func (s *Service) Update(ctx context.Context, wsID, ruleID int64, in UpdateRuleI
 	if in.DSL != nil {
 		result := ValidateDSL(*in.DSL)
 		if !result.Valid {
-			return nil, errs.ErrValidation.WithDetails(result.Errors...)
+			details := make([]errs.FieldDetail, 0, len(result.Errors))
+			for _, msg := range result.Errors {
+				details = append(details, errs.FieldDetail{Field: "dsl", Reason: msg})
+			}
+			return nil, errs.ErrValidation.WithDetails(details...)
 		}
 	}
 
@@ -163,7 +171,7 @@ func (s *Service) Update(ctx context.Context, wsID, ruleID int64, in UpdateRuleI
 		return nil, errs.ErrInternal.Wrap(err)
 	}
 	if tag.RowsAffected() == 0 {
-		return nil, errs.ErrNotFound.WithDetails("规则不存在或版本冲突")
+		return nil, errs.ErrNotFound.WithDetails(errs.FieldDetail{Field: "rule_id", Reason: "规则不存在或版本冲突"})
 	}
 
 	return s.GetByID(ctx, wsID, ruleID)
@@ -396,7 +404,7 @@ func (s *Service) CreateFromTemplate(ctx context.Context, in CreateRuleInput, te
 		`SELECT dsl_template FROM automation_templates WHERE slug = $1`, templateSlug).Scan(&dsl)
 	if err != nil {
 		if err == pgx.ErrNoRows {
-			return nil, errs.ErrNotFound.WithDetails("模板不存在: " + templateSlug)
+			return nil, errs.ErrNotFound.WithDetails(errs.FieldDetail{Field: "template_slug", Reason: "模板不存在: " + templateSlug})
 		}
 		return nil, errs.ErrInternal.Wrap(err)
 	}

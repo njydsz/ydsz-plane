@@ -376,7 +376,7 @@ func (h *Handler) ListExecutions(c *gin.Context) {
 	projectID := c.GetInt64(middleware.CtxProjectID)
 	limit := 20
 	if l := c.Query("limit"); l != "" {
-		if parsed, err := parseInt(l); err == nil && parsed > 0 {
+		if parsed, err := strconv.Atoi(l); err == nil && parsed > 0 {
 			limit = min(parsed, 100)
 		}
 	}

@@ -33,6 +33,11 @@ const switcherFilter = ref("");
 const slug = computed(() => String(route.params.workspaceSlug ?? ""));
 const workspaceList = computed(() => wsStore.list);
 const currentWs = computed(() => wsStore.current);
+/** 当路由中存在 projectId 参数时返回该 ID，用于项目子导航展示 */
+const currentProjectId = computed(() => {
+  const pid = route.params.projectId;
+  return pid ? Number(pid) : null;
+});
 const filteredWorkspaces = computed(() => {
   const q = switcherFilter.value.trim().toLowerCase();
   if (!q) return workspaceList.value;
@@ -201,10 +206,38 @@ onMounted(bootstrap);
           :to="`/${wsStore.currentSlug}/projects`"
           class="nav-item"
           active-class="is-active"
+          exact-active-class="is-active"
         >
           <span class="nav-icon">▦</span>
           <span v-if="!collapsed">项目</span>
         </router-link>
+        <!-- 项目子导航：仅在当前有 projectId 时显示 -->
+        <template v-if="currentProjectId">
+          <router-link
+            :to="`/${wsStore.currentSlug}/projects/${currentProjectId}/dashboard`"
+            class="nav-item nav-item--sub"
+            active-class="is-active"
+          >
+            <span class="nav-icon">📈</span>
+            <span v-if="!collapsed">项目仪表盘</span>
+          </router-link>
+          <router-link
+            :to="`/${wsStore.currentSlug}/projects/${currentProjectId}/board`"
+            class="nav-item nav-item--sub"
+            active-class="is-active"
+          >
+            <span class="nav-icon">▥</span>
+            <span v-if="!collapsed">项目看板</span>
+          </router-link>
+          <router-link
+            :to="`/${wsStore.currentSlug}/projects/${currentProjectId}/list`"
+            class="nav-item nav-item--sub"
+            active-class="is-active"
+          >
+            <span class="nav-icon">☰</span>
+            <span v-if="!collapsed">工作项列表</span>
+          </router-link>
+        </template>
         <router-link
           :to="`/${wsStore.currentSlug}/settings`"
           class="nav-item"
@@ -467,6 +500,11 @@ onMounted(bootstrap);
   background: var(--brand-50);
   color: var(--brand-600);
   font-weight: 500;
+}
+
+.nav-item--sub {
+  padding-left: 28px;
+  font-size: 12px;
 }
 
 .nav-icon {

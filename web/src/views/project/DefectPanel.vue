@@ -6,7 +6,7 @@
 import { onMounted, ref, computed } from "vue";
 
 import { versionApi, type BugVersionView } from "@/api/services/version";
-import { AppBadge } from "@/components";
+import { AppBadge, AppLoadingState, AppErrorState, AppEmptyState } from "@/components";
 
 const props = defineProps<{
   workspaceSlug: string;
@@ -90,92 +90,81 @@ onMounted(load);
 
 <template>
   <div class="defect-panel">
-    <!-- Error -->
-    <div v-if="error" class="defect-panel__error">
-      <p>{{ error }}</p>
-      <button class="defect-panel__retry-btn" @click="load">重试</button>
-    </div>
+    <AppLoadingState v-if="loading" />
+    <AppErrorState v-else-if="error" :message="error" @retry="load" />
+    <AppEmptyState v-else-if="defects.length === 0" icon="🐛" title="该版本暂无关联缺陷" description="版本发布后将自动关联缺陷" />
+    <template v-else>
+      <!-- Summary -->
+      <div class="defect-panel__summary">
+        <span class="defect-panel__summary-text">
+          共 {{ total }} 个缺陷
+        </span>
+        <span
+          v-for="(count, sev) in summary"
+          :key="sev"
+          class="defect-panel__summary-count"
+        >
+          {{ severityLabel[Number(sev)] ?? sev }}: {{ count }}
+        </span>
+      </div>
 
-    <!-- Loading -->
-    <div v-else-if="loading" class="defect-panel__loading">
-      加载缺陷数据…
-    </div>
-
-    <!-- Summary -->
-    <div v-if="defects.length > 0" class="defect-panel__summary">
-      <span class="defect-panel__summary-text">
-        共 {{ total }} 个缺陷
-      </span>
-      <span
-        v-for="(count, sev) in summary"
-        :key="sev"
-        class="defect-panel__summary-count"
-      >
-        {{ severityLabel[Number(sev)] ?? sev }}: {{ count }}
-      </span>
-    </div>
-
-    <!-- Empty -->
-    <div v-if="!loading && defects.length === 0" class="defect-panel__empty">
-      该版本暂无关联缺陷
-    </div>
-
-    <!-- Table -->
-    <div v-if="defects.length > 0" class="defect-panel__table-wrap">
-      <table class="defect-panel__table">
-        <thead>
-          <tr>
-            <th>标识</th>
-            <th>标题</th>
-            <th>严重程度</th>
-            <th>状态</th>
-            <th>发现版本</th>
-            <th>修复版本</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr
-            v-for="d in defects"
-            :key="d.issue_id"
-            class="defect-panel__row"
-            :class="{
-              'defect-panel__row--critical': d.severity != null && d.severity <= 1,
-            }"
-          >
-            <td>
-              <code class="defect-panel__id">{{ d.identifier }}</code>
-            </td>
-            <td>
-              <span class="defect-panel__name">{{ d.name }}</span>
-            </td>
-            <td>
-              <AppBadge
-                v-if="d.severity != null"
-                :variant="severityVariant[d.severity] ?? 'default'"
-              >
-                {{ severityLabel[d.severity] ?? d.severity }}
-              </AppBadge>
-              <span v-else class="defect-panel__na">-</span>
-            </td>
-            <td>
-              <AppBadge
-                v-if="d.state_group"
-                :variant="stateGroupVariant[d.state_group] ?? 'default'"
-              >
-                {{ stateGroupLabel[d.state_group] ?? d.state_name }}
-              </AppBadge>
-              <span v-else>{{ d.state_name }}</span>
-            </td>
-            <td>
-              <code class="defect-panel__ver">{{ d.found_version ?? '-' }}</code>
-            </td>
-            <td>
-              <code class="defect-panel__ver">{{ d.fix_version ?? '-' }}</code>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+      <!-- Table -->
+      <div class="defect-panel__table-wrap">
+        <table class="defect-panel__table">
+          <thead>
+            <tr>
+              <th>标识</th>
+              <th>标题</th>
+              <th>严重程度</th>
+              <th>状态</th>
+              <th>发现版本</th>
+              <th>修复版本</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              v-for="d in defects"
+              :key="d.issue_id"
+              class="defect-panel__row"
+              :class="{
+                'defect-panel__row--critical': d.severity != null && d.severity <= 1,
+              }"
+            >
+              <td>
+                <code class="defect-panel__id">{{ d.identifier }}</code>
+              </td>
+              <td>
+                <span class="defect-panel__name">{{ d.name }}</span>
+              </td>
+              <td>
+                <AppBadge
+                  v-if="d.severity != null"
+                  :variant="severityVariant[d.severity] ?? 'default'"
+                >
+                  {{ severityLabel[d.severity] ?? d.severity }}
+                </AppBadge>
+                <span v-else class="defect-panel__na">-</span>
+              </td>
+              <td>
+                <AppBadge
+                  v-if="d.state_group"
+                  :variant="stateGroupVariant[d.state_group] ?? 'default'"
+                >
+                  {{ stateGroupLabel[d.state_group] ?? d.state_name }}
+                </AppBadge>
+                <span v-else>{{ d.state_name }}</span>
+              </td>
+              <td>
+                <code class="defect-panel__ver">{{ d.found_version ?? '-' }}</code>
+              </td>
+              <td>
+                <code class="defect-panel__ver">{{ d.fix_version ?? '-' }}</code>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </template>
   </div>
 </template>
 

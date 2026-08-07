@@ -89,6 +89,16 @@ const router = createRouter({
           name: "projects",
           component: () => import("@/views/project/ProjectListView.vue"),
         },
+        // 项目仪表盘
+        {
+          path: ":workspaceSlug/projects/:projectId/dashboard",
+          name: "project-dashboard",
+          component: () => import("@/views/project/DashboardView.vue"),
+          props: (route) => ({
+            workspaceSlug: route.params.workspaceSlug,
+            projectId: Number(route.params.projectId),
+          }),
+        },
         // 项目看板视图
         {
           path: ":workspaceSlug/projects/:projectId/board",
