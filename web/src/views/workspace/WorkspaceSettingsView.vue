@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, reactive, ref } from "vue";
 import { useRoute } from "vue-router";
 
+import { ApiError } from "@/api/client";
 import { workspaceApi, type Invitation, type Member, type Workspace } from "@/api/services/workspace";
 import { useAuthStore } from "@/stores/auth";
 
@@ -17,6 +18,111 @@ const members = ref<Member[]>([]);
 const invitations = ref<Invitation[]>([]);
 const loading = ref(true);
 const error = ref("");
+
+// 编辑状态
+const editing = ref(false);
+const editForm = reactive({
+  name: "",
+  timezone: "Asia/Shanghai",
+  language: "zh-CN",
+});
+const editSaving = ref(false);
+const editError = ref("");
+const editSuccess = ref("");
+
+const timezoneOptions = [
+  { value: "Asia/Shanghai", label: "中国标准时间 (UTC+8)" },
+  { value: "Asia/Tokyo", label: "日本标准时间 (UTC+9)" },
+  { value: "America/Los_Angeles", label: "太平洋时间 (UTC-8)" },
+  { value: "America/New_York", label: "东部时间 (UTC-5)" },
+  { value: "Europe/London", label: "格林威治时间 (UTC+0)" },
+];
+
+const languageOptions = [
+  { value: "zh-CN", label: "简体中文" },
+  { value: "en-US", label: "English (US)" },
+];
+
+// 邀请表单
+const inviteEmail = ref("");
+const inviteRole = ref("member");
+const inviteMessage = ref("");
+const inviteSending = ref(false);
+const inviteError = ref("");
+const inviteSuccess = ref("");
+
+// 当前用户角色（计算属性，决定 UI 是否显示管理操作）
+const myRole = computed(() => ws.value?.role ?? "");
+const canManageMembers = computed(() => ["owner", "admin"].includes(myRole.value));
+
+async function loadAll() {
+  loading.value = true;
+  error.value = "";
+  try {
+    // 先根据 slug 拿 ID
+    const wsData = await workspaceApi.getBySlug(wsSlug.value);
+    ws.value = wsData;
+    wsId.value = wsData.id;
+    editForm.name = wsData.name;
+    editForm.timezone = wsData.timezone;
+    editForm.language = wsData.language;
+
+    const [mems] = await Promise.all([
+      workspaceApi.listMembers(wsId.value),
+    ]);
+    members.value = mems;
+    if (canManageMembers.value) {
+      invitations.value = await workspaceApi.listInvitations(wsId.value);
+    }
+  } catch (e: any) {
+    error.value = e.message ?? "加载失败";
+  } finally {
+    loading.value = false;
+  }
+}
+
+function startEdit() {
+  if (!ws.value) return;
+  editForm.name = ws.value.name;
+  editForm.timezone = ws.value.timezone;
+  editForm.language = ws.value.language;
+  editError.value = "";
+  editSuccess.value = "";
+  editing.value = true;
+}
+
+function cancelEdit() {
+  editing.value = false;
+  editError.value = "";
+}
+
+async function saveEdit() {
+  editError.value = "";
+  editSuccess.value = "";
+  if (!editForm.name.trim()) {
+    editError.value = "名称不能为空";
+    return;
+  }
+
+  editSaving.value = true;
+  try {
+    const updated = await workspaceApi.update(wsId.value, {
+      name: editForm.name.trim(),
+      timezone: editForm.timezone,
+      language: editForm.language,
+    });
+    ws.value = updated;
+    editSuccess.value = "保存成功";
+    setTimeout(() => {
+      editing.value = false;
+      editSuccess.value = "";
+    }, 1200);
+  } catch (e) {
+    editError.value = e instanceof ApiError ? e.message : "保存失败";
+  } finally {
+    editSaving.value = false;
+  }
+}
 
 // 邀请表单
 const inviteEmail = ref("");
@@ -149,34 +255,85 @@ onMounted(loadAll);
 
     <!-- === 基本信息 === -->
     <section v-if="activeTab === 'info'" class="tab-panel">
-      <div class="info-grid">
-        <div class="info-item">
-          <span class="info-label">名称</span>
-          <span class="info-value">{{ ws.name }}</span>
+      <!-- 只读模式 -->
+      <template v-if="!editing">
+        <div class="info-grid">
+          <div class="info-item">
+            <span class="info-label">名称</span>
+            <span class="info-value">{{ ws.name }}</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">链接标识</span>
+            <span class="info-value">{{ ws.slug }}</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">时区</span>
+            <span class="info-value">{{ ws.timezone }}</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">语言</span>
+            <span class="info-value">{{ ws.language }}</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">我的角色</span>
+            <span class="info-value">
+              <span class="role-badge" :data-role="ws.role">{{ roleLabel(ws.role) }}</span>
+            </span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">成员数</span>
+            <span class="info-value">{{ members.length }}</span>
+          </div>
         </div>
-        <div class="info-item">
-          <span class="info-label">链接标识</span>
-          <span class="info-value">{{ ws.slug }}</span>
+        <button
+          v-if="canManageMembers"
+          class="btn btn--primary"
+          style="margin-top: 20px"
+          @click="startEdit"
+        >
+          编辑信息
+        </button>
+      </template>
+
+      <!-- 编辑模式 -->
+      <template v-else>
+        <div class="info-grid edit-mode">
+          <label class="info-item">
+            <span class="info-label">名称</span>
+            <input v-model="editForm.name" type="text" maxlength="128" class="info-input" />
+          </label>
+          <div class="info-item">
+            <span class="info-label">链接标识</span>
+            <span class="info-value mono">{{ ws.slug }}</span>
+          </div>
+          <label class="info-item">
+            <span class="info-label">时区</span>
+            <select v-model="editForm.timezone" class="info-input">
+              <option v-for="tz in timezoneOptions" :key="tz.value" :value="tz.value">
+                {{ tz.label }}
+              </option>
+            </select>
+          </label>
+          <label class="info-item">
+            <span class="info-label">语言</span>
+            <select v-model="editForm.language" class="info-input">
+              <option v-for="lang in languageOptions" :key="lang.value" :value="lang.value">
+                {{ lang.label }}
+              </option>
+            </select>
+          </label>
         </div>
-        <div class="info-item">
-          <span class="info-label">时区</span>
-          <span class="info-value">{{ ws.timezone }}</span>
+
+        <p v-if="editError" class="form-error">{{ editError }}</p>
+        <p v-if="editSuccess" class="form-success">{{ editSuccess }}</p>
+
+        <div class="edit-actions">
+          <button class="btn btn--primary" :disabled="editSaving" @click="saveEdit">
+            {{ editSaving ? "保存中..." : "保存" }}
+          </button>
+          <button class="btn" :disabled="editSaving" @click="cancelEdit">取消</button>
         </div>
-        <div class="info-item">
-          <span class="info-label">语言</span>
-          <span class="info-value">{{ ws.language }}</span>
-        </div>
-        <div class="info-item">
-          <span class="info-label">我的角色</span>
-          <span class="info-value">
-            <span class="role-badge" :data-role="ws.role">{{ roleLabel(ws.role) }}</span>
-          </span>
-        </div>
-        <div class="info-item">
-          <span class="info-label">成员数</span>
-          <span class="info-value">{{ members.length }}</span>
-        </div>
-      </div>
+      </template>
     </section>
 
     <!-- === 成员管理 === -->
@@ -495,5 +652,36 @@ select {
 
 @media (max-width: 600px) {
   .invite-form form { grid-template-columns: 1fr; }
+}
+
+/* 编辑模式 */
+.edit-mode .info-item {
+  padding: 10px 0;
+}
+
+.info-input {
+  padding: 6px 10px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  color: var(--text-primary);
+  background: var(--surface-1);
+  outline: none;
+  font-family: inherit;
+  flex: 1;
+  max-width: 360px;
+}
+
+.info-input:focus {
+  border-color: var(--brand-500);
+  box-shadow: 0 0 0 3px var(--brand-50);
+}
+
+.mono { font-family: var(--font-mono); }
+
+.edit-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 20px;
 }
 </style>

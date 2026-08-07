@@ -94,6 +94,13 @@ func main() {
 	}
 }
 
+// run 执行种子数据写入流程。
+//
+// 顺序：
+//  1. 加载配置并建立 DB 连接池；
+//  2. 构造 auth.Service（用于 HashPassword 生成 bcrypt 散列）；
+//  3. 幂等写入 users / workspaces / workspace_members / audit_logs；
+//  4. 打印账号与工作空间摘要。
 func run() error {
 	cfg, err := config.Load()
 	if err != nil {
@@ -136,6 +143,8 @@ func run() error {
 /* helpers                                                              */
 /* ------------------------------------------------------------------ */
 
+// seedUsers 幂等写入种子用户，返回 email → 用户 ID 的映射。
+// 已存在的用户按 email 冲突更新密码散列，保证可重复执行。
 func seedUsers(ctx context.Context, pool *persistence.Pool, svc *auth.Service) (map[string]int64, error) {
 	out := make(map[string]int64, len(users))
 	for _, u := range users {
@@ -157,13 +166,16 @@ func seedUsers(ctx context.Context, pool *persistence.Pool, svc *auth.Service) (
 	return out, nil
 }
 
+// seedWorkspaces 幂等写入种子工作空间，返回 slug → 工作空间 ID 的映射。
+// 已归档的同 slug 记录会被跳过（WHERE status <> 'archived'），
+// 激活状态的记录按 name 更新。
 func seedWorkspaces(ctx context.Context, pool *persistence.Pool, userIDs map[string]int64) (map[string]int64, error) {
 	ownerID := userIDs["admin@ydsz.dev"]
 	out := make(map[string]int64, len(workspaces))
 	for _, ws := range workspaces {
 		var id int64
-		// First member becomes owner if admin is not a member
-		// (extra safety for the rare case where admin isn't in Members).
+		// 兜底保护：若 Members 映射中恰好没有 admin，
+		// 首个写入的成员也会成为 owner。
 		err := pool.QueryRow(ctx, `
 			INSERT INTO workspaces (name, slug, owner_id)
 			VALUES ($1, $2, $3)
@@ -186,6 +198,8 @@ func seedWorkspaces(ctx context.Context, pool *persistence.Pool, userIDs map[str
 	return out, nil
 }
 
+// seedMembers 幂等写入工作空间成员关系。
+// 已存在的 (workspace_id, user_id) 组合按角色更新，保证可重复执行。
 func seedMembers(ctx context.Context, pool *persistence.Pool, wsIDs map[string]int64, wsList []seedWorkspace) error {
 	for _, ws := range wsList {
 		wsID, ok := wsIDs[ws.Slug]
@@ -210,6 +224,7 @@ func seedMembers(ctx context.Context, pool *persistence.Pool, wsIDs map[string]i
 	return nil
 }
 
+// seedAuditLogs 写入 5 条演示用审计日志，便于开发环境查看审计时间线。
 func seedAuditLogs(ctx context.Context, pool *persistence.Pool, userIDs map[string]int64) error {
 	admin := userIDs["admin@ydsz.dev"]
 	for i := 0; i < 5; i++ {
@@ -226,6 +241,7 @@ func seedAuditLogs(ctx context.Context, pool *persistence.Pool, userIDs map[stri
 	return nil
 }
 
+// printSummary 打印种子数据执行结果（账号列表与工作空间成员数）。
 func printSummary(userIDs map[string]int64, wsIDs map[string]int64) {
 	fmt.Println("═══════════════════════════════════════")
 	fmt.Println("  Ydsz Plane Seed — OK")

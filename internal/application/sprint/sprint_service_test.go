@@ -296,9 +296,9 @@ func TestBurndownIdealLine(t *testing.T) {
 	if points[0].IdealLine != totalPoints {
 		t.Errorf("start day ideal: got %v want %v", points[0].IdealLine, totalPoints)
 	}
-	// 第14天理想线 = 0
-	if points[4].IdealLine > 1 {
-		t.Errorf("end day ideal should be ~0: got %v", points[4].IdealLine)
+	// 第14天 (start+13) 理想线 ≈ totalPoints - totalPoints*13/14 ≈ 7.14
+	if points[4].IdealLine < 5 || points[4].IdealLine > 10 {
+		t.Errorf("day 13 ideal should be ~7.14: got %v", points[4].IdealLine)
 	}
 	// remaining 始终 >= 0
 	for _, p := range points {

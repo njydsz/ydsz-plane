@@ -1,10 +1,9 @@
-// Command worker runs asynchronous processing:
-//   - Outbox Relay   — polls the PostgreSQL outbox and publishes domain events to the RabbitMQ EventExchange.
-//   - Task Worker    — consumes task queues (notifications, indexing, webhooks, automation, backlog).
+// Command worker 运行异步处理任务：
+//   - Outbox Relay   —— 轮询 PostgreSQL outbox 表，将领域事件发布到 RabbitMQ EventExchange。
+//   - Task Worker    —— 消费任务队列（通知、索引、webhook、自动化、积压任务）。
 //
-// The worker owns all RabbitMQ consumers including both the outbox relay and the
-// task worker. Redis is only used in the API layer (caching, rate-limiting,
-// distributed locks, WebSocket fan-out); nothing in the worker depends on it.
+// worker 进程持有全部 RabbitMQ 消费者（outbox relay 与 task worker）。
+// Redis 仅用于 API 层（缓存、限流、分布式锁、WebSocket 扇出），worker 不依赖它。
 package main
 
 import (
@@ -32,28 +31,26 @@ func main() {
 	}
 }
 
-// run starts the background worker process and blocks until shutdown.
+// run 启动后台 worker 进程并阻塞直至关闭。
 //
-// Inbound pipelines (both RabbitMQ-backed):
+// 两条入站流水线（均基于 RabbitMQ）：
 //
-//  1. Outbox Relay  — polls the PostgreSQL outbox table and publishes events to
-//     the RabbitMQ EventExchange (topic). Decouples the database write from
-//     event dispatch so the API layer never blocks on downstream consumers.
-//  2. Task Worker    — consumes task queues for asynchronous work
-//     (notifications, search-index sync, webhook delivery, automation rules).
-//     Retries with capped exponential backoff; exhausted tasks flow to the
-//     dead-letter queue for post-mortem / replay.
+//  1. Outbox Relay —— 轮询 PostgreSQL outbox 表并将事件发布到 RabbitMQ
+//     EventExchange（topic）。将数据库写入与事件分发解耦，API 层不会阻塞
+//     在下游消费者上。
+//  2. Task Worker —— 消费异步任务队列（通知、搜索索引同步、webhook 投递、
+//     自动化规则）。重试采用封顶指数退避；重试耗尽的任务进入死信队列，
+//     便于事后分析/重放。
 //
-// Neither pipeline depends on Redis — the API layer uses Redis for caching,
-// rate-limiting, distributed locks, and WebSocket fan-out. The worker only
-// talks to PostgreSQL (outbox source) and RabbitMQ (publish + consume).
+// 两条流水线都不依赖 Redis —— API 层使用 Redis 做缓存、限流、分布式锁与
+// WebSocket 扇出。worker 只访问 PostgreSQL（outbox 数据源）与 RabbitMQ
+// （发布+消费）。
 //
-// Signals (SIGINT/SIGTERM) propagate via signal.NotifyContext; cancelling the
-// context triggers both pipelines' graceful stop (drain in-progress work,
-// ack/nack in-flight deliveries).
+// SIGINT/SIGTERM 通过 signal.NotifyContext 传播；context 取消会触发两条
+// 流水线的优雅停止（排空进行中的工作、确认/拒绝在途投递）。
 //
-// Returns nil if shutdown was triggered by a signal, or a non-nil error if
-// the worker exits unexpectedly (e.g. irrecoverable RabbitMQ connection loss).
+// 若关闭由信号触发则返回 nil；若 worker 异常退出（如 RabbitMQ 连接不可
+// 恢复）则返回非 nil 错误。
 func run() error {
 	cfg, err := config.Load()
 	if err != nil {
@@ -74,9 +71,8 @@ func run() error {
 	}
 	defer pool.Close()
 
-	// RabbitMQ client — backs both the outbox relay and task worker.
-	// A single connection suffices for two channel pools; the relay uses
-	// channel 1 and the worker opens channels on demand.
+	// RabbitMQ 客户端 —— 同时支撑 outbox relay 与 task worker。
+	// 单条连接即可提供两个 channel 池：relay 使用 channel 1，worker 按需开启。
 	mqClient, err := mq.NewClient(cfg.RabbitMQ.URL, mq.WithLogger(log))
 	if err != nil {
 		return fmt.Errorf("worker: rabbitmq connect: %w", err)
@@ -90,21 +86,20 @@ func run() error {
 	// ----- Task Worker (RabbitMQ TaskExchange → handlers) -----
 	worker := mq.NewWorker(mqClient, log)
 
-	// Register task handlers. Each handler is a domain-specific consumer
-	// bound to a queue named `task.<type>` with routing key `task.<type>`.
-	// Handlers return an error to NACK-and-retry (subject to MaxRetries).
+	// 注册任务 handler。每个 handler 是针对特定领域的消费者，
+	// 绑定到名为 `task.<type>` 的队列与路由键。
+	// handler 返回错误即触发 NACK 并重试（受 MaxRetries 限制）。
 	//
-	// Queue weights (higher = more dispatch priority) bubble down to the
-	// scheduler; consumers spin up one goroutine per queue and compete
-	// fairly within a single TCP connection.
+	// 队列权重（越大分发优先级越高）传递给调度器；
+	// 消费者为每个队列启动一个 goroutine，在单条 TCP 连接内公平竞争。
 	//
-	// Example registrations (expand as the domain grows):
-	//   - "notifications.send"  — dispatch email / IM notifications
-	//   - "webhook.deliver"     — POST to registered webhook endpoints
-	//   - "automation.evaluate" — execute trigger-condition-action rules
-	//   - "search.index"        — synchronise issue/workspace changes to ES
+	// 示例注册（随领域扩展而增加）：
+	//   - "notifications.send"  —— 分发邮件 / IM 通知
+	//   - "webhook.deliver"     —— POST 到已注册的 webhook 端点
+	//   - "automation.evaluate" —— 执行触发器-条件-动作规则
+	//   - "search.index"        —— 将 issue/workspace 变更同步到 ES
 	//
-	// Wire-up for each task type:
+	// 各类任务的装配：
 	worker.Register("notifications.send", func(ctx context.Context, task mq.Task) error {
 		log.Info("task: notifications.send", zap.String("id", task.ID), zap.ByteString("payload", task.Payload))
 		return nil
@@ -122,11 +117,11 @@ func run() error {
 		return nil
 	})
 
-	// ----- Sprint Daily Snapshot Cron (idempotent) -----
+	// ----- Sprint 每日快照定时任务（幂等） -----
 	//
-	// Runs every minute and fires at 00:05 UTC (08:05 CST).
-	// Uses SnapshotAllActive which is idempotent via ON CONFLICT (sprint_id, snapshot_date).
-	// Tolerates per-sprint failures — a single broken sprint won't block others.
+	// 每分钟触发一次，在 00:05 UTC（北京时间 08:05）执行。
+	// 使用 SnapshotAllActive，通过 ON CONFLICT (sprint_id, snapshot_date)
+	// 保证幂等。容忍单个 sprint 失败 —— 一个坏掉的 sprint 不会阻塞其他 sprint。
 	sprintSvc := sprint.NewService(pool.Pool)
 	go runDailySnapshotCron(ctx, sprintSvc, log)
 
@@ -135,20 +130,20 @@ func run() error {
 		zap.Strings("task_queues", worker.QueueNames()),
 	)
 
-	// Block until signal or irrecoverable error. Both the relay and worker
-	// are ctx-aware and shut down cleanly when ctx is cancelled.
+	// 阻塞直至收到信号或不可恢复的错误。relay 与 worker 均感知 context，
+	// 在 ctx 取消时会干净地关闭。
 	if err := worker.Start(ctx); err != nil && ctx.Err() == nil {
 		return err
 	}
 	return nil
 }
 
-// runDailySnapshotCron runs a 1-minute ticker that fires the daily snapshot
-// at 00:05 UTC. Designed for big-tech reliability:
-//   - Idempotent (ON CONFLICT DO UPDATE on sprint_snapshots)
-//   - Tolerates clock skew (±1 minute window)
-//   - Single worker lock via DB upsert (no Redis dependency needed)
-//   - Logs success/failure for Prometheus alerting integration
+// runDailySnapshotCron 运行 1 分钟粒度的定时器，在 00:05 UTC 触发每日快照。
+// 为满足大厂可靠性要求而设计：
+//   - 幂等（sprint_snapshots 上使用 ON CONFLICT DO UPDATE）
+//   - 容忍时钟偏差（±1 分钟窗口）
+//   - 通过数据库 upsert 实现单 worker 锁（无需 Redis 依赖）
+//   - 记录成功/失败日志，便于接入 Prometheus 告警
 func runDailySnapshotCron(ctx context.Context, svc *sprint.Service, log *zap.Logger) {
 	ticker := time.NewTicker(1 * time.Minute)
 	defer ticker.Stop()
@@ -161,12 +156,12 @@ func runDailySnapshotCron(ctx context.Context, svc *sprint.Service, log *zap.Log
 			log.Info("sprint snapshot cron: shutting down")
 			return
 		case t := <-ticker.C:
-			// Fire at minute 5 of hour 0 UTC (±30s tolerance)
+			// 在 0 点 5 分触发（±30s 容忍）
 			utc := t.UTC()
 			dateKey := utc.Format("2006-01-02")
 			if utc.Hour() == 0 && utc.Minute() == 5 {
 				if dateKey == lastRunDate {
-					continue // already ran today
+					continue // 今天已执行过
 				}
 				lastRunDate = dateKey
 

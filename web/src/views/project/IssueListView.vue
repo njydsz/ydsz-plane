@@ -2,9 +2,10 @@
 import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
-import { type Issue, type IssueType, type State } from "@/api/services/issue";
+import { type Issue, type IssueType, type ListIssuesParams, type State } from "@/api/services/issue";
 import { workspaceApi } from "@/api/services/workspace";
 import { useIssueStore } from "@/stores/issue";
+import IssueFilter from "./IssueFilter.vue";
 
 const route = useRoute();
 const router = useRouter();
@@ -20,8 +21,8 @@ const error = ref("");
 const sortField = ref<string>("identifier");
 const sortDir = ref<"asc" | "desc">("asc");
 
-// 搜索
-const searchQuery = ref("");
+// 当前过滤参数
+const currentFilter = ref<ListIssuesParams>({});
 
 // 批量操作
 const selectedIds = ref<Set<number>>(new Set());
@@ -41,23 +42,9 @@ const stateMap = computed(() => {
   return m;
 });
 
-// 过滤后的数据
-const filteredIssues = computed(() => {
-  let list = [...issueStore.issues];
-  const q = searchQuery.value.trim().toLowerCase();
-  if (q) {
-    list = list.filter(
-      (i) =>
-        i.name.toLowerCase().includes(q) ||
-        i.identifier.toLowerCase().includes(q),
-    );
-  }
-  return list;
-});
-
-// 排序后的数据
+// 排序后的数据（仅客户端二次排序）
 const sortedIssues = computed(() => {
-  const list = [...filteredIssues.value];
+  const list = [...issueStore.issues];
   const field = sortField.value;
   const dir = sortDir.value;
 
@@ -132,13 +119,18 @@ async function load() {
     wsId.value = wsIdVal;
     await Promise.all([
       issueStore.fetchStates(wsIdVal, projectId.value),
-      issueStore.fetchIssues(wsIdVal, projectId.value),
+      issueStore.fetchIssues(wsIdVal, projectId.value, currentFilter.value),
     ]);
   } catch (e: unknown) {
     error.value = e instanceof Error ? e.message : "加载失败";
   } finally {
     loading.value = false;
   }
+}
+
+function onFilterChange(params: ListIssuesParams) {
+  currentFilter.value = params;
+  load();
 }
 
 function toggleSort(field: string) {
@@ -213,13 +205,25 @@ onMounted(load);
         <p class="hint">共 {{ issueStore.total }} 个工作项</p>
       </div>
       <div class="list-view__header-right">
-        <input
-          v-model="searchQuery"
-          class="search-input"
-          placeholder="搜索工作项名称或编号..."
-        />
+        <div class="view-switcher">
+          <router-link
+            :to="`/${route.params.workspaceSlug}/projects/${projectId}/board`"
+            class="view-tab"
+          >看板</router-link>
+          <router-link
+            :to="`/${route.params.workspaceSlug}/projects/${projectId}/list`"
+            class="view-tab is-active"
+          >列表</router-link>
+        </div>
       </div>
     </header>
+
+    <!-- 过滤器 -->
+    <IssueFilter
+      :project-id="projectId"
+      :workspace-slug="String(route.params.workspaceSlug)"
+      @filter-change="onFilterChange"
+    />
 
     <!-- 批量操作工具栏 -->
     <div v-if="hasSelection" class="batch-bar">
@@ -358,28 +362,47 @@ onMounted(load);
   gap: 8px;
 }
 
+.list-view__header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.view-switcher {
+  display: flex;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.view-tab {
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  text-decoration: none;
+  background: var(--surface-2);
+  transition: background 0.1s;
+}
+
+.view-tab + .view-tab {
+  border-left: 1px solid var(--border-default);
+}
+
+.view-tab:hover {
+  background: var(--surface-3);
+  color: var(--text-primary);
+}
+
+.view-tab.is-active {
+  background: var(--brand-500);
+  color: #fff;
+}
+
 .hint {
   color: var(--text-tertiary);
   font-size: 13px;
   margin: 0;
-}
-
-.search-input {
-  padding: 6px 12px;
-  font-size: 13px;
-  font-family: inherit;
-  color: var(--text-primary);
-  background: var(--surface-2);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-sm);
-  outline: none;
-  width: 260px;
-  transition: border-color 0.15s;
-}
-
-.search-input:focus {
-  border-color: var(--brand-500);
-  box-shadow: 0 0 0 2px var(--brand-50);
 }
 
 /* Batch bar */

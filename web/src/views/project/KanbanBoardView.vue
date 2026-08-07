@@ -93,7 +93,19 @@ onMounted(load);
         <h1>看板</h1>
         <p class="hint">拖拽工作项到不同状态列进行流转</p>
       </div>
-      <button class="btn btn--primary" @click="showCreateModal = true">＋ 创建工作项</button>
+      <div class="header-right">
+        <div class="view-switcher">
+          <router-link
+            :to="`/${route.params.workspaceSlug}/projects/${projectId}/board`"
+            class="view-tab is-active"
+          >看板</router-link>
+          <router-link
+            :to="`/${route.params.workspaceSlug}/projects/${projectId}/list`"
+            class="view-tab"
+          >列表</router-link>
+        </div>
+        <button class="btn btn--primary" @click="showCreateModal = true">＋ 创建工作项</button>
+      </div>
     </header>
 
     <div v-if="loading" class="loading">加载中...</div>
@@ -182,6 +194,43 @@ onMounted(load);
   margin: 0 0 4px;
 }
 .hint { color: var(--text-tertiary); font-size: 13px; margin: 0; }
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.view-switcher {
+  display: flex;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.view-tab {
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  text-decoration: none;
+  background: var(--surface-2);
+  transition: background 0.1s;
+}
+
+.view-tab + .view-tab {
+  border-left: 1px solid var(--border-default);
+}
+
+.view-tab:hover {
+  background: var(--surface-3);
+  color: var(--text-primary);
+}
+
+.view-tab.is-active {
+  background: var(--brand-500);
+  color: #fff;
+}
 
 .btn--primary {
   padding: 8px 16px;

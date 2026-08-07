@@ -1,23 +1,20 @@
-// Package config loads and validates application configuration from environment
-// variables, following the 12-Factor App methodology. All configuration is
-// externalised to the environment; the binary contains zero hardcoded secrets.
-// Missing required values cause a fail-fast at startup rather than a runtime
-// surprise.
+// Package config 从环境变量加载并校验应用配置，遵循 12-Factor App 方法论。
+// 所有配置均外部化到环境变量；二进制中不包含任何硬编码密钥。
+// 缺失必填项会在启动阶段快速失败，而不是在运行时才暴露问题。
 //
-// Loading pipeline (in order):
-//  1. Defaults: Viper SetDefault provides local-development-friendly fallbacks.
-//  2. Environment: YDSZ_-prefixed env vars automatically override defaults
-//     (e.g. YDSZ_SERVER_PORT → server.port) via AutomaticEnv + Replacer.
-//  3. Unmarshal: Viper marshals the merged map into the Config struct.
-//  4. Duration parsing: time.Duration fields are parsed explicitly (Viper
-//     limitation prevents direct Duration unmarshalling from nested keys).
-//  5. Derived values: ephemeral secrets generated for dev when absent.
-//  6. Validation: business rule checks; returns descriptive error on failure.
+// 加载流水线（按顺序）：
+//  1. 默认值：Viper SetDefault 提供本地开发友好的兜底值。
+//  2. 环境变量：YDSZ_ 前缀的环境变量自动覆盖默认值
+//     （如 YDSZ_SERVER_PORT → server.port），通过 AutomaticEnv + Replacer 实现。
+//  3. 反序列化：Viper 将合并后的映射解码到 Config 结构体。
+//  4. 时长解析：time.Duration 字段显式解析（Viper 对嵌套键无法直接解码 Duration）。
+//  5. 派生值：开发模式下缺失时自动生成临时密钥。
+//  6. 校验：业务规则检查；失败时返回带描述的错误。
 //
-// Environment matrix:
-//   - development: all defaults active; ephemeral JWT secret auto-generated.
-//   - staging / production: YDSZ_AUTH_JWT_SECRET and YDSZ_DATABASE_URL are
-//     mandatory; dev- prefixed secrets are rejected.
+// 环境矩阵：
+//   - development：所有默认值生效；自动生成临时 JWT 密钥。
+//   - staging / production：YDSZ_AUTH_JWT_SECRET 与 YDSZ_DATABASE_URL 必填；
+//     dev- 前缀的密钥会被拒绝。
 package config
 
 import (
@@ -31,75 +28,72 @@ import (
 	"github.com/spf13/viper"
 )
 
-// Config is the root configuration object that aggregates every sub-config
-// section. A single *Config instance is created at process start, validated,
-// and then passed to wire() for dependency injection.
+// Config 是根配置对象，聚合所有子配置节。
+// 进程启动时创建并校验单个 *Config 实例，然后传给 wire() 做依赖注入。
 //
-// All fields are value types (not pointers) so that a zero-value Config is
-// always unmarshalable; presence of individual keys determines behaviour.
+// 所有字段均为值类型（非指针），保证零值 Config 始终可反序列化；
+// 具体行为由各 key 是否存在决定。
 type Config struct {
-	Server   ServerConfig   // HTTP server binding and runtime environment.
-	Database DatabaseConfig // PostgreSQL connection pool settings.
-	Redis    RedisConfig    // Redis client connection parameters.
-	RabbitMQ RabbitMQConfig // RabbitMQ connection parameters for the event bus.
-	Auth     AuthConfig     // JWT, bcrypt, and login rate-limit settings.
-	Log      LogConfig      // Log verbosity level and encoder format.
-	Features FeatureFlags   // Feature gates; each entry toggles a subsystem.
-	Email    EmailConfig    // Outbound SMTP configuration for transactional mail.
+	Server   ServerConfig   // HTTP 服务绑定与运行环境。
+	Database DatabaseConfig // PostgreSQL 连接池设置。
+	Redis    RedisConfig    // Redis 客户端连接参数。
+	RabbitMQ RabbitMQConfig // 事件总线的 RabbitMQ 连接参数。
+	Auth     AuthConfig     // JWT、bcrypt 与登录限流设置。
+	Log      LogConfig      // 日志级别与编码格式。
+	Features FeatureFlags   // 功能开关；每项开关一个子系统。
+	Email    EmailConfig    // 事务邮件的外发 SMTP 配置。
 }
 
-// ServerConfig controls the HTTP listener.
+// ServerConfig 控制 HTTP 监听器。
 type ServerConfig struct {
-	// Env is the runtime environment identifier.
-	// Valid values: "development" | "staging" | "production".
-	// Default: "development".
+	// Env 是运行环境标识。
+	// 合法值："development" | "staging" | "production"。
+	// 默认："development"。
 	Env string
 
-	// Port is the TCP port the server binds to.
-	// Range: 1-65535. Values outside this range trigger a validation error.
-	// Default: 8080.
+	// Port 是服务绑定的 TCP 端口。
+	// 范围：1-65535，超出触发校验错误。
+	// 默认：8080。
 	Port int
 }
 
-// DatabaseConfig holds PostgreSQL connection parameters.
+// DatabaseConfig 保存 PostgreSQL 连接参数。
 type DatabaseConfig struct {
-	// URL is the full libpq connection string.
-	// Format: "postgres://user:pass@host:port/db?sslmode=disable".
-	// Required in production; defaults to a local dev connection string.
+	// URL 是完整的 libpq 连接串。
+	// 格式："postgres://user:pass@host:port/db?sslmode=disable"。
+	// 生产环境必填；默认使用本地开发连接串。
 	URL string
 
-	// MaxConns is the maximum number of open connections in the pgx pool.
-	// Range: 1-100. Setting higher than the Postgres max_connections will
-	// cause connection errors on the server side.
-	// Default: 20.
+	// MaxConns 是 pgx 连接池的最大连接数。
+	// 范围：1-100。超过 Postgres max_connections 会在服务端引发连接错误。
+	// 默认：20。
 	MaxConns int32
 
-	// ConnMaxLifetime is how long a single connection is reused before being
-	// closed and re-opened. This helps rebalance connections behind PgBouncer
-	// or other connection proxies.
-	// Format: Go duration string (e.g. "30m", "1h").
-	// Default: "30m".
+	// ConnMaxLifetime 是单条连接被复用多久后关闭并重开。
+	// 有助于在 PgBouncer 或其他连接代理后重新平衡连接。
+	// 格式：Go 时长字符串（如 "30m"、"1h"）。
+	// 默认："30m"。
 	ConnMaxLifetime time.Duration
 }
 
-// RedisConfig holds Redis client parameters.
+// RedisConfig 保存 Redis 客户端参数。
 type RedisConfig struct {
-	// Addr is the Redis server address in "host:port" format.
-	// Default: "127.0.0.1:6379".
+	// Addr 是 Redis 服务地址，格式 "host:port"。
+	// 默认："127.0.0.1:6379"。
 	Addr string
 
-	// Password is the Redis AUTH password. Empty string disables AUTH.
-	// Default: "Limw1020" (local dev); MUST be overridden in production.
+	// Password 是 Redis AUTH 密码。空字符串禁用 AUTH。
+	// 默认："Limw1020"（本地开发）；生产环境必须覆盖。
 	Password string
 
-	// DB is the Redis logical database number (0-15 for standard Redis,
-	// or the index for Redis Cluster configurations that support it).
-	// Range: 0-15.
-	// Default: 0.
+	// DB 是 Redis 逻辑数据库编号（标准 Redis 为 0-15，
+	// 或支持该配置的 Redis Cluster 的索引）。
+	// 范围：0-15。
+	// 默认：0。
 	DB int
 }
 
-// RedisOptions converts the config to a go-redis *redis.Options value.
+// RedisOptions 将配置转换为 go-redis 的 *redis.Options 值。
 func (r RedisConfig) RedisOptions() *redis.Options {
 	return &redis.Options{
 		Addr:     r.Addr,
