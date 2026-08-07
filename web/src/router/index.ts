@@ -61,23 +61,23 @@ const router = createRouter({
           component: () => import("@/views/workspace/WorkspaceListView.vue"),
         },
         {
-          path: ":workspaceSlug/workbench",
+          path: ":workspaceId(\\d+)/workbench",
           name: "workbench",
           component: () => import("@/views/workspace/WorkbenchView.vue"),
-          props: (route) => ({ workspaceSlug: route.params.workspaceSlug }),
+          props: (route) => ({ workspaceId: Number(route.params.workspaceId) }),
         },
         {
-          path: ":workspaceSlug/search",
+          path: ":workspaceId(\\d+)/search",
           name: "search",
           component: () => import("@/views/workspace/SearchView.vue"),
-          props: (route) => ({ workspaceSlug: route.params.workspaceSlug }),
+          props: (route) => ({ workspaceId: Number(route.params.workspaceId) }),
         },
         // 通知中心全屏页（从铃铛下拉「查看全部通知」进入）
         {
-          path: ":workspaceSlug/notifications",
+          path: ":workspaceId(\\d+)/notifications",
           name: "notifications",
           component: () => import("@/views/workspace/NotificationsView.vue"),
-          props: (route) => ({ workspaceSlug: route.params.workspaceSlug }),
+          props: (route) => ({ workspaceId: Number(route.params.workspaceId) }),
         },
         // 邀请接受链接：公开可读，但 POST accept 需鉴权
         {
@@ -87,235 +87,235 @@ const router = createRouter({
           meta: { public: true },
         },
         {
-          path: ":workspaceSlug/settings",
+          path: ":workspaceId(\\d+)/settings",
           name: "workspace-settings",
           component: () => import("@/views/workspace/WorkspaceSettingsView.vue"),
-          props: (route) => ({ workspace_id: route.params.workspaceSlug }),
+          props: (route) => ({ workspace_id: Number(route.params.workspaceId) }),
         },
         // S10 Webhook 管理
         {
-          path: ":workspaceSlug/settings/webhooks",
+          path: ":workspaceId(\\d+)/settings/webhooks",
           name: "webhook-settings",
           component: () => import("@/views/workspace/WebhookSettingsView.vue"),
         },
         // S10 收件箱管理
         {
-          path: ":workspaceSlug/settings/intake",
+          path: ":workspaceId(\\d+)/settings/intake",
           name: "intake-settings",
           component: () => import("@/views/workspace/IntakeSettingsView.vue"),
         },
         {
-          path: ":workspaceSlug/settings/notifications",
+          path: ":workspaceId(\\d+)/settings/notifications",
           name: "notification-preferences",
           component: () => import("@/views/workspace/NotificationPreferencesView.vue"),
-          props: (route) => ({ workspaceSlug: route.params.workspaceSlug }),
+          props: (route) => ({ workspaceId: Number(route.params.workspaceId) }),
         },
         {
-          path: ":workspaceSlug/audit-logs",
+          path: ":workspaceId(\\d+)/audit-logs",
           name: "audit-logs",
           component: () => import("@/views/workspace/AuditReportView.vue"),
-          props: (route) => ({ workspaceSlug: route.params.workspaceSlug }),
+          props: (route) => ({ workspaceId: Number(route.params.workspaceId) }),
         },
         {
-          path: ":workspaceSlug/projects",
+          path: ":workspaceId(\\d+)/projects",
           name: "projects",
           component: () => import("@/views/project/ProjectListView.vue"),
         },
         // 项目仪表盘
         {
-          path: ":workspaceSlug/projects/:projectId/dashboard",
+          path: ":workspaceId(\\d+)/projects/:projectId/dashboard",
           name: "project-dashboard",
           component: () => import("@/views/project/DashboardView.vue"),
           props: (route) => ({
-            workspaceSlug: route.params.workspaceSlug,
+            workspaceId: Number(route.params.workspaceId),
             projectId: Number(route.params.projectId),
           }),
         },
         // 项目看板视图
         {
-          path: ":workspaceSlug/projects/:projectId/board",
+          path: ":workspaceId(\\d+)/projects/:projectId/board",
           name: "project-board",
           component: () => import("@/views/project/KanbanBoardView.vue"),
           props: (route) => ({
-            workspaceSlug: route.params.workspaceSlug,
+            workspaceId: Number(route.params.workspaceId),
             projectId: Number(route.params.projectId),
           }),
         },
         // S11 自动化规则
         {
-          path: ":workspaceSlug/projects/:projectId/automation",
+          path: ":workspaceId(\\d+)/projects/:projectId/automation",
           name: "project-automation",
           component: () => import("@/views/project/AutomationView.vue"),
           props: (route) => ({
-            workspaceSlug: route.params.workspaceSlug,
+            workspaceId: Number(route.params.workspaceId),
             projectId: Number(route.params.projectId),
           }),
         },
         // S11 效能度量
         {
-          path: ":workspaceSlug/projects/:projectId/metrics",
+          path: ":workspaceId(\\d+)/projects/:projectId/metrics",
           name: "project-metrics",
           component: () => import("@/views/project/MetricsView.vue"),
           props: (route) => ({
-            workspaceSlug: route.params.workspaceSlug,
+            workspaceId: Number(route.params.workspaceId),
             projectId: Number(route.params.projectId),
           }),
         },
         // 缺陷分析报表
         {
-          path: ":workspaceSlug/projects/:projectId/analytics",
+          path: ":workspaceId(\\d+)/projects/:projectId/analytics",
           name: "defect-analytics",
           component: () => import("@/views/project/DefectAnalyticsView.vue"),
           props: (route) => ({
-            workspaceSlug: route.params.workspaceSlug,
+            workspaceId: Number(route.params.workspaceId),
             projectId: Number(route.params.projectId),
           }),
         },
         // 文档页面 (Pages)
         {
-          path: ":workspaceSlug/projects/:projectId/pages",
+          path: ":workspaceId(\\d+)/projects/:projectId/pages",
           name: "project-pages",
           component: () => import("@/views/project/PagesView.vue"),
           props: (route) => ({
-            workspaceSlug: route.params.workspaceSlug,
+            workspaceId: Number(route.params.workspaceId),
             projectId: Number(route.params.projectId),
           }),
         },
         // 甘特图视图
         {
-          path: ":workspaceSlug/projects/:projectId/gantt",
+          path: ":workspaceId(\\d+)/projects/:projectId/gantt",
           name: "gantt-chart",
           component: () => import("@/views/project/GanttChartView.vue"),
           props: (route) => ({
-            workspaceSlug: route.params.workspaceSlug,
+            workspaceId: Number(route.params.workspaceId),
             projectId: Number(route.params.projectId),
           }),
         },
         // 日历视图
         {
-          path: ":workspaceSlug/projects/:projectId/calendar",
+          path: ":workspaceId(\\d+)/projects/:projectId/calendar",
           name: "calendar-view",
           component: () => import("@/views/project/CalendarView.vue"),
           props: (route) => ({
-            workspaceSlug: route.params.workspaceSlug,
+            workspaceId: Number(route.params.workspaceId),
             projectId: Number(route.params.projectId),
           }),
         },
         // 电子表格视图
         {
-          path: ":workspaceSlug/projects/:projectId/spreadsheet",
+          path: ":workspaceId(\\d+)/projects/:projectId/spreadsheet",
           name: "spreadsheet-view",
           component: () => import("@/views/project/SpreadsheetView.vue"),
           props: (route) => ({
-            workspaceSlug: route.params.workspaceSlug,
+            workspaceId: Number(route.params.workspaceId),
             projectId: Number(route.params.projectId),
           }),
         },
         // 项目列表视图
         {
-          path: ":workspaceSlug/projects/:projectId/list",
+          path: ":workspaceId(\\d+)/projects/:projectId/list",
           name: "project-list",
           component: () => import("@/views/project/IssueListView.vue"),
           props: (route) => ({
-            workspaceSlug: route.params.workspaceSlug,
+            workspaceId: Number(route.params.workspaceId),
             projectId: Number(route.params.projectId),
           }),
         },
         // 项目设置
         {
-          path: ":workspaceSlug/projects/:projectId/settings",
+          path: ":workspaceId(\\d+)/projects/:projectId/settings",
           name: "project-settings",
           component: () => import("@/views/project/ProjectSettingsView.vue"),
         },
         // 迭代列表
         {
-          path: ":workspaceSlug/projects/:projectId/sprints",
+          path: ":workspaceId(\\d+)/projects/:projectId/sprints",
           name: "sprint-list",
           component: () => import("@/views/project/SprintListView.vue"),
           props: (route) => ({
-            workspaceSlug: route.params.workspaceSlug,
+            workspaceId: Number(route.params.workspaceId),
             projectId: Number(route.params.projectId),
           }),
         },
         // 排期规划（Backlog ↔ Sprint 拖拽）
         {
-          path: ":workspaceSlug/projects/:projectId/sprints/planning",
+          path: ":workspaceId(\\d+)/projects/:projectId/sprints/planning",
           name: "sprint-planning",
           component: () => import("@/views/project/SprintPlanningView.vue"),
           props: (route) => ({
-            workspaceSlug: route.params.workspaceSlug,
+            workspaceId: Number(route.params.workspaceId),
             projectId: Number(route.params.projectId),
           }),
         },
         // 迭代详情
         {
-          path: ":workspaceSlug/projects/:projectId/sprints/:sprintId",
+          path: ":workspaceId(\\d+)/projects/:projectId/sprints/:sprintId",
           name: "sprint-detail",
           component: () => import("@/views/project/SprintDetailView.vue"),
           props: (route) => ({
-            workspaceSlug: route.params.workspaceSlug,
+            workspaceId: Number(route.params.workspaceId),
             projectId: Number(route.params.projectId),
             sprintId: Number(route.params.sprintId),
           }),
         },
         // 站会模式
         {
-          path: ":workspaceSlug/projects/:projectId/sprints/:sprintId/standup",
+          path: ":workspaceId(\\d+)/projects/:projectId/sprints/:sprintId/standup",
           name: "sprint-standup",
           component: () => import("@/views/project/SprintStandupView.vue"),
           props: (route) => ({
-            workspaceSlug: route.params.workspaceSlug,
+            workspaceId: Number(route.params.workspaceId),
             projectId: Number(route.params.projectId),
             sprintId: Number(route.params.sprintId),
           }),
         },
         // 版本聚合
         {
-          path: ":workspaceSlug/projects/:projectId/versions",
+          path: ":workspaceId(\\d+)/projects/:projectId/versions",
           name: "version-list",
           component: () => import("@/views/project/VersionListView.vue"),
           props: (route) => ({
-            workspaceSlug: route.params.workspaceSlug,
+            workspaceId: Number(route.params.workspaceId),
             projectId: Number(route.params.projectId),
           }),
         },
         {
-          path: ":workspaceSlug/projects/:projectId/versions/:versionId",
+          path: ":workspaceId(\\d+)/projects/:projectId/versions/:versionId",
           name: "version-detail",
           component: () => import("@/views/project/VersionDetailView.vue"),
           props: (route) => ({
-            workspaceSlug: route.params.workspaceSlug,
+            workspaceId: Number(route.params.workspaceId),
             projectId: Number(route.params.projectId),
             versionId: Number(route.params.versionId),
           }),
         },
         {
-          path: ":workspaceSlug/projects/:projectId/versions/:versionId/release",
+          path: ":workspaceId(\\d+)/projects/:projectId/versions/:versionId/release",
           name: "version-release",
           component: () => import("@/views/project/VersionReleaseView.vue"),
           props: (route) => ({
-            workspaceSlug: route.params.workspaceSlug,
+            workspaceId: Number(route.params.workspaceId),
             projectId: Number(route.params.projectId),
             versionId: Number(route.params.versionId),
           }),
         },
         {
-          path: ":workspaceSlug/projects/:projectId/versions/:versionId/delivery-report",
+          path: ":workspaceId(\\d+)/projects/:projectId/versions/:versionId/delivery-report",
           name: "delivery-report",
           component: () => import("@/views/project/DeliveryReportView.vue"),
           props: (route) => ({
-            workspaceSlug: route.params.workspaceSlug,
+            workspaceId: Number(route.params.workspaceId),
             projectId: Number(route.params.projectId),
             versionId: Number(route.params.versionId),
           }),
         },
         // 工作项详情页
         {
-          path: ":workspaceSlug/projects/:projectId/issues/:issueId",
+          path: ":workspaceId(\\d+)/projects/:projectId/issues/:issueId",
           name: "issue-detail",
           component: () => import("@/views/project/IssueDetailView.vue"),
           props: (route) => ({
-            workspaceSlug: route.params.workspaceSlug,
+            workspaceId: Number(route.params.workspaceId),
             projectId: Number(route.params.projectId),
             issueId: Number(route.params.issueId),
           }),
