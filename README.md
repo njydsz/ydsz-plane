@@ -44,7 +44,7 @@ Ydsz Plane 是一款开源、自托管的现代项目管理工具，专为中小
 | 成员与邀请 | 成员列表/角色切换/移除、邮箱邀请（token+7 天有效+可撤销）、邀请审核模式 | ✅ |
 | 审计日志 | 空间级管理操作全量记录（invitation/workspace/member 操作）+ AuditService + 查询端点 | ✅ |
 | 前端骨架 | Vue 3.5 + Vite 6 + Pinia、WorkspaceLayout、设计令牌（CSS 变量）、路由守卫 | ✅ |
-| 前端视图 | 31 个页面（含 Login/Register/Forgot/Reset/Workspace/List/Settings/Project/List/Board/List/Settings/IssueDetail/Sprint/List/Planning/Detail/Standup/Version/List/Detail/Release/Report/Dashboard/Search/Workbench） | ✅ |
+| 前端视图 | 34 个页面组件（含 Login/Register/ForgotPassword/ResetPassword/Workspace/List/Settings/Project/List/Board/List/Settings/IssueDetail/Sprint/List/Planning/Detail/Standup/Version/List/Detail/Release/Report/Dashboard/Search/Workbench + 模态框/面板组件） | ✅ |
 | 数据持久层 | pgx 连接池、租户上下文（SET LOCAL app.workspace_id）、RLS 策略模板、迁移工具 | ✅ |
 | 事件骨架 | 事务型 Outbox 表 + Relay（DB → RabbitMQ EventExchange）、Asynq Worker | ✅ |
 | 数据库迁移 | 0001~0017（users / workspaces / issue_core / state_templates / sprint_core / version_core / search / notifications / issue_comments / notification_settings / attachments / view_preferences / automation / webhooks / intake / metrics / notification_dispatcher） | ✅ |
