@@ -20,25 +20,30 @@
 
 ## 项目状态
 
-> **当前阶段：M0 工程基座完成，进入 Sprint 2（IAM 与工作空间）**
-> 最后更新：2026-08-07 · 架构基线版本 v1.0
+> **当前阶段：M0 ✅ + M0.5（增强基座）✅ — M1 架构就绪，待 Workspace CRUD API & 前端落地**
+> 最后更新：2026-08-08 · 架构基线版本 v1.1
 
-Ydsz Plane 是一款开源、自托管的现代项目管理工具，专为中小型敏捷开发团队设计。目前处于 0→1 实施阶段，基础工程骨架与认证链路已就绪，业务域（工作空间 / 项目 / 工作项 / 迭代）详见下方路线图。
+Ydsz Plane 是一款开源、自托管的现代项目管理工具，专为中小型敏捷开发团队设计。M0 工程基座及 M0.5 增强基座（完整可观测性、RBAC、安全纵深、API 文档）已全部完工；数据库 schema（users / workspaces / workspace_members / password_reset_tokens / audit_logs / domain_events）已就位，下一步落地 Workspace CRUD API 及前端即可进入 M2 工作项核心。
 
 ## 已完成能力
 
-截至 2026-08-07，仓库中已实现的能力：
+截至 2026-08-08，仓库中已实现的能力：
 
 | 模块 | 说明 | 状态 |
 |------|------|------|
-| 工程基座 | Monorepo、CI（lint/test/build/e2e-smoke）、Docker Compose（pg/redis/nats/minio/es）、Makefile | ✅ |
-| 鉴权链路 | 用户登录（bcrypt + JWT access/refresh）、Cookie 会话、401 单飞刷新重放、令牌解析中间件 | ✅ |
-| 配置与可观测性 | Viper 环境变量加载（YDSZ_ 前缀）、12-Factor fail-fast、zap 结构化日志、/healthz + /readyz | ✅ |
-| 中间件链 | RequestID → Recovery → CORS → RateLimit（Redis 令牌桶）→ AccessLog → Auth | ✅ |
+| 工程基座 | Monorepo（Go module + pnpm workspace）、CI（lint/test/build/e2e-smoke）、Docker Compose（pg/redis/nats）、Makefile | ✅ |
+| 鉴权链路 | 注册 / 登录（bcrypt + JWT access/refresh）、Cookie 会话、401 单飞刷新重放、忘记 / 重置密码端点 | ✅ |
+| RBAC | Owner/Admin/Member/Guest 四角色 × workspace_members 域、10 项权限中间件、权限 | ✅ |
+| API 文档 | swaggo 注解 + Swagger UI（`/swagger/index.html`）、7 条端点、Bearer 鉴权说明 | ✅ |
+| 邮件服务 | SMTP 抽象（Noop / SMTP 自动切换）、双版本 MIME 模板（密码重置 / 邀请） | ✅ |
+| 可观测性 | zap 结构化日志、Prometheus RED 指标（`/metrics`）、Go runtime 默认收集 | ✅ |
+| 安全纵深 | CSP / HSTS / COOP / CORP / Permissions-Policy / X-Frame-Options / X-Content-Type-Options 等 8 项安全头 | ✅ |
+| 中间件链 | RequestID → Recovery → CORS → SecurityHeaders → RateLimit → AccessLog → Metrics → Auth | ✅ |
+| 前端骨架 | Vue 3.5 + Vite 6 + Pinia、登录页（亮/暗主题）、Axios 拦截器、auth store | ✅ |
 | 数据持久层 | pgx 连接池、租户上下文（SET LOCAL app.workspace_id）、RLS 策略模板、迁移工具 | ✅ |
 | 事件骨架 | 事务型 Outbox 表 + Relay（DB → NATS）、Asynq Worker（default/notifications/automation 队列） | ✅ |
-| 前端骨架 | Vue 3.5 + Vite 6 + Pinia、路由守卫、设计令牌（亮/暗主题）、Axios 客户端封装 | ✅ |
-| 数据库迁移 | 0001_init：users / workspaces / workspace_members / domain_events / idempotency_keys / audit_logs | ✅ |
+| 数据库迁移 | 0001_init（users / workspaces / workspace_members / domain_events / audit_logs）+ 0002_password_reset | ✅ |
+| 种子数据 | 5 用户 + 3 工作空间 + 多角色成员（owner/admin/member/guest）+ 幂等执行 | ✅ |
 
 ## 技术栈
 
@@ -227,17 +232,23 @@ make dev-worker   # go run ./cmd/worker
 - 错误格式：`{"error":{"code":"AUTH.INVALID_CREDENTIALS","message":"...","request_id":"..."}}`
 - 中间件：RequestID → Recovery → CORS → RateLimit → Auth
 
-已实现的路由：
+已实现的路由（dev server http://localhost:8080）：
 
 ```
-GET  /healthz                      健康检查
-GET  /readyz                       就绪检查（含 PG / Redis 探针）
-POST /api/v1/auth/login            邮箱 + 密码登录
-POST /api/v1/auth/refresh          刷新令牌
-GET  /api/v1/me                    当前用户信息
+GET  /healthz                              健康检查
+GET  /readyz                               就绪检查（含 PG / Redis 探针）
+GET  /metrics                              Prometheus RED 指标
+GET  /swagger/index.html                   Swagger UI（dev 模式）
+POST /api/v1/auth/login                    邮箱 + 密码登录（返回 access/refresh + cookie）
+POST /api/v1/auth/refresh                  通过 refresh cookie 换发令牌对
+POST /api/v1/auth/register                 新用户注册（需 features.registration_open=true）
+POST /api/v1/auth/forgot-password          触发密码重置邮件（202，防枚举）
+POST /api/v1/auth/reset-password           用一次性 token 重置密码
+GET  /api/v1/me                            Bearer / Cookie 获取当前用户简介
+WS   /api/v1/workspaces/:id/members        列工作空间成员（workspace:read 权限校验示例）
 ```
 
-S2+ 将逐步挂载：workspaces、projects、issues、sprints、versions 等路由组。
+本地凭证：`make docker up && make migrate && make seed`
 
 ## 架构文档
 
@@ -262,7 +273,7 @@ S2+ 将逐步挂载：workspaces、projects、issues、sprints、versions 等路
 
 ## 路线图
 
-### M0 工程基座 ✅ 已完成（S1）
+### M0 工程基座 ✅ 已完成（S1，W2）
 
 - [x] Monorepo 初始化（Go module + pnpm workspace）
 - [x] CI/CD（GitHub Actions: lint / test(race) / build / e2e-smoke）
@@ -271,15 +282,38 @@ S2+ 将逐步挂载：workspaces、projects、issues、sprints、versions 等路
 - [x] 数据库迁移系统 + RLS 模板 + 租户上下文
 - [x] Outbox + Asynq + NATS 事件骨架
 - [x] 前端骨架 + 设计令牌 + 登录页 + 鉴权链路
-- [x] 种子数据（admin@ydsz.dev / Admin@123）
+- [x] 种子数据（5 用户 + 3 工作空间，幂等）
 
-### M1 租户与项目骨架（S2 进行中）
+### M0.5 增强基座 ✅ 已完成（额外加固，S1.5）
 
-- [ ] 工作空间 CRUD、Slug 唯一、归档/恢复
-- [ ] 成员邀请（邮箱链接、可撤销）+ 审核模式
-- [ ] RBAC：Owner / Admin / Member / Guest 权限中间件
-- [ ] Project CRUD、Identifier 生成、网络类型
-- [ ] 前端：空间列表/创建/设置页、成员管理页
+- [x] Prometheus RED 指标 + `/metrics` + Go runtime 收集器
+- [x] RBAC 四角色 × 10 项权限中间件 + 单测
+- [x] 安全纵深（CSP/HSTS/COOP/CORP/Permissions-Policy/X-Frame-Options 等 8 项头）
+- [x] swaggo 完整 Swagger 注解 + Swagger UI + Bearer 鉴权
+- [x] 邮件 SMTP 抽象（Noop/SMTP 自动切换）+ 双 MIME 模板（重置/邀请）
+- [x] JWT Secret dev 随机生成 + production fail-fast
+- [x] 密码重置 token 表（0002 迁移）+ 端点接入
+- [x] Axios 拦截器（401 单飞刷新 + 限流 429 回调 + Request ID）
+- [x] 统一 authApi Service 层 + auth Store
+
+### M1 租户与项目骨架（S2，架构就绪 → CRUD & 前端待落地）
+
+#### 后端 schema 已就绪 ✅
+
+- [x] users / workspaces / workspace_members / password_reset_tokens / audit_logs
+- [x] 鉴权链路（注册/登录/刷新/RBAC）
+- [x] 邮件抽象 + 模板
+- [ ] **Workspace CRUD API**（创建/读取/更新/归档/恢复）
+- [ ] **成员邀请**（invitations 表 + 邮件链接 + 7 天有效 + 审核模式）
+- [ ] **API Token** 管理（创建/吊销/scopes）
+- [ ] **审计日志** 埋点（空间级管理操作）
+
+#### 前端待建设 ⏳
+
+- [ ] 空间列表 / 创建向导 / 设置页（信息/成员/邀请）
+- [ ] 成员管理页（列表/筛选/角色切换/移除二次确认）
+- [ ] 注册 / 忘记密码 / 重置密码页
+- [ ] WorkspaceLayout 完整侧边栏 + 项目导航
 
 ### M2 工作项核心（S3–S4）
 
@@ -299,7 +333,7 @@ S2+ 将逐步挂载：workspaces、projects、issues、sprints、versions 等路
 
 - [ ] 全局搜索（ES + 类 JQL 语法）
 - [ ] 项目仪表盘、个人工作台
-- [ ] 通知多渠道（邮件 / IM）
+- [ ] 通知多渠道（IM 企微/钉钉/飞书）
 - [ ] Webhook / OpenAPI 集成
 - [ ] 自动化引擎（Trigger-Condition-Action）
 - [ ] 研发效能度量（DORA、CFD）

@@ -43,6 +43,13 @@ definitions:
       reason:
         type: string
     type: object
+  internal_interfaces_http.forgotPasswordRequest:
+    properties:
+      email:
+        type: string
+    required:
+    - email
+    type: object
   internal_interfaces_http.loginRequest:
     properties:
       email:
@@ -69,6 +76,17 @@ definitions:
         example: new-password
         type: string
     type: object
+  internal_interfaces_http.resetPasswordRequest:
+    properties:
+      new_password:
+        minLength: 8
+        type: string
+      token:
+        type: string
+    required:
+    - new_password
+    - token
+    type: object
   internal_interfaces_http.workspaceMemberResponse:
     properties:
       display_name:
@@ -85,6 +103,30 @@ definitions:
 info:
   contact: {}
 paths:
+  /auth/forgot-password:
+    post:
+      consumes:
+      - application/json
+      description: 根据邮箱发送一次性重置链接（15 分钟有效）。无论邮箱是否存在均返回 202，避免枚举。
+      parameters:
+      - description: 邮箱
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_interfaces_http.forgotPasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: 已接受（不一定实际存在该邮箱）
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/github_com_njydsz_ydsz-plane_pkg_errs.AppError'
+      summary: 请求密码重置
+      tags:
+      - auth
   /auth/login:
     post:
       consumes:
@@ -169,6 +211,34 @@ paths:
           schema:
             $ref: '#/definitions/github_com_njydsz_ydsz-plane_pkg_errs.AppError'
       summary: 注册
+      tags:
+      - auth
+  /auth/reset-password:
+    post:
+      consumes:
+      - application/json
+      description: 提交一次性 token + 新密码；成功后 token 标记为已使用。
+      parameters:
+      - description: 重置请求
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_interfaces_http.resetPasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: 重置成功
+        "400":
+          description: token 无效或已过期
+          schema:
+            $ref: '#/definitions/github_com_njydsz_ydsz-plane_pkg_errs.AppError'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/github_com_njydsz_ydsz-plane_pkg_errs.AppError'
+      summary: 使用 token 重置密码
       tags:
       - auth
   /me:
