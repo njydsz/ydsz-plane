@@ -27,6 +27,27 @@ func main() {
 	}
 }
 
+// run starts the background worker process and blocks until shutdown.
+//
+// The worker runs two concurrent pipelines:
+//
+//  1. Outbox Relay — polls the PostgreSQL outbox table and publishes events to
+//     Redis Streams. Decouples the database write from event dispatch so the
+//     API layer never blocks on downstream consumers.
+//  2. Asynq Server — consumes task queues for asynchronous work (notifications,
+//     indexing, webhooks, automation triggers). The server selects tasks from
+//     multiple queues with weighted priority (see Concurrency/Queues below).
+//
+// Redis DB index is offset by +1 relative to the API's Redis DB to keep Streams
+// data isolated from session/cache keys, simplifying operational inspection
+// and eviction policies.
+//
+// Signals (SIGINT/SIGTERM) are delivered via signal.NotifyContext; cancelling the
+// context triggers the outbox relay's shutdown and the Asynq server's
+// graceful drain (active tasks finish, queued tasks remain for next boot).
+//
+// Returns nil if shutdown was triggered by a signal, or the Asynq server error
+// if it exited unexpectedly.
 func run() error {
 	cfg, err := config.Load()
 	if err != nil {
@@ -59,6 +80,19 @@ func run() error {
 	go relay.Run(ctx)
 
 	// asynq task server (queues defined per domain; consumers mount in S2+)
+	//
+	// Queue weights (higher = more polling dispatch priority):
+	//   - "default":        5 — highest priority; general tasks, issue
+	//     activity processing, webhook deliveries. Most latency-sensitive.
+	//   - "notifications":  3 — medium priority; email/push notifications.
+	//     Users tolerate slight delay; lower weight prevents them from
+	//     starving foreground work.
+	//   - "automation":     2 — lowest priority; rule-triggered actions (auto-assign,
+	//     status transitions). Background processing, rarely user-blocking.
+	//
+	// Concurrency of 10 means up to 10 tasks are processed simultaneously across
+	// all queues. Tuned for moderate workloads; scale with worker replicas or
+	// increase if CPU utilization is consistently low.
 	srv := asynq.NewServer(
 		asynq.RedisClientOpt{Addr: cfg.Redis.Addr, Password: cfg.Redis.Password, DB: cfg.Redis.DB + 1},
 		asynq.Config{

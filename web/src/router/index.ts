@@ -48,6 +48,37 @@ const router = createRouter({
             projectId: Number(route.params.projectId),
           }),
         },
+        // 迭代列表
+        {
+          path: ":workspaceSlug/projects/:projectId/sprints",
+          name: "sprint-list",
+          component: () => import("@/views/project/SprintListView.vue"),
+          props: (route) => ({
+            workspaceSlug: route.params.workspaceSlug,
+            projectId: Number(route.params.projectId),
+          }),
+        },
+        // 排期规划（Backlog ↔ Sprint 拖拽）
+        {
+          path: ":workspaceSlug/projects/:projectId/sprints/planning",
+          name: "sprint-planning",
+          component: () => import("@/views/project/SprintPlanningView.vue"),
+          props: (route) => ({
+            workspaceSlug: route.params.workspaceSlug,
+            projectId: Number(route.params.projectId),
+          }),
+        },
+        // 迭代详情
+        {
+          path: ":workspaceSlug/projects/:projectId/sprints/:sprintId",
+          name: "sprint-detail",
+          component: () => import("@/views/project/SprintDetailView.vue"),
+          props: (route) => ({
+            workspaceSlug: route.params.workspaceSlug,
+            projectId: Number(route.params.projectId),
+            sprintId: Number(route.params.sprintId),
+          }),
+        },
         // 工作项详情页
         {
           path: ":workspaceSlug/projects/:projectId/issues/:issueId",

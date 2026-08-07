@@ -16,6 +16,7 @@ import (
 
 	"github.com/njydsz/ydsz-plane/internal/application/auth"
 	"github.com/njydsz/ydsz-plane/internal/application/issue"
+	"github.com/njydsz/ydsz-plane/internal/application/sprint"
 	"github.com/njydsz/ydsz-plane/internal/application/workspace"
 	"github.com/njydsz/ydsz-plane/internal/config"
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/cache"
@@ -32,6 +33,27 @@ func main() {
 	}
 }
 
+// run bootstraps the HTTP API server and blocks until shutdown.
+//
+// Initialization follows a strict ordering to guarantee that every
+// downstream component receives a fully-initialized dependency:
+//
+//  1. Configuration +Logger — everything else depends on the parsed
+//     config and a working logger.
+//  2. PostgreSQL pool — services will validate their DB schema on boot.
+//  3. Redis client — used for sessions, rate-limiting and the outbox sink.
+//  4. Domain Services — wired after both DB and Redis are available so that
+//     each service can fail fast if its underlying store is unreachable.
+//  5. HTTP Engine + Routes — mounted last once all handlers are registered.
+//  6. Listen & Serve — the server starts in its own goroutine; the main
+//     goroutine then blocks on a select{} that waits for either a signal or
+//     a ListenAndServe error.
+//
+// On SIGINT/SIGTERM the server performs a graceful shutdown with a 15 s
+// drain timeout, after which remaining connections are closed and the
+// process exits.
+//
+// A non-nil return from run terminates the process with exit code 1.
 func run() error {
 	cfg, err := config.Load()
 	if err != nil {
@@ -103,6 +125,10 @@ func run() error {
 		WorkspaceStore: wsStore,
 	})
 
+	// ---------- Sprint domain ----------
+	sprintSvc := sprint.NewService(pool.Pool)
+	sprintHandler := sprint.NewHandler(sprintSvc)
+
 	// ---------- HTTP Engine ----------
 	engine := httpapi.NewEngine(&httpapi.Deps{
 		Cfg:            cfg,
@@ -124,6 +150,8 @@ func run() error {
 		ActivitySvc:  activitySvc,
 		TimeLogSvc:   timeLogSvc,
 		IssueHandler: issueHandler,
+		// Sprint domain
+		SprintHandler: sprintHandler,
 	})
 
 	// 注册工作项路由（必须在 NewEngine 之后）
@@ -131,15 +159,27 @@ func run() error {
 		Auth:           authSvc,
 		WorkspaceStore: wsStore,
 		IssueHandler:   issueHandler,
+		SprintHandler:  sprintHandler,
 	})
 
 	srv := &http.Server{
-		Addr:              fmt.Sprintf(":%d", cfg.Server.Port),
-		Handler:           engine,
+		Addr:    fmt.Sprintf(":%d", cfg.Server.Port),
+		Handler: engine,
+		// ReadHeaderTimeout bounds the time a client has to finish sending
+		// request headers. 10 s is generous enough for slow clients on
+		// cellular but rejects Slowloris-style attacks quickly.
 		ReadHeaderTimeout: 10 * time.Second,
-		ReadTimeout:       30 * time.Second,
-		WriteTimeout:      60 * time.Second,
-		IdleTimeout:       120 * time.Second,
+		// ReadTimeout covers reading the full request body. 30 s handles
+		// bulk CSV/JSON uploads within a single request window.
+		ReadTimeout: 30 * time.Second,
+		// WriteTimeout limits the entire response write. 60 s is sufficient
+		// for paginated issue lists and sprint reports — endpoints that need
+		// more time should stream instead.
+		WriteTimeout: 60 * time.Second,
+		// IdleTimeout recycles keep-alive connections that have been silent
+		// for 2 minutes. This limits idle slot consumption under high traffic
+		// while still benefiting from HTTP keep-alive for typical bursts.
+		IdleTimeout: 120 * time.Second,
 	}
 
 	errCh := make(chan error, 1)

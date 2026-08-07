@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-  Go · Vue 3 · PostgreSQL · Redis · NATS · Docker
+  Go · Vue 3 · PostgreSQL · Redis · RabbitMQ · Docker
 </p>
 
 ---
@@ -41,7 +41,7 @@ Ydsz Plane 是一款开源、自托管的现代项目管理工具，专为中小
 | 中间件链 | RequestID → Recovery → CORS → SecurityHeaders → RateLimit → AccessLog → Metrics → Auth | ✅ |
 | 前端骨架 | Vue 3.5 + Vite 6 + Pinia、登录页（亮/暗主题）、Axios 拦截器、auth store | ✅ |
 | 数据持久层 | pgx 连接池、租户上下文（SET LOCAL app.workspace_id）、RLS 策略模板、迁移工具 | ✅ |
-| 事件骨架 | 事务型 Outbox 表 + Relay（DB → NATS）、Asynq Worker（default/notifications/automation 队列） | ✅ |
+| 事件骨架 | 事务型 Outbox 表 + Relay（DB → Redis Streams）、Asynq Worker（default/notifications/automation 队列） | ✅ |
 | 数据库迁移 | 0001_init（users / workspaces / workspace_members / domain_events / audit_logs）+ 0002_password_reset | ✅ |
 | 种子数据 | 5 用户 + 3 工作空间 + 多角色成员（owner/admin/member/guest）+ 幂等执行 | ✅ |
 
@@ -49,11 +49,11 @@ Ydsz Plane 是一款开源、自托管的现代项目管理工具，专为中小
 
 | 层次 | 技术选型 | 说明 |
 |------|----------|------|
-| 后端 | Go 1.25 + Gin 1.12 | 模块化单体（DDD 轻量分层） |
+| 后端 | Go 1.26.5 + Gin 1.12 | 模块化单体（DDD 轻量分层） |
 | 前端 | Vue 3.5 + TypeScript + Vite 6 | 组合式 API、Pinia 状态管理 |
 | 数据库 | PostgreSQL 16 | ACID + JSONB + RLS 租户隔离 + 信创方言预留 |
-| 缓存 | Redis 7 | 限流、分布式锁、会话辅助 |
-| 事件 | NATS 2.10（JetStream） | Outbox 投递、实时推送扇出 |
+| 缓存/消息 | Redis 7 | 限流、分布式锁、会话辅助、Outbox Stream、WebSocket 扇出 |
+| 事件 | Redis Streams | Outbox 投递、实时推送扇出（替代 NATS JetStream） |
 | 任务队列 | Asynq | 异步任务（通知、索引、Webhook、自动化） |
 | 全文检索 | Elasticsearch 8（可选 profile） | 全局搜索、分词（IK） |
 | 对象存储 | MinIO（可选 profile） | 附件、Logo |
@@ -77,16 +77,16 @@ Ydsz Plane 是一款开源、自托管的现代项目管理工具，专为中小
               │  Application Services（用例编排/事务边界）        │
               │  Domain（限界上下文：iam / workspace / project   │
               │      / issue / sprint / version / ...）         │
-              │  Infrastructure（PG / Redis / ES / NATS）       │
+              │  Infrastructure（PG / Redis / ES / MinIO）       │
               └───────┬───────────────────────┬────────────────┘
                       │ 写事件 (Outbox)        │ 读
         ┌─────────────▼──────────┐   ┌────────▼───────┐
         │  ydsz-plane-worker     │   │ PostgreSQL 16  │
         │  (Asynq + Outbox Relay)│   │ Redis 7        │
-        │  · 通知投递             │   │ NATS / ES / MinIO
-        │  · ES 索引同步          │   └────────────────┘
-        │  · Webhook 分发         │
-        │  · 自动化规则执行        │
+        │  · 通知投递             │   │ Elasticsearch  │
+        │  · ES 索引同步          │   │ MinIO          │
+        │  · Webhook 分发         │   │ RabbitMQ       │
+        │  · 自动化规则执行        │   └────────────────┘
         │  · 迭代快照 / 效能计算   │
         └────────────────────────┘
 ```
@@ -105,7 +105,7 @@ ydsz-plane/
 │   ├── infrastructure/
 │   │   ├── persistence/       # pgx 连接池 + 租户上下文
 │   │   ├── cache/             # Redis 客户端
-│   │   ├── events/            # Outbox Relay（DB → NATS）
+│   │   ├── events/            # Outbox Relay（DB → Redis Streams）
 │   │   └── telemetry/         # zap 结构化日志
 │   ├── interfaces/
 │   │   ├── http/              # Gin 路由 + Handler
@@ -150,7 +150,7 @@ ydsz-plane/
 git clone https://github.com/njydsz/ydsz-plane.git
 cd ydsz-plane
 
-# 启动核心服务（PostgreSQL + Redis + NATS + API + Worker + Web）
+# 启动核心服务（PostgreSQL + Redis + RabbitMQ + API + Worker + Web）
 docker compose -f deployments/docker-compose.yml up -d
 
 # 启动完整栈（额外包含 Elasticsearch + MinIO）
@@ -171,7 +171,7 @@ docker compose -f deployments/docker-compose.yml --profile full up -d
 #### 启动基础设施 + 后端
 
 ```bash
-# 1. 启动基础设施容器 (PostgreSQL + Redis + NATS + Mailpit)
+# 1. 启动基础设施容器 (PostgreSQL + Redis + RabbitMQ + Mailpit)
 make up
 
 # 2. 配置环境变量（已默认配置为本地开发环境，可直接复制）
@@ -291,7 +291,7 @@ WS   /api/v1/workspaces/:id/members        列工作空间成员（workspace:rea
 - [x] Docker Compose 全栈 + Makefile
 - [x] Gin 骨架 + 中间件链 + 健康检查
 - [x] 数据库迁移系统 + RLS 模板 + 租户上下文
-- [x] Outbox + Asynq + NATS 事件骨架
+- [x] Outbox + Asynq + Redis Streams 事件骨架
 - [x] 前端骨架 + 设计令牌 + 登录页 + 鉴权链路
 - [x] 种子数据（5 用户 + 3 工作空间，幂等）
 

@@ -743,7 +743,7 @@ func scanIssueRows(rows pgx.Rows) ([]Issue, error) {
 		var parentID sql.NullInt64
 		var severity, point sql.NullInt64
 		var category sql.NullString
-		var startDate, targetDate sql.NullTime
+		var targetDate sql.NullTime
 		var stateName, stateColor, identifier string
 		var stateGroup StateGroup
 
