@@ -30,9 +30,9 @@ CREATE TABLE IF NOT EXISTS notification_digests (
     status          VARCHAR(16) NOT NULL DEFAULT 'pending',  -- pending/sent/skipped
     scheduled_for   TIMESTAMPTZ NOT NULL,
     sent_at         TIMESTAMPTZ,
-    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE(user_id, workspace_id, digest_type, status) WHERE status = 'pending'
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+CREATE UNIQUE INDEX idx_notification_digests_pending ON notification_digests(user_id, workspace_id, digest_type, status) WHERE status = 'pending';
 CREATE INDEX idx_digests_pending ON notification_digests(status, scheduled_for) WHERE status = 'pending';
 
 ALTER TABLE notification_digests ENABLE ROW LEVEL SECURITY;

@@ -68,8 +68,9 @@ CREATE TABLE sprint_snapshots (
     snapshot_date   DATE NOT NULL,                       -- 快照UTC日期
     data            JSONB NOT NULL DEFAULT '{}'::jsonb,  -- 见 data shape 注释
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-    UNIQUE (sprint_id, snapshot_date) WHERE deleted_at IS NULL
+    deleted_at      TIMESTAMPTZ
 );
+CREATE UNIQUE INDEX idx_sprint_snapshots_unique ON sprint_snapshots(sprint_id, snapshot_date);
 -- data shape:
 -- {
 --   "total_points": 80,

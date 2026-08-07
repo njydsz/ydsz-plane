@@ -8,7 +8,6 @@
 -- -----------------------------------------------------------------
 ALTER TABLE issues ADD COLUMN IF NOT EXISTS search_tsv tsvector
     GENERATED ALWAYS AS (
-        setweight(to_tsvector('simple', coalesce(identifier, '')), 'A') ||
         setweight(to_tsvector('simple', coalesce(name, '')), 'A') ||
         setweight(to_tsvector('simple', coalesce(description_stripped, '')), 'B') ||
         setweight(to_tsvector('simple', coalesce(type_code, '')), 'C')
@@ -57,7 +56,8 @@ CREATE TABLE search_bookmarks (
     is_shared       BOOLEAN NOT NULL DEFAULT FALSE,     -- 是否共享给项目成员
     sort_order      DOUBLE PRECISION NOT NULL DEFAULT 65535,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deleted_at      TIMESTAMPTZ
 );
 CREATE INDEX idx_search_bookmarks_user ON search_bookmarks(user_id, sort_order);
 CREATE INDEX idx_search_bookmarks_project ON search_bookmarks(project_id) WHERE deleted_at IS NULL;
@@ -90,9 +90,9 @@ CREATE TABLE search_documents (
     content         TEXT,                                 -- 可搜索内容摘要
     search_tsv      tsvector,                             -- 全文检索向量
     metadata        JSONB NOT NULL DEFAULT '{}'::jsonb,  -- 类型相关元数据
-    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-    UNIQUE (workspace_id, doc_type, doc_id) WHERE deleted_at IS NULL
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+CREATE UNIQUE INDEX idx_search_documents_unique ON search_documents(workspace_id, doc_type, doc_id);
 CREATE INDEX idx_search_documents_tsv ON search_documents USING GIN(search_tsv);
 CREATE INDEX idx_search_documents_project ON search_documents(project_id, doc_type, updated_at DESC);
 CREATE INDEX idx_search_documents_ws ON search_documents(workspace_id, doc_type);
