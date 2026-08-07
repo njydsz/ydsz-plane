@@ -1,3 +1,7 @@
+// 本文件属于 Package version —— SemVer 2.0 语义版本号解析与比较。
+//
+// 支持完整 SemVer 2.0 语法：major.minor.patch[-prerelease][+build]，
+// 校验前导零、非法字符，并提供规范化输出与优先级比较。
 package version
 
 import (
@@ -18,6 +22,7 @@ type SemVer struct {
 
 // ParseSemVer 解析并校验字符串为合法 SemVer 2.0。
 // 不允许 leading zeros（如 01.2.3 非法）。
+// 成功时返回 (nil, 版本)；失败时返回 (错误信息, nil)。
 func ParseSemVer(raw string) (*SemErr, *SemVer) {
 	main := raw
 	if i := strings.Index(raw, "+"); i >= 0 {
@@ -70,6 +75,8 @@ func ParseSemVer(raw string) (*SemErr, *SemVer) {
 	}
 }
 
+// isValidSemVerIdentifiers 校验 pre-release / build 标识符仅含
+// [0-9A-Za-z-.] 字符。
 func isValidSemVerIdentifiers(s string) bool {
 	for _, r := range s {
 		if !((r >= '0' && r <= '9') || (r >= 'A' && r <= 'Z') || (r >= 'a' && r <= 'z') || r == '-' || r == '.') {
@@ -85,6 +92,7 @@ type SemErr struct {
 	Value  string
 }
 
+// Error 实现 error 接口；超长输入截断到 64 字符便于日志展示。
 func (e *SemErr) Error() string {
 	v := e.Value
 	if len(v) > 64 {
@@ -136,6 +144,7 @@ func (v *SemVer) Compare(o *SemVer) int {
 	return cmpInt(len(p1), len(p2))
 }
 
+// cmpInt 返回 a 与 b 的大小关系（-1 / 0 / 1）。
 func cmpInt(a, b int) int {
 	if a < b {
 		return -1
@@ -146,6 +155,8 @@ func cmpInt(a, b int) int {
 	return 0
 }
 
+// comparePreReleaseID 按 SemVer 规则比较两个 pre-release 标识符：
+// 纯数字按数值比较；数字标识符小于字母标识符；否则按 ASCII 字典序。
 func comparePreReleaseID(a, b string) int {
 	an, aErr := strconv.Atoi(a)
 	bn, bErr := strconv.Atoi(b)

@@ -182,8 +182,8 @@ async function revokeInvitation(inv: Invitation) {
   }
 }
 
-function roleLabel(role: string): string {
-  return { owner: "所有者", admin: "管理员", member: "成员", guest: "访客" }[role] ?? role;
+function roleLabel(role: string | undefined): string {
+  return { owner: "所有者", admin: "管理员", member: "成员", guest: "访客" }[role ?? ""] ?? role ?? "-";
 }
 function formatDate(s: string | undefined): string {
   return s ? s.slice(0, 10) : "-";

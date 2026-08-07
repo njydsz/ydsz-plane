@@ -1,27 +1,24 @@
-// Package mq provides a production-grade RabbitMQ client implementing
-// connection management, automatic reconnection, publisher-confirms, and
-// consumer infrastructure for the Ydsz Plane event bus.
+// Package mq 提供生产级 RabbitMQ 客户端，实现连接管理、自动重连、
+// publisher-confirm 以及 Ydsz Plane 事件总线的消费者基础设施。
 //
-// Architecture:
-//   - Topic exchange "plane.events"   — domain events from the outbox relay.
-//   - Topic exchange "plane.tasks"    — background task dispatch (replaces
-//     Asynq for event-driven workloads while Asynq remains for job-queue
-//     semantics).
-//   - Dead-letter exchange "plane.dlx" — captures messages that fail after
-//     max retries, enabling post-mortem analysis and replay.
+// 架构：
+//   - topic exchange "plane.events"   —— outbox relay 的领域事件。
+//   - topic exchange "plane.tasks"    —— 后台任务分发（事件驱动负载替换 Asynq，
+//     Asynq 保留用于任务队列语义）。
+//   - 死信 exchange "plane.dlx" —— 捕获超过最大重试次数的消息，
+//     便于事后分析与重放。
 //
-// Why RabbitMQ alongside Redis:
-//   - Redis Streams: operational simplicity, low-latency pub/sub for
-//     real-time push (WebSocket fan-out), rate limiting, distributed locks.
-//   - RabbitMQ: reliable at-least-once delivery with consumer acks,
-//     dead-letter routing, message TTL, priority queues, and flexible
-//     topic-based routing patterns required by enterprise workflows.
+// 为什么 RabbitMQ 与 Redis 并存：
+//   - Redis Streams：运维简单、低延迟 pub/sub 用于实时推送（WebSocket 扇出）、
+//     限流、分布式锁。
+//   - RabbitMQ：可靠的 at-least-once 投递 + 消费者 ack、死信路由、消息 TTL、
+//     优先级队列，以及企业工作流所需的灵活 topic 路由模式。
 //
-// The topic hierarchy under "plane.events" uses dot-separated routing keys:
+// "plane.events" 下的 topic 层级使用点分隔路由键：
 //   plane.events.<aggregate_type>.<event_type>
-//   e.g. plane.events.issue.created, plane.events.workspace.member_added
+//   例如 plane.events.issue.created、plane.events.workspace.member_added
 //
-// Consumer queues bind with wildcard patterns for flexible subscription.
+// 消费者队列使用通配符模式绑定，实现灵活订阅。
 package mq
 
 import (
@@ -37,26 +34,26 @@ import (
 	"go.uber.org/zap"
 )
 
-// Exchange and queue constants.
+// Exchange 与队列常量。
 const (
-	// EventExchange is the primary topic exchange for domain events.
+	// EventExchange 是领域事件的主 topic exchange。
 	EventExchange = "plane.events"
 
-	// TaskExchange dispatches background tasks to consumer queues.
+	// TaskExchange 将后台任务分发到消费者队列。
 	TaskExchange = "plane.tasks"
 
-	// DeadLetterExchange routes exhausted messages for inspection / replay.
+	// DeadLetterExchange 将重试耗尽的消息路由出来供检查/重放。
 	DeadLetterExchange = "plane.dlx"
 
-	// DefaultConsumerTag prefix for auto-generated consumer tags.
+	// DefaultConsumerTag 是自动生成消费者标签的前缀。
 	DefaultConsumerTag = "plane-consumer"
 
-	// MaxReconnectAttempts before giving up (with exponential backoff).
+	// MaxReconnectAttempts 是放弃前的最大重连次数（指数退避）。
 	MaxReconnectAttempts = 10
 )
 
-// EventEnvelope is the wire format for all messages published to RabbitMQ.
-// It mirrors the StreamEvent schema previously stored in JSON fields.
+// EventEnvelope 是所有发往 RabbitMQ 消息的线上格式。
+// 它镜像了之前存储在 JSON 字段中的 StreamEvent schema。
 type EventEnvelope struct {
 	EventID       int64           `json:"event_id"`
 	EventType     string          `json:"event_type"`
@@ -69,14 +66,13 @@ type EventEnvelope struct {
 	RoutingKey    string          `json:"routing_key"`
 }
 
-// RoutingKey builds a routing key from aggregate and event type.
+// RoutingKey 由聚合类型与事件类型构建路由键。
 func RoutingKey(aggregate, eventType string) string {
 	return fmt.Sprintf("plane.events.%s.%s", aggregate, eventType)
 }
 
-// Client wraps an AMQP connection and channel with automatic reconnection.
-// It is safe for concurrent use: publish acquires a mutex; consume
-// operations use a separate channel.
+// Client 包装 AMQP 连接与 channel，支持自动重连。
+// 并发安全：发布通过互斥锁串行；消费操作使用独立 channel。
 type Client struct {
 	url    string
 	config amqp.Config
@@ -87,7 +83,7 @@ type Client struct {
 	conn     *amqp.Connection
 	ch       *amqp.Channel
 
-	chanMU   sync.Mutex // serialises channel-level publishing
+	chanMU   sync.Mutex // 串行化 channel 级发布
 
 	connClose chan *amqp.Error
 	chanClose chan *amqp.Error
@@ -96,23 +92,22 @@ type Client struct {
 	done      chan struct{}
 }
 
-// ClientOption configures optional client parameters.
+// ClientOption 配置可选的客户端参数。
 type ClientOption func(*Client)
 
-// WithTLS attaches a TLS config for amqps:// connections.
+// WithTLS 为 amqps:// 连接附加 TLS 配置。
 func WithTLS(tlsConf *tls.Config) ClientOption {
 	return func(c *Client) { c.tls = tlsConf }
 }
 
-// WithLogger sets a custom logger.
+// WithLogger 设置自定义 logger。
 func WithLogger(log *zap.Logger) ClientOption {
 	return func(c *Client) { c.log = log }
 }
 
-// NewClient constructs a RabbitMQ client and establishes the initial
-// connection. It blocks until the connection succeeds so that callers
-// fail fast on startup rather than discovering a broken connection at
-// first publish.
+// NewClient 构造 RabbitMQ 客户端并建立初始连接。
+// 它会阻塞直至连接成功，使调用方在启动阶段快速失败，
+// 而不是在首次发布时才发现连接不可用。
 func NewClient(url string, opts ...ClientOption) (*Client, error) {
 	c := &Client{
 		url:       url,
@@ -133,8 +128,7 @@ func NewClient(url string, opts ...ClientOption) (*Client, error) {
 	return c, nil
 }
 
-// connect opens a connection and channel, declares the topology, and
-// registers close-notification handlers.
+// connect 打开连接与 channel、声明拓扑，并注册关闭通知处理器。
 func (c *Client) connect() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -155,7 +149,7 @@ func (c *Client) connect() error {
 		return fmt.Errorf("mq: open channel: %w", err)
 	}
 
-	// Enable publisher confirms so we get async acks/nacks.
+	// 启用 publisher confirms，获取异步 ack/nack。
 	if err := ch.Confirm(false); err != nil {
 		_ = ch.Close()
 		_ = conn.Close()
@@ -180,15 +174,15 @@ func (c *Client) connect() error {
 	return nil
 }
 
-// declareTopology creates exchanges and the dead-letter queue. Idempotent
-// — re-declaring with the same parameters is a no-op in RabbitMQ.
+// declareTopology 创建 exchange 与死信队列。幂等 ——
+// 在 RabbitMQ 中以相同参数重复声明是 no-op。
 func declareTopology(ch *amqp.Channel) error {
-	// Dead-letter exchange (direct) + dead-letter queue for inspection.
+	// 死信 exchange（direct）+ 死信队列，供检查使用。
 	if err := ch.ExchangeDeclare(DeadLetterExchange, "direct", true, false, false, false, nil); err != nil {
 		return fmt.Errorf("declare dlx exchange: %w", err)
 	}
 	if _, err := ch.QueueDeclare(DeadLetterExchange+".queue", true, false, false, false, amqp.Table{
-		"x-message-ttl": int64(7 * 24 * time.Hour / time.Millisecond), // 7d retention
+		"x-message-ttl": int64(7 * 24 * time.Hour / time.Millisecond), // 保留 7 天
 		"x-max-length":  int64(100_000),
 		"x-overflow":    "reject-publish",
 	}); err != nil {
@@ -198,7 +192,7 @@ func declareTopology(ch *amqp.Channel) error {
 		return fmt.Errorf("bind dlq: %w", err)
 	}
 
-	// Primary topic exchanges.
+	// 主 topic exchange。
 	for _, ex := range []string{EventExchange, TaskExchange} {
 		if err := ch.ExchangeDeclare(ex, "topic", true, false, false, false, nil); err != nil {
 			return fmt.Errorf("declare exchange %s: %w", ex, err)
@@ -207,8 +201,7 @@ func declareTopology(ch *amqp.Channel) error {
 	return nil
 }
 
-// reconnectLoop monitors for connection/channel close signals and attempts
-// a reconnection with bounded exponential backoff.
+// reconnectLoop 监听连接/channel 关闭信号，并以有界指数退避重试重连。
 func (c *Client) reconnectLoop() {
 	backoff := time.Second
 
@@ -218,7 +211,7 @@ func (c *Client) reconnectLoop() {
 			return
 		case err := <-c.connClose:
 			if err == nil {
-				return // graceful close
+				return // 优雅关闭
 			}
 			c.log.Warn("mq: connection closed", zap.Error(err))
 			c.markDisconnected()
@@ -260,13 +253,11 @@ func (c *Client) reconnect(backoff *time.Duration) {
 	c.log.Error("mq: reconnect attempts exhausted", zap.String("url", redactURL(c.url)))
 }
 
-// Publish sends a message to the specified exchange/routing-key with
-// mandatory delivery and publisher-confirm synchronisation. Returns when
-// the broker has confirmed receipt or the context expires.
+// Publish 向指定 exchange/路由键发送消息，强制投递并与 publisher-confirm
+// 同步。在 broker 确认收到或 context 过期时返回。
 //
-// Mandatory=true ensures unroutable messages are returned rather than
-// silently dropped — this should never happen if consumers declare
-// their bindings before publishing.
+// Mandatory=true 确保无法路由的消息被退回而不是静默丢弃 ——
+// 只要消费者在发布前声明了绑定，这种情况就不应发生。
 func (c *Client) Publish(ctx context.Context, exchange, routingKey string, envelope EventEnvelope) error {
 	c.chanMU.Lock()
 	defer c.chanMU.Unlock()
@@ -303,7 +294,7 @@ func (c *Client) Publish(ctx context.Context, exchange, routingKey string, envel
 		return fmt.Errorf("mq: publish: %w", err)
 	}
 
-	// Wait for broker confirm or mandatory return.
+	// 等待 broker 确认或 mandatory 退回。
 	select {
 	case confirm := <-confirmCh:
 		if !confirm.Ack {
@@ -317,14 +308,13 @@ func (c *Client) Publish(ctx context.Context, exchange, routingKey string, envel
 	}
 }
 
-// PublishRaw sends a message using a caller-supplied amqp.Publishing struct.
-// Use this when you need fine-grained control over TTL (delayed tasks),
-// Priority, Expiration, or other headers not exposed by the ergonomic
-// Publish / PublishEvent methods. Publisher-confirm and mandatory routing
-// are still enforced.
+// PublishRaw 使用调用方提供的 amqp.Publishing 结构发送消息。
+// 当需要对 TTL（延迟任务）、Priority、Expiration 或其他 Publish /
+// PublishEvent 未暴露的 header 做细粒度控制时使用。
+// publisher-confirm 与 mandatory 路由仍然强制生效。
 //
-// Unlike Publish, the caller is responsible for setting Body, ContentType,
-// DeliveryMode, MessageId, Type, Timestamp, and any application headers.
+// 与 Publish 不同，调用方需自行设置 Body、ContentType、DeliveryMode、
+// MessageId、Type、Timestamp 及应用 header。
 func (c *Client) PublishRaw(ctx context.Context, exchange, routingKey string, msg amqp.Publishing) error {
 	c.chanMU.Lock()
 	defer c.chanMU.Unlock()
@@ -355,19 +345,18 @@ func (c *Client) PublishRaw(ctx context.Context, exchange, routingKey string, ms
 		return fmt.Errorf("mq: publish cancelled: %w", ctx.Err())
 	}
 }
+// PublishEvent 以领域事件方式发布：自动补全 EventExchange 与路由键。
 func (c *Client) PublishEvent(ctx context.Context, envelope EventEnvelope) error {
 	envelope.Exchange = EventExchange
 	envelope.RoutingKey = RoutingKey(envelope.AggregateType, envelope.EventType)
 	return c.Publish(ctx, EventExchange, envelope.RoutingKey, envelope)
 }
 
-// Consume starts a long-lived consumer on the named queue. Each delivery
-// is dispatched to the handler; if the handler returns an error the
-// message is nack'd and requeued (until the dead-letter threshold).
+// Consume 在指定队列上启动长生命周期消费者。每条投递分发给 handler；
+// 若 handler 返回错误，消息被 nack 并重新入队（直到死信阈值）。
 //
-// The function blocks until the consumer is cancelled or the connection
-// drops; on reconnect the caller should invoke Consume again. Use
-// DeclareQueue to create and bind the queue before consuming.
+// 该函数阻塞直至消费者被取消或连接断开；重连后调用方应重新调用
+// Consume。消费前请用 DeclareQueue 创建并绑定队列。
 func (c *Client) Consume(ctx context.Context, queue, consumerTag string, autoAck bool, handler func(delivery amqp.Delivery) error) error {
 	if consumerTag == "" {
 		consumerTag = DefaultConsumerTag
@@ -413,9 +402,8 @@ func (c *Client) Consume(ctx context.Context, queue, consumerTag string, autoAck
 	}
 }
 
-// DeclareQueue creates a durable queue bound to the given exchange with
-// the supplied routing-key pattern and dead-letter configuration.
-// Returns the declared queue for convenience.
+// DeclareQueue 创建绑定到指定 exchange 的持久队列，
+// 支持路由键模式与死信配置。返回已声明的队列便于后续使用。
 func (c *Client) DeclareQueue(ctx context.Context, name, exchange, routingKey string, args amqp.Table) (amqp.Queue, error) {
 	c.mu.RLock()
 	ch := c.ch
@@ -424,12 +412,12 @@ func (c *Client) DeclareQueue(ctx context.Context, name, exchange, routingKey st
 	if args == nil {
 		args = amqp.Table{}
 	}
-	// Wire dead-letter routing unless the caller overrides it.
+	// 除非调用方覆盖，否则接入死信路由。
 	if _, hasDLX := args["x-dead-letter-exchange"]; !hasDLX {
 		args["x-dead-letter-exchange"] = DeadLetterExchange
 		args["x-dead-letter-routing-key"] = name + ".dead"
 	}
-	// 24h default TTL for unprocessed messages before DLX routing.
+	// 未处理消息在进入 DLX 前默认保留 24h。
 	if _, hasTTL := args["x-message-ttl"]; !hasTTL {
 		args["x-message-ttl"] = int64(24 * time.Hour / time.Millisecond)
 	}
@@ -444,7 +432,7 @@ func (c *Client) DeclareQueue(ctx context.Context, name, exchange, routingKey st
 	return q, nil
 }
 
-// QueueExists probes whether a queue already exists (for idempotent declarators).
+// QueueExists 探测队列是否已存在（供幂等声明器使用）。
 func (c *Client) QueueExists(ctx context.Context, name string) bool {
 	c.mu.RLock()
 	ch := c.ch
@@ -454,7 +442,7 @@ func (c *Client) QueueExists(ctx context.Context, name string) bool {
 	return err == nil
 }
 
-// Close gracefully shuts down the channel and connection.
+// Close 优雅关闭 channel 与连接。
 func (c *Client) Close() error {
 	close(c.done)
 	c.mu.Lock()
@@ -478,14 +466,14 @@ func (c *Client) Close() error {
 	return nil
 }
 
-// Healthy reports whether the underlying connection is open.
+// Healthy 报告底层连接是否开启。
 func (c *Client) Healthy() bool {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.connected && c.conn != nil && !c.conn.IsClosed()
 }
 
-// redactURL strips credentials from an AMQP URL for safe logging.
+// redactURL 从 AMQP URL 中剥离凭据，用于安全日志输出。
 func redactURL(rawurl string) string {
 	u, err := amqp.ParseURI(rawurl)
 	if err != nil {
@@ -497,6 +485,5 @@ func redactURL(rawurl string) string {
 	return fmt.Sprintf("amqp://%s@%s:%d/%s", u.Username, u.Host, u.Port, u.Vhost)
 }
 
-// RedactedURL is the exported helper for callers that want to log the
-// connection endpoint without leaking credentials.
+// RedactedURL 是导出的辅助函数，供调用方记录连接端点而不泄露凭据。
 func RedactedURL(rawurl string) string { return redactURL(rawurl) }

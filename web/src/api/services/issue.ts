@@ -97,6 +97,29 @@ export interface TimeLog {
   updated_at: string;
 }
 
+export interface IssueRelation {
+  id: number;
+  workspace_id: number;
+  project_id: number;
+  source_issue_id: number;
+  target_issue_id: number;
+  relation_type: string;
+  created_by: number;
+  created_at: string;
+}
+
+export interface IssueDependency {
+  id: number;
+  workspace_id: number;
+  project_id: number;
+  predecessor_id: number;
+  successor_id: number;
+  dependency_type: string;
+  lag_days: number;
+  created_by: number;
+  created_at: string;
+}
+
 export interface CreateIssueInput {
   type: IssueType;
   name: string;
@@ -196,4 +219,34 @@ export const issueApi = {
     input: { spent_date: string; duration_minutes: number; description?: string },
   ) =>
     wrap<TimeLog>(http.post(`/workspaces/${wsId}/projects/${projectId}/issues/${issueId}/time-logs`, input)),
+
+  // --- 关联关系 ---
+  listRelations: (wsId: number, projectId: number, issueId: number) =>
+    wrap<{ results: IssueRelation[] }>(
+      http.get(`/workspaces/${wsId}/projects/${projectId}/issues/${issueId}/relations`),
+    ),
+  createRelation: (
+    wsId: number,
+    projectId: number,
+    issueId: number,
+    input: { target_issue_id: number; relation_type: string },
+  ) =>
+    wrap<IssueRelation>(http.post(`/workspaces/${wsId}/projects/${projectId}/issues/${issueId}/relations`, input)),
+  deleteRelation: (wsId: number, projectId: number, issueId: number, relationId: number) =>
+    wrap<void>(http.delete(`/workspaces/${wsId}/projects/${projectId}/issues/${issueId}/relations/${relationId}`)),
+
+  // --- 依赖关系 ---
+  listDependencies: (wsId: number, projectId: number, issueId: number) =>
+    wrap<{ predecessors: IssueDependency[]; successors: IssueDependency[] }>(
+      http.get(`/workspaces/${wsId}/projects/${projectId}/issues/${issueId}/dependencies`),
+    ),
+  createDependency: (
+    wsId: number,
+    projectId: number,
+    issueId: number,
+    input: { predecessor_id: number; successor_id: number; dependency_type: string; lag_days?: number },
+  ) =>
+    wrap<IssueDependency>(http.post(`/workspaces/${wsId}/projects/${projectId}/issues/${issueId}/dependencies`, input)),
+  deleteDependency: (wsId: number, projectId: number, issueId: number, depId: number) =>
+    wrap<void>(http.delete(`/workspaces/${wsId}/projects/${projectId}/issues/${issueId}/dependencies/${depId}`)),
 };

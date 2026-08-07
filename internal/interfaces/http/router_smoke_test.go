@@ -91,3 +91,76 @@ func mustReq(method, path, body string) *http.Request {
 	req.Header.Set("Content-Type", "application/json")
 	return req
 }
+
+// ==========================================================================
+// Sprint 路由冒烟测试（Sprint 5.11 出口检查）
+// ==========================================================================
+
+// stubSprintDeps returns a Deps with SprintHandler wired.
+func stubSprintDeps() *Deps {
+	d := stubDeps()
+	d.SprintHandler = sprint.NewHandler(nil)
+	return d
+}
+
+// TestSprintRouteMounting verifies Sprint routes are mounted and return
+// expected HTTP status codes for unauthenticated requests (401).
+func TestSprintRouteMounting(t *testing.T) {
+	r := NewEngine(stubSprintDeps())
+	RegisterSprintRoutes(r, stubSprintDeps())
+
+	tests := []struct {
+		method string
+		path   string
+		want   int
+	}{
+		// 集合
+		{"GET", "/api/v1/workspaces/1/projects/1/sprints", 401},
+		{"POST", "/api/v1/workspaces/1/projects/1/sprints", 401},
+		{"GET", "/api/v1/workspaces/1/projects/1/sprints/backlog", 401},
+		{"GET", "/api/v1/workspaces/1/projects/1/sprints/suggest-capacity", 401},
+		// 单资源
+		{"GET", "/api/v1/workspaces/1/projects/1/sprints/1", 401},
+		{"PATCH", "/api/v1/workspaces/1/projects/1/sprints/1", 401},
+		{"DELETE", "/api/v1/workspaces/1/projects/1/sprints/1", 401},
+		// 生命周期
+		{"POST", "/api/v1/workspaces/1/projects/1/sprints/1/start", 401},
+		{"POST", "/api/v1/workspaces/1/projects/1/sprints/1/complete", 401},
+		// 进度 / 规划
+		{"GET", "/api/v1/workspaces/1/projects/1/sprints/1/progress", 401},
+		{"GET", "/api/v1/workspaces/1/projects/1/sprints/1/issues", 401},
+		{"POST", "/api/v1/workspaces/1/projects/1/sprints/1/issues", 401},
+		{"DELETE", "/api/v1/workspaces/1/projects/1/sprints/1/issues/1", 401},
+		// 燃尽图 / 复盘
+		{"GET", "/api/v1/workspaces/1/projects/1/sprints/1/burndown", 401},
+		{"GET", "/api/v1/workspaces/1/projects/1/sprints/1/review", 401},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.method+" "+tc.path, func(t *testing.T) {
+			w := httptest.NewRecorder()
+			req := mustReq(tc.method, tc.path, "")
+			r.ServeHTTP(w, req)
+			if w.Code != tc.want {
+				t.Errorf("status = %d, want %d", w.Code, tc.want)
+			}
+		})
+	}
+}
+
+// TestSprintNotWiredWithoutHandler verifies that without SprintHandler,
+// sprint routes should NOT be mounted (RegisterSprintRoutes returns early).
+func TestSprintNotWiredWithoutHandler(t *testing.T) {
+	r := NewEngine(stubDeps())
+	// No SprintHandler set
+	RegisterSprintRoutes(r, stubDeps())
+
+	w := httptest.NewRecorder()
+	req := mustReq("GET", "/api/v1/workspaces/1/projects/1/sprints", "")
+	r.ServeHTTP(w, req)
+	// Without SprintHandler, /sprints should 404 (not 401), because the route
+	// group was never registered.
+	if w.Code != http.StatusNotFound {
+		t.Errorf("status = %d, want 404 (routes not mounted)", w.Code)
+	}
+}

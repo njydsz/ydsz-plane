@@ -4,6 +4,8 @@ import { useRoute, useRouter } from "vue-router";
 
 import { issueApi, type Issue, type IssueActivity, type State, type TimeLog } from "@/api/services/issue";
 import { workspaceApi, type Workspace } from "@/api/services/workspace";
+import RelationPanel from "./RelationPanel.vue";
+import IssueCreateModal from "./IssueCreateModal.vue";
 
 const props = defineProps<{
   workspaceSlug: string;
@@ -34,6 +36,15 @@ const newTimeDesc = ref("");
 const timeLogError = ref("");
 const timeLogSubmitting = ref(false);
 const timeLogsLoading = ref(false);
+
+// --- 行内编辑 ---
+const editField = ref<string | null>(null);
+const editValue = ref("");
+const editSaving = ref(false);
+const editError = ref("");
+
+// 一键提缺陷
+const showDefectModal = ref(false);
 
 async function load() {
   loading.value = true;
@@ -145,6 +156,64 @@ function fmtDuration(mins: number): string {
   return m > 0 ? `${h}小时${m}分钟` : `${h}小时`;
 }
 
+// --- 行内编辑 ---
+function startEdit(field: string, currentValue: unknown) {
+  editField.value = field;
+  editValue.value = String(currentValue ?? "");
+  editError.value = "";
+}
+
+function cancelEdit() {
+  editField.value = null;
+  editValue.value = "";
+  editError.value = "";
+}
+
+async function saveEdit() {
+  if (!ws.value || !issue.value || !editField.value || editSaving.value) return;
+  editSaving.value = true;
+  editError.value = "";
+
+  try {
+    const input: Record<string, unknown> = { version: issue.value.version };
+    const field = editField.value;
+
+    switch (field) {
+      case "name":
+        input.name = editValue.value.trim();
+        break;
+      case "description_html":
+        input.description_html = editValue.value;
+        break;
+      case "priority":
+        input.priority = editValue.value;
+        break;
+      case "severity":
+        input.severity = Number(editValue.value);
+        break;
+      case "found_phase":
+        input.found_phase = editValue.value;
+        break;
+      case "root_cause_category":
+        input.root_cause_category = editValue.value;
+        break;
+      case "point":
+        input.point = editValue.value ? Number(editValue.value) : null;
+        break;
+    }
+
+    issue.value = await issueApi.updateIssue(
+      ws.value.id, props.projectId, props.issueId,
+      input as Parameters<typeof issueApi.updateIssue>[3],
+    );
+    cancelEdit();
+  } catch (e: unknown) {
+    editError.value = e instanceof Error ? e.message : "保存失败";
+  } finally {
+    editSaving.value = false;
+  }
+}
+
 onMounted(() => {
   load();
   loadTimeLogs();
@@ -156,6 +225,13 @@ onMounted(() => {
     <header class="issue-detail__header">
       <button class="btn btn--ghost" @click="goBack">← 返回看板</button>
       <div class="issue-detail__actions">
+        <button
+          v-if="issue.type_code === 'requirement'"
+          class="btn btn--sm"
+          @click="showDefectModal = true"
+        >
+          🐛 提缺陷
+        </button>
         <button class="btn btn--danger" @click="doDelete">归档</button>
       </div>
     </header>
@@ -166,7 +242,18 @@ onMounted(() => {
     <div v-else-if="issue" class="issue-detail__body">
       <div class="issue-detail__main">
         <div class="issue-detail__identifier">{{ issue.identifier }}</div>
-        <h1 class="issue-detail__name">{{ issue.name }}</h1>
+        <div v-if="editField === 'name'" class="edit-row">
+          <input v-model="editValue" class="edit-input" @keydown.enter="saveEdit" @keydown.escape="cancelEdit" autofocus />
+          <button class="btn btn--sm btn--primary" @click="saveEdit" :disabled="editSaving || !editValue.trim()">
+            {{ editSaving ? "保存中..." : "保存" }}
+          </button>
+          <button class="btn btn--sm" @click="cancelEdit" :disabled="editSaving">取消</button>
+          <span v-if="editError" class="form-error">{{ editError }}</span>
+        </div>
+        <h1 v-else class="issue-detail__name editable" @click="startEdit('name', issue.name)">
+          {{ issue.name }}
+          <span class="edit-hint">✎</span>
+        </h1>
 
         <div class="issue-detail__meta-row">
           <span class="badge" :class="`badge-${issue.type_code}`">{{ typeLabel(issue.type_code) }}</span>
@@ -176,8 +263,19 @@ onMounted(() => {
           >
             {{ stateName(issue.state_id) }}
           </span>
-          <span class="issue-detail__priority">
+          <span v-if="editField === 'priority'" class="edit-row edit-row--inline">
+            <select v-model="editValue" class="edit-select" @change="saveEdit">
+              <option value="urgent">紧急</option>
+              <option value="high">高</option>
+              <option value="medium">中</option>
+              <option value="low">低</option>
+              <option value="none">无</option>
+            </select>
+            <button class="btn btn--sm" @click="cancelEdit" :disabled="editSaving">取消</button>
+          </span>
+          <span v-else class="issue-detail__priority editable" @click="startEdit('priority', issue.priority)">
             优先级: {{ ({ urgent: "紧急", high: "高", medium: "中", low: "低", none: "无" } as Record<string, string>)[issue.priority] ?? issue.priority }}
+            <span class="edit-hint">✎</span>
           </span>
           <span v-if="issue.severity" class="issue-detail__field">严重度: S{{ issue.severity }}</span>
           <span v-if="issue.found_phase" class="issue-detail__field">发现阶段: {{ issue.found_phase }}</span>
@@ -185,9 +283,20 @@ onMounted(() => {
         </div>
 
         <div class="issue-detail__section">
-          <h3>描述</h3>
-          <div v-if="issue.description_html" class="issue-detail__desc" v-html="issue.description_html"></div>
-          <p v-else class="text-muted">暂无描述</p>
+          <div class="section-head">
+            <h3>描述</h3>
+            <button class="btn btn--sm btn--ghost" @click="startEdit('description_html', issue.description_html ?? '')">编辑</button>
+          </div>
+          <div v-if="editField === 'description_html'" class="edit-row">
+            <textarea v-model="editValue" class="edit-textarea" rows="8" autofocus></textarea>
+            <div class="edit-row__actions">
+              <button class="btn btn--sm btn--primary" @click="saveEdit" :disabled="editSaving">{{ editSaving ? "保存中..." : "保存" }}</button>
+              <button class="btn btn--sm" @click="cancelEdit" :disabled="editSaving">取消</button>
+              <span v-if="editError" class="form-error">{{ editError }}</span>
+            </div>
+          </div>
+          <div v-else-if="issue.description_html" class="issue-detail__desc" v-html="issue.description_html"></div>
+          <p v-else class="text-muted">暂无描述，点击编辑添加</p>
         </div>
 
         <div v-if="issue.type_code === 'defect'" class="issue-detail__section">
@@ -302,8 +411,27 @@ onMounted(() => {
           </div>
         </div>
         <div v-else-if="!showTimeLogForm" class="text-muted">暂无工时记录</div>
+
+        <!-- 关联关系 -->
+        <RelationPanel
+          v-if="ws"
+          :workspace-id="ws.id"
+          :project-id="props.projectId"
+          :issue-id="props.issueId"
+          style="margin-top: 24px"
+        />
       </aside>
     </div>
+
+    <IssueCreateModal
+      v-if="ws && issue"
+      :workspace-id="ws.id"
+      :project-id="props.projectId"
+      :visible="showDefectModal"
+      preset-type="defect"
+      @close="showDefectModal = false"
+      @created="showDefectModal = false"
+    />
   </div>
 </template>
 
@@ -333,6 +461,73 @@ onMounted(() => {
   font-weight: 600;
   margin: 4px 0 12px;
   color: var(--text-primary);
+}
+
+.editable { cursor: pointer; }
+.editable:hover .edit-hint { opacity: 1; }
+
+.edit-hint {
+  font-size: 12px;
+  color: var(--brand-500);
+  opacity: 0;
+  transition: opacity 0.15s;
+  margin-left: 6px;
+}
+
+.section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.section-head h3 { margin: 0; }
+
+.edit-row {
+  margin-bottom: 8px;
+}
+
+.edit-row--inline {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.edit-input,
+.edit-textarea,
+.edit-select {
+  padding: 6px 10px;
+  font-size: 13px;
+  font-family: inherit;
+  color: var(--text-primary);
+  background: var(--surface-2);
+  border: 1px solid var(--brand-500);
+  border-radius: var(--radius-sm);
+  outline: none;
+}
+
+.edit-input {
+  width: 100%;
+  font-size: 22px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.edit-textarea {
+  width: 100%;
+  resize: vertical;
+  margin-bottom: 6px;
+}
+
+.edit-select {
+  cursor: pointer;
+}
+
+.edit-row__actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
 }
 
 .issue-detail__meta-row {

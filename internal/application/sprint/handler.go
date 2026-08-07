@@ -1,4 +1,4 @@
-// Package sprint — Sprint HTTP handlers (REST API)。
+// Package sprint — Sprint HTTP handlers（REST API）。
 package sprint
 
 import (
@@ -37,8 +37,8 @@ func (h *Handler) Register(r *gin.RouterGroup) {
 		sprint.GET("", h.getSprint)
 		sprint.PATCH("", h.updateSprint)
 		sprint.DELETE("", h.deleteSprint)
-		sprint.POST(":start", h.startSprint)
-		sprint.POST(":complete", h.completeSprint)
+		sprint.POST("/start", h.startSprint)
+		sprint.POST("/complete", h.completeSprint)
 
 		// 进度/规划
 		sprint.GET("/progress", h.getSprintProgress)

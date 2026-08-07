@@ -1,3 +1,4 @@
+// Package mail 测试：验证 MIME 消息拼装符合 multipart/alternative 规范。
 package mail
 
 import (
@@ -5,6 +6,8 @@ import (
 	"testing"
 )
 
+// TestBuildMimeMessageMultipartAlternative 验证 buildMimeMessage 生成
+// multipart/alternative 结构，同时包含 text/plain 与 text/html 两部分。
 func TestBuildMimeMessageMultipartAlternative(t *testing.T) {
 	msg := Message{
 		To:      "alice@example.com",

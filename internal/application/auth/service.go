@@ -1,6 +1,6 @@
-// Package auth implements authentication use cases: password login, token
-// issue/refresh, and token parsing. Passwords are bcrypt-hashed; tokens are
-// JWT (HS256 for MVP, RS256 via key pair in Phase 3).
+// Package auth 实现认证用例：密码登录、token 签发/刷新与 token 解析。
+// 密码使用 bcrypt 散列；token 使用 JWT（MVP 阶段 HS256，Phase 3 切换
+// 非对称密钥对 RS256）。
 package auth
 
 import (

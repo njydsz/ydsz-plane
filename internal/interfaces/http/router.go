@@ -69,12 +69,36 @@ func RegisterIssueRoutes(r *gin.Engine, d *Deps) {
 	read := projects.Group("")
 	read.Use(middleware.RequirePermission(d.WorkspaceStore, auth.PermWorkspaceRead))
 	d.IssueHandler.Register(read, nil, nil)
-	if d.SprintHandler != nil {
-		d.SprintHandler.Register(projects)
+}
+
+// RegisterSprintRoutes 注册迭代路由（独立于 Issue 路由，可在 IssueHandler 未就绪时注册）。
+func RegisterSprintRoutes(r *gin.Engine, d *Deps) {
+	if d.SprintHandler == nil {
+		return
 	}
-	if d.VersionHandler != nil {
-		d.VersionHandler.Register(projects)
+	v1 := r.Group("/api/v1/workspaces/:workspace_id")
+	v1.Use(
+		middleware.RequireAuth(d.Auth.ParseAccess),
+		middleware.RequireWorkspaceParam(),
+	)
+	projects := v1.Group("/projects/:project_id")
+	projects.Use(middleware.RequireProjectParam())
+	d.SprintHandler.Register(projects)
+}
+
+// RegisterVersionRoutes 注册版本日路由（独立于 Issue 路由）。
+func RegisterVersionRoutes(r *gin.Engine, d *Deps) {
+	if d.VersionHandler == nil {
+		return
 	}
+	v1 := r.Group("/api/v1/workspaces/:workspace_id")
+	v1.Use(
+		middleware.RequireAuth(d.Auth.ParseAccess),
+		middleware.RequireWorkspaceParam(),
+	)
+	projects := v1.Group("/projects/:project_id")
+	projects.Use(middleware.RequireProjectParam())
+	d.VersionHandler.Register(projects)
 }
 
 // NewEngine builds the HTTP engine with the full middleware chain.

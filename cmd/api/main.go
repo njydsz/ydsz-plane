@@ -111,11 +111,13 @@ func run() error {
 	stateSvc := issue.NewStateService(pool.Pool)
 	activitySvc := issue.NewActivityService(pool.Pool)
 	timeLogSvc := issue.NewTimeLogService(pool.Pool)
+	relationSvc := issue.NewRelationService(pool.Pool)
 	issueHandler := issue.NewIssueHandler(&issue.HandlerDeps{
 		IssueSvc:       issueSvc,
 		StateSvc:       stateSvc,
 		ActivitySvc:    activitySvc,
 		TimeLogSvc:     timeLogSvc,
+		RelationSvc:    relationSvc,
 		WorkspaceStore: wsStore,
 	})
 
@@ -159,7 +161,19 @@ func run() error {
 		Auth:           authSvc,
 		WorkspaceStore: wsStore,
 		IssueHandler:   issueHandler,
+	})
+
+	// 注册迭代路由（独立于 Issue 路由）
+	httpapi.RegisterSprintRoutes(engine, &httpapi.Deps{
+		Auth:           authSvc,
+		WorkspaceStore: wsStore,
 		SprintHandler:  sprintHandler,
+	})
+
+	// 注册版本日路由（独立于 Issue 路由）
+	httpapi.RegisterVersionRoutes(engine, &httpapi.Deps{
+		Auth:           authSvc,
+		WorkspaceStore: wsStore,
 		VersionHandler: versionHandler,
 	})
 

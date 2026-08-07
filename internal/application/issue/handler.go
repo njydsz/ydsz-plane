@@ -1,4 +1,4 @@
-// Package issue — Issue HTTP handlers (REST API)。
+// Package issue — Issue HTTP handlers（REST API）。
 package issue
 
 import (
@@ -498,5 +498,126 @@ func writeErr(c *gin.Context, err error) {
 		return
 	}
 	middleware.AbortWithError(c, errs.ErrInternal)
+}
+
+// --- Relation handlers ---
+
+func (h *IssueHandler) listRelations(c *gin.Context) {
+	wsID := c.GetInt64(middleware.CtxWorkspaceID)
+	issueID := int64Param(c, "issue_id")
+
+	rels, err := h.d.RelationSvc.ListRelations(c.Request.Context(), wsID, issueID)
+	if err != nil {
+		writeErr(c, err)
+		return
+	}
+	if rels == nil {
+		rels = []IssueRelation{}
+	}
+	c.JSON(http.StatusOK, gin.H{"results": rels})
+}
+
+func (h *IssueHandler) createRelation(c *gin.Context) {
+	wsID := c.GetInt64(middleware.CtxWorkspaceID)
+	projectID := c.GetInt64(middleware.CtxProjectID)
+	issueID := int64Param(c, "issue_id")
+	userID := c.GetInt64(middleware.CtxUserID)
+
+	var req struct {
+		TargetIssueID int64  `json:"target_issue_id" binding:"required"`
+		RelationType  string `json:"relation_type" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		middleware.AbortWithError(c, errs.ErrValidation.WithDetails(fieldDetail(err)))
+		return
+	}
+
+	rel, err := h.d.RelationSvc.CreateRelation(c.Request.Context(), CreateRelationInput{
+		WorkspaceID:   wsID,
+		ProjectID:     projectID,
+		SourceIssueID: issueID,
+		TargetIssueID: req.TargetIssueID,
+		RelationType:  req.RelationType,
+		CreatedBy:     userID,
+	})
+	if err != nil {
+		writeErr(c, err)
+		return
+	}
+	c.JSON(http.StatusCreated, rel)
+}
+
+func (h *IssueHandler) deleteRelation(c *gin.Context) {
+	wsID := c.GetInt64(middleware.CtxWorkspaceID)
+	relationID := int64Param(c, "relation_id")
+
+	if err := h.d.RelationSvc.DeleteRelation(c.Request.Context(), wsID, relationID); err != nil {
+		writeErr(c, err)
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
+
+// --- Dependency handlers ---
+
+func (h *IssueHandler) listDependencies(c *gin.Context) {
+	wsID := c.GetInt64(middleware.CtxWorkspaceID)
+	issueID := int64Param(c, "issue_id")
+
+	predecessors, successors, err := h.d.RelationSvc.ListDependencies(c.Request.Context(), wsID, issueID)
+	if err != nil {
+		writeErr(c, err)
+		return
+	}
+	if predecessors == nil {
+		predecessors = []IssueDependency{}
+	}
+	if successors == nil {
+		successors = []IssueDependency{}
+	}
+	c.JSON(http.StatusOK, gin.H{"predecessors": predecessors, "successors": successors})
+}
+
+func (h *IssueHandler) createDependency(c *gin.Context) {
+	wsID := c.GetInt64(middleware.CtxWorkspaceID)
+	projectID := c.GetInt64(middleware.CtxProjectID)
+	userID := c.GetInt64(middleware.CtxUserID)
+
+	var req struct {
+		PredecessorID  int64  `json:"predecessor_id" binding:"required"`
+		SuccessorID    int64  `json:"successor_id" binding:"required"`
+		DependencyType string `json:"dependency_type" binding:"required,oneof=FS SS FF SF"`
+		LagDays        int    `json:"lag_days"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		middleware.AbortWithError(c, errs.ErrValidation.WithDetails(fieldDetail(err)))
+		return
+	}
+
+	dep, err := h.d.RelationSvc.CreateDependency(c.Request.Context(), CreateDependencyInput{
+		WorkspaceID:    wsID,
+		ProjectID:      projectID,
+		PredecessorID:  req.PredecessorID,
+		SuccessorID:    req.SuccessorID,
+		DependencyType: req.DependencyType,
+		LagDays:        req.LagDays,
+		CreatedBy:      userID,
+	})
+	if err != nil {
+		writeErr(c, err)
+		return
+	}
+	c.JSON(http.StatusCreated, dep)
+}
+
+func (h *IssueHandler) deleteDependency(c *gin.Context) {
+	wsID := c.GetInt64(middleware.CtxWorkspaceID)
+	depID := int64Param(c, "dep_id")
+
+	if err := h.d.RelationSvc.DeleteDependency(c.Request.Context(), wsID, depID); err != nil {
+		writeErr(c, err)
+		return
+	}
+	c.Status(http.StatusNoContent)
 }
 

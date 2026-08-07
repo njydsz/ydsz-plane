@@ -1,9 +1,9 @@
-// Package telemetry exposes Prometheus metrics (server side) following the
-// RED method: Rate (requests/sec), Errors (failed req/sec), Duration
-// (latency histogram with P50/P95/P99 buckets). Import
-// "github.com/prometheus/client_golang/prometheus/promhttp" to expose /metrics.
+// Package telemetry 暴露 Prometheus 指标（服务端），遵循 RED 方法：
+// Rate（每秒请求数）、Errors（每秒失败请求数）、Duration（延迟直方图，
+// P50/P95/P99 分桶）。导入 "github.com/prometheus/client_golang/prometheus/promhttp"
+// 可暴露 /metrics 端点。
 //
-// Reference: Google SRE Book Chapter 6 — Monitoring Distributed Systems.
+// 参考：Google SRE Book 第 6 章《监控分布式系统》。
 package telemetry
 
 import (
@@ -14,14 +14,14 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
-// Namespace prefix for all metrics, following Prometheus naming conventions.
+// namespace 是所有指标的前缀，遵循 Prometheus 命名规范。
 const (
 	namespace = "ydsz"
 	subsystem = "http"
 )
 
 var (
-	// RequestTotal counts requests by method, route, and status class.
+	// RequestTotal 按 method / route / status 统计请求总数。
 	RequestTotal = promauto.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: namespace,
@@ -32,7 +32,7 @@ var (
 		[]string{"method", "route", "status"},
 	)
 
-	// RequestDurationMs records request latency distribution.
+	// RequestDurationMs 记录请求延迟分布。
 	RequestDurationMs = promauto.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Namespace: namespace,
@@ -44,7 +44,7 @@ var (
 		[]string{"method", "route"},
 	)
 
-	// DBDurationMs records database query latency (called manually from services).
+	// DBDurationMs 记录数据库查询延迟（由服务层手动调用埋点）。
 	DBDurationMs = promauto.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Namespace: namespace,
@@ -55,7 +55,7 @@ var (
 		[]string{"operation"},
 	)
 
-	// RedisPublished counts outbox events relayed to Redis Streams (success/fail).
+	// RedisPublished 统计转发到 Redis Streams 的 outbox 事件（成功/失败）。
 	RedisPublished = promauto.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: namespace,
@@ -65,7 +65,7 @@ var (
 		[]string{"status"},
 	)
 
-	// AuthOperations counts registration/login/refresh outcomes.
+	// AuthOperations 统计注册/登录/刷新结果。
 	AuthOperations = promauto.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: namespace,
@@ -76,9 +76,9 @@ var (
 	)
 )
 
-// MetricsMiddleware records request_total + request_duration_ms per request.
-// It extracts the matched route pattern (c.FullPath()) so that parameters
-// like /api/v1/workspaces/{slug}/issues/123 collapse into one label series.
+// MetricsMiddleware 为每个请求记录 request_total 与 request_duration_ms。
+// 它提取匹配的路由模式（c.FullPath()），使形如
+// /api/v1/workspaces/{slug}/issues/123 的路径坍缩为同一组标签序列。
 func MetricsMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		start := time.Now()
@@ -95,7 +95,7 @@ func MetricsMiddleware() gin.HandlerFunc {
 	}
 }
 
-// classStatus maps HTTP status code to the coarse label "2xx".."5xx".
+// classStatus 将 HTTP 状态码映射为粗粒度标签 "2xx".."5xx"。
 func classStatus(code int) string {
 	switch {
 	case code < 200:

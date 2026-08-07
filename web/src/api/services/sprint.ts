@@ -182,10 +182,10 @@ export const sprintApi = {
 
   // --- 迭代生命周期 ---
   startSprint: (wsId: number, projectId: number, sprintId: number) =>
-    wrap<Sprint>(http.post(`/workspaces/${wsId}/projects/${projectId}/sprints/${sprintId}:start`)),
+    wrap<Sprint>(http.post(`/workspaces/${wsId}/projects/${projectId}/sprints/${sprintId}/start`)),
   completeSprint: (wsId: number, projectId: number, sprintId: number, input: CompleteSprintInput) =>
     wrap<Sprint>(
-      http.post(`/workspaces/${wsId}/projects/${projectId}/sprints/${sprintId}:complete`, input),
+      http.post(`/workspaces/${wsId}/projects/${projectId}/sprints/${sprintId}/complete`, input),
     ),
 
   // --- 进度 ---

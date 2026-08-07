@@ -1,3 +1,6 @@
+// 本文件属于 Package mq：基于 RabbitMQ 的任务队列实现。
+// 提供 Task 定义、TaskClient（入队）与 Worker（消费分发），
+// 替代 M0.5/S1 阶段的 Redis 版 Asynq 语义。
 package mq
 
 import (
@@ -12,77 +15,74 @@ import (
 	"go.uber.org/zap"
 )
 
-// ----- Handler callback -----
+// ----- 处理器回调 -----
 
-// TaskHandler processes a single delivery. Returning an error signals
-// the Worker to NACK-and-requeue (subject to the per-task MaxRetries).
+// TaskHandler 处理单条投递。返回错误表示让 Worker 执行
+// NACK 并重新入队（受每个任务 MaxRetries 限制）。
 type TaskHandler func(ctx context.Context, task Task) error
 
-// ----- Task definition -----
+// ----- 任务定义 -----
 
-// Task is a unit of asynchronous work submitted to a RabbitMQ-backed queue.
-// Built atop the same RabbitMQ primitives used by the Outbox event bus:
-//   - Delayed dispatch via per-message TTL + DLX loopback.
-//   - Priority selection via per-queue `x-max-priority` header.
-//   - Retries with capped exponential backoff.
-//   - Dead-letter routing for exhausted / permanently-failed tasks.
+// Task 是提交到 RabbitMQ 任务队列的一个异步工作单元。
+// 构建在 Outbox 事件总线使用的同一套 RabbitMQ 原语之上：
+//   - 通过 per-message TTL + DLX 回环实现延迟分发。
+//   - 通过队列级 `x-max-priority` header 实现优先级选择。
+//   - 封顶指数退避重试。
+//   - 对重试耗尽/永久失败的任务做死信路由。
 //
-// This type replaces the Redis-backed Asynq semantics used in M0.5 / S1.
+// 该类型替代 M0.5 / S1 阶段基于 Redis 的 Asynq 语义。
 type Task struct {
-	// ID is a unique identifier for dedup and logging. Auto-generated on
-	// Enqueue if left empty.
+	// ID 用于去重与日志的唯一标识。Enqueue 时若为空则自动生成。
 	ID string `json:"id"`
 
-	// Type selects the handler. Maps 1:1 to a queue name
-	// (`task.<Type>`) bound to TaskExchange using routing key `task.<Type>`.
+	// Type 选择处理器。与队列名一一对应（`task.<Type>`），
+	// 以路由键 `task.<Type>` 绑定到 TaskExchange。
 	Type string `json:"type"`
 
-	// Payload is the opaque task data. Handlers decode what they need.
+	// Payload 是不透明的任务数据。处理器自行解码所需字段。
 	Payload json.RawMessage `json:"payload"`
 
-	// Priority selects dispatch order among pending tasks on the same queue.
-	// Range 0-255, higher = dispatched sooner. Default 0 (no priority).
-	// Receivers must declare `x-max-priority` on their queue.
+	// Priority 决定同队列待处理任务间的分发顺序。
+	// 范围 0-255，越大越先分发。默认 0（无优先级）。
+	// 接收方必须在其队列上声明 `x-max-priority`。
 	Priority uint8 `json:"priority"`
 
-	// MaxRetries caps automatic requeues after handler failure. After the
-	// Nth failed attempt the task is NOT requeued and follows the queue's
-	// dead-letter route. Default 0 — no retries.
+	// MaxRetries 限制处理器失败后的自动重新入队次数。第 N 次失败后
+	// 任务不再入队，而是走队列的死信路由。默认 0 —— 不重试。
 	MaxRetries int `json:"max_retries"`
 
-	// RetryCount is incremented by the Worker on each requeue. Begin at 0.
+	// RetryCount 由 Worker 在每次重新入队时递增。初始为 0。
 	RetryCount int `json:"retry_count"`
 
-	// Delay is the minimum wait before the task becomes dispatchable. The
-	// underlying mechanism is per-message TTL: the task is first routed to
-	// a transient intermediary via the DeadLetterExchange and, after expiry,
-	// bounced back to the task queue. Maximum 24 h per RabbitMQ policy.
+	// Delay 是任务变为可分发前的最小等待时长。底层机制是 per-message
+	// TTL：任务先经 DeadLetterExchange 路由到临时中转，TTL 到期后
+	// 弹回任务队列。受 RabbitMQ 策略限制最大 24 小时。
 	Delay time.Duration `json:"delay"`
 
-	// CreatedAt is the task submission timestamp; used for metrics.
+	// CreatedAt 是任务提交时间戳，用于指标统计。
 	CreatedAt time.Time `json:"created_at"`
 }
 
-// RoutingKey returns the AMQP routing key for this task type.
+// RoutingKey 返回该任务类型的 AMQP 路由键。
 func (t Task) RoutingKey() string {
 	return "task." + t.Type
 }
 
-// IsZero reports whether the Task is an empty placeholder.
+// IsZero 报告 Task 是否为空占位。
 func (t Task) IsZero() bool { return t.Type == "" }
 
 // ----- TaskClient -----
 
-// TaskClient submits Task payloads to the RabbitMQ task queues. It is safe
-// for concurrent use because the underlying Client serialises publishes.
+// TaskClient 向 RabbitMQ 任务队列提交 Task 负载。
+// 并发安全：底层 Client 串行化发布。
 type TaskClient struct {
 	client *Client
 	log    *zap.Logger
 	mu     sync.Mutex
 }
 
-// NewTaskClient wraps an existing *Client for task submission.
-// The caller remains responsible for closing the underlying Client.
+// NewTaskClient 包装既有 *Client 用于任务提交。
+// 底层 Client 的关闭仍由调用方负责。
 func NewTaskClient(client *Client, log *zap.Logger) *TaskClient {
 	if log == nil {
 		log = zap.NewNop()
@@ -90,8 +90,8 @@ func NewTaskClient(client *Client, log *zap.Logger) *TaskClient {
 	return &TaskClient{client: client, log: log}
 }
 
-// Enqueue submits a task to its queue. If task.ID is empty, one is generated.
-// The queue is lazily declared on first use (idempotent).
+// Enqueue 将任务提交到其队列。task.ID 为空时自动生成。
+// 队列在首次使用时惰性声明（幂等）。
 func (tc *TaskClient) Enqueue(ctx context.Context, task Task) error {
 	if task.Type == "" {
 		return errors.New("mq/task: task type is required")
@@ -106,7 +106,7 @@ func (tc *TaskClient) Enqueue(ctx context.Context, task Task) error {
 	tc.mu.Lock()
 	defer tc.mu.Unlock()
 
-	// Ensure queue exists (idempotent).
+	// 确保队列存在（幂等）。
 	if err := tc.ensureQueue(ctx, task); err != nil {
 		return err
 	}
@@ -134,10 +134,8 @@ func (tc *TaskClient) Enqueue(ctx context.Context, task Task) error {
 		if task.Delay > 24*time.Hour {
 			return fmt.Errorf("mq/task: delay exceeds 24h maximum (%s)", task.Delay)
 		}
-		// Per-message TTL (requires RabbitMQ ≥ 3.11). On expiry the message
-		// is routed to the queue's DLX; the task queue binds its DLX
-		// bounce-routing-key to itself → the message returns to the head of
-		// the queue after the delay has elapsed.
+		// Per-message TTL（需 RabbitMQ ≥ 3.11）。到期后消息路由到队列的 DLX；
+		// 任务队列将 DLX 反弹路由键绑定到自身 → 延迟结束后消息回到队首。
 		msg.Expiration = fmt.Sprintf("%d", task.Delay.Milliseconds())
 	}
 
@@ -155,7 +153,7 @@ func (tc *TaskClient) Enqueue(ctx context.Context, task Task) error {
 	return nil
 }
 
-// ensureQueue lazily declares the queue and binds it to TaskExchange.
+// ensureQueue 惰性声明队列并绑定到 TaskExchange。
 func (tc *TaskClient) ensureQueue(ctx context.Context, task Task) error {
 	qName := queueName(task.Type)
 	if tc.client.QueueExists(ctx, qName) {
@@ -169,10 +167,9 @@ func (tc *TaskClient) ensureQueue(ctx context.Context, task Task) error {
 
 // ----- Worker -----
 
-// Worker consumes Task deliveries from RabbitMQ queues and dispatches to
-// registered handlers. It replaces asynq.ServeMux for the Ydsz Plane task
-// subsystem while sharing the same proven connection model used by the
-// Outbox Relay.
+// Worker 从 RabbitMQ 队列消费 Task 投递并分发给已注册的处理器。
+// 它替代 asynq.ServeMux 用于 Ydsz Plane 任务子系统，
+// 同时共享 Outbox Relay 已验证的连接模型。
 type Worker struct {
 	client   *Client
 	log      *zap.Logger
@@ -180,7 +177,7 @@ type Worker struct {
 	mu       sync.RWMutex
 }
 
-// NewWorker wraps a connected *Client as a task-queue consumer.
+// NewWorker 将已连接的 *Client 包装为任务队列消费者。
 func NewWorker(client *Client, log *zap.Logger) *Worker {
 	if log == nil {
 		log = zap.NewNop()
@@ -188,15 +185,14 @@ func NewWorker(client *Client, log *zap.Logger) *Worker {
 	return &Worker{client: client, log: log, handlers: make(map[string]TaskHandler)}
 }
 
-// Register assigns a handler for the given task type. Calling with the same
-// type overwrites the previous handler.
+// Register 为指定任务类型注册处理器。重复注册同类型会覆盖旧处理器。
 func (w *Worker) Register(taskType string, handler TaskHandler) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	w.handlers[taskType] = handler
 }
 
-// QueueNames returns the queue names of all currently-registered handlers.
+// QueueNames 返回当前全部已注册处理器对应的队列名。
 func (w *Worker) QueueNames() []string {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
@@ -207,14 +203,12 @@ func (w *Worker) QueueNames() []string {
 	return qs
 }
 
-// Start launches one consumer goroutine per registered queue and blocks
-// until ctx is cancelled. On cancellation each consumer finishes its
-// current delivery (when possible) and returns. If a consumer drops due to
-// connection loss, Start exits with that error; the Client.reconnectLoop
-// will re-establish the connection and the caller is expected to invoke
-// Start again.
+// Start 为每个已注册队列启动一个消费者 goroutine 并阻塞至 ctx 取消。
+// 取消时每个消费者尽可能完成当前投递后返回。若消费者因连接丢失退出，
+// Start 携带该错误返回；Client.reconnectLoop 会重建连接，
+// 调用方应再次调用 Start。
 //
-// Idempotent-checked: call Stop by cancelling the ctx passed to Start.
+// 幂等检查：通过取消传给 Start 的 ctx 来停止。
 func (w *Worker) Start(ctx context.Context) error {
 	names := w.QueueNames()
 	if len(names) == 0 {
@@ -247,7 +241,7 @@ func (w *Worker) runConsumer(ctx context.Context, queue string) error {
 			if err := json.Unmarshal(delivery.Body, &task); err != nil {
 				w.log.Warn("mq/task: unmarshal error, routing to DLQ",
 					zap.Error(err), zap.String("queue", queue))
-				// Unparseable → do NOT requeue (return error → NACK).
+				// 无法解析 → 不重新入队（返回错误 → NACK）。
 				return fmt.Errorf("mq/task: bad payload: %w", err)
 			}
 
@@ -257,13 +251,13 @@ func (w *Worker) runConsumer(ctx context.Context, queue string) error {
 			if !ok {
 				w.log.Warn("mq/task: no handler registered",
 					zap.String("type", task.Type), zap.String("queue", queue))
-				return nil // ACK defensive — shouldn't happen
+				return nil // 防御性 ACK —— 正常情况下不应发生
 			}
 
 			if err := handler(ctx, task); err != nil {
 				return w.handleFailure(ctx, task, err)
 			}
-			return nil // ACK on success
+			return nil // 成功即 ACK
 		})
 		if errors.Is(err, context.Canceled) || ctx.Err() != nil {
 			return err
@@ -278,8 +272,7 @@ func (w *Worker) runConsumer(ctx context.Context, queue string) error {
 	}
 }
 
-// handleFailure decides whether to retry a failed task or let it fall
-// through to the dead-letter queue.
+// handleFailure 决定失败任务是重试还是落入死信队列。
 func (w *Worker) handleFailure(ctx context.Context, task Task, handlerErr error) error {
 	w.log.Warn("mq/task: handler failed",
 		zap.String("type", task.Type),
@@ -290,11 +283,11 @@ func (w *Worker) handleFailure(ctx context.Context, task Task, handlerErr error)
 	)
 
 	if task.RetryCount >= task.MaxRetries {
-		// No retries remaining → allow NACK to route to DLX.
+		// 无剩余重试 → 允许 NACK 路由到 DLX。
 		return fmt.Errorf("mq/task: %s exhausted retries: %w", task.Type, handlerErr)
 	}
 
-	// Re-enqueue with incremented RetryCount and exponential backoff.
+	// 以递增的 RetryCount 与指数退避重新入队。
 	task.RetryCount++
 	backoff := retryBackoff(task.RetryCount)
 	task.Delay = backoff
@@ -304,12 +297,12 @@ func (w *Worker) handleFailure(ctx context.Context, task Task, handlerErr error)
 	if err := tc.Enqueue(ctx, task); err != nil {
 		w.log.Error("mq/task: retry enqueue failed", zap.Error(err))
 	}
-	// Return the original error → NACK the exhausted delivery without requeue
-	// (the retry path produced a fresh message with its own envelope).
+	// 返回原始错误 → 将耗尽投递的这条 NACK 且不重新入队
+	// （重试路径已生成带独立信封的新消息）。
 	return handlerErr
 }
 
-// retryBackoff calculates capped exponential backoff: 2^attempt seconds, max 30s.
+// retryBackoff 计算封顶指数退避：2^attempt 秒，最大 30s。
 func retryBackoff(attempt int) time.Duration {
 	d := time.Duration(1<<uint(attempt)) * time.Second
 	if d > 30*time.Second {
@@ -318,9 +311,9 @@ func retryBackoff(attempt int) time.Duration {
 	return d
 }
 
-// ----- helpers -----
+// ----- 辅助函数 -----
 
-// queueName derives a durable queue identifier from a task type.
+// queueName 从任务类型推导持久队列标识。
 func queueName(taskType string) string {
 	return "task." + taskType
 }
