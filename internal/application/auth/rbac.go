@@ -29,6 +29,8 @@ const (
 	// Project management
 	PermProjectCreate = "project:create"
 	PermProjectDelete = "project:delete"
+	// Audit
+	PermAuditRead = "audit:read"
 	// Issue management
 	PermIssueCreate = "issue:create"
 	PermIssueDelete = "issue:delete"
@@ -75,12 +77,14 @@ var Roles = map[WorkspaceRole][]string{
 		PermWorkspaceRead, PermWorkspaceUpdate, PermWorkspaceDelete,
 		PermMemberInvite, PermMemberRemove, PermMemberChangeRole,
 		PermProjectCreate, PermProjectDelete,
+		PermAuditRead,
 		PermIssueCreate, PermIssueDelete,
 	},
 	RoleAdmin: {
 		PermWorkspaceRead, PermWorkspaceUpdate,
 		PermMemberInvite, PermMemberRemove,
 		PermProjectCreate, PermProjectDelete,
+		PermAuditRead,
 		PermIssueCreate, PermIssueDelete,
 	},
 	RoleMember: {

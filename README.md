@@ -141,6 +141,8 @@ ydsz-plane/
 
 ## 快速开始
 
+> 📖 **[本地开发环境配置](docs/本地开发环境配置.md)** - 包含服务地址、账号密码、快速启动指南
+
 ### Docker Compose（推荐）
 
 ```bash
@@ -164,17 +166,15 @@ docker compose -f deployments/docker-compose.yml --profile full up -d
 - Go 1.25+
 - Node.js 20+
 - pnpm 10+
-- PostgreSQL 16（或 Docker 中的 pg）
-- Redis 7（或 Docker 中的 redis）
-- NATS 2.10（或 Docker 中的 nats）
+- Docker & Docker Compose
 
 #### 启动基础设施 + 后端
 
 ```bash
-# 1. 启动基础设施容器
-make up           # docker compose up -d postgres redis nats
+# 1. 启动基础设施容器 (PostgreSQL + Redis + NATS + Mailpit)
+make up
 
-# 2. 配置环境变量
+# 2. 配置环境变量（已默认配置为本地开发环境，可直接复制）
 cp .env.example .env
 
 # 3. 运行数据库迁移
@@ -197,7 +197,7 @@ cd web
 # 安装依赖
 pnpm install
 
-# 启动开发服务器（http://localhost:5173）
+# 启动开发服务器（http://127.0.0.1:5173）
 pnpm dev
 ```
 
@@ -206,6 +206,17 @@ pnpm dev
 ```bash
 make dev-worker   # go run ./cmd/worker
 ```
+
+#### 常用服务端口
+
+| 服务 | 地址 | 说明 |
+|------|------|------|
+| API Server | http://127.0.0.1:8080 | 后端 API |
+| Swagger UI | http://127.0.0.1:8080/swagger/index.html | API 文档 |
+| Web (Vite) | http://127.0.0.1:5173 | 前端开发服务器 |
+| Mailpit UI | http://127.0.0.1:8025 | 邮件测试 Web UI |
+
+> 完整服务连接信息（Redis/MySQL/MinIO 等）请参考 [本地开发环境配置](docs/本地开发环境配置.md)
 
 ## Makefile 命令速查
 

@@ -38,6 +38,7 @@ type Deps struct {
 	MemberSvc       *workspace.MemberService
 	InvitationSvc   *workspace.InvitationService
 	ProjectSvc      *workspace.ProjectService
+	AuditSvc        *workspace.AuditService
 	Mail            mail.EmailService
 }
 
@@ -117,6 +118,9 @@ func NewEngine(d *Deps) *gin.Engine {
 			ws.POST("/invitations", requireWsPermission(d, auth.PermMemberInvite), sendInvitation(d))
 			ws.GET("/invitations", listInvitations(d))
 			ws.DELETE("/invitations/:invitation_id", requireWsPermission(d, auth.PermMemberInvite), revokeInvitation(d))
+
+			// 审计（owner/admin only）
+			ws.GET("/audit-logs", requireWsPermission(d, auth.PermAuditRead), listAuditLogs(d))
 
 			// 项目
 			ws.GET("/projects", requireWsPermission(d, auth.PermWorkspaceRead), listProjects(d))

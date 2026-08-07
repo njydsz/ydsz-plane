@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/redis/go-redis/v9"
 	"github.com/spf13/viper"
 )
 
@@ -40,6 +41,14 @@ type RedisConfig struct {
 	Addr     string
 	Password string
 	DB       int
+}
+
+func (r RedisConfig) RedisOptions() *redis.Options {
+	return &redis.Options{
+		Addr:     r.Addr,
+		Password: r.Password,
+		DB:       r.DB,
+	}
 }
 
 type NATSConfig struct {
@@ -77,15 +86,16 @@ func Load() (*Config, error) {
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	v.AutomaticEnv()
 
-	// defaults (local development friendly)
+	// defaults (local development friendly) - 基于文档中的真实环境配置
 	v.SetDefault("server.env", "development")
 	v.SetDefault("server.port", 8080)
-	v.SetDefault("database.url", "postgres://ydsz:ydsz@localhost:5432/ydsz?sslmode=disable")
+	v.SetDefault("database.url", "postgres://postgres:Limw1020@127.0.0.1:5432/ydsz-plane?sslmode=disable")
 	v.SetDefault("database.max_conns", 20)
 	v.SetDefault("database.conn_max_lifetime", "30m")
-	v.SetDefault("redis.addr", "localhost:6379")
+	v.SetDefault("redis.addr", "127.0.0.1:6379")
+	v.SetDefault("redis.password", "Limw1020")
 	v.SetDefault("redis.db", 0)
-	v.SetDefault("nats.url", "nats://localhost:4222")
+	v.SetDefault("nats.url", "nats://127.0.0.1:4222")
 	v.SetDefault("auth.jwt_issuer", "ydsz-plane")
 	// dev-only ephemeral secret (rotated each startup); production requires explicit value
 	v.SetDefault("auth.jwt_secret", "")
@@ -98,13 +108,13 @@ func Load() (*Config, error) {
 	v.SetDefault("features.registration_open", true)
 
 	v.SetDefault("email.enabled", false)
-	v.SetDefault("email.smtp_host", "localhost")
+	v.SetDefault("email.smtp_host", "127.0.0.1")
 	v.SetDefault("email.smtp_port", 1025) // mailpit default
 	v.SetDefault("email.smtp_user", "")
 	v.SetDefault("email.smtp_pass", "")
 	v.SetDefault("email.smtp_from", "Ydsz Plane <no-reply@ydsz.dev>")
 	v.SetDefault("email.smtp_use_tls", false)
-	v.SetDefault("email.app_base_url", "http://localhost:5173")
+	v.SetDefault("email.app_base_url", "http://127.0.0.1:5173")
 
 	cfg := &Config{}
 	if err := v.Unmarshal(cfg); err != nil {

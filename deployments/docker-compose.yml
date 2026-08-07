@@ -4,28 +4,28 @@ services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: ydsz
-      POSTGRES_PASSWORD: ydsz
-      POSTGRES_DB: ydsz
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: Limw1020
+      POSTGRES_DB: ydsz-plane
     ports:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ydsz"]
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
       timeout: 3s
       retries: 20
 
   redis:
     image: redis:7-alpine
-    command: redis-server --appendonly yes
+    command: redis-server --appendonly yes --requirepass Limw1020
     ports:
       - "6379:6379"
     volumes:
       - redisdata:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "-a", "Limw1020", "ping"]
       interval: 5s
       timeout: 3s
       retries: 20
@@ -41,6 +41,15 @@ services:
       interval: 5s
       timeout: 3s
       retries: 20
+
+  # Mailpit - 本地邮件测试服务
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "1025:1025"  # SMTP
+      - "8025:8025"  # Web UI
+    volumes:
+      - mailpitdata:/data
 
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.14.3
@@ -59,8 +68,8 @@ services:
     profiles: ["full"]
     command: server /data --console-address ":9001"
     environment:
-      MINIO_ROOT_USER: ydsz
-      MINIO_ROOT_PASSWORD: ydsz-minio-secret
+      MINIO_ROOT_USER: admin
+      MINIO_ROOT_PASSWORD: Limw1020
     ports:
       - "9000:9000"
       - "9001:9001"
@@ -78,8 +87,9 @@ services:
     environment:
       YDSZ_SERVER_ENV: production
       YDSZ_SERVER_PORT: 8080
-      YDSZ_DATABASE_URL: postgres://ydsz:ydsz@postgres:5432/ydsz?sslmode=disable
+      YDSZ_DATABASE_URL: postgres://postgres:Limw1020@postgres:5432/ydsz-plane?sslmode=disable
       YDSZ_REDIS_ADDR: redis:6379
+      YDSZ_REDIS_PASSWORD: Limw1020
       YDSZ_NATS_URL: nats://nats:4222
       YDSZ_AUTH_JWT_SECRET: ${YDSZ_AUTH_JWT_SECRET:?set YDSZ_AUTH_JWT_SECRET in .env}
       YDSZ_LOG_FORMAT: json
@@ -96,8 +106,9 @@ services:
       api: { condition: service_started }
     environment:
       YDSZ_SERVER_ENV: production
-      YDSZ_DATABASE_URL: postgres://ydsz:ydsz@postgres:5432/ydsz?sslmode=disable
+      YDSZ_DATABASE_URL: postgres://postgres:Limw1020@postgres:5432/ydsz-plane?sslmode=disable
       YDSZ_REDIS_ADDR: redis:6379
+      YDSZ_REDIS_PASSWORD: Limw1020
       YDSZ_NATS_URL: nats://nats:4222
       YDSZ_AUTH_JWT_SECRET: ${YDSZ_AUTH_JWT_SECRET:?set YDSZ_AUTH_JWT_SECRET in .env}
       YDSZ_LOG_FORMAT: json
@@ -116,5 +127,6 @@ services:
 volumes:
   pgdata:
   redisdata:
+  mailpitdata:
   esdata:
   miniodata:

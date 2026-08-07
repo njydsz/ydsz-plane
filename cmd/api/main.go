@@ -87,6 +87,7 @@ func run() error {
 	}
 
 	invitationSvc := workspace.NewInvitationService(pool.Pool, mailSvc, cfg.Email.AppBaseURL)
+	auditSvc := workspace.NewAuditService(pool.Pool)
 
 	// ---------- HTTP Engine ----------
 	engine := httpapi.NewEngine(&httpapi.Deps{
@@ -101,6 +102,7 @@ func run() error {
 		MemberSvc:      memberSvc,
 		InvitationSvc:  invitationSvc,
 		ProjectSvc:     projectSvc,
+		AuditSvc:       auditSvc,
 		Mail:           mailSvc,
 	})
 

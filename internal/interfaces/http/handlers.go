@@ -62,6 +62,9 @@ func createWorkspace(d *Deps) gin.HandlerFunc {
 			writeError(c, err)
 			return
 		}
+		d.AuditSvc.RecordFromGin(c, ws.ID, "workspace.create", ws.Name, map[string]any{
+			"slug": ws.Slug, "timezone": ws.Timezone,
+		})
 		c.JSON(http.StatusCreated, ws)
 	}
 }
@@ -101,6 +104,9 @@ func updateWorkspace(d *Deps) gin.HandlerFunc {
 			writeError(c, err)
 			return
 		}
+		d.AuditSvc.RecordFromGin(c, wsID, "workspace.update", ws.Name, map[string]any{
+			"fields": req,
+		})
 		c.JSON(http.StatusOK, ws)
 	}
 }
@@ -112,6 +118,7 @@ func archiveWorkspace(d *Deps) gin.HandlerFunc {
 			writeError(c, err)
 			return
 		}
+		d.AuditSvc.RecordFromGin(c, wsID, "workspace.archive", "", nil)
 		c.Status(http.StatusNoContent)
 	}
 }
@@ -151,6 +158,9 @@ func changeMemberRole(d *Deps) gin.HandlerFunc {
 			writeError(c, err)
 			return
 		}
+		d.AuditSvc.RecordFromGin(c, wsID, "member.role_change", strconv.FormatInt(targetID, 10), map[string]any{
+			"new_role": req.Role,
+		})
 		c.Status(http.StatusNoContent)
 	}
 }
@@ -169,6 +179,7 @@ func removeMember(d *Deps) gin.HandlerFunc {
 			writeError(c, err)
 			return
 		}
+		d.AuditSvc.RecordFromGin(c, wsID, "member.remove", strconv.FormatInt(targetID, 10), nil)
 		c.Status(http.StatusNoContent)
 	}
 }
@@ -196,6 +207,9 @@ func sendInvitation(d *Deps) gin.HandlerFunc {
 			writeError(c, err)
 			return
 		}
+		d.AuditSvc.RecordFromGin(c, wsID, "invitation.send", req.Email, map[string]any{
+			"role": inv.Role,
+		})
 		c.JSON(http.StatusCreated, inv)
 	}
 }
@@ -221,6 +235,7 @@ func revokeInvitation(d *Deps) gin.HandlerFunc {
 			writeError(c, err)
 			return
 		}
+		d.AuditSvc.RecordFromGin(c, wsID, "invitation.revoke", strconv.FormatInt(invID, 10), nil)
 		c.Status(http.StatusNoContent)
 	}
 }
@@ -292,6 +307,9 @@ func createProject(d *Deps) gin.HandlerFunc {
 			writeError(c, err)
 			return
 		}
+		d.AuditSvc.RecordFromGin(c, wsID, "project.create", p.Identifier, map[string]any{
+			"name": p.Name, "slug": p.Slug,
+		})
 		c.JSON(http.StatusCreated, p)
 	}
 }
@@ -338,6 +356,27 @@ func archiveProject(d *Deps) gin.HandlerFunc {
 			writeError(c, err)
 			return
 		}
+		d.AuditSvc.RecordFromGin(c, wsID, "project.archive", strconv.FormatInt(projectID, 10), nil)
 		c.Status(http.StatusNoContent)
+	}
+}
+
+// ==================================================================
+// 审计（仅 owner/admin 可见）
+// ==================================================================
+
+func listAuditLogs(d *Deps) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		wsID := c.GetInt64(middleware.CtxWorkspaceID)
+		limit := 50
+		if l, err := strconv.Atoi(c.Query("limit")); err == nil && l > 0 && l <= 200 {
+			limit = l
+		}
+		rows, err := d.AuditSvc.List(c.Request.Context(), wsID, limit)
+		if err != nil {
+			writeError(c, err)
+			return
+		}
+		c.JSON(http.StatusOK, rows)
 	}
 }
