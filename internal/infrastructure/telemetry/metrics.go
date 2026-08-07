@@ -74,6 +74,17 @@ var (
 		},
 		[]string{"operation", "status"},
 	)
+
+	// VersionOperations 统计版本 CRUD 与生命周期操作（S6 大厂加固）。
+	// labels: operation=create|update|delete|active|released|archived, status=success|error
+	VersionOperations = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: namespace,
+			Name:      "version_operations_total",
+			Help:      "Version CRUD and lifecycle operations.",
+		},
+		[]string{"operation", "status"},
+	)
 )
 
 // MetricsMiddleware 为每个请求记录 request_total 与 request_duration_ms。

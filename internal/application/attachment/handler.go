@@ -75,7 +75,7 @@ func (h *Handler) getPresignedUploadURL(c *gin.Context) {
 		EntityID    int64  `json:"entity_id" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.AbortWithError(c, errs.ErrValidation.WithDetails(fieldDetail(err)))
+		middleware.AbortWithError(c, errs.ErrValidation.WithDetails(fieldDetail(err)...))
 		return
 	}
 
@@ -181,10 +181,10 @@ func sanitizeFilename(name string) string {
 	return name
 }
 
-func fieldDetail(err error) []errs.ErrorDetail {
+func fieldDetail(err error) []errs.FieldDetail {
 	// 提供基础的字段级错误详情
 	if err != nil {
-		return []errs.ErrorDetail{
+		return []errs.FieldDetail{
 			{Field: "body", Reason: err.Error()},
 		}
 	}
@@ -193,7 +193,7 @@ func fieldDetail(err error) []errs.ErrorDetail {
 
 func writeErr(c *gin.Context, err error) {
 	if appErr, ok := err.(*errs.AppError); ok {
-		c.JSON(appErr.HTTPStatus(), gin.H{"error": appErr})
+		c.JSON(appErr.HTTP, gin.H{"error": appErr})
 		return
 	}
 	c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{

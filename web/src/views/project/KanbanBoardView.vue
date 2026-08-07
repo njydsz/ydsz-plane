@@ -1,12 +1,13 @@
 <script setup lang="ts">
 /**
- * 看板视图 — 按状态分列展示工作项，支持创建/详情跳转。
+ * 看板视图 — 按状态分列展示工作项。
+ * 支持: 列间拖拽流转 / 列内拖拽排序 / 视觉反馈 / 中值插入排序。
  */
-
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, ref, nextTick } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
 import { workspaceApi } from "@/api/services/workspace";
+import { issueApi, type Issue } from "@/api/services/issue";
 import { useIssueStore } from "@/stores/issue";
 import IssueCreateModal from "./IssueCreateModal.vue";
 
@@ -18,8 +19,12 @@ const projectId = computed(() => Number(route.params.projectId));
 const wsId = ref(0);
 const loading = ref(true);
 const error = ref("");
-const dragIssueId = ref<number | null>(null);
 const showCreateModal = ref(false);
+
+// --- 拖拽状态 ---
+const dragIssue = ref<Issue | null>(null);
+const dragOverColumn = ref<number | null>(null);
+const dropIndex = ref<number | null>(null);
 
 async function load() {
   loading.value = true;
@@ -45,31 +50,90 @@ async function load() {
   }
 }
 
-function issuesInState(stateId: number) {
-  return issueStore.issues.filter((i) => i.state_id === stateId);
+/** 获取某列内的工作项，按 sort_order 升序 */
+function issuesInState(stateId: number): Issue[] {
+  return issueStore.issues
+    .filter((i) => i.state_id === stateId)
+    .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
 }
 
-function onDragStart(issueId: number) {
-  dragIssueId.value = issueId;
+// --- 拖拽事件 ---
+
+function onDragStart(issue: Issue, event: DragEvent) {
+  dragIssue.value = issue;
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", String(issue.id));
+  }
 }
 
-function onDragOver(e: DragEvent) {
-  e.preventDefault();
+function onDragEnd() {
+  dragIssue.value = null;
+  dragOverColumn.value = null;
+  dropIndex.value = null;
 }
 
-async function onDrop(stateId: number) {
-  if (dragIssueId.value == null) return;
-  const issueId = dragIssueId.value;
-  dragIssueId.value = null;
+function onColumnDragOver(stateId: number, event: DragEvent) {
+  event.preventDefault();
+  dragOverColumn.value = stateId;
+  if (event.dataTransfer) {
+    event.dataTransfer.dropEffect = "move";
+  }
+}
 
-  const issue = issueStore.issues.find((i) => i.id === issueId);
-  if (!issue || issue.state_id === stateId) return;
+function onColumnDragLeave(stateId: number) {
+  if (dragOverColumn.value === stateId) {
+    dragOverColumn.value = null;
+  }
+}
 
-  const wsIdVal = Number(route.params.wsId ?? 0);
+/** 卡片间拖拽悬停 — 计算插入位置 */
+function onCardDragOver(stateId: number, index: number, event: DragEvent) {
+  event.preventDefault();
+  event.stopPropagation();
+  dragOverColumn.value = stateId;
+
+  // 根据鼠标在卡片上的位置确定插入上方还是下方
+  const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+  const mid = rect.top + rect.height / 2;
+  dropIndex.value = event.clientY < mid ? index : index + 1;
+}
+
+async function onColumnDrop(stateId: number, event: DragEvent) {
+  event.preventDefault();
+  const issue = dragIssue.value;
+  if (!issue) return;
+
+  const targetIdx = dropIndex.value;
+  dragIssue.value = null;
+  dragOverColumn.value = null;
+  dropIndex.value = null;
+
   try {
-    await issueStore.transitionIssue(wsIdVal, projectId.value, issueId, stateId);
+    // 跨列流转
+    if (issue.state_id !== stateId) {
+      issue = await issueApi.transition(wsId.value, projectId.value, issue.id, stateId);
+    }
+
+    // 列内排序
+    const columnIssues = issuesInState(stateId);
+    const insertIdx = targetIdx ?? columnIssues.length;
+
+    const prevIssue = insertIdx > 0 ? columnIssues[insertIdx - 1] : null;
+    const nextIssue = insertIdx < columnIssues.length ? columnIssues[insertIdx] : null;
+
+    await issueApi.reorder(
+      wsId.value,
+      projectId.value,
+      issue.id,
+      prevIssue?.sort_order ?? null,
+      nextIssue?.sort_order ?? null,
+    );
+
+    // 刷新看板
+    await issueStore.fetchIssues(wsId.value, projectId.value);
   } catch (e: unknown) {
-    error.value = e instanceof Error ? e.message : "流转失败";
+    error.value = e instanceof Error ? e.message : "操作失败";
   }
 }
 
@@ -95,7 +159,7 @@ onMounted(load);
     <header class="kanban__header">
       <div>
         <h1>看板</h1>
-        <p class="hint">拖拽工作项到不同状态列进行流转</p>
+        <p class="hint">拖拽工作项到不同列进行流转，列内拖拽调整排序</p>
       </div>
       <div class="header-right">
         <div class="view-switcher">
@@ -108,7 +172,7 @@ onMounted(load);
             class="view-tab"
           >列表</router-link>
         </div>
-        <button class="btn btn--primary" @click="showCreateModal = true">＋ 创建工作项</button>
+        <button class="btn btn--primary" @click="showCreateModal = true">+ 创建工作项</button>
       </div>
     </header>
 
@@ -120,8 +184,13 @@ onMounted(load);
         v-for="state in issueStore.states"
         :key="state.id"
         class="kanban__column"
-        @dragover="onDragOver"
-        @drop="onDrop(state.id)"
+        :class="{
+          'kanban__column--over': dragOverColumn === state.id && dragIssue?.state_id !== state.id,
+          'kanban__column--reorder': dragOverColumn === state.id && dragIssue?.state_id === state.id,
+        }"
+        @dragover="onColumnDragOver(state.id, $event)"
+        @dragleave="onColumnDragLeave(state.id)"
+        @drop="onColumnDrop(state.id, $event)"
       >
         <div class="kanban__column-header" :style="{ borderTopColor: state.color }">
           <span class="kanban__column-name">{{ state.name }}</span>
@@ -130,11 +199,17 @@ onMounted(load);
 
         <div class="kanban__cards">
           <div
-            v-for="iss in issuesInState(state.id)"
+            v-for="(iss, idx) in issuesInState(state.id)"
             :key="iss.id"
             class="issue-card"
+            :class="{
+              'issue-card--dragging': dragIssue?.id === iss.id,
+              'drop-above': dragIssue?.id !== iss.id && dropIndex === idx && dragOverColumn === state.id,
+            }"
             draggable="true"
-            @dragstart="onDragStart(iss.id)"
+            @dragstart="onDragStart(iss, $event)"
+            @dragend="onDragEnd"
+            @dragover="onCardDragOver(state.id, idx, $event)"
             @click="openIssue(iss.id)"
           >
             <div class="issue-card__header">
@@ -169,7 +244,15 @@ onMounted(load);
             </div>
           </div>
 
-          <div v-if="issuesInState(state.id).length === 0" class="kanban__empty">
+          <!-- 拖拽到空白列/列表末尾的插入指示器 -->
+          <div
+            v-if="issuesInState(state.id).length === 0 && dragOverColumn === state.id"
+            class="kanban__drop-empty"
+          >
+            释放以移动到此列
+          </div>
+
+          <div v-if="issuesInState(state.id).length === 0 && dragOverColumn !== state.id" class="kanban__empty">
             暂无工作项
           </div>
         </div>
@@ -274,6 +357,18 @@ onMounted(load);
   display: flex;
   flex-direction: column;
   max-height: calc(100vh - 220px);
+  transition: background 0.15s, box-shadow 0.15s;
+}
+
+/* 跨列拖拽 - 目标列高亮 */
+.kanban__column--over {
+  background: var(--brand-50);
+  box-shadow: inset 0 0 0 2px var(--brand-400);
+}
+
+/* 列内排序 - 轻微高亮 */
+.kanban__column--reorder {
+  box-shadow: inset 0 0 0 1px var(--brand-300);
 }
 
 .kanban__column-header {
@@ -283,6 +378,7 @@ onMounted(load);
   padding: 12px 14px;
   border-top: 3px solid;
   border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
 }
 
 .kanban__column-name {
@@ -305,7 +401,7 @@ onMounted(load);
   padding: 8px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 2px;
 }
 
 .kanban__empty {
@@ -315,19 +411,50 @@ onMounted(load);
   padding: 24px 0;
 }
 
+.kanban__drop-empty {
+  text-align: center;
+  color: var(--brand-500);
+  font-size: 13px;
+  font-weight: 500;
+  padding: 24px 8px;
+  border: 2px dashed var(--brand-300);
+  border-radius: var(--radius-sm);
+}
+
 .issue-card {
   padding: 12px;
   background: var(--surface-1);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
   cursor: grab;
-  transition: box-shadow 0.15s;
+  transition: box-shadow 0.15s, opacity 0.15s, transform 0.15s;
+  margin-bottom: 2px;
+  position: relative;
 }
 .issue-card:hover {
   box-shadow: var(--shadow-card);
 }
 .issue-card:active {
   cursor: grabbing;
+}
+
+/* 正在拖拽的卡片 */
+.issue-card--dragging {
+  opacity: 0.4;
+  transform: scale(0.97);
+}
+
+/* 插入指示线 */
+.drop-above::before {
+  content: "";
+  position: absolute;
+  top: -3px;
+  left: 8px;
+  right: 8px;
+  height: 3px;
+  background: var(--brand-500);
+  border-radius: 2px;
+  z-index: 1;
 }
 
 .issue-card__header {

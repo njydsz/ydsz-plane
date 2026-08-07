@@ -205,6 +205,9 @@ export interface UpdateIssueInput {
   modules?: number[];
   source?: string;
   version: number;
+  found_version_id?: number;
+  fix_version_id?: number;
+  release_version_id?: number;
 }
 
 /** 工作项列表查询参数（过滤/搜索/分页） */
@@ -218,6 +221,13 @@ export interface ListIssuesParams {
   sort?: string;
   limit?: number;
   offset?: number;
+  assignee_id?: number;
+  label_id?: number;
+  module_id?: number;
+  sprint_id?: number;
+  start_date_from?: string;
+  target_date_to?: string;
+  severity_from?: number;
 }
 
 /* ------------------------------------------------------------------ */
@@ -258,6 +268,22 @@ export const issueApi = {
       prev_sort_order: prevSortOrder ?? null,
       next_sort_order: nextSortOrder ?? null,
     })),
+
+  // --- 批量操作 ---
+  batch: (
+    wsId: number,
+    projectId: number,
+    input: {
+      issue_ids: number[];
+      to_state_id?: number;
+      assignee_id?: number;
+      priority?: string;
+      delete?: boolean;
+    },
+  ) =>
+    wrap<{ succeeded: number; failed: number }>(
+      http.post(`/workspaces/${wsId}/projects/${projectId}/issues/batch`, input),
+    ),
 
   // --- 活动日志 ---
   listActivities: (wsId: number, projectId: number, issueId: number, limit = 50, offset = 0) =>

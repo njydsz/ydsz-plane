@@ -47,6 +47,7 @@ func (h *IssueHandler) Register(r *gin.RouterGroup, wsMiddleware []gin.HandlerFu
 	r.GET("/states", h.listStates)
 	r.GET("/issues", h.listIssues)
 	r.POST("/issues", h.createIssue)
+	r.POST("/issues/batch", h.batchIssues)
 
 	// 单资源
 	issue := r.Group("/issues/:issue_id")
@@ -166,6 +167,52 @@ func (h *IssueHandler) createIssue(c *gin.Context) {
 	c.JSON(http.StatusCreated, iss)
 }
 
+// batchIssues 批量操作工作项（流转/指派/优先级/删除）。
+//
+//	@Summary		批量操作工作项
+//	@Description	支持批量流转、指派、变更优先级、删除
+//	@Tags			issue
+//	@Accept			json
+//	@Produce		json
+//	@Param			body	body	batchIssuesRequest	true	"批量操作信息"
+//	@Success		200		{object}	map[string]interface{}
+//	@Failure		422		{object}	errs.AppError
+//	@Router			/issues/batch [post]
+func (h *IssueHandler) batchIssues(c *gin.Context) {
+	wsID := c.GetInt64(middleware.CtxWorkspaceID)
+	projectID := c.GetInt64(middleware.CtxProjectID)
+	userID := c.GetInt64(middleware.CtxUserID)
+
+	var req batchIssuesRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		middleware.AbortWithError(c, errs.ErrValidation.WithDetails(fieldDetail(err)))
+		return
+	}
+
+	if len(req.IssueIDs) == 0 {
+		middleware.AbortWithError(c, errs.ErrValidation.WithDetails(errs.FieldDetail{Field: "issue_ids", Reason: "至少选择一个工作项"}))
+		return
+	}
+	if len(req.IssueIDs) > 100 {
+		middleware.AbortWithError(c, errs.ErrValidation.WithDetails(errs.FieldDetail{Field: "issue_ids", Reason: "单次批量操作不超过100项"}))
+		return
+	}
+
+	result, err := h.d.IssueSvc.BatchUpdate(c.Request.Context(), wsID, projectID, userID, BatchUpdateInput{
+		IssueIDs:   req.IssueIDs,
+		ToStateID:  req.ToStateID,
+		AssigneeID: req.AssigneeID,
+		Priority:   req.Priority,
+		Delete:     req.Delete,
+	})
+	if err != nil {
+		writeErr(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"succeeded": result.Succeeded, "failed": result.Failed})
+}
+
 // getIssue 获取工作项详情（REST handler，Swagger 注解见下）。
 //
 //	@Summary		获取工作项详情
@@ -239,6 +286,15 @@ func (h *IssueHandler) updateIssue(c *gin.Context) {
 	in.Modules = req.Modules
 	if req.Source != nil {
 		in.Source = req.Source
+	}
+	if req.FoundVersionID != nil {
+		in.FoundVersionID = req.FoundVersionID
+	}
+	if req.FixVersionID != nil {
+		in.FixVersionID = req.FixVersionID
+	}
+	if req.ReleaseVersionID != nil {
+		in.ReleaseVersionID = req.ReleaseVersionID
 	}
 
 	iss, err := h.d.IssueSvc.Update(c.Request.Context(), wsID, issueID, in)
@@ -340,6 +396,13 @@ func (h *IssueHandler) reorderIssue(c *gin.Context) {
 //	@Param			priority	query		string	false	"优先级"
 //	@Param			parent_id	query		int		false	"父级 ID"
 //	@Param			search		query		string	false	"名称搜索"
+//	@Param			assignee_id	query		int		false	"指派人 ID"
+//	@Param			label_id	query		int		false	"标签 ID"
+//	@Param			module_id	query		int		false	"模块 ID"
+//	@Param			sprint_id	query		int		false	"迭代 ID"
+//	@Param			start_date_from	query	string	false	"开始日期起 (ISO)"
+//	@Param			target_date_to	query	string	false	"截止日期止 (ISO)"
+//	@Param			severity_from	query	int		false	"最低严重级别"
 //	@Param			sort		query		string	false	"排序字段 (-updated_at, priority, target_date, created_at)"
 //	@Param			limit		query		int		false	"每页数量 (default 50, max 100)"
 //	@Param			offset		query		int		false	"偏移量"
@@ -379,6 +442,37 @@ func (h *IssueHandler) listIssues(c *gin.Context) {
 	if v := c.Query("parent_id"); v != "" {
 		if id, err := strconv.ParseInt(v, 10, 64); err == nil {
 			opts.ParentID = &id
+		}
+	}
+	if v := c.Query("assignee_id"); v != "" {
+		if id, err := strconv.ParseInt(v, 10, 64); err == nil {
+			opts.AssigneeID = &id
+		}
+	}
+	if v := c.Query("label_id"); v != "" {
+		if id, err := strconv.ParseInt(v, 10, 64); err == nil {
+			opts.LabelID = &id
+		}
+	}
+	if v := c.Query("module_id"); v != "" {
+		if id, err := strconv.ParseInt(v, 10, 64); err == nil {
+			opts.ModuleID = &id
+		}
+	}
+	if v := c.Query("sprint_id"); v != "" {
+		if id, err := strconv.ParseInt(v, 10, 64); err == nil {
+			opts.SprintID = &id
+		}
+	}
+	if v := c.Query("start_date_from"); v != "" {
+		opts.StartDateFrom = &v
+	}
+	if v := c.Query("target_date_to"); v != "" {
+		opts.TargetDateTo = &v
+	}
+	if v := c.Query("severity_from"); v != "" {
+		if sv, err := strconv.Atoi(v); err == nil {
+			opts.SeverityFrom = &sv
 		}
 	}
 
@@ -491,11 +585,22 @@ type updateIssueRequest struct {
 	Modules           []int64 `json:"modules"`
 	Source            *string `json:"source"`
 	Version           int     `json:"version" binding:"required"`
+	FoundVersionID    *int64  `json:"found_version_id"`
+	FixVersionID      *int64  `json:"fix_version_id"`
+	ReleaseVersionID  *int64  `json:"release_version_id"`
 }
 
 type reorderIssueRequest struct {
 	PrevSortOrder *float64 `json:"prev_sort_order"`
 	NextSortOrder *float64 `json:"next_sort_order"`
+}
+
+type batchIssuesRequest struct {
+	IssueIDs   []int64 `json:"issue_ids" binding:"required,min=1,max=100"`
+	ToStateID  *int64  `json:"to_state_id"`
+	AssigneeID *int64  `json:"assignee_id"`
+	Priority   *string `json:"priority"`
+	Delete     bool    `json:"delete"`
 }
 
 // --- helpers ---
@@ -699,7 +804,7 @@ func (h *IssueHandler) createComment(c *gin.Context) {
 		return
 	}
 
-	comment, err := h.d.CommentSvc.Create(c.Request.Context(), CreateCommentInput{
+	comment, err := h.d.CommentSvc.CreateWithEvent(c.Request.Context(), CreateCommentInput{
 		IssueID:         issueID,
 		WorkspaceID:     wsID,
 		ProjectID:       projectID,

@@ -6,12 +6,91 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/njydsz/ydsz-plane/pkg/errs"
 )
 
-// Comment 评论模型。
+// CreateWithEvent 在事务中创建评论并录制领域事件（comment.created）。
+// 供 IssueHandler 调用，确保评论创建与事件录制原子提交。
+func (s *CommentService) CreateWithEvent(ctx context.Context, input CreateCommentInput) (*Comment, error) {
+	var comment Comment
+	err := s.withTx(ctx, input.WorkspaceID, func(tx pgx.Tx) error {
+		mentions := input.Mentions
+		if mentions == nil {
+			mentions = []int64{}
+		}
+		if input.ContentJSON == nil {
+			input.ContentJSON = json.RawMessage("{}")
+		}
+
+		err := tx.QueryRow(ctx, `
+			INSERT INTO issue_comments
+				(workspace_id, project_id, issue_id, content_json, content_html, content_stripped,
+				 created_by, mentions, parent_id, created_at, updated_at)
+			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NOW(),NOW())
+			RETURNING id, workspace_id, project_id, issue_id, content_json, content_html,
+				content_stripped, created_by, mentions, parent_id, is_edited, edited_at,
+				created_at, updated_at`,
+			input.WorkspaceID, input.ProjectID, input.IssueID,
+			input.ContentJSON, input.ContentHTML, input.ContentStripped,
+			input.CreatedBy, mentions, input.ParentID,
+		).Scan(
+			&comment.ID, &comment.WorkspaceID, &comment.ProjectID, &comment.IssueID,
+			&comment.ContentJSON, &comment.ContentHTML, &comment.ContentStripped,
+			&comment.CreatedBy, &comment.Mentions, &comment.ParentID,
+			&comment.IsEdited, &comment.EditedAt, &comment.CreatedAt, &comment.UpdatedAt,
+		)
+		if err != nil {
+			return fmt.Errorf("CommentService.CreateWithEvent: insert: %w", err)
+		}
+
+		// 填充创建者信息
+		_ = tx.QueryRow(ctx, `SELECT display_name, COALESCE(avatar_url,'') FROM users WHERE id=$1`,
+			comment.CreatedBy).Scan(&comment.CreatorName, &comment.CreatorAvatar)
+
+		// 录制领域事件：comment.created → 通知工作项关注人
+		assignees := loadAssigneesForTx(ctx, tx, input.IssueID)
+		return recordCommentEvent(ctx, tx, input.WorkspaceID, input.IssueID, comment.ID,
+			input.CreatedBy, comment.CreatorName, input.ContentStripped, assignees)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &comment, nil
+}
+
+// withTx 事务辅助（复用 IssueService 的连接）。
+func (s *CommentService) withTx(ctx context.Context, wsID int64, fn func(tx pgx.Tx) error) error {
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin tx: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	if err := fn(tx); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}
+
+// loadAssigneesForTx 事务内查工作项分配人。
+func loadAssigneesForTx(ctx context.Context, tx pgx.Tx, issueID int64) []int64 {
+	rows, err := tx.Query(ctx, `SELECT user_id FROM issue_assignees WHERE issue_id = $1`, issueID)
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+	var ids []int64
+	for rows.Next() {
+		var uid int64
+		if err := rows.Scan(&uid); err == nil {
+			ids = append(ids, uid)
+		}
+	}
+	return ids
+}
 type Comment struct {
 	ID              int64           `json:"id"`
 	WorkspaceID     int64           `json:"workspace_id"`

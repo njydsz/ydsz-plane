@@ -1,4 +1,8 @@
 // Package version — Version HTTP handlers（REST API）。
+//
+// 大厂标准加固(S6):
+//   - 所有生命周期操作传递 actorID 用于审计日志
+//   - 输入校验与错误处理统一通过中间件
 package version
 
 import (
@@ -194,8 +198,9 @@ func (h *Handler) update(c *gin.Context) {
 func (h *Handler) delete(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	versionID := int64Param(c, "version_id")
+	userID := c.GetInt64(middleware.CtxUserID)
 
-	if err := h.svc.SoftDelete(c.Request.Context(), wsID, versionID); err != nil {
+	if err := h.svc.SoftDelete(c.Request.Context(), wsID, versionID, userID); err != nil {
 		writeErr(c, err)
 		return
 	}
@@ -207,8 +212,9 @@ func (h *Handler) delete(c *gin.Context) {
 func (h *Handler) activate(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	versionID := int64Param(c, "version_id")
+	userID := c.GetInt64(middleware.CtxUserID)
 
-	v, err := h.svc.Activate(c.Request.Context(), wsID, versionID)
+	v, err := h.svc.Activate(c.Request.Context(), wsID, versionID, userID)
 	if err != nil {
 		writeErr(c, err)
 		return
@@ -219,6 +225,7 @@ func (h *Handler) activate(c *gin.Context) {
 func (h *Handler) release(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	versionID := int64Param(c, "version_id")
+	userID := c.GetInt64(middleware.CtxUserID)
 
 	var req releaseVersionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -231,7 +238,7 @@ func (h *Handler) release(c *gin.Context) {
 		ForceChecklist:        req.ForceChecklist,
 		AddKnownIssuesToNotes: req.AddKnownIssuesToNotes,
 	}
-	v, err := h.svc.Release(c.Request.Context(), wsID, versionID, in)
+	v, err := h.svc.Release(c.Request.Context(), wsID, versionID, in, userID)
 	if err != nil {
 		writeErr(c, err)
 		return
@@ -242,8 +249,9 @@ func (h *Handler) release(c *gin.Context) {
 func (h *Handler) archive(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	versionID := int64Param(c, "version_id")
+	userID := c.GetInt64(middleware.CtxUserID)
 
-	v, err := h.svc.Archive(c.Request.Context(), wsID, versionID)
+	v, err := h.svc.Archive(c.Request.Context(), wsID, versionID, userID)
 	if err != nil {
 		writeErr(c, err)
 		return
@@ -443,4 +451,3 @@ func writeErr(c *gin.Context, err error) {
 	}
 	middleware.AbortWithError(c, errs.ErrInternal)
 }
-

@@ -7,6 +7,7 @@
 //   - 发布动作 4 步: 清单全勾选 → 准出校验 → 生成 Notes+报告 → 状态推进
 //   - 跨迭代进度聚合在版本详情中即时计算（事件失效缓存留给 M5 仪表盘）
 //   - 迭代与版本是 N:1 关系: sprints.version_id FK（一个迭代只属于一个版本）
+//   - 大厂标准加固(S6): 乐观锁 + Redis 分布式锁 + 审计日志 + 结构化日志 + Prometheus 指标
 package version
 
 import (
@@ -23,19 +24,53 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/redis/go-redis/v9"
+	"go.uber.org/zap"
 
+	"github.com/njydsz/ydsz-plane/internal/application/workspace"
+	"github.com/njydsz/ydsz-plane/internal/infrastructure/telemetry"
 	"github.com/njydsz/ydsz-plane/pkg/errs"
 )
 
+// Deps 版本服务的依赖注入。
+type Deps struct {
+	DB    *pgxpool.Pool
+	Redis *redis.Client
+	Audit *workspace.AuditService
+	Log   *zap.Logger
+}
+
 // Service 提供版本域应用服务。
 type Service struct {
-	db *pgxpool.Pool
+	db    *pgxpool.Pool
+	redis *redis.Client
+	audit *workspace.AuditService
+	log   *zap.Logger
 }
 
 // NewService 创建版本域服务。
-func NewService(db *pgxpool.Pool) *Service {
-	return &Service{db: db}
+func NewService(d Deps) *Service {
+	if d.Log == nil {
+		d.Log = zap.NewNop()
+	}
+	return &Service{
+		db:    d.DB,
+		redis: d.Redis,
+		audit: d.Audit,
+		log:   d.Log,
+	}
 }
+
+// ---- 常量 ----
+
+const (
+	// maxChecklistItems 发布清单条目上限（防止 DoS）。
+	maxChecklistItems = 50
+	// versionLockTTL 版本操作分布式锁 TTL。
+	versionLockTTL = 10 * time.Second
+	// versionLockKeyFmt Redis 分布式锁 key 格式。
+	versionLockKeyFmt = "lock:version:%d"
+)
 
 // ---- 状态机 ----
 
@@ -67,10 +102,16 @@ func checklistAllRequiredChecked(items []ChecklistItem) bool {
 	return true
 }
 
-// normalizeChecklist 对请求传入的清单规范化：补全 ID（客户端未传时）、trim label。
-func normalizeChecklist(in []ChecklistItem) []ChecklistItem {
+// normalizeChecklist 对请求传入的清单规范化：补全 ID（客户端未传时）、trim label、校验上限。
+func normalizeChecklist(in []ChecklistItem) ([]ChecklistItem, error) {
 	if in == nil {
-		return []ChecklistItem{}
+		return []ChecklistItem{}, nil
+	}
+	if len(in) > maxChecklistItems {
+		return nil, errs.ErrValidation.WithDetails(errs.FieldDetail{
+			Field:  "checklist",
+			Reason: fmt.Sprintf("检查清单条目不允许超过 %d 项", maxChecklistItems),
+		})
 	}
 	out := make([]ChecklistItem, 0, len(in))
 	for i, it := range in {
@@ -78,12 +119,18 @@ func normalizeChecklist(in []ChecklistItem) []ChecklistItem {
 		if it.Label == "" {
 			continue
 		}
+		if len(it.Label) > 200 {
+			return nil, errs.ErrValidation.WithDetails(errs.FieldDetail{
+				Field:  "checklist",
+				Reason: fmt.Sprintf("第 %d 项标签长度不允许超过 200 字符", i+1),
+			})
+		}
 		if it.ID == "" {
 			it.ID = fmt.Sprintf("chk-%d", i+1)
 		}
 		out = append(out, it)
 	}
-	return out
+	return out, nil
 }
 
 // ---- CRUD ----
@@ -97,10 +144,13 @@ func (s *Service) Create(ctx context.Context, in CreateVersionInput) (*Version, 
 	if semErr, _ := ParseSemVer(in.Semver); semErr != nil {
 		return nil, errs.ErrVersionSemverInvalid.WithDetails(errs.FieldDetail{Field: "semver", Reason: semErr.Error()})
 	}
-	checklist := normalizeChecklist(in.Checklist)
+	checklist, err := normalizeChecklist(in.Checklist)
+	if err != nil {
+		return nil, err
+	}
 
 	var v *Version
-	err := s.withTx(ctx, in.WorkspaceID, func(tx pgx.Tx) error {
+	err = s.withTx(ctx, in.WorkspaceID, func(tx pgx.Tx) error {
 		// 唯一性校验: 项目内 semver 未删除不重复
 		var exists bool
 		if err := tx.QueryRow(ctx,
@@ -124,33 +174,48 @@ func (s *Service) Create(ctx context.Context, in CreateVersionInput) (*Version, 
 			end = *in.EndDate
 		}
 
-		var id int64
+		v = &Version{}
 		err := tx.QueryRow(ctx, `
 			INSERT INTO versions (workspace_id, project_id, name, semver, description,
 				status, checklist, start_date, end_date, target_date, created_by)
 			VALUES ($1,$2,$3,$4,$5,'planning',$6,$7,$8,$9,$10)
 			RETURNING id, workspace_id, project_id, name, semver, description, status,
-				release_notes, delivered_at, start_date, end_date, target_date, archived_at, created_by, created_at, updated_at`,
+				version, release_notes, delivered_at, start_date, end_date, target_date, archived_at, created_by, created_at, updated_at`,
 			in.WorkspaceID, in.ProjectID, in.Name, in.Semver, in.Description,
 			clRaw, start, end, target, in.CreatedBy).Scan(
-			&id, &v.WorkspaceID, &v.ProjectID, &v.Name, &v.Semver,
-			&v.Description, &v.Status, &v.ReleaseNotes, &v.DeliveredAt,
+			&v.ID, &v.WorkspaceID, &v.ProjectID, &v.Name, &v.Semver,
+			&v.Description, &v.Status, &v.Version, &v.ReleaseNotes, &v.DeliveredAt,
 			&v.StartDate, &v.EndDate, &v.TargetDate,
 			&v.ArchivedAt, &v.CreatedBy, &v.CreatedAt, &v.UpdatedAt)
 		if err != nil {
 			return errs.ErrInternal.Wrap(err)
 		}
-		v.ID = id
 		v.Checklist = checklist
 		return nil
 	})
 	if err != nil {
+		telemetry.VersionOperations.WithLabelValues("create", "error").Inc()
 		return nil, s.mapPgError(err)
 	}
+
+	telemetry.VersionOperations.WithLabelValues("create", "success").Inc()
+	s.auditVersion(ctx, in.WorkspaceID, in.CreatedBy, "version.create",
+		fmt.Sprintf("v%s", in.Semver), map[string]any{
+			"version_id": v.ID,
+			"name":       in.Name,
+			"semver":     in.Semver,
+		})
+	s.log.Info("version created",
+		zap.Int64("id", v.ID),
+		zap.String("name", in.Name),
+		zap.String("semver", in.Semver),
+		zap.Int64("workspace_id", in.WorkspaceID),
+		zap.Int64("project_id", in.ProjectID),
+	)
 	return v, nil
 }
 
-// GetByID 获取版本详情(包含聚合进度/质量)。
+// GetByID 获取版本详情(包含聚合进度/质量/交付报告)。
 func (s *Service) GetByID(ctx context.Context, wsID, versionID int64) (*Version, error) {
 	v, err := s.getVersion(ctx, wsID, versionID)
 	if err != nil {
@@ -190,9 +255,10 @@ func (s *Service) List(ctx context.Context, opts ListVersionsOptions) ([]Version
 
 	rows, err := s.db.Query(ctx, `
 		SELECT v.id, v.workspace_id, v.project_id, v.name, v.semver, v.description,
-		       v.status, v.release_notes, v.delivered_at,
+		       v.status, v.version, v.release_notes, v.delivered_at,
 		       v.start_date, v.end_date, v.target_date, v.archived_at,
-		       v.created_by, v.created_at, v.updated_at
+		       v.created_by, v.created_at, v.updated_at,
+		       v.checklist
 		FROM versions v `+where+`
 		ORDER BY
 			CASE v.status WHEN 'active' THEN 0 WHEN 'planning' THEN 1 WHEN 'released' THEN 2 ELSE 3 END,
@@ -215,6 +281,7 @@ func (s *Service) List(ctx context.Context, opts ListVersionsOptions) ([]Version
 }
 
 // Update 更新版本字段(planning/active 状态允许修改；released/archived 不可)。
+// 使用乐观锁：请求必须携带当前 version，与 DB 中的 version 比对。
 func (s *Service) Update(ctx context.Context, wsID, versionID int64, in UpdateVersionInput) (*Version, error) {
 	var result *Version
 	err := s.withTx(ctx, wsID, func(tx pgx.Tx) error {
@@ -243,40 +310,58 @@ func (s *Service) Update(ctx context.Context, wsID, versionID int64, in UpdateVe
 			semverStr = *in.Semver
 		}
 
-		cl := v.Checklist
 		if in.Checklist != nil {
-			cl = normalizeChecklist(in.Checklist)
+			cl, err := normalizeChecklist(in.Checklist)
+			if err != nil {
+				return err
+			}
+			in.Checklist = cl
 		}
 
-		clRaw, _ := json.Marshal(cl)
+		clRaw, _ := json.Marshal(in.Checklist)
 		sets, args := buildUpdateSet(in, semverStr, clRaw)
 		if len(sets) == 0 {
 			result = v
 			return nil
 		}
-		args = append(args, versionID, wsID)
-		query := fmt.Sprintf(`UPDATE versions SET %s WHERE id = $%d AND workspace_id = $%d AND status NOT IN ('released','archived')`,
-			strings.Join(sets, ", "), len(args)-1, len(args))
+		// 乐观锁: WHERE version = expected_version
+		expectedVer := v.Version
+		if in.Version > 0 {
+			expectedVer = in.Version
+		}
+		args = append(args, expectedVer, versionID, wsID)
+		query := fmt.Sprintf(
+			`UPDATE versions SET %s WHERE version = $%d AND id = $%d AND workspace_id = $%d AND status NOT IN ('released','archived')`,
+			strings.Join(sets, ", "), len(args)-2, len(args)-1, len(args))
 
 		tag, err := tx.Exec(ctx, query, args...)
 		if err != nil {
 			return s.mapPgError(err)
 		}
 		if tag.RowsAffected() == 0 {
-			return errs.ErrVersionDataConflict
+			return errs.ErrVersionDataConflict.WithDetails(errs.FieldDetail{
+				Field: "version", Reason: "版本已被并发修改，请刷新后重试",
+			})
 		}
 		result, err = s.getVersion(ctx, wsID, versionID)
 		return err
 	})
 	if err != nil {
+		telemetry.VersionOperations.WithLabelValues("update", "error").Inc()
 		return nil, s.mapPgError(err)
 	}
+	telemetry.VersionOperations.WithLabelValues("update", "success").Inc()
+	s.log.Info("version updated",
+		zap.Int64("id", versionID),
+		zap.Int64("workspace_id", wsID),
+	)
 	return result, nil
 }
 
 // SoftDelete 删除版本 (仅 planning/archived 可删除)。
-func (s *Service) SoftDelete(ctx context.Context, wsID, versionID int64) error {
-	return s.withTx(ctx, wsID, func(tx pgx.Tx) error {
+func (s *Service) SoftDelete(ctx context.Context, wsID, versionID int64, actorID int64) error {
+	var semver string
+	err := s.withTx(ctx, wsID, func(tx pgx.Tx) error {
 		v, err := s.getVersionTx(ctx, tx, wsID, versionID)
 		if err != nil {
 			return err
@@ -284,6 +369,7 @@ func (s *Service) SoftDelete(ctx context.Context, wsID, versionID int64) error {
 		if v.Status == VersionActive || v.Status == VersionReleased {
 			return errs.ErrVersionInvalidLifecycle
 		}
+		semver = v.Semver
 		tag, err := tx.Exec(ctx, `UPDATE versions SET deleted_at = now(), updated_at = now() WHERE id = $1 AND workspace_id = $2`,
 			versionID, wsID)
 		if err != nil {
@@ -294,108 +380,217 @@ func (s *Service) SoftDelete(ctx context.Context, wsID, versionID int64) error {
 		}
 		return nil
 	})
+	if err != nil {
+		telemetry.VersionOperations.WithLabelValues("delete", "error").Inc()
+		return err
+	}
+	telemetry.VersionOperations.WithLabelValues("delete", "success").Inc()
+	s.auditVersion(ctx, wsID, actorID, "version.delete",
+		fmt.Sprintf("v%s", semver), map[string]any{"version_id": versionID})
+	s.log.Info("version deleted",
+		zap.Int64("id", versionID),
+		zap.String("semver", semver),
+		zap.Int64("workspace_id", wsID),
+	)
+	return nil
 }
 
 // ---- 状态机操作 ----
 
 // Activate 激活版本 (planning → active)。
-func (s *Service) Activate(ctx context.Context, wsID, versionID int64) (*Version, error) {
-	return s.transition(ctx, wsID, versionID, VersionActive)
+func (s *Service) Activate(ctx context.Context, wsID, versionID int64, actorID int64) (*Version, error) {
+	return s.transitionWithLock(ctx, wsID, versionID, VersionActive, actorID)
 }
 
 // Release 发布版本 (active → released)。
-func (s *Service) Release(ctx context.Context, wsID, versionID int64, in ReleaseVersionInput) (*Version, error) {
+func (s *Service) Release(ctx context.Context, wsID, versionID int64, in ReleaseVersionInput, actorID int64) (*Version, error) {
 	var result *Version
-	err := s.withTx(ctx, wsID, func(tx pgx.Tx) error {
-		v, err := s.getVersionTx(ctx, tx, wsID, versionID)
-		if err != nil {
-			return err
-		}
-		if v.Status != VersionActive {
-			return errs.ErrVersionInvalidLifecycle.WithDetails(
-				errs.FieldDetail{Field: "status", Reason: "仅 active 状态可发布"})
-		}
+	err := s.withLifecycleLock(ctx, wsID, versionID, func() error {
+		return s.withTx(ctx, wsID, func(tx pgx.Tx) error {
+			v, err := s.getVersionTx(ctx, tx, wsID, versionID)
+			if err != nil {
+				return err
+			}
+			if v.Status != VersionActive {
+				return errs.ErrVersionInvalidLifecycle.WithDetails(
+					errs.FieldDetail{Field: "status", Reason: "仅 active 状态可发布"})
+			}
 
-		// 1) 清单校验
-		if !in.ForceChecklist && !checklistAllRequiredChecked(v.Checklist) {
-			return errs.ErrVersionChecklistIncomplete
-		}
+			// 1) 清单校验
+			if !in.ForceChecklist && !checklistAllRequiredChecked(v.Checklist) {
+				return errs.ErrVersionChecklistIncomplete
+			}
 
-		// 2) 准出校验
-		quality := s.computeQuality(ctx, wsID, v)
-		if !quality.PassQualityGate {
-			return errs.ErrVersionNotQualityGate.WithDetails(
-				errs.FieldDetail{Field: "quality", Reason: fmt.Sprintf("严重/致命未关闭缺陷 %d 个", quality.CriticalBugs)})
-		}
+			// 2) 准出校验
+			quality := s.computeQuality(ctx, wsID, v)
+			if !quality.PassQualityGate {
+				return errs.ErrVersionNotQualityGate.WithDetails(
+					errs.FieldDetail{Field: "quality", Reason: fmt.Sprintf("严重/致命未关闭缺陷 %d 个", quality.CriticalBugs)})
+			}
 
-		// 3) Release Notes
-		progress := s.computeProgress(ctx, wsID, v)
-		_ = s.computeDeliveryReport(ctx, wsID, v, progress, quality)
-		noteSrc := s.buildReleaseNotesSource(ctx, wsID, v, in.AddKnownIssuesToNotes)
-		notes := renderReleaseNotes(v, noteSrc)
-		if strings.TrimSpace(in.DraftOverride) != "" {
-			notes = in.DraftOverride
-		}
+			// 3) Release Notes 生成（失败不回滚状态：Notes 丢失比阻塞发布更差）
+			progress := s.computeProgress(ctx, wsID, v)
+			_ = s.computeDeliveryReport(ctx, wsID, v, progress, quality)
+			noteSrc := s.buildReleaseNotesSource(ctx, wsID, v, in.AddKnownIssuesToNotes)
+			notes := renderReleaseNotes(v, noteSrc)
+			if strings.TrimSpace(in.DraftOverride) != "" {
+				notes = in.DraftOverride
+			}
 
-		now := time.Now().UTC()
-		tag, err := tx.Exec(ctx, `
-			UPDATE versions SET status = 'released', release_notes = $1, delivered_at = $2,
-				updated_at = now()
-			WHERE id = $3 AND workspace_id = $4 AND status = 'active'`,
-			notes, now, versionID, wsID)
-		if err != nil {
-			return errs.ErrInternal.Wrap(err)
-		}
-		if tag.RowsAffected() == 0 {
-			return errs.ErrVersionDataConflict
-		}
+			now := time.Now().UTC()
+			tag, err := tx.Exec(ctx, `
+				UPDATE versions SET status = 'released', release_notes = $1, delivered_at = $2,
+					updated_at = now()
+				WHERE id = $3 AND workspace_id = $4 AND status = 'active'`,
+				notes, now, versionID, wsID)
+			if err != nil {
+				return errs.ErrInternal.Wrap(err)
+			}
+			if tag.RowsAffected() == 0 {
+				return errs.ErrVersionDataConflict
+			}
 
-		result, err = s.getVersion(ctx, wsID, versionID)
-		return err
+			result, err = s.getVersion(ctx, wsID, versionID)
+			if err != nil {
+				return err
+			}
+
+			// 事务内记录交付快照
+			_, _ = tx.Exec(ctx, `
+				INSERT INTO version_delivery_snapshots (version_id, workspace_id, progress, quality, release_notes, snapshot_at)
+				VALUES ($1, $2, $3, $4, $5, $6)`,
+				versionID, wsID,
+				mustMarshalJSON(progress),
+				mustMarshalJSON(quality),
+				notes, now)
+
+			return nil
+		})
 	})
 	if err != nil {
+		telemetry.VersionOperations.WithLabelValues("release", "error").Inc()
 		return nil, s.mapPgError(err)
 	}
-	return result, nil
-}
-
-// transition 内部版本状态机推进。
-func (s *Service) transition(ctx context.Context, wsID, versionID int64, to VersionStatusCode) (*Version, error) {
-	var result *Version
-	err := s.withTx(ctx, wsID, func(tx pgx.Tx) error {
-		v, err := s.getVersionTx(ctx, tx, wsID, versionID)
-		if err != nil {
-			return err
-		}
-		if !canTransition(v.Status, to) {
-			return errs.ErrVersionInvalidLifecycle
-		}
-		var archivedAt string
-		if to == VersionArchived {
-			archivedAt = "archived_at = now(),"
-		}
-		query := fmt.Sprintf(`UPDATE versions SET status = $1, %s updated_at = now()
-			WHERE id = $2 AND workspace_id = $3 AND status = $4`, archivedAt)
-		fromStatus := string(v.Status)
-		tag, err := tx.Exec(ctx, query, string(to), versionID, wsID, fromStatus)
-		if err != nil {
-			return errs.ErrInternal.Wrap(err)
-		}
-		if tag.RowsAffected() == 0 {
-			return errs.ErrVersionDataConflict
-		}
-		result, err = s.getVersion(ctx, wsID, versionID)
-		return err
-	})
-	if err != nil {
-		return nil, s.mapPgError(err)
-	}
+	telemetry.VersionOperations.WithLabelValues("release", "success").Inc()
+	s.auditVersion(ctx, wsID, actorID, "version.release",
+		fmt.Sprintf("v%s", result.Semver), map[string]any{
+			"version_id":    result.ID,
+			"release_notes": result.ReleaseNotes,
+		})
+	s.log.Info("version released",
+		zap.Int64("id", result.ID),
+		zap.String("semver", result.Semver),
+		zap.Int64("workspace_id", wsID),
+	)
 	return result, nil
 }
 
 // Archive 归档版本 (任何状态都可归档)。
-func (s *Service) Archive(ctx context.Context, wsID, versionID int64) (*Version, error) {
-	return s.transition(ctx, wsID, versionID, VersionArchived)
+func (s *Service) Archive(ctx context.Context, wsID, versionID int64, actorID int64) (*Version, error) {
+	return s.transitionWithLock(ctx, wsID, versionID, VersionArchived, actorID)
+}
+
+// ---- 分布式锁 ----
+
+// withLifecycleLock 获取版本级 Redis 分布式锁，锁内执行 fn。
+// 获取失败返回 409（并发冲突）。
+func (s *Service) withLifecycleLock(ctx context.Context, wsID, versionID int64, fn func() error) error {
+	if s.redis == nil {
+		return fn()
+	}
+	key := fmt.Sprintf(versionLockKeyFmt, versionID)
+	ok, err := s.redis.SetNX(ctx, key, wsID, versionLockTTL).Result()
+	if err != nil {
+		// Redis 不可用时不阻塞业务，降级为仅 DB 条件更新
+		s.log.Warn("redis lock acquisition failed, falling back to db-only",
+			zap.Error(err),
+			zap.Int64("version_id", versionID),
+		)
+		return fn()
+	}
+	if !ok {
+		return errs.ErrVersionDataConflict.WithDetails(errs.FieldDetail{
+			Field: "version_id", Reason: "版本正在被其他操作处理，请稍后重试",
+		})
+	}
+	defer func() {
+		if err := s.redis.Del(ctx, key).Err(); err != nil {
+			s.log.Warn("failed to release redis lock",
+				zap.Error(err),
+				zap.Int64("version_id", versionID),
+			)
+		}
+	}()
+	return fn()
+}
+
+// transitionWithLock 带锁的状态转移。
+func (s *Service) transitionWithLock(ctx context.Context, wsID, versionID int64, to VersionStatusCode, actorID int64) (*Version, error) {
+	var result *Version
+	var fromStatus VersionStatusCode
+	err := s.withLifecycleLock(ctx, wsID, versionID, func() error {
+		return s.withTx(ctx, wsID, func(tx pgx.Tx) error {
+			v, err := s.getVersionTx(ctx, tx, wsID, versionID)
+			if err != nil {
+				return err
+			}
+			if !canTransition(v.Status, to) {
+				return errs.ErrVersionInvalidLifecycle
+			}
+			fromStatus = v.Status
+			var archivedAt string
+			if to == VersionArchived {
+				archivedAt = "archived_at = now(),"
+			}
+			query := fmt.Sprintf(`UPDATE versions SET status = $1, %s updated_at = now()
+				WHERE id = $2 AND workspace_id = $3 AND status = $4`, archivedAt)
+			tag, err := tx.Exec(ctx, query, string(to), versionID, wsID, string(v.Status))
+			if err != nil {
+				return errs.ErrInternal.Wrap(err)
+			}
+			if tag.RowsAffected() == 0 {
+				return errs.ErrVersionDataConflict
+			}
+			result, err = s.getVersion(ctx, wsID, versionID)
+			return err
+		})
+	})
+	if err != nil {
+		telemetry.VersionOperations.WithLabelValues(string(to), "error").Inc()
+		return nil, s.mapPgError(err)
+	}
+	telemetry.VersionOperations.WithLabelValues(string(to), "success").Inc()
+
+	action := fmt.Sprintf("version.%s", string(to))
+	s.auditVersion(ctx, wsID, actorID, action,
+		fmt.Sprintf("v%s", result.Semver), map[string]any{
+			"version_id":  result.ID,
+			"from_status": string(fromStatus),
+			"to_status":   string(to),
+		})
+	s.log.Info("version transition",
+		zap.Int64("id", result.ID),
+		zap.String("from", string(fromStatus)),
+		zap.String("to", string(to)),
+		zap.Int64("workspace_id", wsID),
+	)
+	return result, nil
+}
+
+// ---- 审计日志 ----
+
+// auditVersion 写入版本操作的审计日志（非阻塞，失败仅 Warn）。
+func (s *Service) auditVersion(ctx context.Context, wsID, actorID int64, action, target string, detail map[string]any) {
+	if s.audit == nil {
+		return
+	}
+	s.audit.Record(ctx, workspace.AuditEntry{
+		WorkspaceID: wsID,
+		ActorID:     actorID,
+		Action:      action,
+		Target:      target,
+		Detail:      detail,
+	})
 }
 
 // ---- 迭代聚合 ----
@@ -830,7 +1025,7 @@ func (s *Service) FilterDefects(ctx context.Context, f BugVersionFilter) ([]BugV
 func (s *Service) getVersion(ctx context.Context, wsID, versionID int64) (*Version, error) {
 	row := s.db.QueryRow(ctx, `
 		SELECT v.id, v.workspace_id, v.project_id, v.name, v.semver, v.description,
-		       v.status, v.release_notes, v.delivered_at,
+		       v.status, v.version, v.release_notes, v.delivered_at,
 		       v.start_date, v.end_date, v.target_date, v.archived_at,
 		       v.created_by, v.created_at, v.updated_at,
 		       v.checklist
@@ -846,7 +1041,7 @@ func (s *Service) getVersion(ctx context.Context, wsID, versionID int64) (*Versi
 func (s *Service) getVersionTx(ctx context.Context, tx pgx.Tx, wsID, versionID int64) (*Version, error) {
 	row := tx.QueryRow(ctx, `
 		SELECT v.id, v.workspace_id, v.project_id, v.name, v.semver, v.description,
-		       v.status, v.release_notes, v.delivered_at,
+		       v.status, v.version, v.release_notes, v.delivered_at,
 		       v.start_date, v.end_date, v.target_date, v.archived_at,
 		       v.created_by, v.created_at, v.updated_at,
 		       v.checklist
@@ -862,7 +1057,7 @@ func scanVersion(row pgx.Row) (*Version, error) {
 	var delAt sql.NullTime
 
 	err := row.Scan(&v.ID, &v.WorkspaceID, &v.ProjectID, &v.Name, &v.Semver,
-		&desc, &v.Status, &rn, &delAt, &sd, &ed, &td, &arc,
+		&desc, &v.Status, &v.Version, &rn, &delAt, &sd, &ed, &td, &arc,
 		&v.CreatedBy, &v.CreatedAt, &v.UpdatedAt, &cbRaw)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -912,7 +1107,8 @@ func (s *Service) listSprints(ctx context.Context, wsID, versionID int64) []Spri
 		       sp.review_snapshot
 		FROM sprints sp
 		WHERE sp.version_id = $1 AND sp.workspace_id = $2 AND sp.deleted_at IS NULL
-		ORDER BY sp.start_date NULLS LAST, sp.created_at`, versionID, wsID)
+		ORDER BY sp.start_date NULLS LAST, sp.created_at
+		LIMIT 100`, versionID, wsID)
 	if err != nil {
 		return nil
 	}
@@ -990,8 +1186,8 @@ func (s *Service) mapPgError(err error) error {
 		case "23503":
 			return errs.ErrValidation.WithDetails(errs.FieldDetail{Field: "reference", Reason: "引用的资源不存在"})
 		case "23514":
-			if strings.Contains(pgErr.ConstraintName, "semver") {
-				return errs.ErrVersionSemverInvalid.WithDetails(errs.FieldDetail{Field: "semver", Reason: pgErr.Detail})
+			if strings.Contains(pgErr.ConstraintName, "semver") || strings.Contains(pgErr.ConstraintName, "checklist") {
+				return errs.ErrValidation.WithDetails(errs.FieldDetail{Field: "version", Reason: pgErr.Detail})
 			}
 			return errs.ErrValidation.WithDetails(errs.FieldDetail{Field: "version", Reason: pgErr.Detail})
 		}
@@ -1020,6 +1216,12 @@ func validateCreateInput(in CreateVersionInput) error {
 	if strings.TrimSpace(in.Semver) == "" {
 		return errs.ErrValidation.WithDetails(errs.FieldDetail{Field: "semver", Reason: "语义版本号不能为空"})
 	}
+	if len(in.Semver) > 50 {
+		return errs.ErrValidation.WithDetails(errs.FieldDetail{Field: "semver", Reason: "语义版本号长度不能超过 50 字符"})
+	}
+	if len(in.Description) > 2000 {
+		return errs.ErrValidation.WithDetails(errs.FieldDetail{Field: "description", Reason: "版本描述长度不能超过 2000 字符"})
+	}
 	return nil
 }
 
@@ -1028,12 +1230,12 @@ func buildUpdateSet(in UpdateVersionInput, semver string, clRaw []byte) ([]strin
 	var args []interface{}
 	i := 1
 
-	if in.Name != nil {
+	if in.Name != nil && strings.TrimSpace(*in.Name) != "" && len(*in.Name) <= 120 {
 		sets = append(sets, fmt.Sprintf("name = $%d", i))
-		args = append(args, *in.Name)
+		args = append(args, strings.TrimSpace(*in.Name))
 		i++
 	}
-	if in.Description != nil {
+	if in.Description != nil && len(*in.Description) <= 2000 {
 		sets = append(sets, fmt.Sprintf("description = $%d", i))
 		args = append(args, *in.Description)
 		i++
@@ -1070,5 +1272,11 @@ func buildUpdateSet(in UpdateVersionInput, semver string, clRaw []byte) ([]strin
 	return sets, args
 }
 
-// Import placeholder.
-var _ = strconv.Itoa
+// mustMarshalJSON 序列化为 JSON 字节，失败返回 null 字面量。
+func mustMarshalJSON(v any) []byte {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return []byte("null")
+	}
+	return b
+}

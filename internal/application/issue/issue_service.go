@@ -6,6 +6,7 @@ package issue
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
@@ -98,12 +99,34 @@ type ListIssuesOptions struct {
 	FoundVersionID   *int64
 	FixVersionID     *int64
 	ReleaseVersionID *int64
+	AssigneeID       *int64
+	LabelID          *int64
+	ModuleID         *int64
+	SprintID         *int64
+	StartDateFrom    *string // ISO date string
+	TargetDateTo     *string // ISO date string
+	SeverityFrom     *int    // 缺陷最低严重级别
 }
 
 // ReorderInput 看板拖拽排序输入。
 type ReorderInput struct {
 	PrevSortOrder *float64 // 前一个工作项的 sort_order，nil 表示移到第一个
 	NextSortOrder *float64 // 后一个工作项的 sort_order，nil 表示移到最后一个
+}
+
+// BatchUpdateInput 批量操作输入。
+type BatchUpdateInput struct {
+	IssueIDs   []int64
+	ToStateID  *int64
+	AssigneeID *int64
+	Priority   *string
+	Delete     bool
+}
+
+// BatchResult 批量操作结果。
+type BatchResult struct {
+	Succeeded int
+	Failed    int
 }
 
 // --- CRUD ---
@@ -462,6 +485,28 @@ func (s *Service) Transition(ctx context.Context, wsID, projectID, issueID, toSt
 			s.triggerProgressRollup(ctx, tx, *iss.ParentID)
 		}
 
+		// 录制领域事件：issue.status_changed → 通知关注人
+		assignees := s.loadAssigneesTx(ctx, tx, issueID)
+		fromStateName := s.getStateName(ctx, tx, iss.StateID)
+		toStateName := s.getStateName(ctx, tx, toStateID)
+		var identifier, issueName string
+		_ = tx.QueryRow(ctx, `
+			SELECT p.identifier, i.name
+			FROM issues i JOIN projects p ON p.id = i.project_id
+			WHERE i.id = $1`, issueID).Scan(&identifier, &issueName)
+		_ = recordIssueEvent(ctx, tx, "issue.status_changed", issueEventPayload{
+			WorkspaceID: iss.WorkspaceID,
+			ProjectID:   iss.ProjectID,
+			ActorID:     userID,
+			ActorName:   s.getUserName(ctx, tx, userID),
+			IssueID:     issueID,
+			Identifier:  identifier,
+			Name:        issueName,
+			AssigneeIDs: assignees,
+			FromState:   fromStateName,
+			ToState:     toStateName,
+		})
+
 		return nil
 	})
 	if err != nil {
@@ -501,6 +546,70 @@ func (s *Service) Reorder(ctx context.Context, wsID, issueID int64, in ReorderIn
 	return s.GetByID(ctx, wsID, issueID)
 }
 
+// BatchUpdate 批量操作工作项（流转/指派/优先级/删除）。
+// 采用`尽力而为`策略：单个失败不影响其他项继续。
+func (s *Service) BatchUpdate(ctx context.Context, wsID, projectID, userID int64, in BatchUpdateInput) (BatchResult, error) {
+	var result BatchResult
+
+	for _, id := range in.IssueIDs {
+		var batchErr error
+
+		switch {
+		case in.Delete:
+			batchErr = s.SoftDelete(ctx, wsID, id)
+		case in.ToStateID != nil:
+			_, batchErr = s.Transition(ctx, wsID, projectID, id, *in.ToStateID, userID)
+		case in.AssigneeID != nil || in.Priority != nil:
+			batchErr = s.directUpdateIssue(ctx, wsID, id, in.AssigneeID, in.Priority)
+		default:
+			continue
+		}
+
+		if batchErr != nil {
+			result.Failed++
+		} else {
+			result.Succeeded++
+		}
+	}
+
+	if result.Succeeded == 0 && result.Failed > 0 {
+		return result, errs.ErrValidation.WithDetails(errs.FieldDetail{
+			Field: "issue_ids", Reason: "所有工作项操作均失败",
+		})
+	}
+
+	return result, nil
+}
+
+// directUpdateIssue 直接更新单个工作项的指派人/优先级（不检查乐观锁version）。
+func (s *Service) directUpdateIssue(ctx context.Context, wsID, issueID int64, assigneeID *int64, priority *string) error {
+	return s.withTx(ctx, wsID, func(tx pgx.Tx) error {
+		// 更新指派人
+		if assigneeID != nil {
+			if _, err := tx.Exec(ctx, `DELETE FROM issue_assignees WHERE issue_id = $1`, issueID); err != nil {
+				return err
+			}
+			if _, err := tx.Exec(ctx,
+				`INSERT INTO issue_assignees (issue_id, user_id) VALUES ($1,$2) ON CONFLICT DO NOTHING`,
+				issueID, *assigneeID); err != nil {
+				return err
+			}
+		}
+
+		// 更新优先级
+		if priority != nil {
+			if _, err := tx.Exec(ctx,
+				`UPDATE issues SET priority = $1, updated_at = now(), version = version + 1
+				 WHERE id = $2 AND workspace_id = $3 AND deleted_at IS NULL`,
+				*priority, issueID, wsID); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+}
+
 // --- Helpers ---
 
 // nextSequenceID 原子发号。
@@ -517,7 +626,7 @@ func (s *Service) nextSequenceID(ctx context.Context, projectID int64) (int64, e
 	return seq, nil
 }
 
-// insertIssue 在事务中插入 issue 并写 M2M。
+// insertIssue 在事务中插入 issue 并写 M2M + 领域事件。
 func (s *Service) insertIssue(ctx context.Context, in CreateIssueInput, stateID, seqID int64) (int64, error) {
 	var issueID int64
 	err := s.withTx(ctx, in.WorkspaceID, func(tx pgx.Tx) error {
@@ -552,9 +661,37 @@ func (s *Service) insertIssue(ctx context.Context, in CreateIssueInput, stateID,
 			return mapPgError(err)
 		}
 
-		return s.insertM2M(ctx, tx, issueID, in.Assignees, in.Labels, in.Modules)
+		if err := s.insertM2M(ctx, tx, issueID, in.Assignees, in.Labels, in.Modules); err != nil {
+			return err
+		}
+
+		// 录制作领域事件：issue.created → 通知被分配人
+		actorName := s.getUserName(ctx, tx, in.CreatedBy)
+		var identifier string
+		_ = tx.QueryRow(ctx, `SELECT identifier FROM projects WHERE id = $1`, in.ProjectID).Scan(&identifier)
+		return recordIssueEvent(ctx, tx, "issue.created", issueEventPayload{
+			WorkspaceID: in.WorkspaceID,
+			ProjectID:   in.ProjectID,
+			ActorID:     in.CreatedBy,
+			ActorName:   actorName,
+			IssueID:     issueID,
+			Identifier:  identifier + "-" + strconv.FormatInt(seqID, 10),
+			Name:        in.Name,
+			AssigneeIDs: in.Assignees,
+		})
 	})
 	return issueID, err
+}
+
+// getUserName 通过事务从 users 表查询用户显示名（事务安全）。
+func (s *Service) getUserName(ctx context.Context, tx pgx.Tx, userID int64) string {
+	var name string
+	if tx != nil {
+		_ = tx.QueryRow(ctx, `SELECT COALESCE(display_name,'') FROM users WHERE id = $1`, userID).Scan(&name)
+	} else {
+		_ = s.db.QueryRow(ctx, `SELECT COALESCE(display_name,'') FROM users WHERE id = $1`, userID).Scan(&name)
+	}
+	return name
 }
 
 // validateWBSDepth 校验父级深度。
@@ -599,6 +736,74 @@ func (s *Service) validateNoCircular(ctx context.Context, tx pgx.Tx, issueID, ne
 	}
 	if exists {
 		return errs.ErrCircularParent
+	}
+	return nil
+}
+
+// --- Domain Event Recording ---
+// 领域事件在业务事务内写入 domain_events 表，由 OutboxRelay 异步发布到 RabbitMQ。
+// 事件消费者（NotificationConsumer/WebhookConsumer/SearchIndexConsumer）根据事件类型执行相应操作。
+
+// issueEventPayload 是通知相关事件的标准 payload。
+type issueEventPayload struct {
+	WorkspaceID int64   `json:"workspace_id"`
+	ProjectID   int64   `json:"project_id"`
+	ActorID     int64   `json:"actor_id"`
+	ActorName   string  `json:"actor_name"`
+	IssueID     int64   `json:"issue_id"`
+	Identifier  string  `json:"identifier"`
+	Name        string  `json:"name"`
+	AssigneeIDs []int64 `json:"assignee_ids"`
+	FromState   string  `json:"from_state"`
+	ToState     string  `json:"to_state"`
+}
+
+// recordIssueEvent 在既有事务内将 Issue 领域事件写入 Outbox（domain_events 表）。
+// 事件类型约定：issue.created / issue.status_changed
+func recordIssueEvent(ctx context.Context, tx pgx.Tx, eventType string, payload issueEventPayload) error {
+	payloadJSON, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("marshal event payload: %w", err)
+	}
+	_, err = tx.Exec(ctx, `
+		INSERT INTO domain_events (workspace_id, aggregate_type, aggregate_id, event_type, payload)
+		VALUES ($1, 'issue', $2, $3, $4)`,
+		payload.WorkspaceID, payload.IssueID, eventType, payloadJSON)
+	if err != nil {
+		return fmt.Errorf("record issue event %s: %w", eventType, err)
+	}
+	return nil
+}
+
+// recordCommentEvent 在既有事务内将 Comment 领域事件写入 Outbox。
+func recordCommentEvent(ctx context.Context, tx pgx.Tx, workspaceID, issueID, commentID, actorID int64, actorName, content string, assigneeIDs []int64) error {
+	payload := struct {
+		WorkspaceID int64   `json:"workspace_id"`
+		ActorID     int64   `json:"actor_id"`
+		ActorName   string  `json:"actor_name"`
+		IssueID     int64   `json:"issue_id"`
+		CommentID   int64   `json:"comment_id"`
+		Content     string  `json:"content"`
+		AssigneeIDs []int64 `json:"assignee_ids"`
+	}{
+		WorkspaceID: workspaceID,
+		ActorID:     actorID,
+		ActorName:   actorName,
+		IssueID:     issueID,
+		CommentID:   commentID,
+		Content:     content,
+		AssigneeIDs: assigneeIDs,
+	}
+	payloadJSON, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("marshal comment payload: %w", err)
+	}
+	_, err = tx.Exec(ctx, `
+		INSERT INTO domain_events (workspace_id, aggregate_type, aggregate_id, event_type, payload)
+		VALUES ($1, 'comment', $2, 'comment.created', $3)`,
+		workspaceID, issueID, payloadJSON)
+	if err != nil {
+		return fmt.Errorf("record comment event: %w", err)
 	}
 	return nil
 }
@@ -679,8 +884,32 @@ func (s *Service) updateM2M(ctx context.Context, tx pgx.Tx, issueID int64, in Up
 	return nil
 }
 
+func (s *Service) loadAssigneesTx(ctx context.Context, tx pgx.Tx, issueID int64) []int64 {
+	rows, err := tx.Query(ctx, `SELECT user_id FROM issue_assignees WHERE issue_id = $1`, issueID)
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+	var ids []int64
+	for rows.Next() {
+		var uid int64
+		if err := rows.Scan(&uid); err == nil {
+			ids = append(ids, uid)
+		}
+	}
+	return ids
+}
+
+// loadAssignees 通过连接池查询工作项指派人员（非事务版本）。
 func (s *Service) loadAssignees(ctx context.Context, issueID int64) ([]int64, error) {
 	return loadIntArray(ctx, s.db, `SELECT user_id FROM issue_assignees WHERE issue_id = $1`, issueID)
+}
+
+// getStateName 通过事务查状态名称。
+func (s *Service) getStateName(ctx context.Context, tx pgx.Tx, stateID int64) string {
+	var name string
+	_ = tx.QueryRow(ctx, `SELECT name FROM states WHERE id = $1`, stateID).Scan(&name)
+	return name
 }
 
 func (s *Service) loadLabels(ctx context.Context, issueID int64) ([]int64, error) {
@@ -782,6 +1011,46 @@ func buildIssueWhere(opts ListIssuesOptions) (string, []interface{}) {
 	if opts.FixVersionID != nil {
 		clauses = append(clauses, "i.fix_version_id = $"+strconv.Itoa(arg))
 		args = append(args, *opts.FixVersionID)
+		arg++
+	}
+	if opts.ReleaseVersionID != nil {
+		clauses = append(clauses, "i.release_version_id = $"+strconv.Itoa(arg))
+		args = append(args, *opts.ReleaseVersionID)
+		arg++
+	}
+	if opts.AssigneeID != nil {
+		clauses = append(clauses, "EXISTS(SELECT 1 FROM issue_assignees ia WHERE ia.issue_id = i.id AND ia.user_id = $"+strconv.Itoa(arg)+")")
+		args = append(args, *opts.AssigneeID)
+		arg++
+	}
+	if opts.LabelID != nil {
+		clauses = append(clauses, "EXISTS(SELECT 1 FROM issue_labels il WHERE il.issue_id = i.id AND il.label_id = $"+strconv.Itoa(arg)+")")
+		args = append(args, *opts.LabelID)
+		arg++
+	}
+	if opts.ModuleID != nil {
+		clauses = append(clauses, "EXISTS(SELECT 1 FROM issue_modules im WHERE im.issue_id = i.id AND im.module_id = $"+strconv.Itoa(arg)+")")
+		args = append(args, *opts.ModuleID)
+		arg++
+	}
+	if opts.SprintID != nil {
+		clauses = append(clauses, "i.sprint_id = $"+strconv.Itoa(arg))
+		args = append(args, *opts.SprintID)
+		arg++
+	}
+	if opts.StartDateFrom != nil {
+		clauses = append(clauses, "i.start_date >= $"+strconv.Itoa(arg)+"::date")
+		args = append(args, *opts.StartDateFrom)
+		arg++
+	}
+	if opts.TargetDateTo != nil {
+		clauses = append(clauses, "i.target_date <= $"+strconv.Itoa(arg)+"::date")
+		args = append(args, *opts.TargetDateTo)
+		arg++
+	}
+	if opts.SeverityFrom != nil {
+		clauses = append(clauses, "i.severity >= $"+strconv.Itoa(arg))
+		args = append(args, *opts.SeverityFrom)
 		arg++
 	}
 

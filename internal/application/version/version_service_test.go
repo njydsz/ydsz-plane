@@ -21,7 +21,9 @@ package version
 
 import (
 	"encoding/json"
+	"fmt"
 	"math"
+	"strings"
 	"testing"
 	"time"
 )
@@ -278,7 +280,10 @@ func TestNormalizeChecklist(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			got := normalizeChecklist(c.in)
+			got, err := normalizeChecklist(c.in)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
 			if len(got) != c.wantLen {
 				t.Errorf("len: got %d want %d", len(got), c.wantLen)
 			}
@@ -683,6 +688,150 @@ func TestDeliveryEligible(t *testing.T) {
 				t.Errorf("eligible: got %v want %v", eligible, c.want)
 			}
 		})
+	}
+}
+
+// ==========================================================================
+// P0-12: checklist 上限校验（S6 加固）
+// ==========================================================================
+
+func TestNormalizeChecklist_Overflow(t *testing.T) {
+	// 超过 maxChecklistItems (50) 应返回错误
+	items := make([]ChecklistItem, 51)
+	for i := range items {
+		items[i] = ChecklistItem{Label: fmt.Sprintf("检查项 %d", i+1), Required: true}
+	}
+	_, err := normalizeChecklist(items)
+	if err == nil {
+		t.Error("expected error for checklist exceeding max items")
+	}
+}
+
+func TestNormalizeChecklist_LabelTooLong(t *testing.T) {
+	longLabel := strings.Repeat("a", 201)
+	items := []ChecklistItem{{Label: longLabel, Required: true}}
+	_, err := normalizeChecklist(items)
+	if err == nil {
+		t.Error("expected error for label exceeding 200 chars")
+	}
+}
+
+// ==========================================================================
+// P0-13: validateCreateInput 边界（S6 加固）
+// ==========================================================================
+
+func TestValidateCreateInput_SemverTooLong(t *testing.T) {
+	in := CreateVersionInput{
+		WorkspaceID: 1,
+		ProjectID:   1,
+		Name:        "v1.0",
+		Semver:      strings.Repeat("1.0.0-alpha.", 10),
+	}
+	err := validateCreateInput(in)
+	if err == nil {
+		t.Error("expected error for semver > 50 chars")
+	}
+}
+
+func TestValidateCreateInput_DescriptionTooLong(t *testing.T) {
+	in := CreateVersionInput{
+		WorkspaceID: 1,
+		ProjectID:   1,
+		Name:        "v1.0",
+		Semver:      "1.0.0",
+		Description: strings.Repeat("x", 2001),
+	}
+	err := validateCreateInput(in)
+	if err == nil {
+		t.Error("expected error for description > 2000 chars")
+	}
+}
+
+// ==========================================================================
+// P0-14: renderReleaseNotes 输出验证
+// ==========================================================================
+
+func TestRenderReleaseNotes(t *testing.T) {
+	v := &Version{Name: "正式版", Semver: "1.0.0", Description: "首个发布"}
+	src := &ReleaseNotesData{
+		VersionName: "正式版",
+		Semver:      "1.0.0",
+		RequirementsDone: []NoteIssueRef{
+			{Identifier: "YD-101", Name: "用户登录", StateName: "已完成"},
+		},
+		BugsFixed: []NoteIssueRef{
+			{Identifier: "YD-201", Name: "登录超时修复", StateName: "已关闭"},
+		},
+		KnownIssues: []NoteIssueRef{
+			{Identifier: "YD-301", Name: "已知性能问题", StateName: "进行中"},
+		},
+	}
+
+	notes := renderReleaseNotes(v, src)
+
+	checks := []string{
+		"# 正式版 v1.0.0",
+		"## ✅ 已完成需求与任务",
+		"YD-101",
+		"用户登录",
+		"## 🐛 修复缺陷",
+		"YD-201",
+		"## ⚠️ 已知问题",
+		"YD-301",
+	}
+	for _, c := range checks {
+		if !strings.Contains(notes, c) {
+			t.Errorf("release notes missing expected content: %q", c)
+		}
+	}
+}
+
+func TestRenderReleaseNotes_Empty(t *testing.T) {
+	v := &Version{Name: "空版本", Semver: "0.1.0"}
+	src := &ReleaseNotesData{VersionName: "空版本", Semver: "0.1.0"}
+
+	notes := renderReleaseNotes(v, src)
+	if !strings.Contains(notes, "（无完成的需求/任务）") {
+		t.Error("should show empty placeholder for requirements")
+	}
+	if !strings.Contains(notes, "（无修复缺陷）") {
+		t.Error("should show empty placeholder for bugs")
+	}
+	if strings.Contains(notes, "## ⚠️ 已知问题") {
+		t.Error("should not show known issues section when empty")
+	}
+}
+
+// ==========================================================================
+// P0-15: mustMarshalJSON
+// ==========================================================================
+
+func TestMustMarshalJSON(t *testing.T) {
+	b := mustMarshalJSON(map[string]int{"a": 1})
+	if string(b) != `{"a":1}` {
+		t.Errorf("unexpected output: %s", b)
+	}
+
+	// 不可序列化的值返回 null
+	b = mustMarshalJSON(make(chan int))
+	if string(b) != "null" {
+		t.Errorf("expected null for unserializable value, got: %s", b)
+	}
+}
+
+// ==========================================================================
+// P0-16: Version 模型包含 version 字段
+// ==========================================================================
+
+func TestVersion_HasOptimisticLockField(t *testing.T) {
+	v := Version{ID: 1, Version: 3}
+	raw, _ := json.Marshal(v)
+	var got map[string]interface{}
+	json.Unmarshal(raw, &got)
+	if ver, ok := got["version"]; !ok {
+		t.Error("version field missing from JSON output")
+	} else if v, ok := ver.(float64); !ok || int(v) != 3 {
+		t.Errorf("unexpected version value: %v", ver)
 	}
 }
 

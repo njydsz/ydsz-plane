@@ -9,6 +9,7 @@ import { useRoute, useRouter } from "vue-router";
 import { issueApi, type Issue, type IssueActivity, type State, type TimeLog } from "@/api/services/issue";
 import { workspaceApi, type Workspace } from "@/api/services/workspace";
 import CommentList from "@/components/CommentList.vue";
+import AttachmentUploader from "@/components/AttachmentUploader.vue";
 import RelationPanel from "./RelationPanel.vue";
 import IssueCreateModal from "./IssueCreateModal.vue";
 
@@ -315,6 +316,16 @@ onMounted(() => {
           </div>
           <div v-else-if="issue.description_html" class="issue-detail__desc" v-html="issue.description_html"></div>
           <p v-else class="text-muted">暂无描述，点击编辑添加</p>
+
+          <!-- 附件 -->
+          <div v-if="ws" class="issue-detail__attachments">
+            <AttachmentUploader
+              :workspace-id="ws.id"
+              :project-id="props.projectId"
+              entity-type="issue"
+              :entity-id="props.issueId"
+            />
+          </div>
         </div>
 
         <div v-if="issue.type_code === 'defect'" class="issue-detail__section">

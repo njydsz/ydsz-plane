@@ -8,6 +8,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/signal"
@@ -101,7 +102,6 @@ func run() error {
 	//   - "search.index"        —— 将 issue/workspace 变更同步到 ES
 	//
 	// 各类任务的装配：
-	notifSvc := notif.NewService(pool.Pool)
 
 	worker.Register("notifications.send", func(ctx context.Context, task mq.Task) error {
 		// 兼容直接通过 TaskExchange 投递的通知任务

@@ -36,6 +36,7 @@ type Version struct {
 	Semver         string            `json:"semver"`
 	Description    string            `json:"description,omitempty"`
 	Status         VersionStatusCode `json:"status"`
+	Version        int               `json:"version"`
 	StartDate      *string           `json:"start_date,omitempty"`
 	EndDate        *string           `json:"end_date,omitempty"`
 	TargetDate     *string           `json:"target_date,omitempty"`

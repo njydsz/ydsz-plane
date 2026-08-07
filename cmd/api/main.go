@@ -14,6 +14,7 @@ import (
 
 	"go.uber.org/zap"
 
+	"github.com/njydsz/ydsz-plane/internal/application/attachment"
 	"github.com/njydsz/ydsz-plane/internal/application/auth"
 	"github.com/njydsz/ydsz-plane/internal/application/issue"
 	notif "github.com/njydsz/ydsz-plane/internal/application/notification"
@@ -27,7 +28,9 @@ import (
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/cache"
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/mail"
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/persistence"
+	"github.com/njydsz/ydsz-plane/internal/infrastructure/storage"
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/telemetry"
+	"github.com/njydsz/ydsz-plane/internal/infrastructure/ws"
 	httpapi "github.com/njydsz/ydsz-plane/internal/interfaces/http"
 )
 
@@ -132,7 +135,12 @@ func run() error {
 	sprintHandler := sprint.NewHandler(sprintSvc)
 
 	// ---------- Version domain ----------
-	versionSvc := version.NewService(pool.Pool)
+	versionSvc := version.NewService(version.Deps{
+		DB:    pool.Pool,
+		Redis: rdb,
+		Audit: auditSvc,
+		Log:   log,
+	})
 	versionHandler := version.NewHandler(versionSvc)
 
 	// ---------- Search domain ----------
@@ -160,6 +168,19 @@ func run() error {
 		NotificationSvc: notifSvc,
 		WorkspaceStore:  wsStore,
 	})
+
+	// ---------- Attachment / Storage ----------
+	stClient, err := storage.New(cfg.Storage)
+	if err != nil {
+		return fmt.Errorf("storage: %w", err)
+	}
+	attSvc := attachment.NewService(pool.Pool, stClient)
+	attHandler := attachment.NewHandler(&attachment.HandlerDeps{AttachmentSvc: attSvc})
+
+	// ---------- WebSocket Hub ----------
+	wsHub := ws.NewHub(rdb)
+	go wsHub.Run()
+	defer wsHub.Shutdown()
 
 	// ---------- HTTP Engine ----------
 	engine := httpapi.NewEngine(&httpapi.Deps{
@@ -190,6 +211,10 @@ func run() error {
 		DashboardHandler: dashboardHandler,
 		// Notification domain
 		NotificationHandler: notifHandler,
+		// Attachment domain
+		AttachmentHandler:   attHandler,
+		// WebSocket Hub
+		WSHub:               wsHub,
 		// Sprint domain
 		SprintHandler: sprintHandler,
 		// Version domain
@@ -243,6 +268,20 @@ func run() error {
 		Auth:                authSvc,
 		WorkspaceStore:      wsStore,
 		NotificationHandler: notifHandler,
+	})
+
+	// 注册附件路由
+	httpapi.RegisterAttachmentRoutes(engine, &httpapi.Deps{
+		Auth:              authSvc,
+		WorkspaceStore:    wsStore,
+		AttachmentHandler: attHandler,
+	})
+
+	// 注册 WebSocket 路由
+	httpapi.RegisterWSRoutes(engine, &httpapi.Deps{
+		Auth:           authSvc,
+		WorkspaceStore: wsStore,
+		WSHub:          wsHub,
 	})
 
 	srv := &http.Server{

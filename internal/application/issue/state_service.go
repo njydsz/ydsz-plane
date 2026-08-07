@@ -207,13 +207,8 @@ func validateFieldsFromTransitions(_ interface{}, ctx TransitionContext, stateNa
 
 // InitializeProjectStates 为项目初始化状态模板（项目创建时调用）。
 // 将默认模板套装写入 states + state_transitions 表。
+// 注：实际初始化逻辑已迁移至 ProjectInitService.InitializeForProject()。
 func (s *StateService) InitializeProjectStates(ctx context.Context, wsID, projectID int64, nameIndex StateNameIndex) error {
-	return s.initStatesFromTemplate(ctx, wsID, projectID, nameIndex)
-}
-
-func (s *StateService) initStatesFromTemplate(ctx context.Context, wsID, projectID int64, nameIndex StateNameIndex) error {
-	// 在 IssueService.projectCreateHook 中通过 WithTenantTx 调用
-	// 本方法已包含在 IssueService.initProjectIssueInfrastructure 中
 	return nil
 }
 

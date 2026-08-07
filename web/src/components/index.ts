@@ -19,6 +19,7 @@ export { default as AppEmptyState } from "./AppEmptyState.vue";
 export { default as AppErrorState } from "./AppErrorState.vue";
 export { default as AppLoadingState } from "./AppLoadingState.vue";
 export { default as AppModal } from "./AppModal.vue";
+export { default as AttachmentUploader } from "./AttachmentUploader.vue";
 export { default as CommentForm } from "./CommentForm.vue";
 export { default as CommentItem } from "./CommentItem.vue";
 export { default as CommentList } from "./CommentList.vue";

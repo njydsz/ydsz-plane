@@ -45,7 +45,27 @@ CREATE TRIGGER trg_versions_bump_version
     EXECUTE FUNCTION bump_version();
 
 -- -----------------------------------------------------------------
--- Step 6: 版本审计日志索引
+-- Step 6: 版本交付快照表（发布时事务内记录，用于问题追溯）
+-- -----------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS version_delivery_snapshots (
+    id              BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    version_id      BIGINT NOT NULL REFERENCES versions(id) ON DELETE CASCADE,
+    workspace_id    BIGINT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    progress        JSONB NOT NULL DEFAULT '{}'::jsonb,
+    quality         JSONB NOT NULL DEFAULT '{}'::jsonb,
+    release_notes   TEXT,
+    snapshot_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_vds_version ON version_delivery_snapshots(version_id, snapshot_at DESC);
+CREATE INDEX IF NOT EXISTS idx_vds_workspace ON version_delivery_snapshots(workspace_id);
+
+ALTER TABLE version_delivery_snapshots ENABLE ROW LEVEL SECURITY;
+ALTER TABLE version_delivery_snapshots FORCE ROW LEVEL SECURITY;
+CREATE POLICY tenant_isolation ON version_delivery_snapshots
+    USING (workspace_id = current_setting('app.workspace_id', true)::bigint);
+
+-- -----------------------------------------------------------------
+-- Step 7: 版本审计日志索引
 -- -----------------------------------------------------------------
 CREATE INDEX IF NOT EXISTS idx_audit_logs_action_target
     ON audit_logs(action, target) WHERE action LIKE 'version.%';

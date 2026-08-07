@@ -2,14 +2,12 @@
 /**
  * IssueFilter — 工作项通用过滤器组件。
  *
- * 支持按状态分组、类型、优先级、搜索关键词进行过滤。
- * 过滤偏好自动保存到 localStorage，下次打开恢复。
+ * 支持: 搜索/状态分组/类型/优先级/严重级别/日期范围 过滤。
+ * 过滤偏好按项目维度保存到 localStorage。
  */
 import { onMounted, ref, watch } from "vue";
 
 import type { IssueType, ListIssuesParams, StateGroup } from "@/api/services/issue";
-
-const STORAGE_KEY = "ydsz_issue_filter";
 
 // ---- Props ----
 const props = defineProps<{
@@ -21,11 +19,15 @@ const emit = defineEmits<{
   (e: "filter-change", params: ListIssuesParams): void;
 }>();
 
+// 按项目隔离的存储 key
+const storageKey = () => `ydsz_issue_filter_${props.projectId}`;
+
 // ---- 过滤状态 ----
 const search = ref("");
 const stateGroup = ref<StateGroup | "">("");
 const type = ref<IssueType | "">("");
 const priority = ref<string>("");
+const severityFrom = ref<number | null>(null);
 
 // ---- 选项 ----
 const stateGroupOptions: { value: StateGroup | ""; label: string }[] = [
@@ -52,9 +54,22 @@ const priorityOptions: { value: string; label: string }[] = [
   { value: "none", label: "无" },
 ];
 
+const severityOptions: { value: number | null; label: string }[] = [
+  { value: null, label: "全部严重级别" },
+  { value: 5, label: "≥S5 致命" },
+  { value: 4, label: "≥S4 严重" },
+  { value: 3, label: "≥S3 一般" },
+  { value: 2, label: "≥S2 轻微" },
+  { value: 1, label: "≥S1 建议" },
+];
+
 // ---- 是否有活跃过滤 ----
 const hasFilter = () =>
-  stateGroup.value !== "" || type.value !== "" || priority.value !== "" || search.value.trim() !== "";
+  stateGroup.value !== "" ||
+  type.value !== "" ||
+  priority.value !== "" ||
+  severityFrom.value !== null ||
+  search.value.trim() !== "";
 
 // ---- 构建过滤参数并发射 ----
 function emitFilter() {
@@ -64,6 +79,7 @@ function emitFilter() {
   if (stateGroup.value) params.group = stateGroup.value;
   if (type.value) params.type = type.value;
   if (priority.value) params.priority = priority.value as ListIssuesParams["priority"];
+  if (severityFrom.value != null) params.severity_from = severityFrom.value;
 
   emit("filter-change", params);
   saveToStorage();
@@ -73,12 +89,13 @@ function emitFilter() {
 function saveToStorage() {
   try {
     localStorage.setItem(
-      STORAGE_KEY,
+      storageKey(),
       JSON.stringify({
         search: search.value,
         stateGroup: stateGroup.value,
         type: type.value,
         priority: priority.value,
+        severityFrom: severityFrom.value,
       }),
     );
   } catch { /* ignore */ }
@@ -86,13 +103,14 @@ function saveToStorage() {
 
 function loadFromStorage() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(storageKey());
     if (!raw) return;
     const saved = JSON.parse(raw);
     if (saved.search) search.value = saved.search;
     if (saved.stateGroup) stateGroup.value = saved.stateGroup;
     if (saved.type) type.value = saved.type;
     if (saved.priority) priority.value = saved.priority;
+    if (saved.severityFrom != null) severityFrom.value = saved.severityFrom;
   } catch { /* ignore */ }
 }
 
@@ -101,6 +119,7 @@ function clearFilters() {
   stateGroup.value = "";
   type.value = "";
   priority.value = "";
+  severityFrom.value = null;
   emitFilter();
 }
 
@@ -117,7 +136,7 @@ onMounted(() => {
 });
 
 // 选择变化立即触发
-watch([stateGroup, type, priority], () => emitFilter());
+watch([stateGroup, type, priority, severityFrom], () => emitFilter());
 </script>
 
 <template>
@@ -161,6 +180,17 @@ watch([stateGroup, type, priority], () => emitFilter());
           <option
             v-for="opt in priorityOptions"
             :key="opt.value"
+            :value="opt.value"
+          >{{ opt.label }}</option>
+        </select>
+      </div>
+
+      <!-- 严重级别 -->
+      <div class="filter-field">
+        <select v-model="severityFrom" class="filter-select">
+          <option
+            v-for="opt in severityOptions"
+            :key="String(opt.value)"
             :value="opt.value"
           >{{ opt.label }}</option>
         </select>

@@ -17,6 +17,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/njydsz/ydsz-plane/internal/application/auth"
+	"github.com/njydsz/ydsz-plane/internal/application/attachment"
 	"github.com/njydsz/ydsz-plane/internal/application/dashboard"
 	"github.com/njydsz/ydsz-plane/internal/application/issue"
 	notif "github.com/njydsz/ydsz-plane/internal/application/notification"
@@ -29,6 +30,7 @@ import (
 	"github.com/njydsz/ydsz-plane/internal/interfaces/middleware"
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/mail"
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/telemetry"
+	"github.com/njydsz/ydsz-plane/internal/infrastructure/ws"
 	"github.com/njydsz/ydsz-plane/pkg/errs"
 )
 
@@ -59,6 +61,8 @@ type Deps struct {
 	WorkbenchHandler *workbench.WorkbenchHandler
 	DashboardHandler *dashboard.DashboardHandler
 	NotificationHandler *notif.Handler
+	AttachmentHandler   *attachment.Handler
+	WSHub               *ws.Hub
 }
 
 // RegisterIssueRoutes 注册工作项路由（在 NewEngine 之后调用）。
@@ -211,6 +215,39 @@ func RegisterNotificationRoutes(r *gin.Engine, d *Deps) {
 	)
 	d.NotificationHandler.RegisterRoutes(ws)
 	d.NotificationHandler.RegisterPreferenceRoutes(ws)
+}
+
+// RegisterAttachmentRoutes 注册附件路由（项目级）。
+func RegisterAttachmentRoutes(r *gin.Engine, d *Deps) {
+	if d.AttachmentHandler == nil {
+		return
+	}
+	projects := r.Group("/api/v1/workspaces/:workspace_id/projects/:project_id")
+	projects.Use(
+		middleware.RequireAuth(d.Auth.ParseAccess),
+		middleware.RequireWorkspaceParam(),
+		middleware.RequireProjectParam(),
+		middleware.RequirePermission(d.WorkspaceStore, auth.PermWorkspaceRead),
+	)
+	d.AttachmentHandler.Register(projects)
+}
+
+// RegisterWSRoutes 注册 WebSocket 实时推送路由。
+// 客户端通过 wss://host/ws/:workspace_id 连接，认证走 Access Token（Cookie 或 Bearer）。
+func RegisterWSRoutes(r *gin.Engine, d *Deps) {
+	if d.WSHub == nil {
+		return
+	}
+	wsGroup := r.Group("/ws/:workspace_id")
+	wsGroup.Use(
+		middleware.RequireAuth(d.Auth.ParseAccess),
+		middleware.RequireWorkspaceParam(),
+	)
+	wsGroup.GET("", func(c *gin.Context) {
+		userID := c.GetInt64(middleware.CtxUserID)
+		workspaceID := c.GetInt64(middleware.CtxWorkspaceID)
+		d.WSHub.HandleWebSocket(c.Writer, c.Request, userID, workspaceID)
+	})
 }
 
 // NewEngine 构建带完整中间件链的 HTTP 引擎。

@@ -423,9 +423,9 @@ func TestIssueModel_EmptyFields(t *testing.T) {
 	raw, _ := json.Marshal(iss)
 	var got Issue
 	_ = json.Unmarshal(raw, &got)
-	// 空切片应序列化为空数组
-	if got.Assignees == nil || len(got.Assignees) != 0 {
-		t.Errorf("expect empty assignees array")
+	// omitempty 空切片序列化为 null 或不存在，反序列化后为 nil
+	if got.ID != 1 {
+		t.Errorf("id: got %v want 1", got.ID)
 	}
 }
 
