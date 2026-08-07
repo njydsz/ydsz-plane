@@ -21,6 +21,7 @@ export type WidgetType =
   | "recent_activity"
   | "team_workload";
 
+/** 仪表盘 Widget 实体（位置、尺寸、配置、显隐状态）。 */
 export interface DashboardWidget {
   id: number;
   project_id: number;
@@ -35,6 +36,7 @@ export interface DashboardWidget {
   sort_order: number;
 }
 
+/** 进度总览数据 — 各状态工作项计数与完成率。 */
 export interface ProgressOverviewData {
   total_issues: number;
   done_issues: number;
@@ -45,6 +47,7 @@ export interface ProgressOverviewData {
   active_sprints: number;
 }
 
+/** 燃尽图迭代级数据（点数与工作项数进度）。 */
 export interface BurndownData {
   sprint_id: number;
   sprint_name: string;
@@ -56,11 +59,13 @@ export interface BurndownData {
   is_active: boolean;
 }
 
+/** 优先级分布数据 — total + 各优先级计数。 */
 export interface PrioritySplitData {
   total: number;
   by_priority: Record<string, number>;
 }
 
+/** 状态分布数据 — 各状态（含分组 / 颜色）的工作项计数。 */
 export interface StateDistributionData {
   total: number;
   by_state: Array<{
@@ -72,6 +77,7 @@ export interface StateDistributionData {
   }>;
 }
 
+/** 速率数据 — 多迭代的完成 / 承诺计数与完成率。 */
 export interface VelocityData {
   average: number;
   sprints: Array<{
@@ -83,6 +89,7 @@ export interface VelocityData {
   }>;
 }
 
+/** 逾期工作项条目（逾期天数 + 优先级 + 指派人）。 */
 export interface OverdueItem {
   id: number;
   identifier: string;
@@ -92,11 +99,13 @@ export interface OverdueItem {
   assignee: string;
 }
 
+//** 逾期工作项列表（total + items）。 */
 export interface OverdueListData {
   total: number;
   items: OverdueItem[];
 }
 
+/** 阻塞工作项条目（阻塞方 + 阻塞引用数）。 */
 export interface BlockedItem {
   id: number;
   identifier: string;
@@ -105,11 +114,13 @@ export interface BlockedItem {
   blocker_names: string;
 }
 
+/** 阻塞工作项列表（total + items）。 */
 export interface BlockedListData {
   total: number;
   items: BlockedItem[];
 }
 
+/** 团队成员工作量（各状态工作项计数）。 */
 export interface TeamMemberWorkload {
   user_id: number;
   user_name: string;
@@ -120,10 +131,12 @@ export interface TeamMemberWorkload {
   total: number;
 }
 
+/** 团队负载 widget 数据 — 成员工作量汇总集合。 */
 export interface TeamWorkloadWidgetData {
   members: TeamMemberWorkload[];
 }
 
+/** 活动日志条目（领域事件 actor + verb + target）。 */
 export interface ActivityItem {
   id: number;
   issue_id: number;
@@ -136,10 +149,12 @@ export interface ActivityItem {
   created_at: string;
 }
 
+/** 最近活动数据 — 活动条目集合。 */
 export interface RecentActivityData {
   items: ActivityItem[];
 }
 
+/** 风险告警实体 — 触发规则 + 严重级 + 描述 + 解决状态。 */
 export interface RiskAlert {
   id: number;
   project_id?: number;
@@ -152,6 +167,7 @@ export interface RiskAlert {
   created_at: string;
 }
 
+/** 仪表盘模板 — 预置 widget 布局与配置（agile/waterfall/generic 等）。 */
 export interface DashboardTemplate {
   id: number;
   name: string;
@@ -164,12 +180,14 @@ export interface DashboardTemplate {
   sort_order: number;
 }
 
+/** 仪表盘全量数据聚合（widgets + snapshots + alerts）。 */
 export interface DashboardData {
   widgets: DashboardWidget[];
   snapshots: Record<string, any>;
   alerts: RiskAlert[];
 }
 
+/** 创建 widget 入参 — 类型、标题、网格位置与配置。 */
 export interface CreateWidgetInput {
   widget_type: WidgetType;
   title: string;
@@ -186,6 +204,7 @@ export interface CreateWidgetInput {
 
 const wrap = <T>(p: Promise<{ data: T }>) => p.then((r) => r.data);
 
+/** 仪表盘域 API — 总览、widget CRUD、告警、模板、快照等。 */
 export const dashboardApi = {
   /** 获取仪表盘总览（widgets + 快照数据 + 告警） */
   getOverview: (wsId: number | string, projectId: number) =>

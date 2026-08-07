@@ -10,20 +10,24 @@ import { http } from "../client";
 /* ------------------------------------------------------------------ */
 
 export type RuleStatus = "draft" | "active" | "disabled" | "error";
+/** 自动化触发器类型枚举（与后端 TriggerType 常量对齐）。 */
 export type TriggerType = "issue.created" | "issue.updated" | "issue.status_changed"
   | "issue.assigned" | "issue.commented" | "sprint.started" | "sprint.completed"
   | "version.released" | "cron";
 
+/** DSL 触发器定义 — 描述规则触发事件类型与可选前置条件。 */
 export interface RuleDSLTrigger {
   type: TriggerType;
   conditions?: Record<string, any>;
 }
 
+/** DSL 动作定义 — 描述触发后执行的操作（类型 + 参数）。 */
 export interface RuleDSLAction {
   type: string;
   params?: Record<string, any>;
 }
 
+/** 自动化规则 DSL 完整结构 — 触发器 + 条件列表 + 动作列表。 */
 export interface RuleDSL {
   trigger: RuleDSLTrigger;
   conditions?: Array<{ field: string; operator: string; value: any }>;
@@ -70,6 +74,7 @@ export interface AutomationTemplate {
   dsl: RuleDSL;
 }
 
+/** 规则列表查询参数（分页 + 触发器类型过滤 + 状态过滤）。 */
 export interface ListRulesParams {
   status?: RuleStatus;
   trigger_type?: string;
@@ -77,6 +82,7 @@ export interface ListRulesParams {
   offset?: number;
 }
 
+/** 创建规则入参（name + dsl 必填；status 默认 draft）。 */
 export interface CreateRuleInput {
   name: string;
   description?: string;
@@ -84,6 +90,7 @@ export interface CreateRuleInput {
   status?: RuleStatus;
 }
 
+/** 更新规则入参（可选字段 + 乐观锁 version 防并发覆盖）。 */
 export interface UpdateRuleInput {
   name?: string;
   description?: string;
@@ -92,6 +99,7 @@ export interface UpdateRuleInput {
   version: number;
 }
 
+/** 干跑（dry-run）测试结果 — 返回校验信息而非真实执行。 */
 export interface DryRunResult {
   valid: boolean;
   errors: string[];
@@ -106,6 +114,7 @@ export interface DryRunResult {
 
 const wrap = <T>(p: Promise<{ data: T }>) => p.then((r) => r.data);
 
+/** 自动化规则域 API：CRUD、模板预置、执行历史、dry-run 测试、启用/禁用开关。 */
 export const automationApi = {
   // --- Rules CRUD ---
   list: (wsId: number, projectId: number, params?: ListRulesParams) =>

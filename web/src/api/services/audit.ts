@@ -23,6 +23,7 @@ export interface AuditLogSummary {
   recent_24h: number;
 }
 
+/** 审计日志 API — 对接 /:ws/audit-logs 端点，读取操作审计记录与汇总统计。 */
 export const auditApi = {
   /** 获取审计日志列表 */
   async list(wsId: number, limit = 50): Promise<AuditLogEntry[]> {

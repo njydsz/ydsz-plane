@@ -84,6 +84,7 @@ function toQuery(params?: DefectAnalyticsParams): string {
   return q ? `?${q}` : "";
 }
 
+/** 缺陷分析 API — 缺陷聚合统计与导出（对接 /analytics/defects 系列端点）。 */
 export const analyticsApi = {
   /**
    * 拉取缺陷聚合分析数据。

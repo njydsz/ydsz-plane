@@ -1,0 +1,67 @@
+/**
+ * Pages 文档域 API — 对接后端 Pages 域 REST 接口。
+ *
+ * 对标 Plane 的 Pages 功能：项目内文档树，支持富文本内容与嵌套层级。
+ */
+import { http } from "../client";
+
+export interface Page {
+  id: number;
+  public_id: string;
+  workspace_id: number;
+  project_id: number;
+  name: string;
+  description_json?: Record<string, unknown> | null;
+  description_html?: string | null;
+  description_stripped?: string | null;
+  parent_id?: number | null;
+  sort_order: number;
+  created_by: number;
+  created_at: string;
+  updated_at: string;
+  deleted_at?: string | null;
+  version: number;
+}
+
+export interface CreatePageInput {
+  name: string;
+  description_json?: string;
+  description_html?: string;
+  description_stripped?: string;
+  parent_id?: number | null;
+  sort_order?: number;
+}
+
+export interface UpdatePageInput {
+  name?: string;
+  description_json?: string;
+  description_html?: string;
+  description_stripped?: string;
+  parent_id?: number | null;
+  sort_order?: number;
+  version: number;
+}
+
+const wrap = <T>(p: Promise<{ data: T }>) => p.then((r) => r.data);
+
+export const pagesApi = {
+  /** 列出项目全部文档页面（扁平列表，由前端组装树） */
+  list: (wsId: number, projectId: number) =>
+    wrap<Page[]>(http.get(`/workspaces/${wsId}/projects/${projectId}/pages`)),
+
+  /** 获取单个文档页面 */
+  get: (wsId: number, projectId: number, pageId: number) =>
+    wrap<Page>(http.get(`/workspaces/${wsId}/projects/${projectId}/pages/${pageId}`)),
+
+  /** 创建文档页面 */
+  create: (wsId: number, projectId: number, input: CreatePageInput) =>
+    wrap<Page>(http.post(`/workspaces/${wsId}/projects/${projectId}/pages`, input)),
+
+  /** 更新文档页面（乐观锁） */
+  update: (wsId: number, projectId: number, pageId: number, input: UpdatePageInput) =>
+    wrap<Page>(http.patch(`/workspaces/${wsId}/projects/${projectId}/pages/${pageId}`, input)),
+
+  /** 删除文档页面（软删除） */
+  remove: (wsId: number, projectId: number, pageId: number) =>
+    wrap<void>(http.delete(`/workspaces/${wsId}/projects/${projectId}/pages/${pageId}`)),
+};

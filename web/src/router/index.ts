@@ -157,6 +157,16 @@ const router = createRouter({
             projectId: Number(route.params.projectId),
           }),
         },
+        // 文档页面 (Pages)
+        {
+          path: ":workspaceSlug/projects/:projectId/pages",
+          name: "project-pages",
+          component: () => import("@/views/project/PagesView.vue"),
+          props: (route) => ({
+            workspaceSlug: route.params.workspaceSlug,
+            projectId: Number(route.params.projectId),
+          }),
+        },
         // 甘特图视图
         {
           path: ":workspaceSlug/projects/:projectId/gantt",

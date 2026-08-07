@@ -240,6 +240,14 @@ onMounted(bootstrap);
             <span v-if="!collapsed">工作项列表</span>
           </router-link>
           <router-link
+            :to="`/${wsStore.currentSlug}/projects/${currentProjectId}/pages`"
+            class="nav-item nav-item--sub"
+            active-class="is-active"
+          >
+            <span class="nav-icon">📄</span>
+            <span v-if="!collapsed">文档</span>
+          </router-link>
+          <router-link
             :to="`/${wsStore.currentSlug}/projects/${currentProjectId}/metrics`"
             class="nav-item nav-item--sub"
             active-class="is-active"

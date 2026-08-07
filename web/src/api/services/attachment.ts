@@ -59,6 +59,7 @@ export interface ConfirmUploadResult {
 
 const wrap = <T>(p: Promise<{ data: T }>) => p.then((r) => r.data);
 
+/** 附件域 API — 附件列表、预签名上传、分片上传、下载链接生成。 */
 export const attachmentApi = {
   /** 获取实体的附件列表 */
   listAttachments: (wsId: number, projectId: number, entityType: string, entityId: number) =>

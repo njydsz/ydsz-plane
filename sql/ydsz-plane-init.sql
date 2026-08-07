@@ -2671,348 +2671,348 @@ $BODY$
 -- ----------------------------
 ALTER SEQUENCE "public"."api_tokens_id_seq"
 OWNED BY "public"."api_tokens"."id";
-SELECT setval('"public"."api_tokens_id_seq"', 1, false);
+SELECT setval(pg_get_serial_sequence('public.api_tokens', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.api_tokens) + 1, false);
 
 -- ----------------------------
 -- Alter sequences owned by
 -- ----------------------------
 ALTER SEQUENCE "public"."attachments_id_seq"
 OWNED BY "public"."attachments"."id";
-SELECT setval('"public"."attachments_id_seq"', 1, false);
+SELECT setval(pg_get_serial_sequence('public.attachments', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.attachments) + 1, false);
 
 -- ----------------------------
 -- Alter sequences owned by
 -- ----------------------------
 ALTER SEQUENCE "public"."audit_logs_id_seq"
 OWNED BY "public"."audit_logs"."id";
-SELECT setval('"public"."audit_logs_id_seq"', 5, true);
+SELECT setval(pg_get_serial_sequence('public.audit_logs', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.audit_logs) + 1, false);
 
 -- ----------------------------
 -- Alter sequences owned by
 -- ----------------------------
 ALTER SEQUENCE "public"."automation_rules_id_seq"
 OWNED BY "public"."automation_rules"."id";
-SELECT setval('"public"."automation_rules_id_seq"', 1, false);
+SELECT setval(pg_get_serial_sequence('public.automation_rules', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.automation_rules) + 1, false);
 
 -- ----------------------------
 -- Alter sequences owned by
 -- ----------------------------
 ALTER SEQUENCE "public"."automation_templates_id_seq"
 OWNED BY "public"."automation_templates"."id";
-SELECT setval('"public"."automation_templates_id_seq"', 7, true);
+SELECT setval(pg_get_serial_sequence('public.automation_templates', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.automation_templates) + 1, false);
 
 -- ----------------------------
 -- Alter sequences owned by
 -- ----------------------------
 ALTER SEQUENCE "public"."dashboard_snapshots_id_seq"
 OWNED BY "public"."dashboard_snapshots"."id";
-SELECT setval('"public"."dashboard_snapshots_id_seq"', 1, false);
+SELECT setval(pg_get_serial_sequence('public.dashboard_snapshots', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.dashboard_snapshots) + 1, false);
 
 -- ----------------------------
 -- Alter sequences owned by
 -- ----------------------------
 ALTER SEQUENCE "public"."dashboard_templates_id_seq"
 OWNED BY "public"."dashboard_templates"."id";
-SELECT setval('"public"."dashboard_templates_id_seq"', 3, true);
+SELECT setval(pg_get_serial_sequence('public.dashboard_templates', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.dashboard_templates) + 1, false);
 
 -- ----------------------------
 -- Alter sequences owned by
 -- ----------------------------
 ALTER SEQUENCE "public"."dashboard_widgets_id_seq"
 OWNED BY "public"."dashboard_widgets"."id";
-SELECT setval('"public"."dashboard_widgets_id_seq"', 1, false);
+SELECT setval(pg_get_serial_sequence('public.dashboard_widgets', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.dashboard_widgets) + 1, false);
 
 -- ----------------------------
 -- Alter sequences owned by
 -- ----------------------------
 ALTER SEQUENCE "public"."deployment_events_id_seq"
 OWNED BY "public"."deployment_events"."id";
-SELECT setval('"public"."deployment_events_id_seq"', 1, false);
+SELECT setval(pg_get_serial_sequence('public.deployment_events', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.deployment_events) + 1, false);
 
 -- ----------------------------
 -- Alter sequences owned by
 -- ----------------------------
 ALTER SEQUENCE "public"."domain_events_id_seq"
 OWNED BY "public"."domain_events"."id";
-SELECT setval('"public"."domain_events_id_seq"', 1, false);
+SELECT setval(pg_get_serial_sequence('public.domain_events', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.domain_events) + 1, false);
 
 -- ----------------------------
 -- Alter sequences owned by
 -- ----------------------------
 ALTER SEQUENCE "public"."intake_channels_id_seq"
 OWNED BY "public"."intake_channels"."id";
-SELECT setval('"public"."intake_channels_id_seq"', 1, false);
+SELECT setval(pg_get_serial_sequence('public.intake_channels', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.intake_channels) + 1, false);
 
 -- ----------------------------
 -- Alter sequences owned by
 -- ----------------------------
 ALTER SEQUENCE "public"."intake_issues_id_seq"
 OWNED BY "public"."intake_issues"."id";
-SELECT setval('"public"."intake_issues_id_seq"', 1, false);
+SELECT setval(pg_get_serial_sequence('public.intake_issues', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.intake_issues) + 1, false);
 
 -- ----------------------------
 -- Alter sequences owned by
 -- ----------------------------
 ALTER SEQUENCE "public"."invitations_id_seq"
 OWNED BY "public"."invitations"."id";
-SELECT setval('"public"."invitations_id_seq"', 1, false);
+SELECT setval(pg_get_serial_sequence('public.invitations', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.invitations) + 1, false);
 
 -- ----------------------------
 -- Alter sequences owned by
 -- ----------------------------
 ALTER SEQUENCE "public"."issue_activities_id_seq"
 OWNED BY "public"."issue_activities"."id";
-SELECT setval('"public"."issue_activities_id_seq"', 1, false);
+SELECT setval(pg_get_serial_sequence('public.issue_activities', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.issue_activities) + 1, false);
 
 -- ----------------------------
 -- Alter sequences owned by
 -- ----------------------------
 ALTER SEQUENCE "public"."issue_comments_id_seq"
 OWNED BY "public"."issue_comments"."id";
-SELECT setval('"public"."issue_comments_id_seq"', 1, false);
+SELECT setval(pg_get_serial_sequence('public.issue_comments', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.issue_comments) + 1, false);
 
 -- ----------------------------
 -- Alter sequences owned by
 -- ----------------------------
 ALTER SEQUENCE "public"."issue_dependencies_id_seq"
 OWNED BY "public"."issue_dependencies"."id";
-SELECT setval('"public"."issue_dependencies_id_seq"', 1, false);
+SELECT setval(pg_get_serial_sequence('public.issue_dependencies', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.issue_dependencies) + 1, false);
 
 -- ----------------------------
 -- Alter sequences owned by
 -- ----------------------------
 ALTER SEQUENCE "public"."issue_relations_id_seq"
 OWNED BY "public"."issue_relations"."id";
-SELECT setval('"public"."issue_relations_id_seq"', 1, false);
+SELECT setval(pg_get_serial_sequence('public.issue_relations', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.issue_relations) + 1, false);
 
 -- ----------------------------
 -- Alter sequences owned by
 -- ----------------------------
 ALTER SEQUENCE "public"."issues_id_seq"
 OWNED BY "public"."issues"."id";
-SELECT setval('"public"."issues_id_seq"', 1, false);
+SELECT setval(pg_get_serial_sequence('public.issues', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.issues) + 1, false);
 
 -- ----------------------------
 -- Alter sequences owned by
 -- ----------------------------
 ALTER SEQUENCE "public"."labels_id_seq"
 OWNED BY "public"."labels"."id";
-SELECT setval('"public"."labels_id_seq"', 1, false);
+SELECT setval(pg_get_serial_sequence('public.labels', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.labels) + 1, false);
 
 -- ----------------------------
 -- Alter sequences owned by
 -- ----------------------------
 ALTER SEQUENCE "public"."metric_adjustments_id_seq"
 OWNED BY "public"."metric_adjustments"."id";
-SELECT setval('"public"."metric_adjustments_id_seq"', 1, false);
+SELECT setval(pg_get_serial_sequence('public.metric_adjustments', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.metric_adjustments) + 1, false);
 
 -- ----------------------------
 -- Alter sequences owned by
 -- ----------------------------
 ALTER SEQUENCE "public"."metric_snapshots_id_seq"
 OWNED BY "public"."metric_snapshots"."id";
-SELECT setval('"public"."metric_snapshots_id_seq"', 1, false);
+SELECT setval(pg_get_serial_sequence('public.metric_snapshots', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.metric_snapshots) + 1, false);
 
 -- ----------------------------
 -- Alter sequences owned by
 -- ----------------------------
 ALTER SEQUENCE "public"."modules_id_seq"
 OWNED BY "public"."modules"."id";
-SELECT setval('"public"."modules_id_seq"', 1, false);
+SELECT setval(pg_get_serial_sequence('public.modules', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.modules) + 1, false);
 
 -- ----------------------------
 -- Alter sequences owned by
 -- ----------------------------
 ALTER SEQUENCE "public"."notification_deliveries_id_seq"
 OWNED BY "public"."notification_deliveries"."id";
-SELECT setval('"public"."notification_deliveries_id_seq"', 1, false);
+SELECT setval(pg_get_serial_sequence('public.notification_deliveries', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.notification_deliveries) + 1, false);
 
 -- ----------------------------
 -- Alter sequences owned by
 -- ----------------------------
 ALTER SEQUENCE "public"."notification_digests_id_seq"
 OWNED BY "public"."notification_digests"."id";
-SELECT setval('"public"."notification_digests_id_seq"', 1, false);
+SELECT setval(pg_get_serial_sequence('public.notification_digests', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.notification_digests) + 1, false);
 
 -- ----------------------------
 -- Alter sequences owned by
 -- ----------------------------
 ALTER SEQUENCE "public"."notification_preferences_id_seq"
 OWNED BY "public"."notification_preferences"."id";
-SELECT setval('"public"."notification_preferences_id_seq"', 1, false);
+SELECT setval(pg_get_serial_sequence('public.notification_preferences', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.notification_preferences) + 1, false);
 
 -- ----------------------------
 -- Alter sequences owned by
 -- ----------------------------
 ALTER SEQUENCE "public"."notifications_id_seq"
 OWNED BY "public"."notifications"."id";
-SELECT setval('"public"."notifications_id_seq"', 1, false);
+SELECT setval(pg_get_serial_sequence('public.notifications', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.notifications) + 1, false);
 
 -- ----------------------------
 -- Alter sequences owned by
 -- ----------------------------
 ALTER SEQUENCE "public"."password_reset_tokens_id_seq"
 OWNED BY "public"."password_reset_tokens"."id";
-SELECT setval('"public"."password_reset_tokens_id_seq"', 1, false);
+SELECT setval(pg_get_serial_sequence('public.password_reset_tokens', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.password_reset_tokens) + 1, false);
 
 -- ----------------------------
 -- Alter sequences owned by
 -- ----------------------------
 ALTER SEQUENCE "public"."projects_id_seq"
 OWNED BY "public"."projects"."id";
-SELECT setval('"public"."projects_id_seq"', 1, false);
+SELECT setval(pg_get_serial_sequence('public.projects', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.projects) + 1, false);
 
 -- ----------------------------
 -- Alter sequences owned by
 -- ----------------------------
 ALTER SEQUENCE "public"."recent_items_id_seq"
 OWNED BY "public"."recent_items"."id";
-SELECT setval('"public"."recent_items_id_seq"', 1, false);
+SELECT setval(pg_get_serial_sequence('public.recent_items', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.recent_items) + 1, false);
 
 -- ----------------------------
 -- Alter sequences owned by
 -- ----------------------------
 ALTER SEQUENCE "public"."risk_alerts_id_seq"
 OWNED BY "public"."risk_alerts"."id";
-SELECT setval('"public"."risk_alerts_id_seq"', 1, false);
+SELECT setval(pg_get_serial_sequence('public.risk_alerts', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.risk_alerts) + 1, false);
 
 -- ----------------------------
 -- Alter sequences owned by
 -- ----------------------------
 ALTER SEQUENCE "public"."risk_rules_id_seq"
 OWNED BY "public"."risk_rules"."id";
-SELECT setval('"public"."risk_rules_id_seq"', 1, false);
+SELECT setval(pg_get_serial_sequence('public.risk_rules', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.risk_rules) + 1, false);
 
 -- ----------------------------
 -- Alter sequences owned by
 -- ----------------------------
 ALTER SEQUENCE "public"."rule_executions_id_seq"
 OWNED BY "public"."rule_executions"."id";
-SELECT setval('"public"."rule_executions_id_seq"', 1, false);
+SELECT setval(pg_get_serial_sequence('public.rule_executions', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.rule_executions) + 1, false);
 
 -- ----------------------------
 -- Alter sequences owned by
 -- ----------------------------
 ALTER SEQUENCE "public"."search_bookmarks_id_seq"
 OWNED BY "public"."search_bookmarks"."id";
-SELECT setval('"public"."search_bookmarks_id_seq"', 1, false);
+SELECT setval(pg_get_serial_sequence('public.search_bookmarks', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.search_bookmarks) + 1, false);
 
 -- ----------------------------
 -- Alter sequences owned by
 -- ----------------------------
 ALTER SEQUENCE "public"."search_documents_id_seq"
 OWNED BY "public"."search_documents"."id";
-SELECT setval('"public"."search_documents_id_seq"', 1, false);
+SELECT setval(pg_get_serial_sequence('public.search_documents', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.search_documents) + 1, false);
 
 -- ----------------------------
 -- Alter sequences owned by
 -- ----------------------------
 ALTER SEQUENCE "public"."search_history_id_seq"
 OWNED BY "public"."search_history"."id";
-SELECT setval('"public"."search_history_id_seq"', 1, false);
+SELECT setval(pg_get_serial_sequence('public.search_history', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.search_history) + 1, false);
 
 -- ----------------------------
 -- Alter sequences owned by
 -- ----------------------------
 ALTER SEQUENCE "public"."sprint_snapshots_id_seq"
 OWNED BY "public"."sprint_snapshots"."id";
-SELECT setval('"public"."sprint_snapshots_id_seq"', 1, false);
+SELECT setval(pg_get_serial_sequence('public.sprint_snapshots', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.sprint_snapshots) + 1, false);
 
 -- ----------------------------
 -- Alter sequences owned by
 -- ----------------------------
 ALTER SEQUENCE "public"."sprints_id_seq"
 OWNED BY "public"."sprints"."id";
-SELECT setval('"public"."sprints_id_seq"', 1, false);
+SELECT setval(pg_get_serial_sequence('public.sprints', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.sprints) + 1, false);
 
 -- ----------------------------
 -- Alter sequences owned by
 -- ----------------------------
 ALTER SEQUENCE "public"."state_transitions_id_seq"
 OWNED BY "public"."state_transitions"."id";
-SELECT setval('"public"."state_transitions_id_seq"', 1, false);
+SELECT setval(pg_get_serial_sequence('public.state_transitions', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.state_transitions) + 1, false);
 
 -- ----------------------------
 -- Alter sequences owned by
 -- ----------------------------
 ALTER SEQUENCE "public"."states_id_seq"
 OWNED BY "public"."states"."id";
-SELECT setval('"public"."states_id_seq"', 1, false);
+SELECT setval(pg_get_serial_sequence('public.states', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.states) + 1, false);
 
 -- ----------------------------
 -- Alter sequences owned by
 -- ----------------------------
 ALTER SEQUENCE "public"."time_logs_id_seq"
 OWNED BY "public"."time_logs"."id";
-SELECT setval('"public"."time_logs_id_seq"', 1, false);
+SELECT setval(pg_get_serial_sequence('public.time_logs', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.time_logs) + 1, false);
 
 -- ----------------------------
 -- Alter sequences owned by
 -- ----------------------------
 ALTER SEQUENCE "public"."users_id_seq"
 OWNED BY "public"."users"."id";
-SELECT setval('"public"."users_id_seq"', 5, true);
+SELECT setval(pg_get_serial_sequence('public.users', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.users) + 1, false);
 
 -- ----------------------------
 -- Alter sequences owned by
 -- ----------------------------
 ALTER SEQUENCE "public"."version_delivery_snapshots_id_seq"
 OWNED BY "public"."version_delivery_snapshots"."id";
-SELECT setval('"public"."version_delivery_snapshots_id_seq"', 1, false);
+SELECT setval(pg_get_serial_sequence('public.version_delivery_snapshots', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.version_delivery_snapshots) + 1, false);
 
 -- ----------------------------
 -- Alter sequences owned by
 -- ----------------------------
 ALTER SEQUENCE "public"."versions_id_seq"
 OWNED BY "public"."versions"."id";
-SELECT setval('"public"."versions_id_seq"', 1, false);
+SELECT setval(pg_get_serial_sequence('public.versions', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.versions) + 1, false);
 
 -- ----------------------------
 -- Alter sequences owned by
 -- ----------------------------
 ALTER SEQUENCE "public"."view_preferences_id_seq"
 OWNED BY "public"."view_preferences"."id";
-SELECT setval('"public"."view_preferences_id_seq"', 1, false);
+SELECT setval(pg_get_serial_sequence('public.view_preferences', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.view_preferences) + 1, false);
 
 -- ----------------------------
 -- Alter sequences owned by
 -- ----------------------------
 ALTER SEQUENCE "public"."webhook_logs_id_seq"
 OWNED BY "public"."webhook_logs"."id";
-SELECT setval('"public"."webhook_logs_id_seq"', 1, false);
+SELECT setval(pg_get_serial_sequence('public.webhook_logs', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.webhook_logs) + 1, false);
 
 -- ----------------------------
 -- Alter sequences owned by
 -- ----------------------------
 ALTER SEQUENCE "public"."webhooks_id_seq"
 OWNED BY "public"."webhooks"."id";
-SELECT setval('"public"."webhooks_id_seq"', 1, false);
+SELECT setval(pg_get_serial_sequence('public.webhooks', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.webhooks) + 1, false);
 
 -- ----------------------------
 -- Alter sequences owned by
 -- ----------------------------
 ALTER SEQUENCE "public"."workbench_configs_id_seq"
 OWNED BY "public"."workbench_configs"."id";
-SELECT setval('"public"."workbench_configs_id_seq"', 1, false);
+SELECT setval(pg_get_serial_sequence('public.workbench_configs', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.workbench_configs) + 1, false);
 
 -- ----------------------------
 -- Alter sequences owned by
 -- ----------------------------
 ALTER SEQUENCE "public"."workbench_templates_id_seq"
 OWNED BY "public"."workbench_templates"."id";
-SELECT setval('"public"."workbench_templates_id_seq"', 3, true);
+SELECT setval(pg_get_serial_sequence('public.workbench_templates', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.workbench_templates) + 1, false);
 
 -- ----------------------------
 -- Alter sequences owned by
 -- ----------------------------
 ALTER SEQUENCE "public"."workspaces_id_seq"
 OWNED BY "public"."workspaces"."id";
-SELECT setval('"public"."workspaces_id_seq"', 3, true);
+SELECT setval(pg_get_serial_sequence('public.workspaces', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.workspaces) + 1, false);
 
 -- ----------------------------
 -- Auto increment value for api_tokens
 -- ----------------------------
-SELECT setval('"public"."api_tokens_id_seq"', 1, false);
+SELECT setval(pg_get_serial_sequence('public.api_tokens', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.api_tokens) + 1, false);
 
 -- ----------------------------
 -- Indexes structure for table api_tokens
@@ -3065,7 +3065,7 @@ ALTER TABLE "public"."attachments" ADD CONSTRAINT "attachments_pkey" PRIMARY KEY
 -- ----------------------------
 -- Auto increment value for audit_logs
 -- ----------------------------
-SELECT setval('"public"."audit_logs_id_seq"', 5, true);
+SELECT setval(pg_get_serial_sequence('public.audit_logs', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.audit_logs) + 1, false);
 
 -- ----------------------------
 -- Indexes structure for table audit_logs
@@ -3087,7 +3087,7 @@ ALTER TABLE "public"."audit_logs" ADD CONSTRAINT "audit_logs_pkey" PRIMARY KEY (
 -- ----------------------------
 -- Auto increment value for automation_rules
 -- ----------------------------
-SELECT setval('"public"."automation_rules_id_seq"', 1, false);
+SELECT setval(pg_get_serial_sequence('public.automation_rules', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.automation_rules) + 1, false);
 
 -- ----------------------------
 -- Indexes structure for table automation_rules
@@ -3128,7 +3128,7 @@ ALTER TABLE "public"."automation_rules" ADD CONSTRAINT "automation_rules_pkey" P
 -- ----------------------------
 -- Auto increment value for automation_templates
 -- ----------------------------
-SELECT setval('"public"."automation_templates_id_seq"', 7, true);
+SELECT setval(pg_get_serial_sequence('public.automation_templates', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.automation_templates) + 1, false);
 
 -- ----------------------------
 -- Indexes structure for table automation_templates
@@ -3151,7 +3151,7 @@ ALTER TABLE "public"."automation_templates" ADD CONSTRAINT "automation_templates
 -- ----------------------------
 -- Auto increment value for dashboard_snapshots
 -- ----------------------------
-SELECT setval('"public"."dashboard_snapshots_id_seq"', 1, false);
+SELECT setval(pg_get_serial_sequence('public.dashboard_snapshots', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.dashboard_snapshots) + 1, false);
 
 -- ----------------------------
 -- Indexes structure for table dashboard_snapshots
@@ -3176,7 +3176,7 @@ ALTER TABLE "public"."dashboard_snapshots" ADD CONSTRAINT "dashboard_snapshots_p
 -- ----------------------------
 -- Auto increment value for dashboard_templates
 -- ----------------------------
-SELECT setval('"public"."dashboard_templates_id_seq"', 3, true);
+SELECT setval(pg_get_serial_sequence('public.dashboard_templates', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.dashboard_templates) + 1, false);
 
 -- ----------------------------
 -- Indexes structure for table dashboard_templates
@@ -3199,7 +3199,7 @@ ALTER TABLE "public"."dashboard_templates" ADD CONSTRAINT "dashboard_templates_p
 -- ----------------------------
 -- Auto increment value for dashboard_widgets
 -- ----------------------------
-SELECT setval('"public"."dashboard_widgets_id_seq"', 1, false);
+SELECT setval(pg_get_serial_sequence('public.dashboard_widgets', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.dashboard_widgets) + 1, false);
 
 -- ----------------------------
 -- Indexes structure for table dashboard_widgets
@@ -3232,7 +3232,7 @@ ALTER TABLE "public"."dashboard_widgets" ADD CONSTRAINT "dashboard_widgets_pkey"
 -- ----------------------------
 -- Auto increment value for deployment_events
 -- ----------------------------
-SELECT setval('"public"."deployment_events_id_seq"', 1, false);
+SELECT setval(pg_get_serial_sequence('public.deployment_events', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.deployment_events) + 1, false);
 
 -- ----------------------------
 -- Indexes structure for table deployment_events
@@ -3265,7 +3265,7 @@ ALTER TABLE "public"."deployment_events" ADD CONSTRAINT "deployment_events_pkey"
 -- ----------------------------
 -- Auto increment value for domain_events
 -- ----------------------------
-SELECT setval('"public"."domain_events_id_seq"', 1, false);
+SELECT setval(pg_get_serial_sequence('public.domain_events', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.domain_events) + 1, false);
 
 -- ----------------------------
 -- Indexes structure for table domain_events
@@ -3348,7 +3348,7 @@ ALTER TABLE "public"."intake_issues" ADD CONSTRAINT "intake_issues_pkey" PRIMARY
 -- ----------------------------
 -- Auto increment value for invitations
 -- ----------------------------
-SELECT setval('"public"."invitations_id_seq"', 1, false);
+SELECT setval(pg_get_serial_sequence('public.invitations', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.invitations) + 1, false);
 
 -- ----------------------------
 -- Indexes structure for table invitations
@@ -3390,7 +3390,7 @@ ALTER TABLE "public"."invitations" ADD CONSTRAINT "invitations_pkey" PRIMARY KEY
 -- ----------------------------
 -- Auto increment value for issue_activities
 -- ----------------------------
-SELECT setval('"public"."issue_activities_id_seq"', 1, false);
+SELECT setval(pg_get_serial_sequence('public.issue_activities', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.issue_activities) + 1, false);
 
 -- ----------------------------
 -- Indexes structure for table issue_activities
@@ -3453,7 +3453,7 @@ ALTER TABLE "public"."issue_comments" ADD CONSTRAINT "issue_comments_pkey" PRIMA
 -- ----------------------------
 -- Auto increment value for issue_dependencies
 -- ----------------------------
-SELECT setval('"public"."issue_dependencies_id_seq"', 1, false);
+SELECT setval(pg_get_serial_sequence('public.issue_dependencies', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.issue_dependencies) + 1, false);
 
 -- ----------------------------
 -- Indexes structure for table issue_dependencies
@@ -3494,7 +3494,7 @@ ALTER TABLE "public"."issue_modules" ADD CONSTRAINT "issue_modules_pkey" PRIMARY
 -- ----------------------------
 -- Auto increment value for issue_relations
 -- ----------------------------
-SELECT setval('"public"."issue_relations_id_seq"', 1, false);
+SELECT setval(pg_get_serial_sequence('public.issue_relations', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.issue_relations) + 1, false);
 
 -- ----------------------------
 -- Indexes structure for table issue_relations
@@ -3537,7 +3537,7 @@ ALTER TABLE "public"."issue_watchers" ADD CONSTRAINT "issue_watchers_pkey" PRIMA
 -- ----------------------------
 -- Auto increment value for issues
 -- ----------------------------
-SELECT setval('"public"."issues_id_seq"', 1, false);
+SELECT setval(pg_get_serial_sequence('public.issues', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.issues) + 1, false);
 
 -- ----------------------------
 -- Indexes structure for table issues
@@ -3653,7 +3653,7 @@ ALTER TABLE "public"."issues" ADD CONSTRAINT "issues_pkey" PRIMARY KEY ("id");
 -- ----------------------------
 -- Auto increment value for labels
 -- ----------------------------
-SELECT setval('"public"."labels_id_seq"', 1, false);
+SELECT setval(pg_get_serial_sequence('public.labels', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.labels) + 1, false);
 
 -- ----------------------------
 -- Indexes structure for table labels
@@ -3677,7 +3677,7 @@ ALTER TABLE "public"."labels" ADD CONSTRAINT "labels_pkey" PRIMARY KEY ("id");
 -- ----------------------------
 -- Auto increment value for metric_adjustments
 -- ----------------------------
-SELECT setval('"public"."metric_adjustments_id_seq"', 1, false);
+SELECT setval(pg_get_serial_sequence('public.metric_adjustments', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.metric_adjustments) + 1, false);
 
 -- ----------------------------
 -- Indexes structure for table metric_adjustments
@@ -3702,7 +3702,7 @@ ALTER TABLE "public"."metric_adjustments" ADD CONSTRAINT "metric_adjustments_pke
 -- ----------------------------
 -- Auto increment value for metric_snapshots
 -- ----------------------------
-SELECT setval('"public"."metric_snapshots_id_seq"', 1, false);
+SELECT setval(pg_get_serial_sequence('public.metric_snapshots', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.metric_snapshots) + 1, false);
 
 -- ----------------------------
 -- Indexes structure for table metric_snapshots
@@ -3754,7 +3754,7 @@ ALTER TABLE "public"."metric_snapshots" ADD CONSTRAINT "metric_snapshots_pkey" P
 -- ----------------------------
 -- Auto increment value for modules
 -- ----------------------------
-SELECT setval('"public"."modules_id_seq"', 1, false);
+SELECT setval(pg_get_serial_sequence('public.modules', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.modules) + 1, false);
 
 -- ----------------------------
 -- Indexes structure for table modules
@@ -3874,7 +3874,7 @@ ALTER TABLE "public"."project_sequences" ADD CONSTRAINT "project_sequences_pkey"
 -- ----------------------------
 -- Auto increment value for projects
 -- ----------------------------
-SELECT setval('"public"."projects_id_seq"', 1, false);
+SELECT setval(pg_get_serial_sequence('public.projects', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.projects) + 1, false);
 
 -- ----------------------------
 -- Indexes structure for table projects
@@ -3922,7 +3922,7 @@ ALTER TABLE "public"."projects" ADD CONSTRAINT "projects_pkey" PRIMARY KEY ("id"
 -- ----------------------------
 -- Auto increment value for recent_items
 -- ----------------------------
-SELECT setval('"public"."recent_items_id_seq"', 1, false);
+SELECT setval(pg_get_serial_sequence('public.recent_items', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.recent_items) + 1, false);
 
 -- ----------------------------
 -- Indexes structure for table recent_items
@@ -3961,7 +3961,7 @@ ALTER TABLE "public"."recent_items" ADD CONSTRAINT "recent_items_pkey" PRIMARY K
 -- ----------------------------
 -- Auto increment value for risk_alerts
 -- ----------------------------
-SELECT setval('"public"."risk_alerts_id_seq"', 1, false);
+SELECT setval(pg_get_serial_sequence('public.risk_alerts', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.risk_alerts) + 1, false);
 
 -- ----------------------------
 -- Indexes structure for table risk_alerts
@@ -3992,7 +3992,7 @@ ALTER TABLE "public"."risk_alerts" ADD CONSTRAINT "risk_alerts_pkey" PRIMARY KEY
 -- ----------------------------
 -- Auto increment value for risk_rules
 -- ----------------------------
-SELECT setval('"public"."risk_rules_id_seq"', 1, false);
+SELECT setval(pg_get_serial_sequence('public.risk_rules', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.risk_rules) + 1, false);
 
 -- ----------------------------
 -- Indexes structure for table risk_rules
@@ -4027,7 +4027,7 @@ ALTER TABLE "public"."risk_rules" ADD CONSTRAINT "risk_rules_pkey" PRIMARY KEY (
 -- ----------------------------
 -- Auto increment value for rule_executions
 -- ----------------------------
-SELECT setval('"public"."rule_executions_id_seq"', 1, false);
+SELECT setval(pg_get_serial_sequence('public.rule_executions', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.rule_executions) + 1, false);
 
 -- ----------------------------
 -- Indexes structure for table rule_executions
@@ -4066,7 +4066,7 @@ ALTER TABLE "public"."schema_migrations" ADD CONSTRAINT "schema_migrations_pkey"
 -- ----------------------------
 -- Auto increment value for search_bookmarks
 -- ----------------------------
-SELECT setval('"public"."search_bookmarks_id_seq"', 1, false);
+SELECT setval(pg_get_serial_sequence('public.search_bookmarks', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.search_bookmarks) + 1, false);
 
 -- ----------------------------
 -- Indexes structure for table search_bookmarks
@@ -4097,7 +4097,7 @@ ALTER TABLE "public"."search_bookmarks" ADD CONSTRAINT "search_bookmarks_pkey" P
 -- ----------------------------
 -- Auto increment value for search_documents
 -- ----------------------------
-SELECT setval('"public"."search_documents_id_seq"', 1, false);
+SELECT setval(pg_get_serial_sequence('public.search_documents', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.search_documents) + 1, false);
 
 -- ----------------------------
 -- Indexes structure for table search_documents
@@ -4140,7 +4140,7 @@ ALTER TABLE "public"."search_documents" ADD CONSTRAINT "search_documents_pkey" P
 -- ----------------------------
 -- Auto increment value for search_history
 -- ----------------------------
-SELECT setval('"public"."search_history_id_seq"', 1, false);
+SELECT setval(pg_get_serial_sequence('public.search_history', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.search_history) + 1, false);
 
 -- ----------------------------
 -- Indexes structure for table search_history
@@ -4174,7 +4174,7 @@ ALTER TABLE "public"."sprint_issues" ADD CONSTRAINT "sprint_issues_pkey" PRIMARY
 -- ----------------------------
 -- Auto increment value for sprint_snapshots
 -- ----------------------------
-SELECT setval('"public"."sprint_snapshots_id_seq"', 1, false);
+SELECT setval(pg_get_serial_sequence('public.sprint_snapshots', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.sprint_snapshots) + 1, false);
 
 -- ----------------------------
 -- Indexes structure for table sprint_snapshots
@@ -4199,7 +4199,7 @@ ALTER TABLE "public"."sprint_snapshots" ADD CONSTRAINT "sprint_snapshots_pkey" P
 -- ----------------------------
 -- Auto increment value for sprints
 -- ----------------------------
-SELECT setval('"public"."sprints_id_seq"', 1, false);
+SELECT setval(pg_get_serial_sequence('public.sprints', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.sprints) + 1, false);
 
 -- ----------------------------
 -- Indexes structure for table sprints
@@ -4248,7 +4248,7 @@ ALTER TABLE "public"."sprints" ADD CONSTRAINT "sprints_pkey" PRIMARY KEY ("id");
 -- ----------------------------
 -- Auto increment value for state_transitions
 -- ----------------------------
-SELECT setval('"public"."state_transitions_id_seq"', 1, false);
+SELECT setval(pg_get_serial_sequence('public.state_transitions', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.state_transitions) + 1, false);
 
 -- ----------------------------
 -- Indexes structure for table state_transitions
@@ -4272,7 +4272,7 @@ ALTER TABLE "public"."state_transitions" ADD CONSTRAINT "state_transitions_pkey"
 -- ----------------------------
 -- Auto increment value for states
 -- ----------------------------
-SELECT setval('"public"."states_id_seq"', 1, false);
+SELECT setval(pg_get_serial_sequence('public.states', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.states) + 1, false);
 
 -- ----------------------------
 -- Indexes structure for table states
@@ -4303,7 +4303,7 @@ ALTER TABLE "public"."states" ADD CONSTRAINT "states_pkey" PRIMARY KEY ("id");
 -- ----------------------------
 -- Auto increment value for time_logs
 -- ----------------------------
-SELECT setval('"public"."time_logs_id_seq"', 1, false);
+SELECT setval(pg_get_serial_sequence('public.time_logs', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.time_logs) + 1, false);
 
 -- ----------------------------
 -- Indexes structure for table time_logs
@@ -4336,7 +4336,7 @@ ALTER TABLE "public"."time_logs" ADD CONSTRAINT "time_logs_pkey" PRIMARY KEY ("i
 -- ----------------------------
 -- Auto increment value for users
 -- ----------------------------
-SELECT setval('"public"."users_id_seq"', 5, true);
+SELECT setval(pg_get_serial_sequence('public.users', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.users) + 1, false);
 
 -- ----------------------------
 -- Triggers structure for table users
@@ -4359,7 +4359,7 @@ ALTER TABLE "public"."users" ADD CONSTRAINT "users_pkey" PRIMARY KEY ("id");
 -- ----------------------------
 -- Auto increment value for version_delivery_snapshots
 -- ----------------------------
-SELECT setval('"public"."version_delivery_snapshots_id_seq"', 1, false);
+SELECT setval(pg_get_serial_sequence('public.version_delivery_snapshots', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.version_delivery_snapshots) + 1, false);
 
 -- ----------------------------
 -- Indexes structure for table version_delivery_snapshots
@@ -4380,7 +4380,7 @@ ALTER TABLE "public"."version_delivery_snapshots" ADD CONSTRAINT "version_delive
 -- ----------------------------
 -- Auto increment value for versions
 -- ----------------------------
-SELECT setval('"public"."versions_id_seq"', 1, false);
+SELECT setval(pg_get_serial_sequence('public.versions', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.versions) + 1, false);
 
 -- ----------------------------
 -- Indexes structure for table versions
@@ -4496,7 +4496,7 @@ ALTER TABLE "public"."webhooks" ADD CONSTRAINT "webhooks_pkey" PRIMARY KEY ("id"
 -- ----------------------------
 -- Auto increment value for workbench_configs
 -- ----------------------------
-SELECT setval('"public"."workbench_configs_id_seq"', 1, false);
+SELECT setval(pg_get_serial_sequence('public.workbench_configs', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.workbench_configs) + 1, false);
 
 -- ----------------------------
 -- Indexes structure for table workbench_configs
@@ -4528,7 +4528,7 @@ ALTER TABLE "public"."workbench_configs" ADD CONSTRAINT "workbench_configs_pkey"
 -- ----------------------------
 -- Auto increment value for workbench_templates
 -- ----------------------------
-SELECT setval('"public"."workbench_templates_id_seq"', 3, true);
+SELECT setval(pg_get_serial_sequence('public.workbench_templates', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.workbench_templates) + 1, false);
 
 -- ----------------------------
 -- Indexes structure for table workbench_templates
@@ -4560,7 +4560,7 @@ ALTER TABLE "public"."workspace_members" ADD CONSTRAINT "workspace_members_pkey"
 -- ----------------------------
 -- Auto increment value for workspaces
 -- ----------------------------
-SELECT setval('"public"."workspaces_id_seq"', 3, true);
+SELECT setval(pg_get_serial_sequence('public.workspaces', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.workspaces) + 1, false);
 
 -- ----------------------------
 -- Indexes structure for table workspaces

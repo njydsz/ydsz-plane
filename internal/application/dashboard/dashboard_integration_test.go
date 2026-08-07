@@ -10,8 +10,10 @@ package dashboard
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/persistence"
 )
@@ -96,15 +98,18 @@ func TestGetDashboardIntegration(t *testing.T) {
 // seedDashboardData 插入独立租户的 project/state/issues。
 func seedDashboardData(t *testing.T, ctx context.Context, pool *persistence.Pool) (int64, int64) {
 	t.Helper()
+	// slug 唯一：避免并发/重复运行冲突
+	suffix := fmt.Sprintf("%d", time.Now().UnixNano())
 	var wsID, projID, stateID int64
 	if err := pool.Pool.QueryRow(ctx, `
-		INSERT INTO workspaces (name, slug, owner_id) VALUES ('dash-int-test', 'dash-int-test', 1)
-		RETURNING id`).Scan(&wsID); err != nil {
+		INSERT INTO workspaces (name, slug, owner_id) VALUES ('dash-int-test', $1, 1)
+		RETURNING id`, "dash-int-"+suffix).Scan(&wsID); err != nil {
 		t.Fatalf("seed workspace: %v", err)
 	}
 	if err := pool.Pool.QueryRow(ctx, `
 		INSERT INTO projects (workspace_id, name, slug, identifier, created_by)
-		VALUES ($1, 'Dash Int Proj', 'dash-int-proj', 'DIP', 1) RETURNING id`, wsID).Scan(&projID); err != nil {
+		VALUES ($1, 'Dash Int Proj', $2, $3, 1) RETURNING id`,
+		wsID, "dash-int-proj-"+suffix, "DIP"+suffix[len(suffix)-4:]).Scan(&projID); err != nil {
 		t.Fatalf("seed project: %v", err)
 	}
 	if err := pool.Pool.QueryRow(ctx, `
@@ -112,13 +117,16 @@ func seedDashboardData(t *testing.T, ctx context.Context, pool *persistence.Pool
 		RETURNING id`, wsID, projID).Scan(&stateID); err != nil {
 		t.Fatalf("seed state: %v", err)
 	}
-	// 三条 issue：不同优先级/状态，制造逾期与阻塞数据
-	types := []string{"task", "bug", "story"}
+	// 三条 issue：不同优先级/状态（type_code 需满足 issues_type_code_check；defect 需 severity+found_phase）
+	types := []string{"requirement", "task", "defect"}
 	priorities := []string{"urgent", "high", "medium"}
 	for i, typ := range types {
 		_, err := pool.Pool.Exec(ctx, `
-			INSERT INTO issues (workspace_id, project_id, sequence_id, type_code, name, state_id, priority, created_by)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, 1)`,
+			INSERT INTO issues (workspace_id, project_id, sequence_id, type_code, name, state_id, priority,
+			                    severity, found_phase, created_by)
+			VALUES ($1, $2, $3, $4, $5, $6, $7,
+			        CASE WHEN $4 = 'defect' THEN 'high'::text ELSE NULL END,
+			        CASE WHEN $4 = 'defect' THEN 'integration'::text ELSE NULL END, 1)`,
 			wsID, projID, i+1, typ, "Dash Issue "+typ, stateID, priorities[i])
 		if err != nil {
 			t.Fatalf("seed issue %d: %v", i, err)

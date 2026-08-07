@@ -34,6 +34,7 @@ export const API_TOKEN_SCOPES = [
   { value: "read:audit", label: "读取审计日志", desc: "查看空间审计记录" },
 ] as const;
 
+/** API Token 权限域（与后端 internal/application/apitoken 的 scope 常量对齐）。 */
 export type ApiTokenScope = (typeof API_TOKEN_SCOPES)[number]["value"];
 
 /** 有效期预设（秒） */

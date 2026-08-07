@@ -3,6 +3,7 @@
  * 展示聚合信息：快捷操作、我的任务、迭代概览与最近访问。数据来自 workbenchApi.getSummary。
  */
 <template>
+  <div class="workbench">
     <div class="wb-header">
       <h2>工作台</h2>
       <span class="wb-greeting">{{ greeting }}</span>
