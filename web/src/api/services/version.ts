@@ -17,7 +17,7 @@ export interface ChecklistItem {
   checked: boolean;
 }
 
-/** 迭代进度摘要（版本日聚合视图用） */
+/** 迭代进度摘要（版本聚合视图用） */
 export interface SprintProgressRef {
   total_points: number;
   done_points: number;
@@ -25,7 +25,7 @@ export interface SprintProgressRef {
   done_issues: number;
 }
 
-/** 版本日关联的迭代摘要 */
+/** 版本关联的迭代摘要 */
 export interface SprintRef {
   sprint_id: number;
   name: string;
@@ -36,7 +36,7 @@ export interface SprintRef {
   progress?: SprintProgressRef;
 }
 
-/** 版本日实时进度聚合 */
+/** 版本实时进度聚合 */
 export interface VersionProgress {
   total_points: number;
   done_points: number;
@@ -47,7 +47,7 @@ export interface VersionProgress {
   sprint_count: number;
 }
 
-/** 版本日质量指标（发布准出校验用） */
+/** 版本质量指标（发布准出校验用） */
 export interface QualityMetrics {
   total_bugs: number;
   open_bugs: number;
@@ -60,7 +60,7 @@ export interface QualityMetrics {
   pass_quality_gate: boolean;
 }
 
-/** 版本日交付报告（发布前快照） */
+/** 版本交付报告（发布前快照） */
 export interface DeliveryReport {
   generated_at: string;
   sprint_count: number;
@@ -74,6 +74,7 @@ export interface DeliveryReport {
   eligible_to_release: boolean;
 }
 
+/** 版本聚合根 */
 export interface Version {
   id: number;
   workspace_id: number;
@@ -82,10 +83,12 @@ export interface Version {
   semver: string;
   description?: string;
   status: VersionStatus;
+  start_date?: string;
+  end_date?: string;
+  target_date?: string;
   checklist?: ChecklistItem[];
   release_notes?: string;
   delivered_at?: string;
-  target_date?: string;
   archived_at?: string;
   created_by: number;
   created_at: string;
@@ -110,38 +113,42 @@ export interface BugVersionView {
   root_cause_category?: string;
 }
 
-/** 创建版本日入参 */
+/** 创建版本入参 */
 export interface CreateVersionInput {
   name: string;
   semver: string;
   description?: string;
+  start_date?: string;
+  end_date?: string;
   target_date?: string;
   checklist?: ChecklistItem[];
 }
 
-/** 更新版本日入参（可选字段 + 乐观锁 version） */
+/** 更新版本入参（可选字段 + 乐观锁 version） */
 export interface UpdateVersionInput {
   name?: string;
   description?: string;
+  start_date?: string;
+  end_date?: string;
   semver?: string;
   target_date?: string;
   checklist?: ChecklistItem[];
   version: number;
 }
 
-/** 发布版本日入参（草稿覆盖 / 强制清单 / 已知缺陷写入发布说明） */
+/** 发布版本入参（草稿覆盖 / 强制清单 / 已知缺陷写入发布说明） */
 export interface ReleaseVersionInput {
   draft_override?: string;
   force_checklist?: boolean;
   add_known_issues_to_notes?: boolean;
 }
 
-/** 将迭代关联到版本日的入参 */
+/** 将迭代归属到版本的入参 */
 export interface AddSprintInput {
   sprint_id: number;
 }
 
-/** 版本日列表查询参数 */
+/** 版本列表查询参数 */
 export interface ListVersionsParams {
   status?: VersionStatus;
   limit?: number;
@@ -154,7 +161,7 @@ export interface ListVersionsParams {
 
 const wrap = <T>(p: Promise<{ data: T }>) => p.then((r) => r.data);
 
-/** 版本日域 API：CRUD / 生命周期 / 进度质量 / 交付报告 / 缺陷面板 / 迭代聚合 */
+/** 版本域 API：CRUD / 生命周期 / 进度质量 / 交付报告 / 缺陷面板 / 迭代聚合 */
 export const versionApi = {
   listVersions: (wsId: number, projectId: number, params?: ListVersionsParams) =>
     wrap<{ results: Version[]; total: number }>(
@@ -171,7 +178,7 @@ export const versionApi = {
   deleteVersion: (wsId: number, projectId: number, versionId: number) =>
     wrap<void>(http.delete(`/workspaces/${wsId}/projects/${projectId}/versions/${versionId}`)),
 
-  // --- 版本日生命周期 ---
+  // --- 版本生命周期 ---
   activateVersion: (wsId: number, projectId: number, versionId: number) =>
     wrap<Version>(
       http.post(`/workspaces/${wsId}/projects/${projectId}/versions/${versionId}/activate`),

@@ -132,7 +132,7 @@ const router = createRouter({
             sprintId: Number(route.params.sprintId),
           }),
         },
-        // 版本日聚合
+        // 版本聚合
         {
           path: ":workspaceSlug/projects/:projectId/versions",
           name: "version-list",

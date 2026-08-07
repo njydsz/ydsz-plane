@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * 缺陷面板 — 展示版本日的缺陷列表与修复状态。
+ * 缺陷面板 — 展示版本的缺陷列表与修复状态。
  */
 
 import { onMounted, ref, computed } from "vue";

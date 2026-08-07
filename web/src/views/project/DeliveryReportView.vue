@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * 交付报告页 — 展示版本日的交付统计与准出资格。
+ * 交付报告页 — 展示版本的交付统计与准出资格。
  */
 
 import { computed, onMounted, ref } from "vue";

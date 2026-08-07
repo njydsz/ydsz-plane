@@ -16,8 +16,11 @@ import (
 
 	"github.com/njydsz/ydsz-plane/internal/application/auth"
 	"github.com/njydsz/ydsz-plane/internal/application/issue"
+	notif "github.com/njydsz/ydsz-plane/internal/application/notification"
+	"github.com/njydsz/ydsz-plane/internal/application/search"
 	"github.com/njydsz/ydsz-plane/internal/application/sprint"
 	"github.com/njydsz/ydsz-plane/internal/application/version"
+	"github.com/njydsz/ydsz-plane/internal/application/workbench"
 	"github.com/njydsz/ydsz-plane/internal/application/workspace"
 	"github.com/njydsz/ydsz-plane/internal/config"
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/cache"
@@ -112,12 +115,14 @@ func run() error {
 	activitySvc := issue.NewActivityService(pool.Pool)
 	timeLogSvc := issue.NewTimeLogService(pool.Pool)
 	relationSvc := issue.NewRelationService(pool.Pool)
+	commentSvc := issue.NewCommentService(pool.Pool)
 	issueHandler := issue.NewIssueHandler(&issue.HandlerDeps{
 		IssueSvc:       issueSvc,
 		StateSvc:       stateSvc,
 		ActivitySvc:    activitySvc,
 		TimeLogSvc:     timeLogSvc,
 		RelationSvc:    relationSvc,
+		CommentSvc:     commentSvc,
 		WorkspaceStore: wsStore,
 	})
 
@@ -128,6 +133,26 @@ func run() error {
 	// ---------- Version domain ----------
 	versionSvc := version.NewService(pool.Pool)
 	versionHandler := version.NewHandler(versionSvc)
+
+	// ---------- Search domain ----------
+	searchSvc := search.NewService(pool.Pool)
+	searchHandler := search.NewSearchHandler(&search.HandlerDeps{
+		SearchSvc:      searchSvc,
+		WorkspaceStore: wsStore,
+	})
+
+	// ---------- Workbench domain ----------
+	workbenchSvc := workbench.NewService(pool.Pool)
+	workbenchHandler := workbench.NewWorkbenchHandler(&workbench.HandlerDeps{
+		WorkbenchSvc: workbenchSvc,
+	})
+
+	// ---------- Notification domain ----------
+	notifSvc := notif.NewService(pool.Pool)
+	notifHandler := notif.NewHandler(&notif.HandlerDeps{
+		NotificationSvc: notifSvc,
+		WorkspaceStore:  wsStore,
+	})
 
 	// ---------- HTTP Engine ----------
 	engine := httpapi.NewEngine(&httpapi.Deps{
@@ -150,6 +175,12 @@ func run() error {
 		ActivitySvc:  activitySvc,
 		TimeLogSvc:   timeLogSvc,
 		IssueHandler: issueHandler,
+		// Search domain
+		SearchHandler: searchHandler,
+		// Workbench domain
+		WorkbenchHandler: workbenchHandler,
+		// Notification domain
+		NotificationHandler: notifHandler,
 		// Sprint domain
 		SprintHandler: sprintHandler,
 		// Version domain
@@ -170,11 +201,32 @@ func run() error {
 		SprintHandler:  sprintHandler,
 	})
 
-	// 注册版本日路由（独立于 Issue 路由）
+	// 注册版本路由（独立于 Issue 路由）
 	httpapi.RegisterVersionRoutes(engine, &httpapi.Deps{
 		Auth:           authSvc,
 		WorkspaceStore: wsStore,
 		VersionHandler: versionHandler,
+	})
+
+	// 注册搜索路由（项目级 + 工作空间级）
+	httpapi.RegisterSearchRoutes(engine, &httpapi.Deps{
+		Auth:           authSvc,
+		WorkspaceStore: wsStore,
+		SearchHandler:  searchHandler,
+	})
+
+	// 注册工作台路由（项目级 + 工作空间级）
+	httpapi.RegisterWorkbenchRoutes(engine, &httpapi.Deps{
+		Auth:             authSvc,
+		WorkspaceStore:   wsStore,
+		WorkbenchHandler: workbenchHandler,
+	})
+
+	// 注册通知路由
+	httpapi.RegisterNotificationRoutes(engine, &httpapi.Deps{
+		Auth:                authSvc,
+		WorkspaceStore:      wsStore,
+		NotificationHandler: notifHandler,
 	})
 
 	srv := &http.Server{

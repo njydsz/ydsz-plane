@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * 版本日发布页 — 发布前检查清单、发布说明生成与确认发布。
+ * 版本发布页 — 发布前检查清单、发布说明生成与确认发布。
  */
 
 import { computed, onMounted, ref } from "vue";

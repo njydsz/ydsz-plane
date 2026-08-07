@@ -9,6 +9,7 @@
  */
 import { computed } from "vue";
 
+/** 甘特图迭代条目（含日期范围与进度百分比） */
 export interface GanttSprint {
   id: number;
   name: string;

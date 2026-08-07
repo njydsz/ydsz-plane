@@ -1,4 +1,4 @@
-// Package version — 版本日应用服务单元测试。
+// Package version — 版本应用服务单元测试。
 //
 // 覆盖范围：
 //   1. SemVer 2.0 解析与校验
@@ -10,7 +10,7 @@
 //   7. 质量指标计算逻辑
 //   8. Release Notes 数据模型
 //   9. 输入校验 (validateCreateInput)
-//  10. 版本日状态枚举合法性
+//  10. 版本状态枚举合法性
 //
 // 互联网大厂标准：
 //   - 表驱动测试 (table-driven tests)
@@ -499,7 +499,7 @@ func TestVersionProgress_Boundaries(t *testing.T) {
 }
 
 // ==========================================================================
-// P0-6: 版本日状态枚举合法性
+// P0-6: 版本状态枚举合法性
 // ==========================================================================
 
 func TestVersionStatusCode_IsValid(t *testing.T) {

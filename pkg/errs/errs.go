@@ -300,18 +300,18 @@ var (
 	ErrSprintCapacityExceeded = New("SPRINT.CAPACITY_EXCEEDED", "迭代容量已超出设定值", http.StatusUnprocessableEntity)
 
 	// ==========================================================================
-	// 版本日域（Domain: VERSION，代号 S6）
-	// ==========================================================================
+// 版本域（Domain: VERSION，代号 S6）
+// ==========================================================================
 
-	// ErrVersionDataConflict 版本日数据冲突（HTTP 409 Conflict）。
-	//
-	// 触发场景：并发修改同一版本日、semver 唯一性冲突、乐观锁 version 字段比对失败。
-	ErrVersionDataConflict = New("VERSION.CONFLICT", "版本日状态冲突或版本号已被占用", http.StatusConflict)
+// ErrVersionDataConflict 版本数据冲突（HTTP 409 Conflict）。
+//
+// 触发场景：并发修改同一版本、semver 唯一性冲突、乐观锁 version 字段比对失败。
+ErrVersionDataConflict = New("VERSION.CONFLICT", "版本状态冲突或版本号已被占用", http.StatusConflict)
 
-	// ErrVersionInvalidLifecycle 版本日生命周期非法（HTTP 422 Unprocessable Entity）。
-	//
-	// 触发场景：对已归档/已发布的版本日执行编辑、尝试回退到 planning。
-	ErrVersionInvalidLifecycle = New("VERSION.INVALID_LIFECYCLE", "当前版本日状态不允许该操作", http.StatusUnprocessableEntity)
+// ErrVersionInvalidLifecycle 版本生命周期非法（HTTP 422 Unprocessable Entity）。
+//
+// 触发场景：对已归档/已发布的版本执行编辑、尝试回退到 planning。
+ErrVersionInvalidLifecycle = New("VERSION.INVALID_LIFECYCLE", "当前版本状态不允许该操作", http.StatusUnprocessableEntity)
 
 	// ErrVersionSemverInvalid 语义版本号非法（HTTP 422 Unprocessable Entity）。
 	//
@@ -328,8 +328,8 @@ var (
 	// 触发场景：必要检查项未全部勾选试图发布。
 	ErrVersionChecklistIncomplete = New("VERSION.CHECKLIST_INCOMPLETE", "发布检查清单还有未完成的必要项", http.StatusUnprocessableEntity)
 
-	// ErrVersionNotFound 版本日不存在（HTTP 404 Not Found）。
-	ErrVersionNotFound = New("VERSION.NOT_FOUND", "版本日不存在", http.StatusNotFound)
+// ErrVersionNotFound 版本不存在（HTTP 404 Not Found）。
+ErrVersionNotFound = New("VERSION.NOT_FOUND", "版本不存在", http.StatusNotFound)
 )
 
 // As 包装标准库 errors.As，方便调用方直接 errs.As(err, &appErr) 而无需额外导入 errors 包。
@@ -343,3 +343,25 @@ var (
 //	    slog.Error("unknown error", "cause", recoveredErr)
 //	}
 func As(err error, target any) bool { return errors.As(err, target) }
+
+// --- 便捷构造函数 ---
+
+// NotFound 快速创建 RESOURCE.NOT_FOUND 错误。
+func NotFound(code, message string) *AppError {
+	return &AppError{Code: code, Message: message, HTTP: http.StatusNotFound}
+}
+
+// Validation 快速创建 VALIDATION 错误。
+func Validation(code, message string) *AppError {
+	return &AppError{Code: code, Message: message, HTTP: http.StatusUnprocessableEntity}
+}
+
+// Conflict 快速创建 CONFLICT 错误。
+func Conflict(code, message string) *AppError {
+	return &AppError{Code: code, Message: message, HTTP: http.StatusConflict}
+}
+
+// Forbidden 快速创建 FORBIDDEN 错误。
+func Forbidden(code, message string) *AppError {
+	return &AppError{Code: code, Message: message, HTTP: http.StatusForbidden}
+}

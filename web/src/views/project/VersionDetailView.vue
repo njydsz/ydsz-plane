@@ -1,6 +1,7 @@
 <script setup lang="ts">
 /**
- * 版本日详情页 — 展示进度、质量门禁、缺陷面板与迭代聚合。
+ * 版本详情页 — 展示进度、质量门禁、缺陷面板与迭代聚合。
+ * 业务规则：一个版本聚合多个迭代（1:N），一个迭代只属于一个版本。
  */
 
 import { computed, onMounted, ref } from "vue";
@@ -490,7 +491,7 @@ onMounted(async () => {
           v-else
           icon="🔗"
           title="暂无关联迭代"
-          description="将迭代挂入版本日以追踪整体进度"
+          description="将迭代归属到该版本以追踪整体进度"
         >
           <AppButton
             v-if="canEdit"

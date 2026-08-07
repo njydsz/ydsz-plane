@@ -1,13 +1,14 @@
-// Package version — 版本日领域模型与枚举。
+// Package version — 版本领域模型与枚举。
 //
 // 参考: Plane / Jira Fix Version / GitHub Release。
-// 版本日聚合跨迭代的交付物，作为发布、发版、Release Notes 的聚合根。
+// 版本聚合跨迭代的交付物，作为发布、发版、Release Notes 的聚合根。
 // 状态机: planning → active → released → archived (不可逆)
+// 业务规则: 一个版本聚合多个迭代，一个迭代只属于一个版本 (sprints.version_id FK)
 package version
 
 import "time"
 
-// VersionStatusCode 版本日状态枚举。
+// VersionStatusCode 版本状态枚举。
 type VersionStatusCode string
 
 const (
@@ -26,7 +27,7 @@ func (s VersionStatusCode) IsValid() bool {
 	return false
 }
 
-// Version 版本日聚合根。
+// Version 版本聚合根。
 type Version struct {
 	ID             int64             `json:"id"`
 	WorkspaceID    int64             `json:"workspace_id"`
@@ -35,10 +36,12 @@ type Version struct {
 	Semver         string            `json:"semver"`
 	Description    string            `json:"description,omitempty"`
 	Status         VersionStatusCode `json:"status"`
+	StartDate      *string           `json:"start_date,omitempty"`
+	EndDate        *string           `json:"end_date,omitempty"`
+	TargetDate     *string           `json:"target_date,omitempty"`
 	Checklist      []ChecklistItem   `json:"checklist,omitempty"`
 	ReleaseNotes   string            `json:"release_notes,omitempty"`
 	DeliveredAt    *time.Time        `json:"delivered_at,omitempty"`
-	TargetDate     *string           `json:"target_date,omitempty"`
 	ArchivedAt     *time.Time        `json:"archived_at,omitempty"`
 	CreatedBy      int64             `json:"created_by"`
 	CreatedAt      time.Time         `json:"created_at"`
@@ -58,7 +61,7 @@ type ChecklistItem struct {
 	Checked  bool   `json:"checked"`
 }
 
-// SprintRef 版本日关联的迭代摘要。
+// SprintRef 版本关联的迭代摘要。
 type SprintRef struct {
 	SprintID    int64             `json:"sprint_id"`
 	Name        string            `json:"name"`
@@ -77,7 +80,7 @@ type SprintProgressRef struct {
 	DoneIssues  int     `json:"done_issues"`
 }
 
-// VersionProgress 版本日实时进度聚合。
+// VersionProgress 版本实时进度聚合。
 type VersionProgress struct {
 	TotalPoints    float64            `json:"total_points"`
 	DonePoints     float64            `json:"done_points"`
@@ -89,7 +92,7 @@ type VersionProgress struct {
 	IssueCount     int                `json:"issue_count"`
 }
 
-// QualityMetrics 版本日质量指标（准出校验用）。
+// QualityMetrics 版本质量指标（准出校验用）。
 type QualityMetrics struct {
 	TotalBugs       int         `json:"total_bugs"`
 	OpenBugs        int         `json:"open_bugs"`
@@ -134,24 +137,28 @@ type ReleaseNotesData struct {
 
 // --- 输入 ---
 
-// CreateVersionInput 创建版本日的入参。
+// CreateVersionInput 创建版本的入参。
 type CreateVersionInput struct {
 	WorkspaceID int64
 	ProjectID   int64
 	Name        string
 	Semver      string
 	Description string
+	StartDate   *string
+	EndDate     *string
 	TargetDate  *string
 	Checklist   []ChecklistItem
 	CreatedBy   int64
 }
 
-// UpdateVersionInput 更新版本日字段的入参。
+// UpdateVersionInput 更新版本字段的入参。
 type UpdateVersionInput struct {
 	Name        *string
 	Description *string
-	Semver      *string
+	StartDate   *string
+	EndDate     *string
 	TargetDate  *string
+	Semver      *string
 	Checklist   []ChecklistItem
 	Version     int
 }
@@ -165,14 +172,14 @@ type ListVersionsOptions struct {
 	Offset      int
 }
 
-// ReleaseVersionInput 发布的入参。
+// ReleaseVersionInput 发布版本的入参。
 type ReleaseVersionInput struct {
 	DraftOverride         string
 	ForceChecklist        bool
 	AddKnownIssuesToNotes bool
 }
 
-// AddSprintInput 将迭代挂入版本日。
+// AddSprintInput 将迭代归属到版本。
 type AddSprintInput struct {
 	VersionID int64
 	SprintID  int64

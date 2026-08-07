@@ -24,10 +24,12 @@ const (
 )
 
 // Sprint 迭代聚合根。
+// 业务规则: 一个迭代只属于一个版本 (version_id FK)。
 type Sprint struct {
 	ID             int64            `json:"id"`
 	WorkspaceID    int64            `json:"workspace_id"`
 	ProjectID      int64            `json:"project_id"`
+	VersionID      *int64           `json:"version_id,omitempty"`
 	Name           string           `json:"name"`
 	Description    string           `json:"description,omitempty"`
 	Goal           string           `json:"goal,omitempty"`

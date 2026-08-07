@@ -63,6 +63,8 @@ type createVersionRequest struct {
 	Name        string          `json:"name" binding:"required,min=1,max=120"`
 	Semver      string          `json:"semver" binding:"required,min=1,max=50"`
 	Description string          `json:"description" binding:"max=2000"`
+	StartDate   *string         `json:"start_date" binding:"omitempty,datetime=2006-01-02"`
+	EndDate     *string         `json:"end_date" binding:"omitempty,datetime=2006-01-02"`
 	TargetDate  *string         `json:"target_date" binding:"omitempty,datetime=2006-01-02"`
 	Checklist   []ChecklistItem `json:"checklist"`
 }
@@ -70,8 +72,10 @@ type createVersionRequest struct {
 type updateVersionRequest struct {
 	Name        *string         `json:"name" binding:"omitempty,min=1,max=120"`
 	Description *string         `json:"description" binding:"omitempty,max=2000"`
-	Semver      *string         `json:"semver" binding:"omitempty,min=1,max=50"`
+	StartDate   *string         `json:"start_date" binding:"omitempty,datetime=2006-01-02"`
+	EndDate     *string         `json:"end_date" binding:"omitempty,datetime=2006-01-02"`
 	TargetDate  *string         `json:"target_date" binding:"omitempty,datetime=2006-01-02"`
+	Semver      *string         `json:"semver" binding:"omitempty,min=1,max=50"`
 	Checklist   []ChecklistItem `json:"checklist"`
 	Version     int             `json:"version"`
 }
@@ -132,6 +136,8 @@ func (h *Handler) create(c *gin.Context) {
 		Name:        req.Name,
 		Semver:      req.Semver,
 		Description: req.Description,
+		StartDate:   req.StartDate,
+		EndDate:     req.EndDate,
 		TargetDate:  req.TargetDate,
 		Checklist:   req.Checklist,
 		CreatedBy:   userID,
@@ -170,8 +176,10 @@ func (h *Handler) update(c *gin.Context) {
 	in := UpdateVersionInput{
 		Name:        req.Name,
 		Description: req.Description,
-		Semver:      req.Semver,
+		StartDate:   req.StartDate,
+		EndDate:     req.EndDate,
 		TargetDate:  req.TargetDate,
+		Semver:      req.Semver,
 		Checklist:   req.Checklist,
 		Version:     req.Version,
 	}

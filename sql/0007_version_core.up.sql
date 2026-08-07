@@ -1,9 +1,11 @@
--- 0007_version_core: versions + version_sprints + issue 缺陷版本字段 (Sprint 6 — M4 质量与版本)
--- 参考 docs/architecture/08-迭代与版本日设计.md
+-- 0007_version_core: versions + issue 缺陷版本字段 (Sprint 6 — M4 质量与版本)
+-- 参考 docs/architecture/08-迭代与版本设计.md
+-- 注意: 版本与迭代的 1:N 关联在 0009_version_fix 迁移中实现 (sprints.version_id FK)
 
 -- -----------------------------------------------------------------
--- versions: 版本日聚合根（跨迭代的发布聚合）
+-- versions: 版本聚合根（跨迭代的发布聚合）
 -- status: planning | active | released | archived
+-- 属性: name, semver, description, start_date, end_date, target_date(版本日) 等
 -- -----------------------------------------------------------------
 CREATE TABLE versions (
     id              BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -37,7 +39,8 @@ CREATE POLICY tenant_isolation ON versions
     WITH CHECK (workspace_id = current_setting('app.workspace_id', true)::bigint);
 
 -- -----------------------------------------------------------------
--- version_sprints: 版本日 ↔ 迭代 M2M (聚合 1..N 迭代)
+-- version_sprints: 已弃用（由 0009_version_fix 迁移为 sprints.version_id FK）
+-- 保留此注释仅为历史参考，实际表不再创建
 -- -----------------------------------------------------------------
 CREATE TABLE version_sprints (
     version_id      BIGINT NOT NULL REFERENCES versions(id) ON DELETE CASCADE,

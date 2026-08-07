@@ -34,7 +34,7 @@ const (
 	// 工作项管理
 	PermIssueCreate = "issue:create"
 	PermIssueDelete = "issue:delete"
-	// 版本日管理
+	// 版本管理
 	PermVersionCreate = "version:create"
 	PermVersionRelease = "version:release"
 	PermVersionDelete = "version:delete"

@@ -17,9 +17,13 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/njydsz/ydsz-plane/internal/application/auth"
+	"github.com/njydsz/ydsz-plane/internal/application/dashboard"
 	"github.com/njydsz/ydsz-plane/internal/application/issue"
+	notif "github.com/njydsz/ydsz-plane/internal/application/notification"
+	"github.com/njydsz/ydsz-plane/internal/application/search"
 	"github.com/njydsz/ydsz-plane/internal/application/sprint"
 	"github.com/njydsz/ydsz-plane/internal/application/version"
+	"github.com/njydsz/ydsz-plane/internal/application/workbench"
 	"github.com/njydsz/ydsz-plane/internal/application/workspace"
 	"github.com/njydsz/ydsz-plane/internal/config"
 	"github.com/njydsz/ydsz-plane/internal/interfaces/middleware"
@@ -49,8 +53,12 @@ type Deps struct {
 	ActivitySvc     *issue.ActivityService
 	TimeLogSvc      *issue.TimeLogService
 	IssueHandler    *issue.IssueHandler
-	SprintHandler   *sprint.Handler
-	VersionHandler  *version.Handler
+	SearchHandler   *search.SearchHandler
+	SprintHandler    *sprint.Handler
+	VersionHandler   *version.Handler
+	WorkbenchHandler *workbench.WorkbenchHandler
+	DashboardHandler *dashboard.DashboardHandler
+	NotificationHandler *notif.Handler
 }
 
 // RegisterIssueRoutes 注册工作项路由（在 NewEngine 之后调用）。
@@ -86,7 +94,7 @@ func RegisterSprintRoutes(r *gin.Engine, d *Deps) {
 	d.SprintHandler.Register(projects)
 }
 
-// RegisterVersionRoutes 注册版本日路由（独立于 Issue 路由）。
+// RegisterVersionRoutes 注册版本路由（独立于 Issue 路由）。
 func RegisterVersionRoutes(r *gin.Engine, d *Deps) {
 	if d.VersionHandler == nil {
 		return
@@ -99,6 +107,109 @@ func RegisterVersionRoutes(r *gin.Engine, d *Deps) {
 	projects := v1.Group("/projects/:project_id")
 	projects.Use(middleware.RequireProjectParam())
 	d.VersionHandler.Register(projects)
+}
+
+// RegisterSearchRoutes 注册全局搜索路由（独立于 Issue/Sprint/Version 路由）。
+func RegisterSearchRoutes(r *gin.Engine, d *Deps) {
+	if d.SearchHandler == nil {
+		return
+	}
+
+	// ----- 项目级搜索（含过滤） -----
+	project := r.Group("/api/v1/workspaces/:workspace_id/projects/:project_id/search")
+	project.Use(
+		middleware.RequireAuth(d.Auth.ParseAccess),
+		middleware.RequireWorkspaceParam(),
+		middleware.RequireProjectParam(),
+		middleware.RequirePermission(d.WorkspaceStore, auth.PermWorkspaceRead),
+	)
+	d.SearchHandler.Register(project)
+
+	// ----- 工作空间级全局搜索（跨项目） -----
+	wsSearch := r.Group("/api/v1/workspaces/:workspace_id/search")
+	wsSearch.Use(
+		middleware.RequireAuth(d.Auth.ParseAccess),
+		middleware.RequireWorkspaceParam(),
+		middleware.RequirePermission(d.WorkspaceStore, auth.PermWorkspaceRead),
+	)
+	wsSearch.GET("", d.SearchHandler.Search)
+	wsSearch.GET("/history", d.SearchHandler.ListHistory)
+	wsSearch.DELETE("/history", d.SearchHandler.ClearHistory)
+	wsSearch.DELETE("/history/:history_id", d.SearchHandler.DeleteHistory)
+	wsSearch.GET("/bookmarks", d.SearchHandler.ListBookmarks)
+	wsSearch.POST("/bookmarks", d.SearchHandler.CreateBookmark)
+	wsSearch.PATCH("/bookmarks/:bookmark_id", d.SearchHandler.UpdateBookmark)
+	wsSearch.DELETE("/bookmarks/:bookmark_id", d.SearchHandler.DeleteBookmark)
+
+	// ----- 工作台（项目级） -----
+	projectWb := r.Group("/api/v1/workspaces/:workspace_id/projects/:project_id/workbench")
+	projectWb.Use(
+		middleware.RequireAuth(d.Auth.ParseAccess),
+		middleware.RequireWorkspaceParam(),
+		middleware.RequireProjectParam(),
+		middleware.RequirePermission(d.WorkspaceStore, auth.PermWorkspaceRead),
+	)
+	d.WorkbenchHandler.Register(projectWb)
+
+	// ----- 工作台（工作空间级，跨项目汇总） -----
+	wsWb := r.Group("/api/v1/workspaces/:workspace_id/workbench")
+	wsWb.Use(
+		middleware.RequireAuth(d.Auth.ParseAccess),
+		middleware.RequireWorkspaceParam(),
+		middleware.RequirePermission(d.WorkspaceStore, auth.PermWorkspaceRead),
+	)
+	wsWb.GET("/summary", d.WorkbenchHandler.GetSummary)
+	wsWb.GET("/config", d.WorkbenchHandler.GetConfig)
+	wsWb.PUT("/config", d.WorkbenchHandler.SaveConfig)
+	wsWb.GET("/recent", d.WorkbenchHandler.ListRecent)
+	wsWb.POST("/recent", d.WorkbenchHandler.RecordRecent)
+	wsWb.GET("/templates", d.WorkbenchHandler.ListTemplates)
+	wsWb.POST("/templates/apply", d.WorkbenchHandler.ApplyTemplate)
+}
+
+// RegisterWorkbenchRoutes 保留签名兼容（路由已在 RegisterSearchRoutes 中注册）。
+func RegisterWorkbenchRoutes(_ *gin.Engine, _ *Deps) {}
+
+// RegisterDashboardRoutes 注册项目仪表盘路由。
+func RegisterDashboardRoutes(r *gin.Engine, d *Deps) {
+	if d.DashboardHandler == nil {
+		return
+	}
+
+	// 项目级仪表盘
+	project := r.Group("/api/v1/workspaces/:workspace_id/projects/:project_id/dashboard")
+	project.Use(
+		middleware.RequireAuth(d.Auth.ParseAccess),
+		middleware.RequireWorkspaceParam(),
+		middleware.RequireProjectParam(),
+		middleware.RequirePermission(d.WorkspaceStore, auth.PermWorkspaceRead),
+	)
+	d.DashboardHandler.Register(project)
+
+	// 工作空间级仪表盘（跨项目汇总）
+	ws := r.Group("/api/v1/workspaces/:workspace_id/dashboard")
+	ws.Use(
+		middleware.RequireAuth(d.Auth.ParseAccess),
+		middleware.RequireWorkspaceParam(),
+		middleware.RequirePermission(d.WorkspaceStore, auth.PermWorkspaceRead),
+	)
+	ws.GET("/alerts", d.DashboardHandler.ListAlerts)
+	ws.POST("/alerts/:alert_id/resolve", d.DashboardHandler.ResolveAlert)
+	ws.GET("/templates", d.DashboardHandler.ListTemplates)
+}
+
+// RegisterNotificationRoutes 注册通知路由。
+func RegisterNotificationRoutes(r *gin.Engine, d *Deps) {
+	if d.NotificationHandler == nil {
+		return
+	}
+	ws := r.Group("/api/v1/workspaces/:workspace_id")
+	ws.Use(
+		middleware.RequireAuth(d.Auth.ParseAccess),
+		middleware.RequireWorkspaceParam(),
+		middleware.RequirePermission(d.WorkspaceStore, auth.PermWorkspaceRead),
+	)
+	d.NotificationHandler.RegisterRoutes(ws)
 }
 
 // NewEngine 构建带完整中间件链的 HTTP 引擎。

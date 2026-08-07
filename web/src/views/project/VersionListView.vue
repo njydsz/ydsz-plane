@@ -1,6 +1,7 @@
 <script setup lang="ts">
 /**
- * 版本日列表页 — 展示版本日列表，支持创建与状态流转。
+ * 版本列表页 — 展示版本列表，支持创建与状态流转。
+ * 业务规则：一个版本聚合多个迭代（1:N），版本日(target_date)只是版本的一个属性。
  */
 
 import { computed, onMounted, ref } from "vue";
@@ -23,7 +24,7 @@ const filterStatus = ref<VersionStatus | "">("");
 
 // create
 const showCreate = ref(false);
-const form = ref({ name: "", semver: "", description: "", target_date: "" });
+const form = ref({ name: "", semver: "", description: "", start_date: "", end_date: "", target_date: "" });
 const creating = ref(false);
 const createError = ref("");
 
@@ -92,10 +93,12 @@ async function createVersion() {
       name: form.value.name.trim(),
       semver: form.value.semver.trim(),
       description: form.value.description || undefined,
+      start_date: form.value.start_date || undefined,
+      end_date: form.value.end_date || undefined,
       target_date: form.value.target_date || undefined,
     });
     showCreate.value = false;
-    form.value = { name: "", semver: "", description: "", target_date: "" };
+    form.value = { name: "", semver: "", description: "", start_date: "", end_date: "", target_date: "" };
     versions.value = [v, ...versions.value];
     total.value++;
   } catch (e: unknown) {
@@ -149,7 +152,7 @@ onMounted(load);
     <!-- Header -->
     <header class="header">
       <div>
-        <h1 class="header__title">版本日</h1>
+        <h1 class="header__title">版本</h1>
         <p class="header__hint">规划与追踪版本发布节奏</p>
       </div>
       <div class="header__actions">
@@ -166,7 +169,7 @@ onMounted(load);
     <!-- Create panel -->
     <div v-if="showCreate" class="create-panel" @keydown.escape="showCreate = false">
       <div class="create-panel__inner">
-        <h3 class="create-panel__title">新建版本日</h3>
+        <h3 class="create-panel__title">新建版本</h3>
         <form class="create-form" @submit.prevent="createVersion">
           <div class="create-form__row">
             <label class="create-form__field">
@@ -201,6 +204,24 @@ onMounted(load);
               class="create-form__input"
             />
           </label>
+          <div class="create-form__row">
+            <label class="create-form__field">
+              <span class="create-form__label">开始时间</span>
+              <input
+                v-model="form.start_date"
+                type="date"
+                class="create-form__input"
+              />
+            </label>
+            <label class="create-form__field">
+              <span class="create-form__label">结束时间</span>
+              <input
+                v-model="form.end_date"
+                type="date"
+                class="create-form__input"
+              />
+            </label>
+          </div>
           <label class="create-form__field">
             <span class="create-form__label">描述（可选）</span>
             <textarea
@@ -265,7 +286,7 @@ onMounted(load);
     <AppEmptyState
       v-else-if="versions.length === 0"
       icon="📦"
-      :title="filterStatus ? `暂无「${statusLabel[filterStatus as VersionStatus]}」状态的版本` : '暂无版本日'"
+      :title="filterStatus ? `暂无「${statusLabel[filterStatus as VersionStatus]}」状态的版本` : '暂无版本'"
       description="点击「新建版本」开始规划第一个版本"
     >
       <AppButton variant="primary" size="sm" @click="showCreate = true">
@@ -306,8 +327,11 @@ onMounted(load);
 
         <!-- Meta row -->
         <div class="card__meta">
+          <span v-if="v.start_date || v.end_date" class="card__date">
+            📅 {{ v.start_date }} ~ {{ v.end_date }}
+          </span>
           <span v-if="v.target_date" class="card__date">
-            📅 目标 {{ v.target_date }}
+            🎯 目标 {{ v.target_date }}
           </span>
           <span class="card__sprint-count">
             {{ v.sprints?.length ?? 0 }} 个迭代

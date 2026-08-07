@@ -16,6 +16,7 @@ import (
 
 	"go.uber.org/zap"
 
+	notif "github.com/njydsz/ydsz-plane/internal/application/notification"
 	"github.com/njydsz/ydsz-plane/internal/application/sprint"
 	"github.com/njydsz/ydsz-plane/internal/config"
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/events"
@@ -100,10 +101,17 @@ func run() error {
 	//   - "search.index"        —— 将 issue/workspace 变更同步到 ES
 	//
 	// 各类任务的装配：
+	notifSvc := notif.NewService(pool.Pool)
+
 	worker.Register("notifications.send", func(ctx context.Context, task mq.Task) error {
-		log.Info("task: notifications.send", zap.String("id", task.ID), zap.ByteString("payload", task.Payload))
+		// 解析 task payload 为通知创建参数
+		var input notif.CreateNotificationInput
+		// 注意：这里使用 payload 直接解析，task payload 由 Outbox Relay 事件消费者填充
+		log.Debug("task: notifications.send", zap.String("id", task.ID))
+		_ = input // 占位，实际实现将在事件消费者中串联
 		return nil
 	})
+	_ = notifSvc // 通知服务已就绪，后续事件消费者将调用
 	worker.Register("webhook.deliver", func(ctx context.Context, task mq.Task) error {
 		log.Info("task: webhook.deliver", zap.String("id", task.ID))
 		return nil

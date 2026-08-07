@@ -21,6 +21,7 @@ type HandlerDeps struct {
 	ActivitySvc    *ActivityService
 	TimeLogSvc     *TimeLogService
 	RelationSvc    *RelationService
+	CommentSvc     *CommentService
 	ProjectInit    *ProjectInitService
 	WorkspaceStore *auth.WorkspaceMembershipStore
 }
@@ -63,6 +64,11 @@ func (h *IssueHandler) Register(r *gin.RouterGroup, wsMiddleware []gin.HandlerFu
 		issue.GET("/dependencies", h.listDependencies)
 		issue.POST("/dependencies", h.createDependency)
 		issue.DELETE("/dependencies/:dep_id", h.deleteDependency)
+		// 评论
+		issue.GET("/comments", h.listComments)
+		issue.POST("/comments", h.createComment)
+		issue.PATCH("/comments/:comment_id", h.updateComment)
+		issue.DELETE("/comments/:comment_id", h.deleteComment)
 	}
 }
 
@@ -615,6 +621,97 @@ func (h *IssueHandler) deleteDependency(c *gin.Context) {
 	depID := int64Param(c, "dep_id")
 
 	if err := h.d.RelationSvc.DeleteDependency(c.Request.Context(), wsID, depID); err != nil {
+		writeErr(c, err)
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
+
+// --- Comment handlers ---
+
+func (h *IssueHandler) listComments(c *gin.Context) {
+	issueID := int64Param(c, "issue_id")
+
+	comments, err := h.d.CommentSvc.ListByIssue(c.Request.Context(), issueID)
+	if err != nil {
+		writeErr(c, err)
+		return
+	}
+	if comments == nil {
+		comments = []Comment{}
+	}
+	c.JSON(http.StatusOK, gin.H{"results": comments})
+}
+
+func (h *IssueHandler) createComment(c *gin.Context) {
+	wsID := c.GetInt64(middleware.CtxWorkspaceID)
+	projectID := c.GetInt64(middleware.CtxProjectID)
+	issueID := int64Param(c, "issue_id")
+	userID := c.GetInt64(middleware.CtxUserID)
+
+	var req struct {
+		ContentJSON     string  `json:"content_json"`
+		ContentHTML     string  `json:"content_html"`
+		ContentStripped string  `json:"content_stripped"`
+		Mentions        []int64 `json:"mentions"`
+		ParentID        *int64  `json:"parent_id"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		middleware.AbortWithError(c, errs.ErrValidation.WithDetails(fieldDetail(err)))
+		return
+	}
+
+	comment, err := h.d.CommentSvc.Create(c.Request.Context(), CreateCommentInput{
+		IssueID:         issueID,
+		WorkspaceID:     wsID,
+		ProjectID:       projectID,
+		ContentJSON:     []byte(req.ContentJSON),
+		ContentHTML:     req.ContentHTML,
+		ContentStripped: req.ContentStripped,
+		CreatedBy:       userID,
+		Mentions:        req.Mentions,
+		ParentID:        req.ParentID,
+	})
+	if err != nil {
+		writeErr(c, err)
+		return
+	}
+	c.JSON(http.StatusCreated, comment)
+}
+
+func (h *IssueHandler) updateComment(c *gin.Context) {
+	commentID := int64Param(c, "comment_id")
+	userID := c.GetInt64(middleware.CtxUserID)
+
+	var req struct {
+		ContentJSON     string  `json:"content_json"`
+		ContentHTML     string  `json:"content_html"`
+		ContentStripped string  `json:"content_stripped"`
+		Mentions        []int64 `json:"mentions"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		middleware.AbortWithError(c, errs.ErrValidation.WithDetails(fieldDetail(err)))
+		return
+	}
+
+	comment, err := h.d.CommentSvc.Update(c.Request.Context(), commentID, userID, UpdateCommentInput{
+		ContentJSON:     []byte(req.ContentJSON),
+		ContentHTML:     req.ContentHTML,
+		ContentStripped: req.ContentStripped,
+		Mentions:        req.Mentions,
+	})
+	if err != nil {
+		writeErr(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, comment)
+}
+
+func (h *IssueHandler) deleteComment(c *gin.Context) {
+	commentID := int64Param(c, "comment_id")
+	userID := c.GetInt64(middleware.CtxUserID)
+
+	if err := h.d.CommentSvc.Delete(c.Request.Context(), commentID, userID); err != nil {
 		writeErr(c, err)
 		return
 	}

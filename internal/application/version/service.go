@@ -1,11 +1,12 @@
-// Package version — 版本日应用服务（CRUD / 生命周期 / 发布 / Release Notes / 质量门禁 / 交付报告）。
+// Package version — 版本应用服务（CRUD / 生命周期 / 发布 / Release Notes / 质量门禁 / 交付报告）。
 //
 // 参考: Plane / Jira Fix Version / GitHub Release workflow。
 // 设计要点:
 //   - 同一项目内 semver 唯一(未删除)
 //   - 状态机: planning → active → released → archived（不可逆）
 //   - 发布动作 4 步: 清单全勾选 → 准出校验 → 生成 Notes+报告 → 状态推进
-//   - 跨迭代进度聚合在版本日详情中即时计算（事件失效缓存留给 M5 仪表盘）
+//   - 跨迭代进度聚合在版本详情中即时计算（事件失效缓存留给 M5 仪表盘）
+//   - 迭代与版本是 N:1 关系: sprints.version_id FK（一个迭代只属于一个版本）
 package version
 
 import (
@@ -26,19 +27,19 @@ import (
 	"github.com/njydsz/ydsz-plane/pkg/errs"
 )
 
-// Service 提供版本日应用服务。
+// Service 提供版本域应用服务。
 type Service struct {
 	db *pgxpool.Pool
 }
 
-// NewService 创建版本日服务。
+// NewService 创建版本域服务。
 func NewService(db *pgxpool.Pool) *Service {
 	return &Service{db: db}
 }
 
 // ---- 状态机 ----
 
-// canTransition 版本日状态流转规则。
+// canTransition 版本状态流转规则。
 func canTransition(from, to VersionStatusCode) bool {
 	switch from {
 	case VersionPlanning:
@@ -87,7 +88,7 @@ func normalizeChecklist(in []ChecklistItem) []ChecklistItem {
 
 // ---- CRUD ----
 
-// Create 创建版本日。
+// Create 创建版本。
 func (s *Service) Create(ctx context.Context, in CreateVersionInput) (*Version, error) {
 	if err := validateCreateInput(in); err != nil {
 		return nil, err
@@ -112,22 +113,29 @@ func (s *Service) Create(ctx context.Context, in CreateVersionInput) (*Version, 
 		}
 
 		clRaw, _ := json.Marshal(checklist)
-		var target interface{}
+		var target, start, end interface{}
 		if in.TargetDate != nil {
 			target = *in.TargetDate
+		}
+		if in.StartDate != nil {
+			start = *in.StartDate
+		}
+		if in.EndDate != nil {
+			end = *in.EndDate
 		}
 
 		var id int64
 		err := tx.QueryRow(ctx, `
 			INSERT INTO versions (workspace_id, project_id, name, semver, description,
-				status, checklist, target_date, created_by)
-			VALUES ($1,$2,$3,$4,$5,'planning',$6,$7,$8)
+				status, checklist, start_date, end_date, target_date, created_by)
+			VALUES ($1,$2,$3,$4,$5,'planning',$6,$7,$8,$9,$10)
 			RETURNING id, workspace_id, project_id, name, semver, description, status,
-				release_notes, delivered_at, target_date, archived_at, created_by, created_at, updated_at`,
+				release_notes, delivered_at, start_date, end_date, target_date, archived_at, created_by, created_at, updated_at`,
 			in.WorkspaceID, in.ProjectID, in.Name, in.Semver, in.Description,
-			clRaw, target, in.CreatedBy).Scan(
+			clRaw, start, end, target, in.CreatedBy).Scan(
 			&id, &v.WorkspaceID, &v.ProjectID, &v.Name, &v.Semver,
-			&v.Description, &v.Status, &v.ReleaseNotes, &v.DeliveredAt, &v.TargetDate,
+			&v.Description, &v.Status, &v.ReleaseNotes, &v.DeliveredAt,
+			&v.StartDate, &v.EndDate, &v.TargetDate,
 			&v.ArchivedAt, &v.CreatedBy, &v.CreatedAt, &v.UpdatedAt)
 		if err != nil {
 			return errs.ErrInternal.Wrap(err)
@@ -142,7 +150,7 @@ func (s *Service) Create(ctx context.Context, in CreateVersionInput) (*Version, 
 	return v, nil
 }
 
-// GetByID 获取版本日详情(包含聚合进度/质量)。
+// GetByID 获取版本详情(包含聚合进度/质量)。
 func (s *Service) GetByID(ctx context.Context, wsID, versionID int64) (*Version, error) {
 	v, err := s.getVersion(ctx, wsID, versionID)
 	if err != nil {
@@ -155,7 +163,7 @@ func (s *Service) GetByID(ctx context.Context, wsID, versionID int64) (*Version,
 	return v, nil
 }
 
-// List 查询版本日列表。
+// List 查询版本列表。
 func (s *Service) List(ctx context.Context, opts ListVersionsOptions) ([]Version, int64, error) {
 	if opts.Limit <= 0 || opts.Limit > 100 {
 		opts.Limit = 50
@@ -182,7 +190,8 @@ func (s *Service) List(ctx context.Context, opts ListVersionsOptions) ([]Version
 
 	rows, err := s.db.Query(ctx, `
 		SELECT v.id, v.workspace_id, v.project_id, v.name, v.semver, v.description,
-		       v.status, v.release_notes, v.delivered_at, v.target_date, v.archived_at,
+		       v.status, v.release_notes, v.delivered_at,
+		       v.start_date, v.end_date, v.target_date, v.archived_at,
 		       v.created_by, v.created_at, v.updated_at
 		FROM versions v `+where+`
 		ORDER BY
@@ -205,7 +214,7 @@ func (s *Service) List(ctx context.Context, opts ListVersionsOptions) ([]Version
 	return out, total, rows.Err()
 }
 
-// Update 更新版本日字段(planning/active 状态允许修改；archived/rejected 不可)。
+// Update 更新版本字段(planning/active 状态允许修改；released/archived 不可)。
 func (s *Service) Update(ctx context.Context, wsID, versionID int64, in UpdateVersionInput) (*Version, error) {
 	var result *Version
 	err := s.withTx(ctx, wsID, func(tx pgx.Tx) error {
@@ -265,7 +274,7 @@ func (s *Service) Update(ctx context.Context, wsID, versionID int64, in UpdateVe
 	return result, nil
 }
 
-// SoftDelete 删除版本日 (仅 planning/archived 可删除)。
+// SoftDelete 删除版本 (仅 planning/archived 可删除)。
 func (s *Service) SoftDelete(ctx context.Context, wsID, versionID int64) error {
 	return s.withTx(ctx, wsID, func(tx pgx.Tx) error {
 		v, err := s.getVersionTx(ctx, tx, wsID, versionID)
@@ -289,12 +298,12 @@ func (s *Service) SoftDelete(ctx context.Context, wsID, versionID int64) error {
 
 // ---- 状态机操作 ----
 
-// Activate 启动版本日 (planning → active)。
+// Activate 激活版本 (planning → active)。
 func (s *Service) Activate(ctx context.Context, wsID, versionID int64) (*Version, error) {
 	return s.transition(ctx, wsID, versionID, VersionActive)
 }
 
-// Release 发布版本日 (active → released)。
+// Release 发布版本 (active → released)。
 func (s *Service) Release(ctx context.Context, wsID, versionID int64, in ReleaseVersionInput) (*Version, error) {
 	var result *Version
 	err := s.withTx(ctx, wsID, func(tx pgx.Tx) error {
@@ -350,7 +359,7 @@ func (s *Service) Release(ctx context.Context, wsID, versionID int64, in Release
 	return result, nil
 }
 
-// transition 内部状态机推进。
+// transition 内部版本状态机推进。
 func (s *Service) transition(ctx context.Context, wsID, versionID int64, to VersionStatusCode) (*Version, error) {
 	var result *Version
 	err := s.withTx(ctx, wsID, func(tx pgx.Tx) error {
@@ -384,14 +393,15 @@ func (s *Service) transition(ctx context.Context, wsID, versionID int64, to Vers
 	return result, nil
 }
 
-// Archive 归档版本日 (任何状态都可归档)。
+// Archive 归档版本 (任何状态都可归档)。
 func (s *Service) Archive(ctx context.Context, wsID, versionID int64) (*Version, error) {
 	return s.transition(ctx, wsID, versionID, VersionArchived)
 }
 
 // ---- 迭代聚合 ----
 
-// AddSprint 将迭代挂入版本日。
+// AddSprint 将迭代归属到版本 (N:1: 更新迭代的 version_id)。
+// 一个迭代只能属于一个版本，设置新版本时会覆盖原有归属。
 func (s *Service) AddSprint(ctx context.Context, wsID int64, in AddSprintInput) error {
 	return s.withTx(ctx, wsID, func(tx pgx.Tx) error {
 		v, err := s.getVersionTx(ctx, tx, wsID, in.VersionID)
@@ -413,16 +423,21 @@ func (s *Service) AddSprint(ctx context.Context, wsID int64, in AddSprintInput) 
 		if sprintProject != v.ProjectID {
 			return errs.ErrValidation.WithDetails(errs.FieldDetail{Field: "sprint_id", Reason: "迭代不属于当前项目"})
 		}
-		_, err = tx.Exec(ctx, `
-			INSERT INTO version_sprints (version_id, sprint_id, added_by)
-			VALUES ($1, $2, $3)
-			ON CONFLICT (version_id, sprint_id) DO NOTHING`,
-			in.VersionID, in.SprintID, in.AddedBy)
-		return err
+		tag, err := tx.Exec(ctx, `
+			UPDATE sprints SET version_id = $1, updated_at = now()
+			WHERE id = $2 AND workspace_id = $3 AND deleted_at IS NULL`,
+			in.VersionID, in.SprintID, wsID)
+		if err != nil {
+			return err
+		}
+		if tag.RowsAffected() == 0 {
+			return errs.ErrVersionNotFound.WithDetails(errs.FieldDetail{Field: "sprint_id", Reason: "迭代更新失败"})
+		}
+		return nil
 	})
 }
 
-// RemoveSprint 将迭代从版本日解绑。
+// RemoveSprint 将迭代从版本解绑 (迭代的 version_id 置 NULL)。
 func (s *Service) RemoveSprint(ctx context.Context, wsID, versionID, sprintID int64) error {
 	return s.withTx(ctx, wsID, func(tx pgx.Tx) error {
 		v, err := s.getVersionTx(ctx, tx, wsID, versionID)
@@ -432,13 +447,15 @@ func (s *Service) RemoveSprint(ctx context.Context, wsID, versionID, sprintID in
 		if v.Status == VersionReleased || v.Status == VersionArchived {
 			return errs.ErrVersionInvalidLifecycle
 		}
-		tag, err := tx.Exec(ctx, `DELETE FROM version_sprints WHERE version_id = $1 AND sprint_id = $2`,
-			versionID, sprintID)
+		tag, err := tx.Exec(ctx, `
+			UPDATE sprints SET version_id = NULL, updated_at = now()
+			WHERE id = $1 AND version_id = $2 AND workspace_id = $3`,
+			sprintID, versionID, wsID)
 		if err != nil {
 			return err
 		}
 		if tag.RowsAffected() == 0 {
-			return errs.ErrVersionNotFound.WithDetails(errs.FieldDetail{Field: "sprint_id", Reason: "迭代未挂入该版本日"})
+			return errs.ErrVersionNotFound.WithDetails(errs.FieldDetail{Field: "sprint_id", Reason: "迭代未归属该版本"})
 		}
 		return nil
 	})
@@ -449,16 +466,17 @@ func (s *Service) RemoveSprint(ctx context.Context, wsID, versionID, sprintID in
 func (s *Service) computeProgress(ctx context.Context, wsID int64, v *Version) *VersionProgress {
 	p := &VersionProgress{ByStateGroup: map[string]float64{}}
 
+	// 直接从 sprints.version_id 聚合，不再使用 version_sprints 关联表
 	rows, err := s.db.Query(ctx, `
 		SELECT coalesce(sum(CASE WHEN i.point IS NOT NULL THEN i.point ELSE 0 END), 0),
 		       coalesce(sum(CASE WHEN sg."group" = 'completed' AND i.point IS NOT NULL THEN i.point ELSE 0 END), 0),
 		       count(DISTINCT i.id),
 		       count(DISTINCT i.id) FILTER (WHERE sg."group" = 'completed')
-		FROM version_sprints vs
-		JOIN sprint_issues si ON si.sprint_id = vs.sprint_id
+		FROM sprints sp
+		JOIN sprint_issues si ON si.sprint_id = sp.id
 		JOIN issues i ON i.id = si.issue_id AND i.deleted_at IS NULL
 		JOIN states sg ON sg.id = i.state_id
-		WHERE vs.version_id = $1`, v.ID)
+		WHERE sp.version_id = $1`, v.ID)
 	if err == nil {
 		defer rows.Close()
 		if rows.Next() {
@@ -469,11 +487,11 @@ func (s *Service) computeProgress(ctx context.Context, wsID int64, v *Version) *
 	rows2, err := s.db.Query(ctx, `
 		SELECT sg."group",
 		       coalesce(sum(CASE WHEN i.point IS NOT NULL THEN i.point ELSE 0 END), 0)
-		FROM version_sprints vs
-		JOIN sprint_issues si ON si.sprint_id = vs.sprint_id
+		FROM sprints sp
+		JOIN sprint_issues si ON si.sprint_id = sp.id
 		JOIN issues i ON i.id = si.issue_id AND i.deleted_at IS NULL
 		JOIN states sg ON sg.id = i.state_id
-		WHERE vs.version_id = $1
+		WHERE sp.version_id = $1
 		GROUP BY sg."group"`, v.ID)
 	if err == nil {
 		defer rows2.Close()
@@ -490,7 +508,7 @@ func (s *Service) computeProgress(ctx context.Context, wsID int64, v *Version) *
 		p.CompletionRate = math.Min(p.DonePoints/p.TotalPoints, 1)
 	}
 
-	_ = s.db.QueryRow(ctx, `SELECT count(*) FROM version_sprints WHERE version_id = $1`, v.ID).Scan(&p.SprintCount)
+	_ = s.db.QueryRow(ctx, `SELECT count(*) FROM sprints WHERE version_id = $1 AND deleted_at IS NULL`, v.ID).Scan(&p.SprintCount)
 	return p
 }
 
@@ -567,11 +585,11 @@ func (s *Service) buildReleaseNotesSource(ctx context.Context, wsID int64, v *Ve
 
 	rows, err := s.db.Query(ctx, `
 		SELECT DISTINCT i.identifier, i.name, st.name
-		FROM version_sprints vs
-		JOIN sprint_issues si ON si.sprint_id = vs.sprint_id
+		FROM sprints sp
+		JOIN sprint_issues si ON si.sprint_id = sp.id
 		JOIN issues i ON i.id = si.issue_id AND i.deleted_at IS NULL
 		JOIN states st ON st.id = i.state_id AND st."group" = 'completed'
-		WHERE vs.version_id = $1 AND i.type_code IN ('requirement','task')
+		WHERE sp.version_id = $1 AND i.type_code IN ('requirement','task')
 		ORDER BY i.identifier`, v.ID)
 	if err == nil {
 		defer rows.Close()
@@ -666,7 +684,7 @@ func (s *Service) Progress(ctx context.Context, wsID, versionID int64) (*Version
 	return s.computeProgress(ctx, wsID, v), nil
 }
 
-// DefectPanel 版本日缺陷面板(按 found_version 聚合)。
+// DefectPanel 版本缺陷面板(按 found_version 聚合)。
 func (s *Service) DefectPanel(ctx context.Context, wsID, versionID int64) ([]BugVersionView, int64, error) {
 	v, err := s.getVersion(ctx, wsID, versionID)
 	if err != nil {
@@ -812,7 +830,8 @@ func (s *Service) FilterDefects(ctx context.Context, f BugVersionFilter) ([]BugV
 func (s *Service) getVersion(ctx context.Context, wsID, versionID int64) (*Version, error) {
 	row := s.db.QueryRow(ctx, `
 		SELECT v.id, v.workspace_id, v.project_id, v.name, v.semver, v.description,
-		       v.status, v.release_notes, v.delivered_at, v.target_date, v.archived_at,
+		       v.status, v.release_notes, v.delivered_at,
+		       v.start_date, v.end_date, v.target_date, v.archived_at,
 		       v.created_by, v.created_at, v.updated_at,
 		       v.checklist
 		FROM versions v
@@ -827,7 +846,8 @@ func (s *Service) getVersion(ctx context.Context, wsID, versionID int64) (*Versi
 func (s *Service) getVersionTx(ctx context.Context, tx pgx.Tx, wsID, versionID int64) (*Version, error) {
 	row := tx.QueryRow(ctx, `
 		SELECT v.id, v.workspace_id, v.project_id, v.name, v.semver, v.description,
-		       v.status, v.release_notes, v.delivered_at, v.target_date, v.archived_at,
+		       v.status, v.release_notes, v.delivered_at,
+		       v.start_date, v.end_date, v.target_date, v.archived_at,
 		       v.created_by, v.created_at, v.updated_at,
 		       v.checklist
 		FROM versions v
@@ -837,12 +857,12 @@ func (s *Service) getVersionTx(ctx context.Context, tx pgx.Tx, wsID, versionID i
 
 func scanVersion(row pgx.Row) (*Version, error) {
 	var v Version
-	var desc, rn, td, arc sql.NullString
+	var desc, rn, sd, ed, td, arc sql.NullString
 	var cbRaw []byte
 	var delAt sql.NullTime
 
 	err := row.Scan(&v.ID, &v.WorkspaceID, &v.ProjectID, &v.Name, &v.Semver,
-		&desc, &v.Status, &rn, &delAt, &td, &arc,
+		&desc, &v.Status, &rn, &delAt, &sd, &ed, &td, &arc,
 		&v.CreatedBy, &v.CreatedAt, &v.UpdatedAt, &cbRaw)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -858,6 +878,12 @@ func scanVersion(row pgx.Row) (*Version, error) {
 	}
 	if delAt.Valid {
 		v.DeliveredAt = &delAt.Time
+	}
+	if sd.Valid {
+		v.StartDate = &sd.String
+	}
+	if ed.Valid {
+		v.EndDate = &ed.String
 	}
 	if td.Valid {
 		v.TargetDate = &td.String
@@ -884,9 +910,8 @@ func (s *Service) listSprints(ctx context.Context, wsID, versionID int64) []Spri
 	rows, err := s.db.Query(ctx, `
 		SELECT sp.id, sp.name, sp.status, sp.start_date, sp.end_date, sp.completed_at,
 		       sp.review_snapshot
-		FROM version_sprints vs
-		JOIN sprints sp ON sp.id = vs.sprint_id AND sp.deleted_at IS NULL
-		WHERE vs.version_id = $1 AND sp.workspace_id = $2
+		FROM sprints sp
+		WHERE sp.version_id = $1 AND sp.workspace_id = $2 AND sp.deleted_at IS NULL
 		ORDER BY sp.start_date NULLS LAST, sp.created_at`, versionID, wsID)
 	if err != nil {
 		return nil
@@ -1013,14 +1038,24 @@ func buildUpdateSet(in UpdateVersionInput, semver string, clRaw []byte) ([]strin
 		args = append(args, *in.Description)
 		i++
 	}
-	if in.Semver != nil && semver != "" {
-		sets = append(sets, fmt.Sprintf("semver = $%d", i))
-		args = append(args, semver)
+	if in.StartDate != nil {
+		sets = append(sets, fmt.Sprintf("start_date = $%d", i))
+		args = append(args, *in.StartDate)
+		i++
+	}
+	if in.EndDate != nil {
+		sets = append(sets, fmt.Sprintf("end_date = $%d", i))
+		args = append(args, *in.EndDate)
 		i++
 	}
 	if in.TargetDate != nil {
 		sets = append(sets, fmt.Sprintf("target_date = $%d", i))
 		args = append(args, *in.TargetDate)
+		i++
+	}
+	if in.Semver != nil && semver != "" {
+		sets = append(sets, fmt.Sprintf("semver = $%d", i))
+		args = append(args, semver)
 		i++
 	}
 	if in.Checklist != nil {
