@@ -18,6 +18,7 @@ import (
 
 	"github.com/njydsz/ydsz-plane/internal/application/auth"
 	"github.com/njydsz/ydsz-plane/internal/application/issue"
+	"github.com/njydsz/ydsz-plane/internal/application/sprint"
 	"github.com/njydsz/ydsz-plane/internal/application/workspace"
 	"github.com/njydsz/ydsz-plane/internal/config"
 	"github.com/njydsz/ydsz-plane/internal/interfaces/middleware"
@@ -47,6 +48,7 @@ type Deps struct {
 	ActivitySvc     *issue.ActivityService
 	TimeLogSvc      *issue.TimeLogService
 	IssueHandler    *issue.IssueHandler
+	SprintHandler   *sprint.Handler
 }
 
 // RegisterIssueRoutes 注册工作项路由（在 NewEngine 之后调用）。
@@ -65,6 +67,9 @@ func RegisterIssueRoutes(r *gin.Engine, d *Deps) {
 	read := projects.Group("")
 	read.Use(middleware.RequirePermission(d.WorkspaceStore, auth.PermWorkspaceRead))
 	d.IssueHandler.Register(read, nil, nil)
+	if d.SprintHandler != nil {
+		d.SprintHandler.Register(projects)
+	}
 }
 
 // NewEngine builds the HTTP engine with the full middleware chain.
@@ -154,6 +159,7 @@ func NewEngine(d *Deps) *gin.Engine {
 			ws.PATCH("/projects/:project_id", requireWsPermission(d, auth.PermProjectCreate), updateProject(d))
 			ws.DELETE("/projects/:project_id", requireWsPermission(d, auth.PermProjectDelete), archiveProject(d))
 		}
+	}
 	}
 
 	r.NoRoute(middleware.NoRoute())
