@@ -1,7 +1,13 @@
 // Package events implements the transactional outbox pattern:
 // domain events are written to the domain_events table inside the business
-// transaction, then a background relay publishes them to NATS and marks them
-// published. Consumers must be idempotent on event id.
+// transaction, then a background relay publishes them to Redis Streams and
+// marks them published. Consumers must be idempotent on event id.
+//
+// Replaced NATS JetStream with Redis Streams (v8+) for operational simplicity:
+// - At-least-once delivery via XACK
+// - Consumer group for horizontal scaling
+// - Native persistence (AOF/RDB)
+// - Zero additional infrastructure (already required by cache layer)
 package events
 
 import (
@@ -12,10 +18,15 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/nats-io/nats.go"
+	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
+)
 
-	"github.com/njydsz/ydsz-plane/internal/infrastructure/telemetry"
+const (
+	// StreamKey is the Redis Stream key for outbox events.
+	StreamKey = "ydsz:events"
+	// ConsumerGroup is the default consumer group name.
+	ConsumerGroup = "ydsz-consumers"
 )
 
 // Event is a domain event record.
@@ -29,8 +40,28 @@ type Event struct {
 	OccurredAt    time.Time       `json:"occurred_at"`
 }
 
-// Subject builds the NATS subject, e.g. "ydsz.issue.status_changed".
-func Subject(eventType string) string { return "ydsz." + eventType }
+// StreamEvent is the event envelope stored in Redis Stream.
+type StreamEvent struct {
+	EventID       int64           `json:"event_id"`
+	EventType     string          `json:"event_type"`
+	WorkspaceID   int64           `json:"workspace_id"`
+	AggregateType string          `json:"aggregate_type"`
+	AggregateID   int64           `json:"aggregate_id"`
+	Payload       json.RawMessage `json:"payload"`
+	OccurredAt    time.Time       `json:"occurred_at"`
+}
+
+func streamEvent(e Event) StreamEvent {
+	return StreamEvent{
+		EventID:       e.ID,
+		EventType:     e.EventType,
+		WorkspaceID:   e.WorkspaceID,
+		AggregateType: e.AggregateType,
+		AggregateID:   e.AggregateID,
+		Payload:       e.Payload,
+		OccurredAt:    e.OccurredAt,
+	}
+}
 
 // Recorder writes events into the outbox within an existing transaction.
 type Recorder struct{}
@@ -56,24 +87,39 @@ type Querier interface {
 	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
 }
 
-// Relay polls unpublished events and publishes them to NATS.
+// Relay polls unpublished events and publishes them to Redis Streams.
 type Relay struct {
 	db     Querier
-	nc     *nats.Conn
+	rdb    *redis.Client
 	log    *zap.Logger
 	batch  int
 	period time.Duration
 }
 
 // NewRelay constructs a Relay. batch is the poll batch size.
-func NewRelay(db Querier, nc *nats.Conn, log *zap.Logger) *Relay {
-	return &Relay{db: db, nc: nc, log: log, batch: 200, period: 500 * time.Millisecond}
+func NewRelay(db Querier, rdb *redis.Client, log *zap.Logger) *Relay {
+	return &Relay{db: db, rdb: rdb, log: log, batch: 200, period: 500 * time.Millisecond}
+}
+
+// EnsureConsumerGroup creates the consumer group if it doesn't exist.
+func (r *Relay) EnsureConsumerGroup(ctx context.Context) error {
+	err := r.rdb.XGroupCreateMkStream(ctx, StreamKey, ConsumerGroup, "0").Err()
+	if err != nil && err.Error() != "BUSYGROUP Consumer Group name already exists" {
+		return fmt.Errorf("events: create consumer group: %w", err)
+	}
+	return nil
 }
 
 // Run starts the polling loop until ctx is cancelled.
 func (r *Relay) Run(ctx context.Context) {
 	ticker := time.NewTicker(r.period)
 	defer ticker.Stop()
+
+	// Ensure consumer group exists on startup.
+	if err := r.EnsureConsumerGroup(ctx); err != nil {
+		r.log.Warn("outbox relay: ensure consumer group failed", zap.Error(err))
+	}
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -111,18 +157,67 @@ func (r *Relay) publishBatch(ctx context.Context) error {
 	}
 
 	for _, e := range events {
-		data, err := json.Marshal(e)
+		se := streamEvent(e)
+		// Add to Redis Stream. ID "*" = auto-increment.
+		streamID, err := r.rdb.XAdd(ctx, &redis.XAddArgs{
+			Stream: StreamKey,
+			Values: map[string]any{
+				"data":   se,
+				"type":   e.EventType,
+				"ws_id":  e.WorkspaceID,
+				"agg_id": e.AggregateID,
+			},
+		}).Result()
 		if err != nil {
-			return fmt.Errorf("events: marshal %d: %w", e.ID, err)
+			return fmt.Errorf("events: xadd %d: %w", e.ID, err)
 		}
-		if err := r.nc.Publish(Subject(e.EventType), data); err != nil {
-			telemetry.NATSPublished.WithLabelValues("error").Inc()
-			return fmt.Errorf("events: publish %d: %w", e.ID, err)
-		}
-		if _, err := r.db.Exec(ctx, `UPDATE domain_events SET published_at = now() WHERE id = $1`, e.ID); err != nil {
+
+		if _, err := r.db.Exec(ctx, `UPDATE domain_events SET published_at = now(), stream_id = $1 WHERE id = $2`, streamID, e.ID); err != nil {
 			return fmt.Errorf("events: mark published %d: %w", e.ID, err)
 		}
-		telemetry.NATSPublished.WithLabelValues("ok").Inc()
 	}
 	return nil
+}
+
+// ReadEvents reads pending events from the stream (consumer-group aware).
+// Used by downstream consumers (notifications, webhooks, real-time push).
+func (r *Relay) ReadEvents(ctx context.Context, count int64) ([]StreamEvent, string, error) {
+	res, err := r.rdb.XReadGroup(ctx, &redis.XReadGroupArgs{
+		Group:    ConsumerGroup,
+		Consumer: "ydsz-consumer",
+		Streams:  []string{StreamKey, ">"},
+		Count:    count,
+		Block:    time.Second,
+	}).Result()
+	if err != nil {
+		if err == redis.Nil {
+			return nil, "", nil
+		}
+		return nil, "", fmt.Errorf("events: xreadgroup: %w", err)
+	}
+
+	if len(res) == 0 {
+		return nil, "", nil
+	}
+
+	var events []StreamEvent
+	var lastID string
+	for _, msg := range res[0].Messages {
+		lastID = msg.ID
+		data, ok := msg.Values["data"].(string)
+		if !ok {
+			continue
+		}
+		var se StreamEvent
+		if err := json.Unmarshal([]byte(data), &se); err != nil {
+			continue
+		}
+		events = append(events, se)
+	}
+	return events, lastID, nil
+}
+
+// AckEvent acknowledges a processed event.
+func (r *Relay) AckEvent(ctx context.Context, streamID string) error {
+	return r.rdb.XAck(ctx, StreamKey, ConsumerGroup, streamID).Err()
 }

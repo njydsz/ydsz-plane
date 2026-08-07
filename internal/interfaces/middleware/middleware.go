@@ -22,6 +22,7 @@ const (
 	CtxRequestID   = "request_id"
 	CtxUserID      = "user_id"
 	CtxWorkspaceID = "workspace_id"
+	CtxProjectID   = "project_id"
 )
 
 // SecurityHeaders adds defense-in-depth HTTP headers. These complement the
