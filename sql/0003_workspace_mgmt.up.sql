@@ -18,13 +18,14 @@ CREATE TABLE invitations (
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-CREATE INDEX idx_invitations_workspace ON invitations(workspace_id, status) WHERE status = 'pending';
-CREATE INDEX idx_invitations_email ON invitations(email) WHERE status = 'pending';
-CREATE INDEX idx_invitations_token ON invitations(token_hash);
+CREATE INDEX IF NOT EXISTS idx_invitations_workspace ON invitations(workspace_id, status) WHERE status = 'pending';
+CREATE INDEX IF NOT EXISTS idx_invitations_email ON invitations(email) WHERE status = 'pending';
+CREATE INDEX IF NOT EXISTS idx_invitations_token ON invitations(token_hash);
 
 -- RLS（与 workspace_members 同一模式）
 ALTER TABLE invitations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE invitations FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS tenant_isolation ON invitations;
 CREATE POLICY tenant_isolation ON invitations
     USING (workspace_id = current_setting('app.workspace_id', true)::bigint)
     WITH CHECK (workspace_id = current_setting('app.workspace_id', true)::bigint);
@@ -32,7 +33,7 @@ CREATE POLICY tenant_isolation ON invitations
 -- ---------------------------------------------------------------
 -- api_tokens: 个人 API Token（对标 GitHub Personal Access Token）
 -- ---------------------------------------------------------------
-CREATE TABLE api_tokens (
+CREATE TABLE IF NOT EXISTS api_tokens (
     id              BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     user_id         BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     name            TEXT NOT NULL,                 -- 用户自定义名称（如"CI Deploy Key"）
@@ -44,25 +45,14 @@ CREATE TABLE api_tokens (
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-CREATE INDEX idx_api_tokens_user ON api_tokens(user_id) WHERE revoked_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_api_tokens_user ON api_tokens(user_id) WHERE revoked_at IS NULL;
 
--- ---------------------------------------------------------------
--- password_reset_tokens: 密码重置 token（15 分钟有效，一次性使用）
--- ---------------------------------------------------------------
-CREATE TABLE password_reset_tokens (
-    id              BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    user_id         BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    token_hash      TEXT NOT NULL UNIQUE,
-    expires_at      TIMESTAMPTZ NOT NULL DEFAULT now() + interval '15 minutes',
-    used_at         TIMESTAMPTZ,
-    created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-CREATE INDEX idx_prt_user ON password_reset_tokens(user_id) WHERE used_at IS NULL;
+-- password_reset_tokens 已存在于 0002 迁移，跳过重复创建
 
 -- ---------------------------------------------------------------
 -- projects 表（M1 最低可用：支持工作空间下建项目）
 -- ---------------------------------------------------------------
-CREATE TABLE projects (
+CREATE TABLE IF NOT EXISTS projects (
     id              BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     workspace_id    BIGINT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
     public_id       UUID NOT NULL DEFAULT gen_random_uuid() UNIQUE,
@@ -83,21 +73,25 @@ CREATE TABLE projects (
 
 ALTER TABLE projects ENABLE ROW LEVEL SECURITY;
 ALTER TABLE projects FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS tenant_isolation ON projects;
 CREATE POLICY tenant_isolation ON projects
     USING (workspace_id = current_setting('app.workspace_id', true)::bigint)
     WITH CHECK (workspace_id = current_setting('app.workspace_id', true)::bigint);
 
-CREATE INDEX idx_projects_workspace ON projects(workspace_id) WHERE deleted_at IS NULL;
-CREATE UNIQUE INDEX idx_projects_workspace_slug ON projects(workspace_id, slug) WHERE deleted_at IS NULL;
-CREATE UNIQUE INDEX idx_projects_workspace_identifier ON projects(workspace_id, identifier) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_projects_workspace ON projects(workspace_id) WHERE deleted_at IS NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_projects_workspace_slug ON projects(workspace_id, slug) WHERE deleted_at IS NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_projects_workspace_identifier ON projects(workspace_id, identifier) WHERE deleted_at IS NULL;
 
 -- ---------------------------------------------------------------
 -- updated_at 触发器
 -- ---------------------------------------------------------------
+DROP TRIGGER IF EXISTS trg_invitations_updated_at ON invitations;
 CREATE TRIGGER trg_invitations_updated_at BEFORE UPDATE ON invitations
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+DROP TRIGGER IF EXISTS trg_api_tokens_updated_at ON api_tokens;
 CREATE TRIGGER trg_api_tokens_updated_at BEFORE UPDATE ON api_tokens
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+DROP TRIGGER IF EXISTS trg_projects_updated_at ON projects;
 CREATE TRIGGER trg_projects_updated_at BEFORE UPDATE ON projects
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 

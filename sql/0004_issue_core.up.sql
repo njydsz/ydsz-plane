@@ -10,7 +10,7 @@ CREATE TABLE states (
     workspace_id    BIGINT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
     project_id      BIGINT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     name            TEXT NOT NULL,
-    group           TEXT NOT NULL CHECK (group IN ('backlog','started','completed','cancelled')),
+    "group"           TEXT NOT NULL CHECK ("group" IN ('backlog','started','completed','cancelled')),
     color           TEXT NOT NULL DEFAULT '#8DA2C2',
     sequence        DOUBLE PRECISION NOT NULL DEFAULT 65535,
     is_default      BOOLEAN NOT NULL DEFAULT FALSE,     -- 行创建工作项时的默认状态
@@ -123,12 +123,13 @@ CREATE TABLE issues (
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     deleted_at      TIMESTAMPTZ,
     version         INT NOT NULL DEFAULT 1,
-    UNIQUE (project_id, sequence_id) WHERE deleted_at IS NULL,
-    UNIQUE (public_id) WHERE deleted_at IS NULL,
     CONSTRAINT defect_required CHECK (
         type_code <> 'defect' OR (severity IS NOT NULL AND found_phase IS NOT NULL)
     )
 );
+
+CREATE UNIQUE INDEX idx_issues_project_sequence ON issues(project_id, sequence_id) WHERE deleted_at IS NULL;
+CREATE UNIQUE INDEX idx_issues_public_id ON issues(public_id) WHERE deleted_at IS NULL;
 
 -- 索引
 CREATE INDEX idx_issues_workspace_project   ON issues(workspace_id, project_id) WHERE deleted_at IS NULL;
