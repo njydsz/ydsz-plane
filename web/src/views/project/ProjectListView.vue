@@ -7,6 +7,7 @@ import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
 import { workspaceApi, type Project, type Workspace } from "@/api/services/workspace";
+import { templateApi, type ProjectTemplate } from "@/api/services/template";
 import { AppLoadingState, AppErrorState, AppEmptyState } from "@/components";
 
 const route = useRoute();
@@ -21,8 +22,26 @@ const error = ref("");
 // 创建项目
 const showCreate = ref(false);
 const createName = ref("");
+const createTemplate = ref<string>("generic");
 const createSending = ref(false);
 const createError = ref("");
+
+// 预置模板列表
+const templates = ref<ProjectTemplate[]>([]);
+const templateLoading = ref(false);
+
+async function loadTemplates() {
+  if (!ws.value) return;
+  templateLoading.value = true;
+  try {
+    templates.value = await templateApi.listTemplates(ws.value.id);
+  } catch {
+    // 模板加载失败不影响主流程
+    templates.value = [];
+  } finally {
+    templateLoading.value = false;
+  }
+}
 
 async function load() {
   loading.value = true;
@@ -30,11 +49,19 @@ async function load() {
   try {
     ws.value = await workspaceApi.getBySlug(wsSlug.value);
     projects.value = await workspaceApi.listProjects(ws.value.id);
+    await loadTemplates();
   } catch (e: any) {
     error.value = e.message ?? "加载失败";
   } finally {
     loading.value = false;
   }
+}
+
+function openCreateModal() {
+  createName.value = "";
+  createTemplate.value = "generic";
+  createError.value = "";
+  showCreate.value = true;
 }
 
 async function createProject() {
@@ -44,10 +71,12 @@ async function createProject() {
   try {
     const p = await workspaceApi.createProject(ws.value.id, {
       name: createName.value.trim(),
+      template: createTemplate.value,
     });
     projects.value.push(p);
     showCreate.value = false;
     createName.value = "";
+    createTemplate.value = "generic";
   } catch (e: any) {
     createError.value = e.message ?? "创建失败";
   } finally {
@@ -72,7 +101,7 @@ onMounted(load);
       </div>
       <div class="actions">
         <button class="btn" @click="openSettings">工作空间设置</button>
-        <button class="btn btn--primary" @click="showCreate = true">创建项目</button>
+        <button class="btn btn--primary" @click="openCreateModal">创建项目</button>
       </div>
     </header>
 
@@ -83,7 +112,7 @@ onMounted(load);
       title="暂无项目"
       description="该项目空间下暂无项目"
     >
-      <button class="btn btn--primary" @click="showCreate = true">创建项目</button>
+      <button class="btn btn--primary" @click="openCreateModal">创建项目</button>
     </AppEmptyState>
     <div v-else class="project-grid">
       <div v-for="p in projects" :key="p.id" class="project-card" :style="{ borderTopColor: p.color || 'var(--brand-500)' }">
@@ -92,6 +121,7 @@ onMounted(load);
           <div class="project-card__name">{{ p.name }}</div>
           <div class="project-card__meta">
             <span class="identifier">{{ p.identifier }}</span>
+            <span v-if="p.template && p.template !== 'generic'" class="template-badge">{{ p.template }}</span>
             <span class="slug">/{{ p.slug }}</span>
           </div>
           <p v-if="p.description" class="project-card__desc">{{ p.description }}</p>
@@ -111,6 +141,24 @@ onMounted(load);
             <span class="field__label">项目名称</span>
             <input v-model="createName" class="field__input" placeholder="例如：用户中心" maxlength="80" autofocus />
           </label>
+
+          <div class="field" style="margin-top: 18px;">
+            <span class="field__label">项目模板</span>
+            <div class="template-options">
+              <div
+                v-for="t in templates"
+                :key="t.code"
+                class="template-card"
+                :class="{ 'template-card--active': createTemplate === t.code }"
+                @click="createTemplate = t.code"
+              >
+                <div class="template-card__name">{{ t.name }}</div>
+                <div class="template-card__desc">{{ t.description }}</div>
+              </div>
+            </div>
+            <p v-if="templateLoading" class="hint" style="margin-top: 6px;">加载中...</p>
+          </div>
+
           <div v-if="createError" class="form-error">{{ createError }}</div>
         </div>
         <footer class="modal__footer">
@@ -271,4 +319,54 @@ onMounted(load);
 .field__input:focus { outline: none; border-color: var(--brand-500); box-shadow: 0 0 0 3px var(--brand-50); }
 
 .form-error { color: var(--danger-500); font-size: 13px; padding: 8px 0; }
+
+/* Template options */
+.template-options {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.template-card {
+  padding: 10px 12px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.template-card:hover {
+  border-color: var(--brand-300);
+}
+
+.template-card--active {
+  border-color: var(--brand-500);
+  box-shadow: 0 0 0 2px var(--brand-50);
+  background: var(--brand-50);
+}
+
+.template-card__name {
+  font-weight: 500;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.template-card__desc {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  margin-top: 3px;
+  line-height: 1.4;
+}
+
+.template-badge {
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: var(--brand-50);
+  color: var(--brand-600);
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
 </style>

@@ -16,8 +16,13 @@
 package issue
 
 import (
+	"regexp"
+
 	"github.com/microcosm-cc/bluemonday"
 )
+
+// safeHrefPattern 匹配安全的 http/https 链接或锚点；拒绝 javascript:、data: 等。
+var safeHrefPattern = regexp.MustCompile(`^(https?:|#)`)
 
 // SanitizeHTML 净化富文本 HTML，移除潜在的 XSS 载体。
 // 传入空字符串时直接返回空字符串。
@@ -28,7 +33,7 @@ func SanitizeHTML(input string) string {
 		return ""
 	}
 
-	// 新 Policy 实例 — 允许有限的富文本标签
+	// 新 Policy 实例 — 仅允许安全的富文本标签
 	p := bluemonday.NewPolicy()
 
 	// 文本格式
@@ -39,26 +44,21 @@ func SanitizeHTML(input string) string {
 		"span", "sub", "sup",
 	)
 
-	// 链接 — 仅允许 http/https 锚点；强制 noopener noreferrer；禁止 javascript:
-	p.AllowElements("a")
-	p.AllowAttrs("href").Matching(bluemonday.Or(
-		bluemonday.Protocol("http"),
-		bluemonday.Protocol("https"),
-		bluemonday.PrefixAnchor,
-	)).Globally()
+	// 链接 — 仅允许 http/https/# 开头的 href，屏蔽 javascript:chrome: 等伪协议
+	p.AllowAttrs("href").Matching(safeHrefPattern).OnElements("a")
 	p.AllowAttrs("rel").Globally()
 	p.AllowAttrs("target").Globally()
+	p.AllowAttrs("title").Globally()
 
-	// 图片 — 仅允许 https 和锚点；禁止 data: URI（可能含 JS）
-	p.AllowElements("img")
-	p.AllowAttrs("src").Matching(bluemonday.Or(
-		bluemonday.Protocol("https"),
-		bluemonday.PrefixAnchor,
-	)).Globally()
+	// 图片 — 仅允许 http/https 来源
+	p.AllowAttrs("src").Matching(safeHrefPattern).OnElements("img")
 	p.AllowAttrs("alt", "width", "height").Globally()
 
 	// 表格
 	p.AllowElements("table", "thead", "tbody", "tr", "th", "td")
+
+	// code 语言标注
+	p.AllowAttrs("class").OnElements("code", "pre")
 
 	return p.Sanitize(input)
 }

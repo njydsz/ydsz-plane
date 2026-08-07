@@ -71,6 +71,7 @@ export interface Project {
   created_by: number;
   created_at: string;
   updated_at: string;
+  template?: string;
 }
 
 const wrap = <T>(p: Promise<{ data: T }>) => p.then((r) => r.data);
@@ -110,7 +111,7 @@ export const workspaceApi = {
   listProjects: (wsId: number) => wrap<Project[]>(http.get(`/workspaces/${wsId}/projects`)),
   getProject: (wsId: number, projectId: number) =>
     wrap<Project>(http.get(`/workspaces/${wsId}/projects/${projectId}`)),
-  createProject: (wsId: number, input: { name: string; slug?: string; identifier?: string; description?: string; network?: string; icon?: string; color?: string }) =>
+  createProject: (wsId: number, input: { name: string; slug?: string; identifier?: string; description?: string; network?: string; icon?: string; color?: string; template?: string }) =>
     wrap<Project>(http.post(`/workspaces/${wsId}/projects`, input)),
   updateProject: (wsId: number, projectId: number, input: { name?: string; slug?: string; description?: string; network?: string; icon?: string; color?: string }) =>
     wrap<Project>(http.patch(`/workspaces/${wsId}/projects/${projectId}`, input)),

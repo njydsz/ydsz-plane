@@ -137,7 +137,13 @@ func run() error {
 	})
 
 	// ---------- WebSocket Hub (before Issue, for real-time broadcast) ----------
-	wsHub := ws.NewHub(rdb)
+	// 生产环境安全配置：同源校验 + 连接级限流
+	wsHub := ws.NewHubWithConfig(rdb, ws.HubConfig{
+		MaxConnsPerUser:    3,
+		MaxConnsPerIP:      10,
+		MaxConnsGlobal:     1000,
+		RequireOriginCheck: cfg.Server.Env != "development",
+	})
 	go wsHub.Run()
 	defer wsHub.Shutdown()
 
