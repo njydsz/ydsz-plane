@@ -32,7 +32,7 @@ const collapsed = ref(false);
 const showSwitcher = ref(false);
 const switcherFilter = ref("");
 
-const slug = computed(() => String(route.params.workspaceSlug ?? ""));
+const workspaceId = computed(() => Number(route.params.workspaceId ?? 0));
 const workspaceList = computed(() => wsStore.list);
 const currentWs = computed(() => wsStore.current);
 /** 当路由中存在 projectId 参数时返回该 ID，用于项目子导航展示 */
@@ -54,11 +54,11 @@ function roleLabel(role?: string): string {
   return map[role ?? ""] ?? "";
 }
 
-/** 初始化：加载空间列表并按 URL slug 切换当前空间 */
+/** 初始化：加载空间列表并按 URL ID 切换当前空间 */
 async function bootstrap() {
   await wsStore.load();
-  if (slug.value) {
-    await wsStore.resolveBySlug(slug.value);
+  if (workspaceId.value) {
+    await wsStore.resolveById(workspaceId.value);
   }
   // 注意：在根路由（工作空间列表页）不主动 redirect，由用户自主点击
 }
@@ -123,7 +123,7 @@ onUnmounted(() => {
 /** 选中工作空间：关闭切换器并跳转到该项目列表 */
 function selectWs(ws: Workspace) {
   showSwitcher.value = false;
-  router.push(`/${ws.slug}/projects`);
+  router.push(`/${ws.id}/projects`);
 }
 
 /** 跳转创建空间页（工作空间列表页） */
@@ -189,7 +189,7 @@ onMounted(bootstrap);
       <!-- ===== 侧边导航 ===== -->
       <nav class="sidebar__nav">
         <router-link
-          :to="`/${wsStore.currentSlug}/workbench`"
+          :to="`/${wsStore.currentId}/workbench`"
           class="nav-item"
           active-class="is-active"
         >
@@ -197,7 +197,7 @@ onMounted(bootstrap);
           <span v-if="!collapsed">工作台</span>
         </router-link>
         <router-link
-          :to="`/${wsStore.currentSlug}/search`"
+          :to="`/${wsStore.currentId}/search`"
           class="nav-item"
           active-class="is-active"
         >
@@ -205,7 +205,7 @@ onMounted(bootstrap);
           <span v-if="!collapsed">搜索</span>
         </router-link>
         <router-link
-          :to="`/${wsStore.currentSlug}/projects`"
+          :to="`/${wsStore.currentId}/projects`"
           class="nav-item"
           active-class="is-active"
           exact-active-class="is-active"
@@ -216,7 +216,7 @@ onMounted(bootstrap);
         <!-- 项目子导航：仅在当前有 projectId 时显示 -->
         <template v-if="currentProjectId">
           <router-link
-            :to="`/${wsStore.currentSlug}/projects/${currentProjectId}/dashboard`"
+            :to="`/${wsStore.currentId}/projects/${currentProjectId}/dashboard`"
             class="nav-item nav-item--sub"
             active-class="is-active"
           >
@@ -224,7 +224,7 @@ onMounted(bootstrap);
             <span v-if="!collapsed">项目仪表盘</span>
           </router-link>
           <router-link
-            :to="`/${wsStore.currentSlug}/projects/${currentProjectId}/board`"
+            :to="`/${wsStore.currentId}/projects/${currentProjectId}/board`"
             class="nav-item nav-item--sub"
             active-class="is-active"
           >
@@ -232,7 +232,7 @@ onMounted(bootstrap);
             <span v-if="!collapsed">项目看板</span>
           </router-link>
           <router-link
-            :to="`/${wsStore.currentSlug}/projects/${currentProjectId}/list`"
+            :to="`/${wsStore.currentId}/projects/${currentProjectId}/list`"
             class="nav-item nav-item--sub"
             active-class="is-active"
           >
@@ -240,7 +240,7 @@ onMounted(bootstrap);
             <span v-if="!collapsed">工作项列表</span>
           </router-link>
           <router-link
-            :to="`/${wsStore.currentSlug}/projects/${currentProjectId}/pages`"
+            :to="`/${wsStore.currentId}/projects/${currentProjectId}/pages`"
             class="nav-item nav-item--sub"
             active-class="is-active"
           >
@@ -248,7 +248,7 @@ onMounted(bootstrap);
             <span v-if="!collapsed">文档</span>
           </router-link>
           <router-link
-            :to="`/${wsStore.currentSlug}/projects/${currentProjectId}/metrics`"
+            :to="`/${wsStore.currentId}/projects/${currentProjectId}/metrics`"
             class="nav-item nav-item--sub"
             active-class="is-active"
           >
@@ -256,7 +256,7 @@ onMounted(bootstrap);
             <span v-if="!collapsed">效能度量</span>
           </router-link>
           <router-link
-            :to="`/${wsStore.currentSlug}/projects/${currentProjectId}/automation`"
+            :to="`/${wsStore.currentId}/projects/${currentProjectId}/automation`"
             class="nav-item nav-item--sub"
             active-class="is-active"
           >
@@ -264,7 +264,7 @@ onMounted(bootstrap);
             <span v-if="!collapsed">自动化</span>
           </router-link>
           <router-link
-            :to="`/${wsStore.currentSlug}/projects/${currentProjectId}/analytics`"
+            :to="`/${wsStore.currentId}/projects/${currentProjectId}/analytics`"
             class="nav-item nav-item--sub"
             active-class="is-active"
           >
@@ -272,7 +272,7 @@ onMounted(bootstrap);
             <span v-if="!collapsed">缺陷分析</span>
           </router-link>
           <router-link
-            :to="`/${wsStore.currentSlug}/projects/${currentProjectId}/gantt`"
+            :to="`/${wsStore.currentId}/projects/${currentProjectId}/gantt`"
             class="nav-item nav-item--sub"
             active-class="is-active"
           >
@@ -280,7 +280,7 @@ onMounted(bootstrap);
             <span v-if="!collapsed">甘特图</span>
           </router-link>
           <router-link
-            :to="`/${wsStore.currentSlug}/projects/${currentProjectId}/calendar`"
+            :to="`/${wsStore.currentId}/projects/${currentProjectId}/calendar`"
             class="nav-item nav-item--sub"
             active-class="is-active"
           >
@@ -289,7 +289,7 @@ onMounted(bootstrap);
           </router-link>
         </template>
         <router-link
-          :to="`/${wsStore.currentSlug}/settings`"
+          :to="`/${wsStore.currentId}/settings`"
           class="nav-item"
           active-class="is-active"
         >
@@ -297,7 +297,7 @@ onMounted(bootstrap);
           <span v-if="!collapsed">设置</span>
         </router-link>
         <router-link
-          :to="`/${wsStore.currentSlug}/settings/notifications`"
+          :to="`/${wsStore.currentId}/settings/notifications`"
           class="nav-item"
           active-class="is-active"
         >
@@ -305,7 +305,7 @@ onMounted(bootstrap);
           <span v-if="!collapsed">通知设置</span>
         </router-link>
         <router-link
-          :to="`/${wsStore.currentSlug}/settings/webhooks`"
+          :to="`/${wsStore.currentId}/settings/webhooks`"
           class="nav-item"
           active-class="is-active"
         >
@@ -313,7 +313,7 @@ onMounted(bootstrap);
           <span v-if="!collapsed">Webhook</span>
         </router-link>
         <router-link
-          :to="`/${wsStore.currentSlug}/settings/intake`"
+          :to="`/${wsStore.currentId}/settings/intake`"
           class="nav-item"
           active-class="is-active"
         >

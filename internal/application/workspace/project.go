@@ -137,7 +137,7 @@ func (s *ProjectService) ListByWorkspace(ctx context.Context, wsID int64) ([]Pro
 	for rows.Next() {
 		var p Project
 		if err := rows.Scan(&p.ID, &p.WorkspaceID, &p.Name, &p.Slug, &p.Identifier, &p.Description,
-			&p.Network, &p.Icon, &p.Color, &p.Status, &p.SortOrder, &p.CreatedBy, &p.CreatedAt, &p.UpdatedAt); err != nil {
+			&p.Network, &p.Icon, &p.Color, &p.Template, &p.Status, &p.SortOrder, &p.CreatedBy, &p.CreatedAt, &p.UpdatedAt); err != nil {
 			return nil, errs.ErrInternal.Wrap(err)
 		}
 		out = append(out, p)

@@ -35,13 +35,13 @@ async function load() {
 }
 
 function openWs(ws: Workspace) {
-  router.push(`/${ws.slug}/projects`);
+  router.push(`/${ws.id}/projects`);
 }
 
 function onCreateCreated(ws: Workspace) {
   showCreate.value = false;
   workspaces.value.unshift(ws);
-  router.push(`/${ws.slug}/projects`);
+  router.push(`/${ws.id}/projects`);
 }
 
 onMounted(load);

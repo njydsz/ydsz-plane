@@ -1,0 +1,92 @@
+# ============================================================================
+# GitHub Actions: 数据库注释覆盖率检查
+# 用途: 在 PR/CI 中自动检查数据库注释覆盖率，防止注释退化
+# 触发: PR 创建/更新、推送到 main
+# ============================================================================
+name: Database Comments Coverage Check
+
+on:
+  pull_request:
+    paths:
+      - 'sql/**'
+      - '.github/workflows/db-comments-check.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'sql/**'
+  workflow_dispatch:
+
+env:
+  PGHOST: localhost
+  PGPORT: 5432
+  PGUSER: ydsz_app
+  PGPASSWORD: ydsz_test
+  PGDATABASE: ydsz_plane_test
+
+jobs:
+  check-comments:
+    name: 检查数据库注释覆盖率
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: ydsz_app
+          POSTGRES_PASSWORD: ydsz_test
+          POSTGRES_DB: ydsz_plane_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout 代码
+        uses: actions/checkout@v4
+
+      - name: 初始化数据库 schema（含注释）
+        run: |
+          PGPASSWORD=ydsz_test psql -h localhost -U ydsz_app -d ydsz_plane_test \
+            -v ON_ERROR_STOP=1 \
+            -f sql/ydsz-plane-init.sql
+
+      - name: 运行注释覆盖率检查
+        id: comment-check
+        run: |
+          PGPASSWORD=ydsz_test psql -h localhost -U ydsz_app -d ydsz_plane_test \
+            -v ON_ERROR_STOP=1 \
+            -f sql/check-comments.sql 2>&1 | tee /tmp/comment_report.txt
+
+          echo "report<<EOF" >> $GITHUB_OUTPUT
+          cat /tmp/comment_report.txt >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: 生成覆盖率报告（PR 评论）
+        if: github.event_name == 'pull_request' && always()
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: db-comments-report
+          message: |
+            ##  数据库注释覆盖率报告
+
+            ```text
+            ${{ steps.comment-check.outputs.report }}
+            ```
+
+            **规范**: 阿里《Java开发手册》+ PostgreSQL 官方最佳实践
+            **门禁**: 100% 表注释 + 100% 字段注释 + 100% 触发器注释
+
+            <sub>自动生成 by `.github/workflows/db-comments-check.yml`</sub>
+
+      - name: 检查失败时标记构建失败
+        if: steps.comment-check.outcome == 'failure'
+        run: |
+          echo "::error::存在缺少注释的表/字段/触发器！请在 sql/ydsz-plane-init.sql 中补充注释。"
+          exit 1
+
+      - name: 覆盖率检查通过
+        run: |
+          echo " 数据库注释覆盖率 100% - 检查通过"
