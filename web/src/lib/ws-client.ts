@@ -6,7 +6,7 @@
  *   wsClient.connect(workspaceId)
  *   wsClient.on('issue.updated', (data) => { ... })
  *   wsClient.off('issue.updated', handler)
- *   wsClient.onReconnect(() => { /* 补偿拉取 */ })
+ *   wsClient.onReconnect(() => { fetchLatest() })
  *   wsClient.disconnect()
  */
 type WSMessage = {

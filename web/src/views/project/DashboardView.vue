@@ -20,7 +20,6 @@ import { toast } from "@/lib/toast";
 const route = useRoute();
 const wsStore = useWorkspaceStore();
 
-const workspaceSlug = computed(() => String(route.params.workspaceSlug ?? ""));
 const projectId = computed(() => Number(route.params.projectId));
 const wsId = computed(() => wsStore.current?.id ?? 0);
 
@@ -137,11 +136,11 @@ async function loadTemplates() {
   }
 }
 
-function applyTemplate(template: { layout: Record<string, any> }) {
+function applyTemplate(template: { name?: string; layout: Record<string, any> }) {
   const layoutWidgets = template.layout?.widgets;
   if (!Array.isArray(layoutWidgets)) return;
   // 通过逐个创建 widget 来应用模板；先清空再重建来不及，这里用"补充缺失"策略
-  toast.success(`已应用模板: ${template.name}`);
+  toast.success(`已应用模板: ${template.name ?? "未命名模板"}`);
   // 实际产品级实现需要后端支持 PATCH /dashboard/layout
   // 此处仅作提示，避免破坏现有 widget 配置
 }

@@ -4,16 +4,22 @@
  * severity 颜色映射：critical -> red, high -> orange, medium -> yellow, low -> blue, info -> gray。
  * 右上角 resolve 按钮。
  */
+import { computed } from "vue";
 import type { RiskAlert } from "@/api/services/dashboard";
 import { formatRelativeTime } from "@/lib/formatTime";
 
-defineProps<{
+const props = defineProps<{
+  /** 告警列表 */
   data?: RiskAlert[];
+  /** 兼容外部传入 alerts 形式 */
+  alerts?: RiskAlert[];
 }>();
 
 const emit = defineEmits<{
   resolve: [alertId: number];
 }>();
+
+const alertList = computed(() => props.data ?? props.alerts ?? []);
 
 function severityClass(severity: RiskAlert["severity"]): string {
   return `alert-card--${severity}`;
@@ -33,9 +39,9 @@ function severityLabel(severity: RiskAlert["severity"]): string {
 
 <template>
   <div class="risk-alerts">
-    <div v-if="data?.length" class="risk-alerts__list">
+    <div v-if="alertList.length" class="risk-alerts__list">
       <div
-        v-for="alert in data"
+        v-for="alert in alertList"
         :key="alert.id"
         class="alert-card"
         :class="[

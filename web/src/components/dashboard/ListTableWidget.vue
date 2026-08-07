@@ -45,7 +45,12 @@ function priorityColor(priority: string): string {
         <tbody>
           <tr v-for="item in data.items" :key="item.id">
             <td class="col-id">
-              <span class="col-id__dot" :style="{ background: priorityColor(item.priority) }" />
+              <span
+                v-if="'priority' in item"
+                class="col-id__dot"
+                :style="{ background: priorityColor((item as OverdueItem).priority) }"
+              />
+              <span v-else class="col-id__dot" style="background: var(--text-tertiary)" />
               {{ item.identifier }}
             </td>
             <td class="col-title">{{ item.title }}</td>

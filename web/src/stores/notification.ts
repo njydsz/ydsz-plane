@@ -22,6 +22,8 @@ export const useNotificationStore = defineStore('notification', () => {
   const unreadCount = ref(0)
   /** 列表加载中的标志位 */
   const loading = ref(false)
+  /** 列表加载的错误信息 */
+  const error = ref<string | null>(null)
 
   /** 拉取指定工作空间的未读数量并更新角标 */
   async function fetchUnreadCount(wsId: number | string) {
@@ -37,12 +39,14 @@ export const useNotificationStore = defineStore('notification', () => {
    */
   async function fetchList(wsId: number | string, params?: { limit?: number; is_read?: boolean; since?: number }) {
     loading.value = true
+    error.value = null
     try {
       const result = await notificationApi.list(wsId, { limit: params?.limit ?? 20, is_read: params?.is_read, since: params?.since })
       items.value = result.items
       await fetchUnreadCount(wsId)
-    } catch { /* 静默失败：列表保持旧值 */ }
-    finally { loading.value = false }
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : '加载失败'
+    } finally { loading.value = false }
   }
 
   /**
@@ -83,5 +87,5 @@ export const useNotificationStore = defineStore('notification', () => {
     unreadCount.value = 0
   }
 
-  return { items, unreadCount, loading, fetchUnreadCount, fetchList, markRead, markAllRead, archive, clear }
+  return { items, unreadCount, loading, error, fetchUnreadCount, fetchList, markRead, markAllRead, archive, clear }
 })

@@ -19,13 +19,16 @@ import (
 	"github.com/njydsz/ydsz-plane/internal/application/apitoken"
 	"github.com/njydsz/ydsz-plane/internal/application/attachment"
 	"github.com/njydsz/ydsz-plane/internal/application/auth"
+	"github.com/njydsz/ydsz-plane/internal/application/automation"
 	"github.com/njydsz/ydsz-plane/internal/application/dashboard"
+	"github.com/njydsz/ydsz-plane/internal/application/intake"
 	"github.com/njydsz/ydsz-plane/internal/application/issue"
 	notif "github.com/njydsz/ydsz-plane/internal/application/notification"
 	"github.com/njydsz/ydsz-plane/internal/application/preference"
 	"github.com/njydsz/ydsz-plane/internal/application/search"
 	"github.com/njydsz/ydsz-plane/internal/application/sprint"
 	"github.com/njydsz/ydsz-plane/internal/application/version"
+	"github.com/njydsz/ydsz-plane/internal/application/webhook"
 	"github.com/njydsz/ydsz-plane/internal/application/workbench"
 	"github.com/njydsz/ydsz-plane/internal/application/workspace"
 	"github.com/njydsz/ydsz-plane/internal/config"
@@ -71,6 +74,13 @@ type Deps struct {
 	AttachmentHandler        *attachment.Handler
 	DefectAnalyticsHandler   *issue.DefectAnalyticsHandler
 	WSHub                    *ws.Hub
+	// Webhook 域（S10）
+	WebhookHandler *webhook.Handler
+	// Intake 域（S10）
+	IntakeHandler       *intake.Handler
+	IntakePublicHandler *intake.PublicHandler
+	// Automation 域（S11）
+	AutomationHandler *automation.Handler
 }
 
 // RegisterIssueRoutes 注册工作项路由（在 NewEngine 之后调用）。
@@ -268,6 +278,66 @@ func RegisterDefectAnalyticsRoutes(r *gin.Engine, d *Deps) {
 		middleware.RequirePermission(d.WorkspaceStore, auth.PermWorkspaceRead),
 	)
 	d.DefectAnalyticsHandler.Register(projects)
+}
+
+// RegisterWebhookRoutes 注册 Webhook 管理路由（工作空间级，需要 audit:read 权限）。
+func RegisterWebhookRoutes(r *gin.Engine, d *Deps) {
+	if d.WebhookHandler == nil {
+		return
+	}
+	ws := r.Group("/api/v1/workspaces/:workspace_id")
+	ws.Use(
+		middleware.RequireAuth(d.principalParser()),
+		middleware.RequireWorkspaceParam(),
+		middleware.RequirePermission(d.WorkspaceStore, auth.PermAuditRead),
+	)
+	d.WebhookHandler.Register(ws)
+}
+
+// RegisterIntakeRoutes 注册 Intake 管理路由（需要 audit:read 权限）。
+func RegisterIntakeRoutes(r *gin.Engine, d *Deps) {
+	if d.IntakeHandler == nil {
+		return
+	}
+	ws := r.Group("/api/v1/workspaces/:workspace_id/intake")
+	ws.Use(
+		middleware.RequireAuth(d.principalParser()),
+		middleware.RequireWorkspaceParam(),
+		middleware.RequirePermission(d.WorkspaceStore, auth.PermAuditRead),
+	)
+	d.IntakeHandler.Register(ws)
+}
+
+// RegisterIntakePublicRoutes 注册 Intake 公开路由（免登录）。
+// 路由模式：/api/v1/public/intake/...
+func RegisterIntakePublicRoutes(r *gin.Engine, d *Deps) {
+	if d.IntakePublicHandler == nil {
+		return
+	}
+	public := r.Group("/api/v1/public/intake")
+	{
+		// 公开获取通道配置（渲染表单）
+		public.GET("/channels/:workspace/:slug", d.IntakePublicHandler.GetPublicChannel)
+		// 公开提交工单
+		public.POST("/channels/:workspace/:slug/submit", d.IntakePublicHandler.SubmitPublicIssue)
+		// 提交者跟踪查询
+		public.GET("/track", d.IntakePublicHandler.TrackIssue)
+	}
+}
+
+// RegisterAutomationRoutes 注册自动化规则路由（项目级）。
+func RegisterAutomationRoutes(r *gin.Engine, d *Deps) {
+	if d.AutomationHandler == nil {
+		return
+	}
+	projects := r.Group("/api/v1/workspaces/:workspace_id/projects/:project_id/automation")
+	projects.Use(
+		middleware.RequireAuth(d.principalParser()),
+		middleware.RequireWorkspaceParam(),
+		middleware.RequireProjectParam(),
+		middleware.RequirePermission(d.WorkspaceStore, auth.PermProjectAutomation),
+	)
+	d.AutomationHandler.Register(projects)
 }
 
 // RegisterWSRoutes 注册 WebSocket 实时推送路由。

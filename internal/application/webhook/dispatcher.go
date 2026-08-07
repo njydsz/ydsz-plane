@@ -64,13 +64,13 @@ func NewDispatcher(svc *Service, mqClient *mq.TaskClient, log *zap.Logger) *Disp
 		log: log,
 		client: &http.Client{
 			Timeout: DeliveryTimeout,
+			// 禁用 redirect 以防止 SSRF bypass via 301/302
+			CheckRedirect: func(req *http.Request, via []*http.Request) error {
+				return http.ErrUseLastResponse
+			},
 			Transport: &http.Transport{
 				TLSClientConfig: &tls.Config{
 					MinVersion: tls.VersionTLS12,
-				},
-				// 禁用 redirect 以防止 SSRF bypass via 301/302
-				CheckRedirect: func(req *http.Request, via []*http.Request) error {
-					return http.ErrUseLastResponse
 				},
 			},
 		},

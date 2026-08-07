@@ -12,17 +12,24 @@ const props = defineProps<{
   config?: Record<string, any>;
 }>();
 
+function asStateData(d?: StateDistributionData | VelocityData): StateDistributionData | null {
+  return d && "by_state" in d ? (d as StateDistributionData) : null;
+}
+
+function asVelocityData(d?: StateDistributionData | VelocityData): VelocityData | null {
+  return d && "sprints" in d ? (d as VelocityData) : null;
+}
+
 function buildOption(): EChartsCoreOption {
-  // 状态分布柱状图
-  if (props.config?.kind === "state" || isStateData(props.data)) {
-    const byState = props.data?.by_state ?? [];
-    if (byState.length === 0) return emptyOption;
+  const stateData = asStateData(props.data);
+  if (stateData && stateData.by_state.length > 0) {
+    const byState = stateData.by_state;
     return {
       tooltip: { trigger: "axis", axisPointer: { type: "shadow" } },
       grid: { top: 20, left: 40, right: 16, bottom: 28 },
       xAxis: {
         type: "category",
-        data: byState.map((s) => s.state_name),
+        data: byState.map((s: { state_name: string }) => s.state_name),
         axisLine: { lineStyle: { color: "var(--border-default)" } },
         axisLabel: { color: "var(--text-tertiary)", fontSize: 11, rotate: byState.length > 5 ? 30 : 0 },
       },
@@ -35,7 +42,7 @@ function buildOption(): EChartsCoreOption {
         {
           type: "bar",
           barWidth: "55%",
-          data: byState.map((s) => ({
+          data: byState.map((s: { count: number; color: string }) => ({
             value: s.count,
             itemStyle: { color: s.color, borderRadius: [3, 3, 0, 0] },
           })),
@@ -44,8 +51,9 @@ function buildOption(): EChartsCoreOption {
     };
   }
 
-  // 默认：velocity 柱状图
-  const sprints = props.data?.sprints ?? [];
+  // velocity 柱状图
+  const velData = asVelocityData(props.data);
+  const sprints = velData?.sprints ?? [];
   if (sprints.length === 0) return emptyOption;
   return {
     tooltip: { trigger: "axis", axisPointer: { type: "shadow" } },

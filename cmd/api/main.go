@@ -18,12 +18,14 @@ import (
 	"github.com/njydsz/ydsz-plane/internal/application/attachment"
 	"github.com/njydsz/ydsz-plane/internal/application/auth"
 	"github.com/njydsz/ydsz-plane/internal/application/dashboard"
+	"github.com/njydsz/ydsz-plane/internal/application/intake"
 	"github.com/njydsz/ydsz-plane/internal/application/issue"
 	notif "github.com/njydsz/ydsz-plane/internal/application/notification"
 	"github.com/njydsz/ydsz-plane/internal/application/preference"
 	"github.com/njydsz/ydsz-plane/internal/application/search"
 	"github.com/njydsz/ydsz-plane/internal/application/sprint"
 	"github.com/njydsz/ydsz-plane/internal/application/version"
+	"github.com/njydsz/ydsz-plane/internal/application/webhook"
 	"github.com/njydsz/ydsz-plane/internal/application/workbench"
 	"github.com/njydsz/ydsz-plane/internal/application/workspace"
 	"github.com/njydsz/ydsz-plane/internal/config"
@@ -213,6 +215,23 @@ defectAnalyticsHandler := issue.NewDefectAnalyticsHandler(defectAnalyticsSvc)
 	prefSvc := preference.NewService(pool.Pool)
 	prefHandler := preference.NewHandler(prefSvc)
 
+	// ---------- Webhook (S10) ----------
+	webhookSvc := webhook.NewService(pool.Pool)
+	webhookDispatcher := webhook.NewDispatcher(webhookSvc, nil, log)
+	webhookHandler := webhook.NewHandler(&webhook.HandlerDeps{
+		WebhookSvc:     webhookSvc,
+		WorkspaceStore: wsStore,
+		Dispatcher:     webhookDispatcher,
+	})
+
+	// ---------- Intake (S10) ----------
+	intakeSvc := intake.NewService(pool.Pool)
+	intakeHandler := intake.NewHandler(&intake.HandlerDeps{
+		IntakeSvc:      intakeSvc,
+		WorkspaceStore: wsStore,
+	})
+	intakePublicHandler := intake.NewPublicHandler(intakeSvc)
+
 	// ---------- HTTP Engine ----------
 	engine := httpapi.NewEngine(&httpapi.Deps{
 		Cfg:             cfg,
@@ -254,6 +273,11 @@ defectAnalyticsHandler := issue.NewDefectAnalyticsHandler(defectAnalyticsSvc)
 		SprintHandler: sprintHandler,
 		// Version domain
 		VersionHandler: versionHandler,
+		// Webhook domain (S10)
+		WebhookHandler: webhookHandler,
+		// Intake domain (S10)
+		IntakeHandler:       intakeHandler,
+		IntakePublicHandler: intakePublicHandler,
 	})
 
 	// 注册工作项路由（必须在 NewEngine 之后）
@@ -342,6 +366,27 @@ defectAnalyticsHandler := issue.NewDefectAnalyticsHandler(defectAnalyticsSvc)
 		PrincipalParser: parsePrincipal,
 		WorkspaceStore:  wsStore,
 		WSHub:           wsHub,
+	})
+
+	// 注册 Webhook 管理路由（工作空间级）
+	httpapi.RegisterWebhookRoutes(engine, &httpapi.Deps{
+		Auth:            authSvc,
+		PrincipalParser: parsePrincipal,
+		WorkspaceStore:  wsStore,
+		WebhookHandler:  webhookHandler,
+	})
+
+	// 注册 Intake 管理路由（工作空间级）
+	httpapi.RegisterIntakeRoutes(engine, &httpapi.Deps{
+		Auth:            authSvc,
+		PrincipalParser: parsePrincipal,
+		WorkspaceStore:  wsStore,
+		IntakeHandler:   intakeHandler,
+	})
+
+	// 注册 Intake 公开路由（免登录）
+	httpapi.RegisterIntakePublicRoutes(engine, &httpapi.Deps{
+		IntakePublicHandler: intakePublicHandler,
 	})
 
 	srv := &http.Server{
