@@ -17,6 +17,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/njydsz/ydsz-plane/internal/application/auth"
+	"github.com/njydsz/ydsz-plane/internal/application/workspace"
 	"github.com/njydsz/ydsz-plane/internal/config"
 	"github.com/njydsz/ydsz-plane/internal/interfaces/middleware"
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/mail"
@@ -26,13 +27,18 @@ import (
 
 // Deps carries handler dependencies.
 type Deps struct {
-	Cfg            *config.Config
-	Log            *zap.Logger
-	DB             *pgxpool.Pool
-	Redis          *redis.Client
-	Auth           *auth.Service
-	WorkspaceStore *auth.WorkspaceMembershipStore
-	Mail           mail.EmailService
+	Cfg             *config.Config
+	Log             *zap.Logger
+	DB              *pgxpool.Pool
+	Redis           *redis.Client
+	Auth            *auth.Service
+	ResetSvc        *auth.PasswordResetService
+	WorkspaceStore  *auth.WorkspaceMembershipStore
+	WorkspaceSvc    *workspace.Service
+	MemberSvc       *workspace.MemberService
+	InvitationSvc   *workspace.InvitationService
+	ProjectSvc      *workspace.ProjectService
+	Mail            mail.EmailService
 }
 
 // NewEngine builds the HTTP engine with the full middleware chain.
@@ -44,20 +50,20 @@ func NewEngine(d *Deps) *gin.Engine {
 
 	origins := []string{"http://localhost:5173", "http://localhost:8080"}
 	r.Use(
-		middleware.SecurityHeaders(), // defense-in-depth HTTP headers
+		middleware.SecurityHeaders(),
 		middleware.RequestID(),
 		middleware.Recovery(d.Log),
 		middleware.CORS(origins),
 		middleware.AccessLog(d.Log),
-		telemetry.MetricsMiddleware(), // RED metrics (Rate/Errors/Duration)
+		telemetry.MetricsMiddleware(),
 	)
 
 	r.GET("/healthz", healthz())
 	r.GET("/readyz", readyz(d))
-	r.GET("/metrics", gin.WrapH(promhttp.Handler())) // Prometheus scrape endpoint
+	r.GET("/metrics", gin.WrapH(promhttp.Handler()))
 	// Swagger UI (only in development)
 	if d.Cfg.IsDev() {
-		r.GET("/swagger/*Any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+		r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 	}
 
 	v1 := r.Group("/api/v1")
@@ -71,6 +77,7 @@ func NewEngine(d *Deps) *gin.Engine {
 		authGroup.POST("/refresh", rl, refresh(d))
 		authGroup.POST("/register", rl, register(d))
 		authGroup.POST("/forgot-password", rl, forgotPassword(d))
+		authGroup.POST("/reset-password", rl, resetPassword(d))
 	}
 
 	// authenticated routes
@@ -81,19 +88,52 @@ func NewEngine(d *Deps) *gin.Engine {
 	}))
 	{
 		authed.GET("/me", me(d))
-		authed.POST("/auth/reset-password", resetPassword(d))
-			// 工作空间作用域路由：由 RequireAuth 注入 UserID，RequireWorkspaceParam 注入 WorkspaceID，
-			// RequirePermission 基于角色矩阵向下钻取到权限粒度。
-			ws := authed.Group("/workspaces/:workspace_id")
-			ws.Use(middleware.RequireWorkspaceParam(), middleware.RequirePermission(d.WorkspaceStore, auth.PermWorkspaceRead))
-			{
-				ws.GET("/members", listWorkspaceMembers(d))
-			}
+
+		// ----- 工作空间集合路由（无需 :workspace_id） -----
+		authed.GET("/workspaces", listWorkspaces(d))
+		authed.POST("/workspaces", createWorkspace(d))
+
+		// 邀请接受链接（public-ish，需登录但无需 workspace 成员；在 RequireAuth 之后）
+		authed.POST("/invitations/accept", acceptInvitation(d))
+		authed.GET("/invitations/:token", getInvitationPreview(d))
+
+		// 通过 slug 查 ID（前端路由使用 slug）
+		authed.GET("/workspaces/slug/:slug", getWorkspaceBySlug(d))
+
+		// ----- 工作空间作用域路由 -----
+		ws := authed.Group("/workspaces/:workspace_id")
+		ws.Use(middleware.RequireWorkspaceParam(), middleware.RequirePermission(d.WorkspaceStore, auth.PermWorkspaceRead))
+		{
+			ws.GET("", getWorkspace(d))
+			ws.PATCH("", requireWsPermission(d, auth.PermWorkspaceUpdate), updateWorkspace(d))
+			ws.DELETE("", requireWsPermission(d, auth.PermWorkspaceDelete), archiveWorkspace(d))
+
+			// 成员
+			ws.GET("/members", listMembers(d))
+			ws.PATCH("/members/:user_id", requireWsPermission(d, auth.PermMemberChangeRole), changeMemberRole(d))
+			ws.DELETE("/members/:user_id", requireWsPermission(d, auth.PermMemberRemove), removeMember(d))
+
+			// 邀请
+			ws.POST("/invitations", requireWsPermission(d, auth.PermMemberInvite), sendInvitation(d))
+			ws.GET("/invitations", listInvitations(d))
+			ws.DELETE("/invitations/:invitation_id", requireWsPermission(d, auth.PermMemberInvite), revokeInvitation(d))
+
+			// 项目
+			ws.GET("/projects", requireWsPermission(d, auth.PermWorkspaceRead), listProjects(d))
+			ws.POST("/projects", requireWsPermission(d, auth.PermProjectCreate), createProject(d))
+			ws.GET("/projects/:project_id", requireWsPermission(d, auth.PermWorkspaceRead), getProject(d))
+			ws.PATCH("/projects/:project_id", requireWsPermission(d, auth.PermProjectCreate), updateProject(d))
+			ws.DELETE("/projects/:project_id", requireWsPermission(d, auth.PermProjectDelete), archiveProject(d))
 		}
 	}
 
 	r.NoRoute(middleware.NoRoute())
 	return r
+}
+
+// requireWsPermission 是组合中间件的语法糖。Gin 不支持链式式中文传递权限常量。
+func requireWsPermission(d *Deps, perm string) gin.HandlerFunc {
+	return middleware.RequirePermission(d.WorkspaceStore, perm)
 }
 
 func userKey(c *gin.Context) string {
@@ -109,7 +149,7 @@ func itoa(v int64) string {
 	return fmt.Sprintf("%d", v)
 }
 
-// --- handlers ---
+// --- handlers (platform-level) ---
 
 func healthz() gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -281,68 +321,6 @@ func me(d *Deps) gin.HandlerFunc {
 	}
 }
 
-// listWorkspaceMembers godoc
-//
-//	@Summary		列出工作空间成员
-//	@Description	返回当前用户在 :workspace_id 工作空间里的成员列表
-//	@Tags			workspace
-//	@Produce		json
-//	@Security		Bearer
-//	@Param			workspace_id	path		int	true	"工作空间 ID"
-//	@Success		200				{object}	[]workspaceMemberResponse
-//	@Failure		403				{object}	errs.AppError
-//	@Router			/workspaces/{workspace_id}/members [get]
-func listWorkspaceMembers(d *Deps) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		wsIDVal, _ := c.Get(middleware.CtxWorkspaceID)
-		wsID := wsIDVal.(int64)
-		roleVal, _ := c.Get("workspace_role")
-		_ = roleVal
-
-		rows, err := d.DB.Query(c.Request.Context(), `
-			SELECT u.id, u.email, u.display_name, wm.role, wm.joined_at::text
-			FROM workspace_members wm
-			JOIN users u ON u.id = wm.user_id
-			WHERE wm.workspace_id = $1 AND u.is_active
-			ORDER BY wm.role, wm.joined_at`, wsID)
-		if err != nil {
-			middleware.AbortWithError(c, errs.ErrInternal.Wrap(err))
-			return
-		}
-		defer rows.Close()
-
-		var out []workspaceMemberResponse
-		for rows.Next() {
-			var m workspaceMemberResponse
-			if err := rows.Scan(&m.ID, &m.Email, &m.DisplayName, &m.Role, &m.JoinedAt); err != nil {
-				middleware.AbortWithError(c, errs.ErrInternal.Wrap(err))
-				return
-			}
-			out = append(out, m)
-		}
-		c.JSON(http.StatusOK, out)
-	}
-}
-
-type workspaceMemberResponse struct {
-	ID          int64  `json:"id"`
-	Email       string `json:"email"`
-	DisplayName string `json:"display_name"`
-	Role        string `json:"role"`
-	JoinedAt    string `json:"joined_at"`
-}
-
-// forgotPassword godoc
-//
-//	@Summary		请求密码重置
-//	@Description	根据邮箱发送一次性重置链接（15 分钟有效）。无论邮箱是否存在均返回 202，避免枚举。
-//	@Tags			auth
-//	@Accept			json
-//	@Produce		json
-//	@Param			body	body	forgotPasswordRequest	true	"邮箱"
-//	@Success		202		"已接受（不一定实际存在该邮箱）"
-//	@Failure		422		{object}	errs.AppError
-//	@Router			/auth/forgot-password [post]
 func forgotPassword(d *Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req forgotPasswordRequest
@@ -350,39 +328,12 @@ func forgotPassword(d *Deps) gin.HandlerFunc {
 			middleware.AbortWithError(c, errs.ErrValidation.WithDetails(fieldDetails(err)...))
 			return
 		}
-
-		// 模糊化：不管用户是否存在，都返回 202（防用户名枚举）。
-		var (
-			userID int64
-			name   string
-		)
-		err := d.DB.QueryRow(c.Request.Context(),
-			`SELECT id, COALESCE(display_name,'用户') FROM users WHERE email = $1 AND is_active`, req.Email).
-			Scan(&userID, &name)
-		if err == nil && d.Mail != nil {
-			// 异步发送（避免接口延迟受 SMTP 影响）；错误仅记日志不回写响应。
-			go func() {
-				// 占位：实际实现需 token 写入 DB（hash）+ 邮件发一次原始 token。
-				_ = userID
-				_ = name
-			}()
-		}
+		_ = d.ResetSvc.RequestReset(c.Request.Context(), req.Email)
+		// 模糊化返回 202（防枚举）
 		c.Status(http.StatusAccepted)
 	}
 }
 
-// resetPassword godoc
-//
-//	@Summary		使用 token 重置密码
-//	@Description	提交一次性 token + 新密码；成功后 token 标记为已使用。
-//	@Tags			auth
-//	@Accept			json
-//	@Produce		json
-//	@Param			body	body	resetPasswordRequest	true	"重置请求"
-//	@Success		204		"重置成功"
-//	@Failure		400		{object}	errs.AppError	"token 无效或已过期"
-//	@Failure		422		{object}	errs.AppError
-//	@Router			/auth/reset-password [post]
 func resetPassword(d *Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req resetPasswordRequest
@@ -390,8 +341,11 @@ func resetPassword(d *Deps) gin.HandlerFunc {
 			middleware.AbortWithError(c, errs.ErrValidation.WithDetails(fieldDetails(err)...))
 			return
 		}
-		// 校验 token、更新密码、标记 token used_at。MVP 接入点占位。
-		middleware.AbortWithError(c, errs.ErrNotFound)
+		if err := d.ResetSvc.ResetPassword(c.Request.Context(), req.Token, req.NewPassword); err != nil {
+			writeError(c, err)
+			return
+		}
+		c.Status(http.StatusNoContent)
 	}
 }
 
@@ -429,7 +383,7 @@ func writeError(c *gin.Context, err error) {
 	middleware.AbortWithError(c, errs.ErrInternal)
 }
 
+// fieldDetails —— minimal mapping；完整 validator-tag 翻译在后续迭代落地。
 func fieldDetails(err error) []errs.FieldDetail {
-	// Minimal mapping; a full validator-tag translator lands in S2.
 	return []errs.FieldDetail{{Field: "body", Reason: err.Error()}}
 }

@@ -15,6 +15,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/njydsz/ydsz-plane/internal/application/auth"
+	"github.com/njydsz/ydsz-plane/internal/application/workspace"
 	"github.com/njydsz/ydsz-plane/internal/config"
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/cache"
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/mail"
@@ -61,12 +62,18 @@ func run() error {
 	}
 	defer func() { _ = rdb.Close() }()
 
+	// ---------- Services ----------
 	authSvc := auth.NewService(pool.Pool, cfg.Auth.JWTSecret, cfg.Auth.JWTIssuer,
 		cfg.Auth.AccessTokenTTL, cfg.Auth.RefreshTokenTTL, cfg.Auth.BcryptCost,
 		cfg.Features.RegistrationOpen)
-	wsStore := auth.NewWorkspaceMembershipStore(pool.Pool)
+	resetSvc := auth.NewPasswordResetService(pool.Pool, nil, cfg.Email.AppBaseURL, cfg.Auth.BcryptCost)
 
-	// 邮件服务：未配置 SMTP → Noop（dev/CI 不打真实邮件，写入 channel 供测试断言）
+	wsStore := auth.NewWorkspaceMembershipStore(pool.Pool)
+	wsSvc := workspace.NewService(pool.Pool)
+	memberSvc := workspace.NewMemberService(pool.Pool)
+	projectSvc := workspace.NewProjectService(pool.Pool)
+
+	// 邮件服务：未配置 SMTP → Noop（dev/CI 不打真实邮件）
 	var mailSvc mail.EmailService
 	if cfg.Email.Enabled {
 		mailSvc = mail.NewSmtpService(mail.SmtpConfig{
@@ -79,9 +86,22 @@ func run() error {
 		log.Info("email: disabled (no-op mode) — set YDSZ_EMAIL_ENABLED=true to enable SMTP")
 	}
 
+	invitationSvc := workspace.NewInvitationService(pool.Pool, mailSvc, cfg.Email.AppBaseURL)
+
+	// ---------- HTTP Engine ----------
 	engine := httpapi.NewEngine(&httpapi.Deps{
-		Cfg: cfg, Log: log, DB: pool.Pool, Redis: rdb, Auth: authSvc,
-		WorkspaceStore: wsStore, Mail: mailSvc,
+		Cfg:            cfg,
+		Log:            log,
+		DB:             pool.Pool,
+		Redis:          rdb,
+		Auth:           authSvc,
+		ResetSvc:       resetSvc,
+		WorkspaceStore: wsStore,
+		WorkspaceSvc:   wsSvc,
+		MemberSvc:      memberSvc,
+		InvitationSvc:  invitationSvc,
+		ProjectSvc:     projectSvc,
+		Mail:           mailSvc,
 	})
 
 	srv := &http.Server{

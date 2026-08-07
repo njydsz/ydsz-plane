@@ -18,14 +18,26 @@ const router = createRouter({
         {
           path: "",
           name: "home",
-          component: () => import("@/views/HomeView.vue"),
+          component: () => import("@/views/workspace/WorkspaceListView.vue"),
+        },
+        // 邀请接受链接：公开可读，但 POST accept 需鉴权
+        {
+          path: "invite/:token",
+          name: "invite-preview",
+          component: () => import("@/views/workspace/InvitePreview.vue"),
+          meta: { public: true },
+        },
+        {
+          path: ":workspaceSlug/settings",
+          name: "workspace-settings",
+          component: () => import("@/views/workspace/WorkspaceSettingsView.vue"),
+          props: (route) => ({ workspace_id: route.params.workspaceSlug }),
         },
         {
           path: ":workspaceSlug/projects",
           name: "projects",
           component: () => import("@/views/project/ProjectListView.vue"),
         },
-        // S2+ 路由在此扩展
       ],
     },
     {
