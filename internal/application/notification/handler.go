@@ -76,6 +76,11 @@ func (h *Handler) List(c *gin.Context) {
 	if v := c.Query("event_type"); v != "" {
 		input.EventType = &v
 	}
+	if v := c.Query("since"); v != "" {
+		if sinceMs, err := strconv.ParseInt(v, 10, 64); err == nil {
+			input.Since = &sinceMs
+		}
+	}
 
 	result, err := h.svc.List(c.Request.Context(), input)
 	if err != nil {

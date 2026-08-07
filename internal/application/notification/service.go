@@ -140,6 +140,13 @@ func (s *Service) List(ctx context.Context, input ListInput) (*ListResult, error
 		args = append(args, *input.EventType)
 		argIdx++
 	}
+	if input.Since != nil {
+		cond := fmt.Sprintf(" AND created_at > to_timestamp($%d::bigint / 1000.0)", argIdx+1)
+		where += cond
+		whereTotal += cond
+		args = append(args, *input.Since)
+		argIdx++
+	}
 
 	// 计数
 	var total int64
