@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { onMounted, ref } from "vue";
+import { onMounted, ref, computed } from "vue";
 
 import { versionApi, type BugVersionView } from "@/api/services/version";
+import { AppBadge } from "@/components";
 
 const props = defineProps<{
   workspaceSlug: string;
@@ -10,16 +11,51 @@ const props = defineProps<{
 }>();
 
 const defects = ref<BugVersionView[]>([]);
+const total = ref(0);
 const loading = ref(true);
 const error = ref("");
 
-const severityLabels: Record<number, string> = {
+const severityLabel: Record<number, string> = {
   0: "致命",
   1: "严重",
   2: "一般",
   3: "轻微",
   4: "建议",
 };
+
+const severityVariant: Record<number, "danger" | "warning" | "info" | "default" | "brand"> = {
+  0: "danger",
+  1: "danger",
+  2: "warning",
+  3: "info",
+  4: "default",
+};
+
+const stateGroupLabel: Record<string, string> = {
+  backlog: "待办",
+  unstarted: "未开始",
+  started: "进行中",
+  completed: "已完成",
+  cancelled: "已取消",
+};
+
+const stateGroupVariant: Record<string, "default" | "warning" | "success" | "danger"> = {
+  backlog: "default",
+  unstarted: "default",
+  started: "warning",
+  completed: "success",
+  cancelled: "danger",
+};
+
+/* severity summary */
+const summary = computed(() => {
+  const map: Record<number, number> = {};
+  defects.value.forEach((d) => {
+    const s = d.severity ?? 4;
+    map[s] = (map[s] ?? 0) + 1;
+  });
+  return map;
+});
 
 let wsIdVal = 0;
 async function resolveWsId(): Promise<number> {
@@ -37,6 +73,7 @@ async function load() {
     const wsId = await resolveWsId();
     const res = await versionApi.getDefectPanel(wsId, props.projectId, props.versionId);
     defects.value = res.results;
+    total.value = res.total;
   } catch (e: unknown) {
     error.value = e instanceof Error ? e.message : "加载缺陷面板失败";
   } finally {
@@ -48,33 +85,196 @@ onMounted(load);
 </script>
 
 <template>
-  <div class="space-y-2">
-    <p v-if="error" class="text-red-500 text-sm">{{ error }}</p>
-    <p v-if="loading">加载中…</p>
-    <div v-if="!loading && defects.length === 0" class="text-gray-400 text-sm">
+  <div class="defect-panel">
+    <!-- Error -->
+    <div v-if="error" class="defect-panel__error">
+      <p>{{ error }}</p>
+      <button class="defect-panel__retry-btn" @click="load">重试</button>
+    </div>
+
+    <!-- Loading -->
+    <div v-else-if="loading" class="defect-panel__loading">
+      加载缺陷数据…
+    </div>
+
+    <!-- Summary -->
+    <div v-if="defects.length > 0" class="defect-panel__summary">
+      <span class="defect-panel__summary-text">
+        共 {{ total }} 个缺陷
+      </span>
+      <span
+        v-for="(count, sev) in summary"
+        :key="sev"
+        class="defect-panel__summary-count"
+      >
+        {{ severityLabel[Number(sev)] ?? sev }}: {{ count }}
+      </span>
+    </div>
+
+    <!-- Empty -->
+    <div v-if="!loading && defects.length === 0" class="defect-panel__empty">
       该版本暂无关联缺陷
     </div>
-    <table v-if="defects.length" class="w-full text-sm">
-      <thead class="text-left text-xs text-gray-500">
-        <tr>
-          <th class="py-1">标识</th>
-          <th>名称</th>
-          <th>严重度</th>
-          <th>状态</th>
-          <th>发现版本</th>
-          <th>修复版本</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="d in defects" :key="d.issue_id" class="border-t">
-          <td class="py-1 font-mono text-xs">{{ d.identifier }}</td>
-          <td>{{ d.name }}</td>
-          <td>{{ d.severity != null ? severityLabels[d.severity] ?? d.severity : "-" }}</td>
-          <td>{{ d.state_name }}</td>
-          <td>{{ d.found_version ?? "-" }}</td>
-          <td>{{ d.fix_version ?? "-" }}</td>
-        </tr>
-      </tbody>
-    </table>
+
+    <!-- Table -->
+    <div v-if="defects.length > 0" class="defect-panel__table-wrap">
+      <table class="defect-panel__table">
+        <thead>
+          <tr>
+            <th>标识</th>
+            <th>标题</th>
+            <th>严重程度</th>
+            <th>状态</th>
+            <th>发现版本</th>
+            <th>修复版本</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr
+            v-for="d in defects"
+            :key="d.issue_id"
+            class="defect-panel__row"
+            :class="{
+              'defect-panel__row--critical': d.severity != null && d.severity <= 1,
+            }"
+          >
+            <td>
+              <code class="defect-panel__id">{{ d.identifier }}</code>
+            </td>
+            <td>
+              <span class="defect-panel__name">{{ d.name }}</span>
+            </td>
+            <td>
+              <AppBadge
+                v-if="d.severity != null"
+                :variant="severityVariant[d.severity] ?? 'default'"
+              >
+                {{ severityLabel[d.severity] ?? d.severity }}
+              </AppBadge>
+              <span v-else class="defect-panel__na">-</span>
+            </td>
+            <td>
+              <AppBadge
+                v-if="d.state_group"
+                :variant="stateGroupVariant[d.state_group] ?? 'default'"
+              >
+                {{ stateGroupLabel[d.state_group] ?? d.state_name }}
+              </AppBadge>
+              <span v-else>{{ d.state_name }}</span>
+            </td>
+            <td>
+              <code class="defect-panel__ver">{{ d.found_version ?? '-' }}</code>
+            </td>
+            <td>
+              <code class="defect-panel__ver">{{ d.fix_version ?? '-' }}</code>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
   </div>
 </template>
+
+<style scoped>
+.defect-panel {
+  font-size: 13px;
+}
+
+.defect-panel__error {
+  text-align: center;
+  padding: 24px;
+  color: var(--danger-500);
+}
+.defect-panel__error p { margin: 0 0 8px; }
+.defect-panel__retry-btn {
+  font-size: 12px;
+  padding: 4px 12px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--surface-1);
+  cursor: pointer;
+}
+
+.defect-panel__loading {
+  text-align: center;
+  padding: 24px;
+  color: var(--text-tertiary);
+}
+
+.defect-panel__summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+}
+.defect-panel__summary-text {
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-right: 8px;
+}
+.defect-panel__summary-count {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+}
+
+.defect-panel__empty {
+  text-align: center;
+  padding: 24px;
+  color: var(--text-tertiary);
+}
+
+.defect-panel__table-wrap {
+  overflow-x: auto;
+}
+.defect-panel__table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.defect-panel__table th {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  text-align: left;
+  padding: 6px 10px;
+  border-bottom: 2px solid var(--border-subtle);
+  white-space: nowrap;
+}
+.defect-panel__table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border-subtle);
+  vertical-align: middle;
+}
+.defect-panel__row:hover {
+  background: var(--surface-2);
+}
+.defect-panel__row--critical {
+  border-left: 3px solid var(--danger-500);
+}
+.defect-panel__id {
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+  background: var(--surface-2);
+  padding: 1px 6px;
+  border-radius: 3px;
+}
+.defect-panel__name {
+  max-width: 240px;
+  display: inline-block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.defect-panel__ver {
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--text-tertiary);
+}
+.defect-panel__na {
+  color: var(--text-placeholder);
+}
+</style>

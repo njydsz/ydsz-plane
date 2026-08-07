@@ -2,7 +2,8 @@
 import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
-import { versionApi, type Version } from "@/api/services/version";
+import { versionApi, type Version, type DeliveryReport } from "@/api/services/version";
+import { AppBadge, AppButton, ProgressBar } from "@/components";
 
 const route = useRoute();
 const router = useRouter();
@@ -11,15 +12,51 @@ const projectId = computed(() => Number(route.params.projectId));
 const workspaceSlug = computed(() => String(route.params.workspaceSlug ?? ""));
 const versionId = computed(() => Number(route.params.versionId));
 
+const STEPS = [
+  { key: "checklist", label: "检查清单", num: 1 },
+  { key: "notes", label: "Release Notes", num: 2 },
+  { key: "confirm", label: "确认发布", num: 3 },
+] as const;
+
+type StepKey = (typeof STEPS)[number]["key"];
+
+const currentStep = ref<StepKey>("checklist");
 const version = ref<Version | null>(null);
+const report = ref<DeliveryReport | null>(null);
 const loading = ref(true);
 const releasing = ref(false);
 const error = ref("");
+
+// form state
 const draftOverride = ref("");
 const forceChecklist = ref(false);
 const addKnown = ref(true);
 
 let wsIdVal = 0;
+
+/* ---------- computed ---------- */
+
+const checklistAllDone = computed(() => {
+  if (!version.value?.checklist?.length) return true;
+  return version.value.checklist.every((c) => !c.required || c.checked);
+});
+
+const qualityPassed = computed(() => {
+  return (version.value?.quality?.critical_bugs ?? 0) === 0;
+});
+
+const canProceedFromChecklist = computed(() => {
+  return checklistAllDone.value || forceChecklist.value;
+});
+
+const canProceedFromNotes = computed(() => true); // always can proceed
+
+const canPublish = computed(() => {
+  return canProceedFromChecklist.value && qualityPassed.value;
+});
+
+/* ---------- data ---------- */
+
 async function resolveWsId(): Promise<number> {
   if (wsIdVal) return wsIdVal;
   const { workspaceApi } = await import("@/api/services/workspace");
@@ -30,15 +67,46 @@ async function resolveWsId(): Promise<number> {
 
 async function load() {
   loading.value = true;
+  error.value = "";
   try {
     const wsId = await resolveWsId();
-    version.value = await versionApi.getVersion(wsId, projectId.value, versionId.value);
+    const [v, r] = await Promise.all([
+      versionApi.getVersion(wsId, projectId.value, versionId.value),
+      versionApi.getDeliveryReport(wsId, projectId.value, versionId.value).catch(() => null),
+    ]);
+    version.value = v;
+    report.value = r;
   } catch (e: unknown) {
     error.value = e instanceof Error ? e.message : "加载失败";
   } finally {
     loading.value = false;
   }
 }
+
+/* ---------- step navigation ---------- */
+
+const stepIndex = computed(() => STEPS.findIndex((s) => s.key === currentStep.value));
+
+function goTo(step: StepKey) {
+  if (step === "notes" && !canProceedFromChecklist.value) return;
+  currentStep.value = step;
+}
+
+function next() {
+  const idx = stepIndex.value;
+  if (idx < STEPS.length - 1) {
+    goTo(STEPS[idx + 1].key);
+  }
+}
+
+function prev() {
+  const idx = stepIndex.value;
+  if (idx > 0) {
+    currentStep.value = STEPS[idx - 1].key;
+  }
+}
+
+/* ---------- publish ---------- */
 
 async function release() {
   if (!version.value) return;
@@ -63,76 +131,636 @@ onMounted(load);
 </script>
 
 <template>
-  <div v-if="error" class="text-red-500 mb-3">{{ error }}</div>
-  <div v-if="loading">加载中…</div>
-  <div v-else-if="version" class="space-y-5">
-    <div>
-      <h1 class="text-xl font-semibold">发布向导</h1>
-      <p class="text-sm text-gray-500">{{ version.name }} v{{ version.semver }}</p>
+  <div class="release-wizard">
+    <!-- Loading -->
+    <div v-if="loading" class="release-wizard__loading">
+      <div class="skeleton-line" style="width:60%"></div>
+      <div class="skeleton-line" style="width:40%"></div>
     </div>
 
-    <!-- Gate 1: Checklist -->
-    <section class="rounded border p-4 space-y-2">
-      <h2 class="font-medium">① 检查清单</h2>
-      <ul class="space-y-1 text-sm">
-        <li v-for="item in version.checklist" :key="item.id" class="flex items-center gap-2">
-          <span v-if="item.checked" class="text-green-600">✓</span>
-          <span v-else class="text-red-500">✗</span>
-          <span>{{ item.label }}</span>
-          <span v-if="item.required" class="text-xs text-red-500">（必填）</span>
-        </li>
-      </ul>
-    </section>
+    <!-- Error -->
+    <div v-else-if="error && !version" class="release-wizard__error">
+      <p>{{ error }}</p>
+      <AppButton variant="secondary" size="sm" @click="load">重试</AppButton>
+    </div>
 
-    <!-- Gate 2: Quality -->
-    <section class="rounded border p-4 space-y-2">
-      <h2 class="font-medium">② 准出校验</h2>
-      <div class="text-sm space-y-1">
+    <template v-else-if="version">
+      <!-- Header -->
+      <header class="release-wizard__header">
         <div>
-          致命/严重未关闭缺陷:
-          <span :class="version.quality?.critical_bugs === 0 ? 'text-green-600' : 'text-red-600'">
-            {{ version.quality?.critical_bugs ?? 0 }}
-          </span>
+          <h1 class="release-wizard__title">发布向导</h1>
+          <p class="release-wizard__subtitle">{{ version.name }} · {{ version.semver }}</p>
         </div>
-        <div>修复率: {{ Math.round((version.quality?.fix_rate ?? 0) * 100) }}%</div>
-        <div>
-          结果:
-          <span :class="version.quality?.pass_quality_gate ? 'text-green-600' : 'text-red-600'">
-            {{ version.quality?.pass_quality_gate ? "通过" : "不通过" }}
-          </span>
+      </header>
+
+      <!-- Step indicator -->
+      <nav class="stepper">
+        <div
+          v-for="(step, i) in STEPS"
+          :key="step.key"
+          class="stepper__step"
+          :class="{
+            'stepper__step--active': currentStep === step.key,
+            'stepper__step--done': stepIndex > i,
+            'stepper__step--disabled':
+              step.key === 'notes' && !canProceedFromChecklist,
+          }"
+        >
+          <div class="stepper__dot">
+            <span v-if="stepIndex > i">✓</span>
+            <span v-else>{{ step.num }}</span>
+          </div>
+          <span class="stepper__label">{{ step.label }}</span>
+          <div v-if="i < STEPS.length - 1" class="stepper__line"></div>
         </div>
+      </nav>
+
+      <!-- Error banner -->
+      <div v-if="error" class="release-wizard__banner error">
+        {{ error }}
       </div>
-    </section>
 
-    <!-- Gate 3: Notes Preview -->
-    <section class="rounded border p-4 space-y-2">
-      <h2 class="font-medium">③ Release Notes 预览</h2>
-      <label class="flex items-center gap-2 text-sm">
-        <input type="checkbox" v-model="addKnown" />
-        在 Notes 中包含已知未关闭问题
-      </label>
-      <textarea
-        v-model="draftOverride"
-        placeholder="留空则使用自动生成的 Release Notes；填写则覆盖为自定义内容"
-        class="w-full rounded border p-2 text-sm font-mono"
-        rows="8"
-      ></textarea>
-    </section>
+      <!-- ==================== Step 1: Checklist ==================== -->
+      <div v-if="currentStep === 'checklist'" class="step-content">
+        <section class="step-section">
+          <h2 class="step-section__title">
+            ① 发布检查清单
+            <span v-if="checklistAllDone" class="step-section__badge step-section__badge--pass">
+              全部完成
+            </span>
+            <span v-else class="step-section__badge step-section__badge--warn">
+              有待完成项
+            </span>
+          </h2>
+          <p class="step-section__desc">
+            确保所有必做检查项已完成，这是发布流程的第一步。
+          </p>
 
-    <label class="flex items-center gap-2 text-sm">
-      <input type="checkbox" v-model="forceChecklist" />
-      强制跳过清单校验（Admin 豁免）
-    </label>
+          <ul v-if="version.checklist?.length" class="checklist">
+            <li
+              v-for="item in version.checklist"
+              :key="item.id"
+              class="checklist__item"
+              :class="{
+                'checklist__item--done': item.checked,
+                'checklist__item--required': item.required && !item.checked,
+              }"
+            >
+              <span class="checklist__icon">
+                {{ item.checked ? '✓' : '○' }}
+              </span>
+              <span class="checklist__text">{{ item.label }}</span>
+              <AppBadge v-if="item.required" variant="danger">必做</AppBadge>
+            </li>
+          </ul>
+          <p v-else class="step-section__empty">暂无检查项。你可以在版本编辑中配置检查清单。</p>
 
-    <div class="flex gap-2">
-      <button
-        :disabled="releasing"
-        class="rounded bg-green-600 px-4 py-2 text-white disabled:opacity-50"
-        @click="release"
-      >
-        确认发布
-      </button>
-      <button class="rounded border px-4 py-2" @click="router.back()">取消</button>
-    </div>
+          <label class="force-toggle">
+            <input type="checkbox" v-model="forceChecklist" />
+            <span>强制跳过清单校验（管理员豁免）</span>
+          </label>
+        </section>
+      </div>
+
+      <!-- ==================== Step 2: Release Notes ==================== -->
+      <div v-if="currentStep === 'notes'" class="step-content">
+        <section class="step-section">
+          <h2 class="step-section__title">② Release Notes 预览与编辑</h2>
+          <p class="step-section__desc">
+            系统将自动从已完成的工作项和缺陷生成 Release Notes，你也可以手动编辑。
+          </p>
+
+          <label class="notes-toggle">
+            <input type="checkbox" v-model="addKnown" />
+            <span>在 Release Notes 中附带已知未关闭问题列表</span>
+          </label>
+
+          <label class="notes-field">
+            <span class="notes-field__label">自定义 Notes（可选）</span>
+            <textarea
+              v-model="draftOverride"
+              placeholder="留空则使用自动生成的 Release Notes。填写内容将完全覆盖自动生成结果。"
+              class="notes-field__textarea"
+              rows="10"
+            ></textarea>
+          </label>
+
+          <div v-if="!draftOverride" class="notes-preview">
+            <div class="notes-preview__header">自动生成预览（摘要）</div>
+            <div class="notes-preview__body">
+              <p>系统将在发布时自动生成包含以下内容的 Release Notes：</p>
+              <ul>
+                <li>✅ 已完成需求与任务</li>
+                <li>🐛 已修复缺陷</li>
+                <li v-if="addKnown">⚠️ 已知问题（未关闭）</li>
+              </ul>
+            </div>
+          </div>
+          <div v-else class="notes-preview">
+            <div class="notes-preview__header">自定义 Notes 预览</div>
+            <pre class="notes-preview__md">{{ draftOverride }}</pre>
+          </div>
+        </section>
+      </div>
+
+      <!-- ==================== Step 3: Confirm ==================== -->
+      <div v-if="currentStep === 'confirm'" class="step-content">
+        <section class="step-section">
+          <h2 class="step-section__title">③ 确认发布</h2>
+          <p class="step-section__desc">
+            请确认以下信息无误后点击「确认发布」按钮。
+          </p>
+
+          <!-- Quality gate -->
+          <div class="confirm-block">
+            <div class="confirm-block__header">
+              <span>质量门禁</span>
+              <AppBadge :variant="qualityPassed ? 'success' : 'danger'">
+                {{ qualityPassed ? '通过' : '不通过' }}
+              </AppBadge>
+            </div>
+            <div class="confirm-block__body">
+              <div class="confirm-stat">
+                <span class="confirm-stat__label">致命/严重未关闭缺陷</span>
+                <span
+                  class="confirm-stat__value"
+                  :class="qualityPassed ? 'text-success' : 'text-danger'"
+                >{{ version.quality?.critical_bugs ?? 0 }}</span>
+              </div>
+              <div class="confirm-stat">
+                <span class="confirm-stat__label">修复率</span>
+                <span class="confirm-stat__value">
+                  {{ Math.round((version.quality?.fix_rate ?? 0) * 100) }}%
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Delivery summary -->
+          <div v-if="report" class="confirm-block">
+            <div class="confirm-block__header">
+              <span>交付摘要</span>
+              <AppBadge :variant="report.eligible_to_release ? 'success' : 'warning'">
+                {{ report.eligible_to_release ? '满足准出条件' : '未满足准出条件' }}
+              </AppBadge>
+            </div>
+            <div class="confirm-block__body">
+              <div class="confirm-stats-grid">
+                <div class="confirm-stat">
+                  <span class="confirm-stat__label">迭代数</span>
+                  <span class="confirm-stat__value">{{ report.sprint_count }}</span>
+                </div>
+                <div class="confirm-stat">
+                  <span class="confirm-stat__label">已完成 / 总工作项</span>
+                  <span class="confirm-stat__value">{{ report.completed_issues }} / {{ report.total_issues }}</span>
+                </div>
+                <div class="confirm-stat">
+                  <span class="confirm-stat__label">已完成 / 总故事点</span>
+                  <span class="confirm-stat__value">{{ Math.round(report.completed_points) }} / {{ Math.round(report.total_points) }}</span>
+                </div>
+                <div class="confirm-stat">
+                  <span class="confirm-stat__label">已修复 / 总缺陷</span>
+                  <span class="confirm-stat__value">{{ report.fixed_bug_count }} / {{ report.bug_count }}</span>
+                </div>
+                <div class="confirm-stat">
+                  <span class="confirm-stat__label">通过率</span>
+                  <span class="confirm-stat__value">{{ Math.round(report.pass_rate * 100) }}%</span>
+                </div>
+                <div class="confirm-stat">
+                  <span class="confirm-stat__label">进度</span>
+                  <span class="confirm-stat__value">{{ Math.round((version.progress?.completion_rate ?? 0) * 100) }}%</span>
+                </div>
+              </div>
+
+              <!-- Progress bar -->
+              <div class="confirm-progress">
+                <ProgressBar
+                  :percent="Math.round((version.progress?.completion_rate ?? 0) * 100)"
+                  size="md"
+                  :color="(version.progress?.completion_rate ?? 0) >= 0.8 ? 'var(--success-500)' : 'var(--warning-500)'"
+                />
+              </div>
+
+              <!-- Checklist summary -->
+              <div class="confirm-checklist-summary">
+                <span class="confirm-checklist-summary__label">检查清单</span>
+                <span>
+                  {{ (version.checklist ?? []).filter(c => c.checked).length }}/{{ version.checklist?.length ?? 0 }} 项完成
+                  <template v-if="forceChecklist">（已强制跳过校验）</template>
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Warning if not eligible -->
+          <div
+            v-if="!canPublish"
+            class="release-wizard__banner warn"
+          >
+            <template v-if="!checklistAllDone && !forceChecklist">
+              ⚠️ 检查清单有未完成的必做项
+            </template>
+            <template v-if="!qualityPassed">
+              ⚠️ 存在未关闭的致命/严重缺陷，质量门禁未通过
+            </template>
+            <template v-if="!checklistAllDone && !forceChecklist && !qualityPassed">
+              <br />
+            </template>
+          </div>
+        </section>
+      </div>
+
+      <!-- Navigation buttons -->
+      <footer class="release-wizard__footer">
+        <AppButton
+          v-if="currentStep !== 'checklist'"
+          variant="secondary"
+          @click="prev"
+        >
+          上一步
+        </AppButton>
+        <div class="release-wizard__footer-spacer"></div>
+        <AppButton
+          variant="secondary"
+          @click="router.back()"
+        >
+          取消
+        </AppButton>
+        <AppButton
+          v-if="currentStep === 'checklist'"
+          variant="primary"
+          :disabled="!canProceedFromChecklist"
+          @click="next"
+        >
+          {{ !canProceedFromChecklist ? '请先完成检查清单' : '下一步' }}
+        </AppButton>
+        <AppButton
+          v-if="currentStep === 'notes'"
+          variant="primary"
+          @click="next"
+        >
+          下一步：确认发布
+        </AppButton>
+        <AppButton
+          v-if="currentStep === 'confirm'"
+          variant="primary"
+          :loading="releasing"
+          :disabled="!canPublish"
+          @click="release"
+        >
+          {{ releasing ? '发布中…' : '确认发布' }}
+        </AppButton>
+      </footer>
+    </template>
   </div>
 </template>
+
+<style scoped>
+.release-wizard {
+  max-width: 720px;
+}
+
+/* ---- loading / error ---- */
+.release-wizard__loading {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 48px 0;
+}
+.skeleton-line {
+  height: 14px;
+  background: var(--surface-2);
+  border-radius: 4px;
+  animation: pulse 1.5s infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.8; }
+}
+
+.release-wizard__error {
+  text-align: center;
+  padding: 48px 0;
+  color: var(--danger-500);
+}
+.release-wizard__error p { margin: 0 0 12px; }
+
+/* ---- header ---- */
+.release-wizard__header {
+  margin-bottom: 24px;
+}
+.release-wizard__title { margin: 0; font-size: 20px; font-weight: 600; }
+.release-wizard__subtitle {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+}
+
+/* ---- banner ---- */
+.release-wizard__banner {
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+.release-wizard__banner.error {
+  background: rgba(220, 47, 47, 0.08);
+  color: var(--danger-500);
+  border: 1px solid rgba(220, 47, 47, 0.2);
+}
+.release-wizard__banner.warn {
+  background: rgba(245, 158, 11, 0.08);
+  color: var(--warning-500);
+  border: 1px solid rgba(245, 158, 11, 0.2);
+}
+
+/* ---- stepper ---- */
+.stepper {
+  display: flex;
+  align-items: center;
+  margin-bottom: 24px;
+  padding: 16px 0;
+}
+.stepper__step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  position: relative;
+}
+.stepper__step:last-child { flex: 0; }
+.stepper__dot {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  flex-shrink: 0;
+  background: var(--surface-3);
+  color: var(--text-tertiary);
+  transition: background 0.2s, color 0.2s;
+}
+.stepper__step--active .stepper__dot {
+  background: var(--brand-500);
+  color: var(--text-on-brand);
+}
+.stepper__step--done .stepper__dot {
+  background: var(--success-500);
+  color: var(--text-on-brand);
+}
+.stepper__label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+.stepper__step--active .stepper__label { color: var(--text-primary); }
+.stepper__step--done .stepper__label { color: var(--success-500); }
+.stepper__step--disabled { opacity: 0.5; }
+.stepper__line {
+  flex: 1;
+  height: 2px;
+  background: var(--surface-3);
+  margin-left: 12px;
+  min-width: 24px;
+}
+.stepper__step--done .stepper__line {
+  background: var(--success-500);
+}
+
+/* ---- step content ---- */
+.step-content {
+  margin-bottom: 24px;
+}
+.step-section {
+  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 20px;
+}
+.step-section__title {
+  margin: 0 0 6px;
+  font-size: 15px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.step-section__badge {
+  font-size: 11px;
+  font-weight: 500;
+  padding: 1px 8px;
+  border-radius: 10px;
+}
+.step-section__badge--pass {
+  background: rgba(15, 194, 123, 0.1);
+  color: var(--success-500);
+}
+.step-section__badge--warn {
+  background: rgba(245, 158, 11, 0.1);
+  color: var(--warning-500);
+}
+.step-section__desc {
+  margin: 0 0 16px;
+  font-size: 13px;
+  color: var(--text-tertiary);
+}
+.step-section__empty {
+  font-size: 13px;
+  color: var(--text-tertiary);
+  padding: 16px 0;
+  text-align: center;
+}
+
+/* ---- checklist ---- */
+.checklist {
+  list-style: none;
+  margin: 0 0 16px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.checklist__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+  border-left: 3px solid var(--success-500);
+}
+.checklist__item--required {
+  border-left-color: var(--danger-500);
+  background: rgba(220, 47, 47, 0.04);
+}
+.checklist__icon {
+  font-size: 14px;
+  width: 18px;
+  text-align: center;
+  flex-shrink: 0;
+}
+.checklist__item--done .checklist__icon { color: var(--success-500); }
+.checklist__item--required .checklist__icon { color: var(--danger-500); }
+.checklist__text { flex: 1; font-size: 13px; }
+
+.force-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  cursor: pointer;
+}
+.force-toggle input { accent-color: var(--brand-500); }
+
+/* ---- notes step ---- */
+.notes-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  margin-bottom: 16px;
+}
+.notes-toggle input { accent-color: var(--brand-500); }
+
+.notes-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+.notes-field__label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+.notes-field__textarea {
+  font-size: 13px;
+  font-family: var(--font-mono);
+  padding: 10px 12px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text-primary);
+  resize: vertical;
+  min-height: 160px;
+}
+.notes-field__textarea:focus {
+  outline: none;
+  border-color: var(--brand-500);
+  box-shadow: 0 0 0 2px var(--brand-50);
+}
+
+.notes-preview {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.notes-preview__header {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  padding: 8px 12px;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.notes-preview__body {
+  padding: 12px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.notes-preview__body ul { margin: 8px 0 0; padding-left: 20px; }
+.notes-preview__md {
+  margin: 0;
+  padding: 12px;
+  font-size: 12px;
+  font-family: var(--font-mono);
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  line-height: 1.6;
+}
+
+/* ---- confirm step ---- */
+.confirm-block {
+  background: var(--surface-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  margin-bottom: 12px;
+  overflow: hidden;
+}
+.confirm-block__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--surface-1);
+}
+.confirm-block__body {
+  padding: 14px;
+}
+
+.confirm-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+.confirm-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.confirm-stat__label {
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+.confirm-stat__value {
+  font-size: 14px;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  color: var(--text-primary);
+}
+.confirm-stat__value.text-success { color: var(--success-500); }
+.confirm-stat__value.text-danger { color: var(--danger-500); }
+
+.confirm-progress {
+  margin-top: 14px;
+}
+
+.confirm-checklist-summary {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-subtle);
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+.confirm-checklist-summary__label {
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+/* ---- footer ---- */
+.release-wizard__footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 0;
+  border-top: 1px solid var(--border-subtle);
+}
+.release-wizard__footer-spacer { flex: 1; }
+
+.text-success { color: var(--success-500); }
+.text-danger { color: var(--danger-500); }
+</style>

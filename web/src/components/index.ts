@@ -19,3 +19,5 @@ export { default as AppEmptyState } from "./AppEmptyState.vue";
 export { default as AppErrorState } from "./AppErrorState.vue";
 export { default as AppLoadingState } from "./AppLoadingState.vue";
 export { default as AppModal } from "./AppModal.vue";
+export { default as ProgressBar } from "./ProgressBar.vue";
+export { default as MiniGantt } from "./MiniGantt.vue";

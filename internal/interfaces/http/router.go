@@ -1,4 +1,4 @@
-// Package httpapi wires the Gin engine, middleware chain and route table.
+// Package httpapi 装配 Gin 引擎、中间件链与路由表。
 package httpapi
 
 import (
@@ -28,7 +28,7 @@ import (
 	"github.com/njydsz/ydsz-plane/pkg/errs"
 )
 
-// Deps carries handler dependencies.
+// Deps 携带各 handler 的依赖。
 type Deps struct {
 	Cfg             *config.Config
 	Log             *zap.Logger
@@ -43,7 +43,7 @@ type Deps struct {
 	ProjectSvc      *workspace.ProjectService
 	AuditSvc        *workspace.AuditService
 	Mail            mail.EmailService
-	// Issue domain
+	// Issue 域
 	IssueSvc        *issue.Service
 	StateSvc        *issue.StateService
 	ActivitySvc     *issue.ActivityService
@@ -101,7 +101,7 @@ func RegisterVersionRoutes(r *gin.Engine, d *Deps) {
 	d.VersionHandler.Register(projects)
 }
 
-// NewEngine builds the HTTP engine with the full middleware chain.
+// NewEngine 构建带完整中间件链的 HTTP 引擎。
 func NewEngine(d *Deps) *gin.Engine {
 	if !d.Cfg.IsDev() {
 		gin.SetMode(gin.ReleaseMode)
@@ -121,7 +121,7 @@ func NewEngine(d *Deps) *gin.Engine {
 	r.GET("/healthz", healthz())
 	r.GET("/readyz", readyz(d))
 	r.GET("/metrics", gin.WrapH(promhttp.Handler()))
-	// Swagger UI (only in development)
+	// Swagger UI（仅开发环境暴露）
 	if d.Cfg.IsDev() {
 		r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 	}
@@ -140,7 +140,7 @@ func NewEngine(d *Deps) *gin.Engine {
 		authGroup.POST("/reset-password", rl, resetPassword(d))
 	}
 
-	// authenticated routes
+	// 已认证路由（需要有效 access token + 用户级限流）
 	authed := v1.Group("")
 	authed.Use(middleware.RequireAuth(d.Auth.ParseAccess))
 	authed.Use(middleware.RateLimit(d.Redis, 100, func(c *gin.Context) string {

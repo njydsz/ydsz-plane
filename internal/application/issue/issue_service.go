@@ -156,6 +156,7 @@ func (s *Service) GetByID(ctx context.Context, wsID, issueID int64) (*Issue, err
 	var stateGroup StateGroup
 
 	var foundVerID, fixVerID, releaseVerID sql.NullInt64
+	var sprintID sql.NullInt64
 	err := s.db.QueryRow(ctx, `
 		SELECT i.id, i.public_id, i.workspace_id, i.project_id, i.sequence_id,
 		       i.type_code, i.parent_id, i.depth, i.name,
@@ -165,7 +166,8 @@ func (s *Service) GetByID(ctx context.Context, wsID, issueID int64) (*Issue, err
 		       i.start_date, i.target_date, i.completed_at, i.progress,
 		       i.is_draft, i.version, i.created_by, i.created_at, i.updated_at,
 		       p.identifier,
-		       i.found_version_id, i.fix_version_id, i.release_version_id
+		       i.found_version_id, i.fix_version_id, i.release_version_id,
+		       i.sprint_id
 		FROM issues i
 		JOIN states s ON s.id = i.state_id
 		JOIN projects p ON p.id = i.project_id
@@ -179,7 +181,7 @@ func (s *Service) GetByID(ctx context.Context, wsID, issueID int64) (*Issue, err
 		&iss.StartDate, &targetDate, &completedAt, &iss.Progress,
 		&iss.IsDraft, &iss.Version, &iss.CreatedBy, &iss.CreatedAt, &iss.UpdatedAt,
 		&identifier,
-		&foundVerID, &fixVerID, &releaseVerID)
+		&foundVerID, &fixVerID, &releaseVerID, &sprintID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, errs.ErrNotFound
@@ -226,6 +228,10 @@ func (s *Service) GetByID(ctx context.Context, wsID, issueID int64) (*Issue, err
 	if releaseVerID.Valid {
 		v := releaseVerID.Int64
 		iss.ReleaseVersionID = &v
+	}
+	if sprintID.Valid {
+		v := sprintID.Int64
+		iss.SprintID = &v
 	}
 
 	iss.Identifier = identifier + "-" + strconv.FormatInt(iss.SequenceID, 10)
@@ -343,6 +349,12 @@ func (s *Service) Update(ctx context.Context, wsID, issueID int64, in UpdateIssu
 // SoftDelete 归档（含级联子项）。
 func (s *Service) SoftDelete(ctx context.Context, wsID, issueID int64) error {
 	return s.withTx(ctx, wsID, func(tx pgx.Tx) error {
+		// 从 sprint_issues 中移除；软删除不触发 FK cascade
+		_, err := tx.Exec(ctx, `DELETE FROM sprint_issues WHERE issue_id = $1`, issueID)
+		if err != nil {
+			return err
+		}
+
 		tag, err := tx.Exec(ctx, `
 			UPDATE issues SET deleted_at = now(), updated_at = now()
 			WHERE id = $1 AND workspace_id = $2 AND deleted_at IS NULL`, issueID, wsID)

@@ -1,3 +1,4 @@
+// Package httpapi 测试：对引擎装配、安全头、指标端点与 Sprint 路由做冒烟验证。
 package httpapi
 
 import (
@@ -12,6 +13,7 @@ import (
 	"github.com/njydsz/ydsz-plane/internal/config"
 )
 
+// stubDeps 构造最小可用的 Deps（开发环境 + 无操作日志）。
 func stubDeps() *Deps {
 	return &Deps{
 		Cfg: &config.Config{
@@ -23,8 +25,7 @@ func stubDeps() *Deps {
 	}
 }
 
-// TestSecurityHeaders verifies that the middleware sets the expected
-// defense-in-depth headers on every response.
+// TestSecurityHeaders 验证中间件在每个响应上设置预期的纵深防御头。
 func TestSecurityHeaders(t *testing.T) {
 	r := NewEngine(stubDeps())
 
@@ -51,12 +52,12 @@ func TestSecurityHeaders(t *testing.T) {
 	}
 }
 
-// TestMetricsEndpoint proves that /metrics responds 200 and exports our
-// custom HTTP RED metrics without needing any external dependency.
+// TestMetricsEndpoint 验证 /metrics 返回 200 且导出自定义 HTTP RED 指标，
+// 不依赖任何外部依赖。
 func TestMetricsEndpoint(t *testing.T) {
 	r := NewEngine(stubDeps())
 
-	// Generate at least one request metric sample.
+	// 先产生至少一个请求指标样本。
 	r.ServeHTTP(httptest.NewRecorder(), mustReq("GET", "/healthz", ""))
 
 	w := httptest.NewRecorder()
@@ -65,7 +66,7 @@ func TestMetricsEndpoint(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Fatalf("GET /metrics status = %d, want 200: %s", w.Code, w.Body.String())
 	}
-	// Actively-recorded metrics (HTTP counters) show after at least one sample.
+	// 活跃记录的指标（HTTP 计数器）在至少一个样本后出现。
 	for _, needle := range []string{
 		"ydsz_http_request_total",
 		"ydsz_http_request_duration_ms",
@@ -74,8 +75,8 @@ func TestMetricsEndpoint(t *testing.T) {
 			t.Errorf("metrics body missing %q", needle)
 		}
 	}
-	// promauto collectors expose HELP/TYPE once first label is set; for unused
-	// ones we fall back to verifying process-level collectors are exported.
+	// promauto 收集器在首个标签设置后暴露 HELP/TYPE；对未使用的收集器，
+	// 退而验证进程级收集器已导出。
 	for _, needle := range []string{
 		"go_goroutines",
 		"process_resident_memory_bytes",
@@ -96,15 +97,14 @@ func mustReq(method, path, body string) *http.Request {
 // Sprint 路由冒烟测试（Sprint 5.11 出口检查）
 // ==========================================================================
 
-// stubSprintDeps returns a Deps with SprintHandler wired.
+// stubSprintDeps 返回装配了 SprintHandler 的 Deps。
 func stubSprintDeps() *Deps {
 	d := stubDeps()
 	d.SprintHandler = sprint.NewHandler(nil)
 	return d
 }
 
-// TestSprintRouteMounting verifies Sprint routes are mounted and return
-// expected HTTP status codes for unauthenticated requests (401).
+// TestSprintRouteMounting 验证 Sprint 路由已挂载，未认证请求返回预期状态码（401）。
 func TestSprintRouteMounting(t *testing.T) {
 	r := NewEngine(stubSprintDeps())
 	RegisterSprintRoutes(r, stubSprintDeps())
@@ -148,18 +148,18 @@ func TestSprintRouteMounting(t *testing.T) {
 	}
 }
 
-// TestSprintNotWiredWithoutHandler verifies that without SprintHandler,
-// sprint routes should NOT be mounted (RegisterSprintRoutes returns early).
+// TestSprintNotWiredWithoutHandler 验证未设置 SprintHandler 时，
+// Sprint 路由不应被挂载（RegisterSprintRoutes 提前返回）。
 func TestSprintNotWiredWithoutHandler(t *testing.T) {
 	r := NewEngine(stubDeps())
-	// No SprintHandler set
+	// 未设置 SprintHandler
 	RegisterSprintRoutes(r, stubDeps())
 
 	w := httptest.NewRecorder()
 	req := mustReq("GET", "/api/v1/workspaces/1/projects/1/sprints", "")
 	r.ServeHTTP(w, req)
-	// Without SprintHandler, /sprints should 404 (not 401), because the route
-	// group was never registered.
+	// 没有 SprintHandler 时，/sprints 应返回 404（而非 401），
+	// 因为路由组从未注册。
 	if w.Code != http.StatusNotFound {
 		t.Errorf("status = %d, want 404 (routes not mounted)", w.Code)
 	}

@@ -430,7 +430,7 @@ func (s *Service) AddIssue(ctx context.Context, wsID int64, in AddIssueInput) er
 
 		// 注入 sprint_id
 		_, err = tx.Exec(ctx, `UPDATE issues SET sprint_id = $1, updated_at = now() WHERE id = $2 AND workspace_id = $3`,
-			in.IssueID, in.IssueID, wsID)
+			in.SprintID, in.IssueID, wsID)
 		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 			// sprint_id 列允许 NULL，此更新可选；此处忽略重复
 		}

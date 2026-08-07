@@ -3,6 +3,7 @@
  */
 import { http, type ApiResponse } from "../client";
 
+/** 工作空间（含当前用户角色与成员数可选字段） */
 export interface Workspace {
   id: number;
   name: string;
@@ -18,6 +19,7 @@ export interface Workspace {
   member_count?: number;
 }
 
+/** 工作空间成员 */
 export interface Member {
   id: number;
   email: string;
@@ -27,6 +29,7 @@ export interface Member {
   joined_at: string;
 }
 
+/** 工作空间邀请记录 */
 export interface Invitation {
   id: number;
   workspace_id: number;
@@ -41,6 +44,7 @@ export interface Invitation {
   created_at: string;
 }
 
+/** 邀请预览（接受前展示，无鉴权） */
 export interface InvitationPreview {
   workspace_id: number;
   workspace_name: string;
@@ -51,6 +55,7 @@ export interface InvitationPreview {
   status: string;
 }
 
+/** 项目（工作空间下二级聚合根） */
 export interface Project {
   id: number;
   workspace_id: number;
@@ -71,6 +76,7 @@ export interface Project {
 const wrap = <T>(p: Promise<{ data: T }>) => p.then((r) => r.data);
 
 // --- Workspaces ---
+/** 工作空间域 API：空间 / 成员 / 邀请 / 项目 CRUD */
 export const workspaceApi = {
   list: () => wrap<Workspace[]>(http.get("/workspaces")),
   get: (wsId: number) => wrap<Workspace>(http.get(`/workspaces/${wsId}`)),

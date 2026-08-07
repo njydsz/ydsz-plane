@@ -280,6 +280,12 @@ onMounted(() => {
           <span v-if="issue.severity" class="issue-detail__field">严重度: S{{ issue.severity }}</span>
           <span v-if="issue.found_phase" class="issue-detail__field">发现阶段: {{ issue.found_phase }}</span>
           <span v-if="issue.point != null" class="issue-detail__field">点数: {{ issue.point }}</span>
+          <span v-if="issue.sprint_id" class="issue-detail__field">
+            所属迭代:
+            <router-link :to="`/${workspaceSlug}/projects/${projectId}/sprints/${issue.sprint_id}`" class="link">
+              #{{ issue.sprint_id }}
+            </router-link>
+          </span>
         </div>
 
         <div class="issue-detail__section">

@@ -108,7 +108,7 @@ func parseBigInt(s string) (int64, bool) {
 			return 0, false
 		}
 		n = n*10 + int64(r-'0')
-		if n < 0 { // overflow
+		if n < 0 { // 溢出保护
 			return 0, false
 		}
 	}

@@ -9,6 +9,7 @@ import { http } from "../client";
 
 export type VersionStatus = "planning" | "active" | "released" | "archived";
 
+/** 发布检查清单条目 */
 export interface ChecklistItem {
   id: string;
   label: string;
@@ -16,6 +17,7 @@ export interface ChecklistItem {
   checked: boolean;
 }
 
+/** 迭代进度摘要（版本日聚合视图用） */
 export interface SprintProgressRef {
   total_points: number;
   done_points: number;
@@ -23,6 +25,7 @@ export interface SprintProgressRef {
   done_issues: number;
 }
 
+/** 版本日关联的迭代摘要 */
 export interface SprintRef {
   sprint_id: number;
   name: string;
@@ -33,6 +36,7 @@ export interface SprintRef {
   progress?: SprintProgressRef;
 }
 
+/** 版本日实时进度聚合 */
 export interface VersionProgress {
   total_points: number;
   done_points: number;
@@ -43,6 +47,7 @@ export interface VersionProgress {
   sprint_count: number;
 }
 
+/** 版本日质量指标（发布准出校验用） */
 export interface QualityMetrics {
   total_bugs: number;
   open_bugs: number;
@@ -55,6 +60,7 @@ export interface QualityMetrics {
   pass_quality_gate: boolean;
 }
 
+/** 版本日交付报告（发布前快照） */
 export interface DeliveryReport {
   generated_at: string;
   sprint_count: number;
@@ -90,6 +96,7 @@ export interface Version {
   delivery_report?: DeliveryReport;
 }
 
+/** 缺陷面板中的缺陷视图投影 */
 export interface BugVersionView {
   issue_id: number;
   identifier: string;
@@ -103,6 +110,7 @@ export interface BugVersionView {
   root_cause_category?: string;
 }
 
+/** 创建版本日入参 */
 export interface CreateVersionInput {
   name: string;
   semver: string;
@@ -111,6 +119,7 @@ export interface CreateVersionInput {
   checklist?: ChecklistItem[];
 }
 
+/** 更新版本日入参（可选字段 + 乐观锁 version） */
 export interface UpdateVersionInput {
   name?: string;
   description?: string;
@@ -120,16 +129,19 @@ export interface UpdateVersionInput {
   version: number;
 }
 
+/** 发布版本日入参（草稿覆盖 / 强制清单 / 已知缺陷写入发布说明） */
 export interface ReleaseVersionInput {
   draft_override?: string;
   force_checklist?: boolean;
   add_known_issues_to_notes?: boolean;
 }
 
+/** 将迭代关联到版本日的入参 */
 export interface AddSprintInput {
   sprint_id: number;
 }
 
+/** 版本日列表查询参数 */
 export interface ListVersionsParams {
   status?: VersionStatus;
   limit?: number;
@@ -142,6 +154,7 @@ export interface ListVersionsParams {
 
 const wrap = <T>(p: Promise<{ data: T }>) => p.then((r) => r.data);
 
+/** 版本日域 API：CRUD / 生命周期 / 进度质量 / 交付报告 / 缺陷面板 / 迭代聚合 */
 export const versionApi = {
   listVersions: (wsId: number, projectId: number, params?: ListVersionsParams) =>
     wrap<{ results: Version[]; total: number }>(

@@ -5,6 +5,7 @@ import { defineStore } from "pinia";
 import { computed, ref } from "vue";
 import { issueApi, type Issue, type ListIssuesParams, type State } from "@/api/services/issue";
 
+/** Issue 域 Pinia store —— 管理当前工作空间/项目维度的工作项状态、缓存与变更操作 */
 export const useIssueStore = defineStore("issue", () => {
   // --- State ---
   const states = ref<State[]>([]);

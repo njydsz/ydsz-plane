@@ -89,6 +89,7 @@ export class ApiError extends Error {
 type RateLimitHandler = (retryAfterSec: number) => void;
 let onRateLimit: RateLimitHandler | null = null;
 
+/** 注册全局限流回调；收到 429 且带 Retry-After 时触发（可空，用于清空） */
 export function setRateLimitHandler(fn: RateLimitHandler | null) {
   onRateLimit = fn;
 }

@@ -1,5 +1,5 @@
-// Package middleware contains the Gin middleware chain:
-// request_id → recovery → cors → ratelimit → auth → tenant → rbac → audit.
+// Package middleware 包含 Gin 中间件链：
+// request_id → recovery → cors → ratelimit → auth → tenant → rbac → audit。
 package middleware
 
 import (
@@ -17,7 +17,7 @@ import (
 	"github.com/njydsz/ydsz-plane/pkg/errs"
 )
 
-// CtxKey enumerates keys stored in gin.Context.
+// CtxKey 枚举存储在 gin.Context 中的键。
 const (
 	CtxRequestID   = "request_id"
 	CtxUserID      = "user_id"
@@ -25,49 +25,48 @@ const (
 	CtxProjectID   = "project_id"
 )
 
-// SecurityHeaders adds defense-in-depth HTTP headers. These complement the
-// reverse-proxy nginx config and harden the app even when the edge terminates
-// TLS. Reference: OWASP Secure Header Project, Google gts/security guide.
+// SecurityHeaders 添加纵深防御型 HTTP 响应头。这些头补充反向代理 nginx
+// 的配置，即使边缘节点终止 TLS 也能加固应用。
+// 参考：OWASP Secure Header Project、Google gts/security 指南。
 func SecurityHeaders() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// Prevent MIME type sniffing
+		// 禁止 MIME 类型嗅探
 		c.Header("X-Content-Type-Options", "nosniff")
 
-		// Clickjacking protection. SAMEORIGIN allows same-site iframe embedding
-		// for potential future internal dashboards.
+		// 点击劫持防护。SAMEORIGIN 允许同站 iframe 内嵌，
+		// 为将来可能的内部看板保留空间。
 		c.Header("X-Frame-Options", "SAMEORIGIN")
 
-		// Browser XSS filter — kept at 0 (disabled) because it introduces
-		// filter-bypass vectors in older browsers; rely on CSP instead.
+		// 浏览器 XSS 过滤器 —— 保持禁用（0），因为它在老浏览器中
+		// 引入过滤器绕过向量；应依赖 CSP 而非此头。
 		c.Header("X-XSS-Protection", "0")
 
-		// Limit referrer leakage on cross-origin navigations
+		// 限制跨源导航时的 Referrer 泄露
 		c.Header("Referrer-Policy", "strict-origin-when-cross-origin")
 
-		// Control which browser features the document/context can use
+		// 控制文档/上下文可用的浏览器特性
 		c.Header("Permissions-Policy",
 			"accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()")
 
-		// Cross-origin isolation (process-level siloing).
+		// 跨源隔离（进程级沙箱）。
 		c.Header("Cross-Origin-Opener-Policy", "same-origin")
 		c.Header("Cross-Origin-Resource-Policy", "same-origin")
 
-		// Content-Security-Policy — baseline restrictive policy.
-		// For the SPA (separate Vite dev server + nginx-served prod bundle),
-		// the API endpoints only need a minimal policy; the SPA's HTML
-		// should set its own CSP via nginx meta tag / response header.
+		// Content-Security-Policy —— 基线限制性策略。
+		// 对 SPA（独立 Vite dev server + nginx 提供的生产包）而言，
+		// API 端点只需要最小策略；SPA 的 HTML 应通过 nginx meta 标签/
+		// 响应头设置自己的 CSP。
 		c.Header("Content-Security-Policy",
 			"default-src 'none'; frame-ancestors 'self'; base-uri 'none'; form-action 'self'")
 
-		// HSTS is set only by the TLS-terminating edge (nginx/CDN). We
-		// intentionally omit it here so the API can run behind any proxy
-		// without conflicting with the proxy's HSTS max-age.
+		// HSTS 仅由 TLS 终结边缘（nginx/CDN）设置。此处有意省略，
+		// 使 API 可以运行在任何代理之后，不会与代理的 HSTS max-age 冲突。
 
 		c.Next()
 	}
 }
 
-// RequestID assigns a unique request id (or propagates X-Request-ID).
+// RequestID 分配唯一请求 ID（或透传上游 X-Request-ID）。
 func RequestID() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id := c.GetHeader("X-Request-ID")
@@ -82,7 +81,7 @@ func RequestID() gin.HandlerFunc {
 	}
 }
 
-// Recovery converts panics into the unified 500 envelope and logs a stack.
+// Recovery 将 panic 转换为统一 500 信封并记录堆栈。
 func Recovery(log *zap.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		defer func() {
@@ -101,7 +100,7 @@ func Recovery(log *zap.Logger) gin.HandlerFunc {
 	}
 }
 
-// CORS returns a restrictive CORS policy (configurable allowed origins).
+// CORS 返回限制性 CORS 策略（可配置允许来源）。
 func CORS(allowedOrigins []string) gin.HandlerFunc {
 	return cors.New(cors.Config{
 		AllowOrigins:     allowedOrigins,
@@ -113,7 +112,7 @@ func CORS(allowedOrigins []string) gin.HandlerFunc {
 	})
 }
 
-// AccessLog emits one structured line per request (skip /healthz noise).
+// AccessLog 每个请求输出一行结构化日志（跳过 /healthz 噪音）。
 func AccessLog(log *zap.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		start := time.Now()
@@ -132,8 +131,8 @@ func AccessLog(log *zap.Logger) gin.HandlerFunc {
 	}
 }
 
-// RateLimit is a Redis token-bucket limiter. keyFn extracts the limit key
-// (user id or IP). On exceed it returns 429 with Retry-After.
+// RateLimit 是基于 Redis 的令牌桶限流器。keyFn 提取限流键
+// （用户 ID 或 IP）。超限时返回 429 并附带 Retry-After。
 func RateLimit(rdb *redis.Client, limitPerMin int, keyFn func(*gin.Context) string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		key := "ratelimit:" + keyFn(c)
@@ -148,7 +147,7 @@ func RateLimit(rdb *redis.Client, limitPerMin int, keyFn func(*gin.Context) stri
 		cardCmd := pipe.ZCard(ctx, key)
 		pipe.Expire(ctx, key, 2*time.Minute)
 		if _, err := pipe.Exec(ctx); err != nil {
-			// fail-open on limiter outage, but log it
+			// 限流器故障时放行（fail-open），但记录日志
 			c.Next()
 			return
 		}
@@ -175,7 +174,7 @@ func memberWithRand(now int64) any {
 
 func itoa(v int64) string { return strconv.FormatInt(v, 10) }
 
-// respondError renders the unified error envelope.
+// respondError 渲染统一错误信封。
 func respondError(c *gin.Context, e *errs.AppError) {
 	c.JSON(e.HTTP, gin.H{
 		"error": gin.H{
@@ -187,14 +186,14 @@ func respondError(c *gin.Context, e *errs.AppError) {
 	})
 }
 
-// AbortWithError lets handlers abort with an AppError using the envelope.
+// AbortWithError 让 handler 以信封格式携带 AppError 中止请求。
 func AbortWithError(c *gin.Context, e *errs.AppError) {
 	respondError(c, e)
 	c.Abort()
 }
 
-// RequireAuth validates the access token (see internal/application/auth) and
-// injects the user id. Implemented as a factory to avoid an import cycle.
+// RequireAuth 校验访问令牌（见 internal/application/auth）并注入用户 ID。
+// 以工厂函数实现，避免 import cycle。
 func RequireAuth(parseToken func(token string) (userID int64, err error)) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		token := bearerToken(c)
@@ -220,14 +219,14 @@ func bearerToken(c *gin.Context) string {
 	if len(h) > len(prefix) && h[:len(prefix)] == prefix {
 		return h[len(prefix):]
 	}
-	// cookie-based session for the SPA
+	// SPA 的 cookie 会话
 	if ck, err := c.Cookie("ydsz_access"); err == nil {
 		return ck
 	}
 	return ""
 }
 
-// NoRoute returns the JSON 404 for unknown API paths.
+// NoRoute 为未知 API 路径返回 JSON 404。
 func NoRoute() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		respondError(c, errs.ErrNotFound)

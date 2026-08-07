@@ -8,8 +8,10 @@ import { http } from "../client";
 /* ------------------------------------------------------------------ */
 
 export type SprintStatus = "planned" | "active" | "completed";
+/** 迭代结束时未完成工作项的处理策略 */
 export type UnfinishedStrategy = "backlog" | "next_sprint" | "keep";
 
+/** 迭代聚合（含可选进度与复盘快照） */
 export interface Sprint {
   id: number;
   workspace_id: number;
@@ -32,6 +34,7 @@ export interface Sprint {
   updated_at: string;
 }
 
+/** 迭代实时进度汇总（点数与工作项数） */
 export interface SprintProgress {
   total_points: number;
   done_points: number;
@@ -41,6 +44,7 @@ export interface SprintProgress {
   saturation?: number;
 }
 
+/** 迭代复盘快照（承诺/完成/加入/移除统计） */
 export interface ReviewSnapshot {
   committed_points: number;
   completed_points: number;
@@ -53,6 +57,7 @@ export interface ReviewSnapshot {
   completion_rate: number;
 }
 
+/** 迭代每日快照记录（燃尽图数据源） */
 export interface SprintSnapshot {
   id: number;
   workspace_id: number;
@@ -63,6 +68,7 @@ export interface SprintSnapshot {
   created_at: string;
 }
 
+/** 单日快照内容 */
 export interface SnapshotData {
   total_points: number;
   done_points: number;
@@ -73,6 +79,7 @@ export interface SnapshotData {
   removed_points: number;
 }
 
+/** 燃尽图单日数据点（含理想线） */
 export interface BurndownPoint {
   date: string;
   total_points: number;
@@ -81,6 +88,7 @@ export interface BurndownPoint {
   ideal_line: number;
 }
 
+/** 迭代速率统计（平均值/中位数/近期迭代） */
 export interface VelocityStats {
   avg_points: number;
   avg_issues: number;
@@ -89,6 +97,7 @@ export interface VelocityStats {
   count: number;
 }
 
+/** 单个迭代的速率数据 */
 export interface SprintVelocity {
   sprint_id: number;
   sprint_name: string;
@@ -97,6 +106,7 @@ export interface SprintVelocity {
   end_date: string;
 }
 
+/** 迭代内工作项的视图投影 */
 export interface SprintIssueView {
   issue_id: number;
   sort_order: number;
@@ -112,6 +122,7 @@ export interface SprintIssueView {
   created_at: string;
 }
 
+/** Backlog 工作项条目（未规划进 active 迭代） */
 export interface BacklogItem {
   issue_id: number;
   name: string;
@@ -127,6 +138,7 @@ export interface BacklogItem {
   point?: number;
 }
 
+/** 创建迭代入参 */
 export interface CreateSprintInput {
   name: string;
   description?: string;
@@ -137,6 +149,7 @@ export interface CreateSprintInput {
   owner_id?: number;
 }
 
+/** 更新迭代入参（仅 planned 状态可编辑） */
 export interface UpdateSprintInput {
   name?: string;
   description?: string;
@@ -148,11 +161,13 @@ export interface UpdateSprintInput {
   version: number;
 }
 
+/** 结束迭代入参（未完成工作项处理策略） */
 export interface CompleteSprintInput {
   strategy: UnfinishedStrategy;
   next_sprint_id?: number;
 }
 
+/** 迭代列表查询参数 */
 export interface ListSprintsParams {
   status?: SprintStatus;
   limit?: number;
@@ -165,6 +180,7 @@ export interface ListSprintsParams {
 
 const wrap = <T>(p: Promise<{ data: T }>) => p.then((r) => r.data);
 
+/** 迭代域 API：CRUD / 生命周期 / 进度 / 规划 / 燃尽图 / 复盘 / 速率建议 */
 export const sprintApi = {
   // --- 迭代 CRUD ---
   listSprints: (wsId: number, projectId: number, params?: ListSprintsParams) =>

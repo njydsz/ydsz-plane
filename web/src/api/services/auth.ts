@@ -4,6 +4,7 @@
 import { http, type ApiResponse } from "../client";
 import type { UserBrief } from "@/stores/auth";
 
+/** 登录/刷新接口返回的令牌对（与后端 auth.TokenPair 对齐） */
 export interface TokenPair {
   access_token: string;
   refresh_token: string;
@@ -12,17 +13,20 @@ export interface TokenPair {
   user: UserBrief;
 }
 
+/** 登录请求参数 */
 export interface LoginInput {
   email: string;
   password: string;
 }
 
+/** 注册请求参数 */
 export interface RegisterInput {
   email: string;
   password: string;
   display_name: string;
 }
 
+/** 认证域 API：登录 / 注册 / 刷新 / 当前用户 / 密码找回与重置 */
 export const authApi = {
   login(input: LoginInput): Promise<ApiResponse<TokenPair>> {
     return http.post("/auth/login", input).then((r) => ({

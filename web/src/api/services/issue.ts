@@ -8,9 +8,12 @@ import { http } from "../client";
 /* ------------------------------------------------------------------ */
 
 export type IssueType = "requirement" | "task" | "defect";
+/** 工作项优先级（降序） */
 export type IssuePriority = "urgent" | "high" | "medium" | "low" | "none";
+/** 状态分组：backlog / started / completed / cancelled */
 export type StateGroup = "backlog" | "started" | "completed" | "cancelled";
 
+/** 工作项状态定义（含所属分组与展示色） */
 export interface State {
   id: number;
   workspace_id: number;
@@ -24,6 +27,7 @@ export interface State {
   updated_at: string;
 }
 
+/** 工作项（需求/任务/缺陷统一模型），与后端 issue.Issue 对齐 */
 export interface Issue {
   id: number;
   public_id: string;
@@ -58,6 +62,10 @@ export interface Issue {
   completed_at?: string;
   is_draft: boolean;
   version: number;
+  sprint_id?: number;
+  found_version_id?: number;
+  fix_version_id?: number;
+  release_version_id?: number;
   assignees: number[];
   labels: number[];
   modules: number[];
@@ -67,6 +75,7 @@ export interface Issue {
   updated_at: string;
 }
 
+/** 工作项活动日志条目（谁在何时改了什么字段） */
 export interface IssueActivity {
   id: number;
   workspace_id: number;
@@ -84,6 +93,7 @@ export interface IssueActivity {
   created_at: string;
 }
 
+/** 工作项工时记录（分钟粒度） */
 export interface TimeLog {
   id: number;
   workspace_id: number;
@@ -97,6 +107,7 @@ export interface TimeLog {
   updated_at: string;
 }
 
+/** 工作项关联关系（如关联/被关联） */
 export interface IssueRelation {
   id: number;
   workspace_id: number;
@@ -108,6 +119,7 @@ export interface IssueRelation {
   created_at: string;
 }
 
+/** 工作项依赖关系（前置/后继 + 滞后天数） */
 export interface IssueDependency {
   id: number;
   workspace_id: number;
@@ -120,6 +132,7 @@ export interface IssueDependency {
   created_at: string;
 }
 
+/** 创建工作项入参 */
 export interface CreateIssueInput {
   type: IssueType;
   name: string;
@@ -139,6 +152,7 @@ export interface CreateIssueInput {
   is_draft?: boolean;
 }
 
+/** 更新工作项入参（可选字段 + 乐观锁 version） */
 export interface UpdateIssueInput {
   name?: string;
   description_html?: string;
@@ -156,6 +170,7 @@ export interface UpdateIssueInput {
   version: number;
 }
 
+/** 工作项列表查询参数（过滤/搜索/分页） */
 export interface ListIssuesParams {
   state_id?: number;
   group?: StateGroup;
@@ -174,6 +189,7 @@ export interface ListIssuesParams {
 
 const wrap = <T>(p: Promise<{ data: T }>) => p.then((r) => r.data);
 
+/** 工作项域 API：状态 / CRUD / 流转 / 活动 / 工时 / 关联 / 依赖 */
 export const issueApi = {
   // --- 状态 ---
   listStates: (wsId: number, projectId: number) =>
