@@ -85,6 +85,12 @@ const router = createRouter({
           props: (route) => ({ workspaceSlug: route.params.workspaceSlug }),
         },
         {
+          path: ":workspaceSlug/audit-logs",
+          name: "audit-logs",
+          component: () => import("@/views/workspace/AuditReportView.vue"),
+          props: (route) => ({ workspaceSlug: route.params.workspaceSlug }),
+        },
+        {
           path: ":workspaceSlug/projects",
           name: "projects",
           component: () => import("@/views/project/ProjectListView.vue"),
