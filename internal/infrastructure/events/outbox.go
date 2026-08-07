@@ -24,9 +24,10 @@ import (
 
 const (
 	// StreamKey is the Redis Stream key for outbox events.
-	StreamKey = "ydsz:events"
+	// Prefixed with "plane" to avoid collisions with other projects on shared Redis.
+	StreamKey = "plane:events"
 	// ConsumerGroup is the default consumer group name.
-	ConsumerGroup = "ydsz-consumers"
+	ConsumerGroup = "plane-consumers"
 )
 
 // Event is a domain event record.

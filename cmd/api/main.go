@@ -15,6 +15,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/njydsz/ydsz-plane/internal/application/auth"
+	"github.com/njydsz/ydsz-plane/internal/application/issue"
 	"github.com/njydsz/ydsz-plane/internal/application/workspace"
 	"github.com/njydsz/ydsz-plane/internal/config"
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/cache"
@@ -89,6 +90,19 @@ func run() error {
 	invitationSvc := workspace.NewInvitationService(pool.Pool, mailSvc, cfg.Email.AppBaseURL)
 	auditSvc := workspace.NewAuditService(pool.Pool)
 
+	// ---------- Issue domain ----------
+	issueSvc := issue.NewService(pool.Pool)
+	stateSvc := issue.NewStateService(pool.Pool)
+	activitySvc := issue.NewActivityService(pool.Pool)
+	timeLogSvc := issue.NewTimeLogService(pool.Pool)
+	issueHandler := issue.NewIssueHandler(&issue.HandlerDeps{
+		IssueSvc:       issueSvc,
+		StateSvc:       stateSvc,
+		ActivitySvc:    activitySvc,
+		TimeLogSvc:     timeLogSvc,
+		WorkspaceStore: wsStore,
+	})
+
 	// ---------- HTTP Engine ----------
 	engine := httpapi.NewEngine(&httpapi.Deps{
 		Cfg:            cfg,
@@ -104,6 +118,19 @@ func run() error {
 		ProjectSvc:     projectSvc,
 		AuditSvc:       auditSvc,
 		Mail:           mailSvc,
+		// Issue domain
+		IssueSvc:     issueSvc,
+		StateSvc:     stateSvc,
+		ActivitySvc:  activitySvc,
+		TimeLogSvc:   timeLogSvc,
+		IssueHandler: issueHandler,
+	})
+
+	// 注册工作项路由（必须在 NewEngine 之后）
+	httpapi.RegisterIssueRoutes(engine, &httpapi.Deps{
+		Auth:           authSvc,
+		WorkspaceStore: wsStore,
+		IssueHandler:   issueHandler,
 	})
 
 	srv := &http.Server{

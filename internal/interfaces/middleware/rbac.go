@@ -71,6 +71,23 @@ func RequirePermission(store *auth.WorkspaceMembershipStore, perm string) gin.Ha
 	}
 }
 
+// RequireProjectParam 把路径 :project_id 解析成 int64 并写入 ctx (CtxProjectID)。
+// 解析失败直接 422。通常嵌套在 RequireWorkspaceParam 之后的子路由组。
+func RequireProjectParam() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		id, ok := parseBigInt(c.Param("project_id"))
+		if !ok {
+			respondError(c, errs.ErrValidation.WithDetails(errs.FieldDetail{
+				Field: "project_id", Reason: "无效的项目 ID",
+			}))
+			c.Abort()
+			return
+		}
+		c.Set(CtxProjectID, id)
+		c.Next()
+	}
+}
+
 // parseBigInt 解析 int64（简化版，无依赖 strconv 防止多引入）。
 func parseBigInt(s string) (int64, bool) {
 	if s == "" {

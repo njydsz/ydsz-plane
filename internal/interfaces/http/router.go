@@ -17,6 +17,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/njydsz/ydsz-plane/internal/application/auth"
+	"github.com/njydsz/ydsz-plane/internal/application/issue"
 	"github.com/njydsz/ydsz-plane/internal/application/workspace"
 	"github.com/njydsz/ydsz-plane/internal/config"
 	"github.com/njydsz/ydsz-plane/internal/interfaces/middleware"
@@ -40,6 +41,30 @@ type Deps struct {
 	ProjectSvc      *workspace.ProjectService
 	AuditSvc        *workspace.AuditService
 	Mail            mail.EmailService
+	// Issue domain
+	IssueSvc        *issue.Service
+	StateSvc        *issue.StateService
+	ActivitySvc     *issue.ActivityService
+	TimeLogSvc      *issue.TimeLogService
+	IssueHandler    *issue.IssueHandler
+}
+
+// RegisterIssueRoutes 注册工作项路由（在 NewEngine 之后调用）。
+func RegisterIssueRoutes(r *gin.Engine, d *Deps) {
+	if d.IssueHandler == nil {
+		return
+	}
+	v1 := r.Group("/api/v1/workspaces/:workspace_id")
+	v1.Use(
+		middleware.RequireAuth(d.Auth.ParseAccess),
+		middleware.RequireWorkspaceParam(),
+	)
+	projects := v1.Group("/projects/:project_id")
+	projects.Use(middleware.RequireProjectParam())
+	// 读操作需要 workspace:read
+	read := projects.Group("")
+	read.Use(middleware.RequirePermission(d.WorkspaceStore, auth.PermWorkspaceRead))
+	d.IssueHandler.Register(read, nil, nil)
 }
 
 // NewEngine builds the HTTP engine with the full middleware chain.

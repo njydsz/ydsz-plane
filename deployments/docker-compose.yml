@@ -30,18 +30,6 @@ services:
       timeout: 3s
       retries: 20
 
-  nats:
-    image: nats:2.10-alpine
-    command: ["-js"]   # JetStream enabled for durable consumers (S2+)
-    ports:
-      - "4222:4222"
-      - "8222:8222"    # monitoring
-    healthcheck:
-      test: ["CMD-SHELL", "wget -q -O- http://127.0.0.1:8222/healthz || exit 1"]
-      interval: 5s
-      timeout: 3s
-      retries: 20
-
   # Mailpit - 本地邮件测试服务
   mailpit:
     image: axllent/mailpit:latest
@@ -83,14 +71,12 @@ services:
     depends_on:
       postgres: { condition: service_healthy }
       redis: { condition: service_healthy }
-      nats: { condition: service_healthy }
     environment:
       YDSZ_SERVER_ENV: production
       YDSZ_SERVER_PORT: 8080
       YDSZ_DATABASE_URL: postgres://postgres:Limw1020@postgres:5432/ydsz-plane?sslmode=disable
       YDSZ_REDIS_ADDR: redis:6379
       YDSZ_REDIS_PASSWORD: Limw1020
-      YDSZ_NATS_URL: nats://nats:4222
       YDSZ_AUTH_JWT_SECRET: ${YDSZ_AUTH_JWT_SECRET:?set YDSZ_AUTH_JWT_SECRET in .env}
       YDSZ_LOG_FORMAT: json
     ports:
@@ -109,7 +95,6 @@ services:
       YDSZ_DATABASE_URL: postgres://postgres:Limw1020@postgres:5432/ydsz-plane?sslmode=disable
       YDSZ_REDIS_ADDR: redis:6379
       YDSZ_REDIS_PASSWORD: Limw1020
-      YDSZ_NATS_URL: nats://nats:4222
       YDSZ_AUTH_JWT_SECRET: ${YDSZ_AUTH_JWT_SECRET:?set YDSZ_AUTH_JWT_SECRET in .env}
       YDSZ_LOG_FORMAT: json
     restart: unless-stopped

@@ -55,12 +55,12 @@ var (
 		[]string{"operation"},
 	)
 
-	// NATSPublished counts outbox events relayed to NATS (success/fail).
-	NATSPublished = promauto.NewCounterVec(
+	// RedisPublished counts outbox events relayed to Redis Streams (success/fail).
+	RedisPublished = promauto.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: namespace,
-			Name:      "nats_events_published_total",
-			Help:      "Outbox events relayed to NATS.",
+			Name:      "redis_events_published_total",
+			Help:      "Outbox events relayed to Redis Streams.",
 		},
 		[]string{"status"},
 	)

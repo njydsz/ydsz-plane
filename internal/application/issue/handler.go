@@ -35,32 +35,26 @@ func NewIssueHandler(d *HandlerDeps) *IssueHandler {
 
 // Register 注册 Issue 路由。
 func (h *IssueHandler) Register(r *gin.RouterGroup, wsMiddleware []gin.HandlerFunc, projectMiddleware []gin.HandlerFunc) {
-	// 所有 Issue 路由都在 /workspaces/:workspace_id/projects/:project_id 之下
-	issues := r.Group("/projects/:project_id")
-	for _, m := range projectMiddleware {
-		issues.Use(m)
-	}
+	// 在当前项目子路由组下注册状态/工作项路由
+	// wsMiddleware / projectMiddleware 已在父路由组应用（auth / parse params / rbac）
+	_ = wsMiddleware
+	_ = projectMiddleware
+
+	// 集合
+	r.GET("/states", h.listStates)
+	r.GET("/issues", h.listIssues)
+	r.POST("/issues", h.createIssue)
+
+	// 单资源
+	issue := r.Group("/issues/:issue_id")
 	{
-		// 集合
-		issues.GET("/states", h.listStates)
-		issues.GET("/issues", h.listIssues)
-		issues.POST("/issues", h.requireIssueCreate(), h.createIssue)
-
-		// 单资源
-		issue := issues.Group("/issues/:issue_id")
-		{
-			issue.GET("", h.getIssue)
-			issue.PATCH("", h.requireIssueCreate(), h.updateIssue)
-			issue.DELETE("", h.requireIssueDelete(), h.deleteIssue)
-			issue.POST("/transition", h.requireIssueCreate(), h.transition)
-
-			// 活动日志
-			issue.GET("/activities", h.listActivities)
-
-			// 工时
-			issue.GET("/time-logs", h.listTimeLogs)
-			issue.POST("/time-logs", h.requireIssueCreate(), h.createTimeLog)
-		}
+		issue.GET("", h.getIssue)
+		issue.PATCH("", h.updateIssue)
+		issue.DELETE("", h.deleteIssue)
+		issue.POST("/transition", h.transition)
+		issue.GET("/activities", h.listActivities)
+		issue.GET("/time-logs", h.listTimeLogs)
+		issue.POST("/time-logs", h.createTimeLog)
 	}
 }
 
@@ -460,16 +454,6 @@ type issueListResponse struct {
 }
 
 // --- helpers ---
-
-// requireIssueCreate 校验当前用户拥有 issue:create 权限。
-func (h *IssueHandler) requireIssueCreate() gin.HandlerFunc {
-	return middleware.RequirePermission(h.d.WorkspaceStore, auth.PermIssueCreate)
-}
-
-// requireIssueDelete 校验当前用户拥有 issue:delete 权限。
-func (h *IssueHandler) requireIssueDelete() gin.HandlerFunc {
-	return middleware.RequirePermission(h.d.WorkspaceStore, auth.PermIssueDelete)
-}
 
 func int64Param(c *gin.Context, key string) int64 {
 	v, _ := strconv.ParseInt(c.Param(key), 10, 64)

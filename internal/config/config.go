@@ -19,7 +19,6 @@ type Config struct {
 	Server   ServerConfig
 	Database DatabaseConfig
 	Redis    RedisConfig
-	NATS     NATSConfig
 	Auth     AuthConfig
 	Log      LogConfig
 	Features FeatureFlags
@@ -49,10 +48,6 @@ func (r RedisConfig) RedisOptions() *redis.Options {
 		Password: r.Password,
 		DB:       r.DB,
 	}
-}
-
-type NATSConfig struct {
-	URL string
 }
 
 type AuthConfig struct {
@@ -95,7 +90,6 @@ func Load() (*Config, error) {
 	v.SetDefault("redis.addr", "127.0.0.1:6379")
 	v.SetDefault("redis.password", "Limw1020")
 	v.SetDefault("redis.db", 0)
-	v.SetDefault("nats.url", "nats://127.0.0.1:4222")
 	v.SetDefault("auth.jwt_issuer", "ydsz-plane")
 	// dev-only ephemeral secret (rotated each startup); production requires explicit value
 	v.SetDefault("auth.jwt_secret", "")

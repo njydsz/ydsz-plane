@@ -1,5 +1,6 @@
-// Command worker runs asynchronous processing: the outbox relay (DB → NATS)
-// and the Asynq task consumers (notifications, indexing, webhooks, ...).
+// Command worker runs asynchronous processing: the outbox relay (DB → Redis
+// Streams) and the Asynq task consumers (notifications, indexing, webhooks,
+// automation, ...).
 package main
 
 import (
@@ -10,10 +11,10 @@ import (
 	"syscall"
 
 	"github.com/hibiken/asynq"
-	"github.com/nats-io/nats.go"
 	"go.uber.org/zap"
 
 	"github.com/njydsz/ydsz-plane/internal/config"
+	"github.com/njydsz/ydsz-plane/internal/infrastructure/cache"
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/events"
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/persistence"
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/telemetry"
@@ -46,14 +47,15 @@ func run() error {
 	}
 	defer pool.Close()
 
-	nc, err := nats.Connect(cfg.NATS.URL, nats.Name("ydsz-worker"))
+	// Redis client for outbox relay (Streams) + Asynq
+	rdb, err := cache.NewClient(ctx, cfg.Redis.Addr, cfg.Redis.Password, cfg.Redis.DB)
 	if err != nil {
-		return fmt.Errorf("worker: nats connect: %w", err)
+		return fmt.Errorf("worker: redis connect: %w", err)
 	}
-	defer nc.Close()
+	defer func() { _ = rdb.Close() }()
 
-	// outbox relay: DB -> NATS
-	relay := events.NewRelay(pool, nc, log)
+	// outbox relay: DB -> Redis Streams
+	relay := events.NewRelay(pool, rdb, log)
 	go relay.Run(ctx)
 
 	// asynq task server (queues defined per domain; consumers mount in S2+)
@@ -67,7 +69,7 @@ func run() error {
 	mux := asynq.NewServeMux()
 	// mux.HandleFunc(events.TaskX, handler) — consumers are registered per Sprint.
 
-	log.Info("worker started", zap.String("nats", cfg.NATS.URL))
+	log.Info("worker started", zap.String("redis", cfg.Redis.Addr))
 	errCh := make(chan error, 1)
 	go func() { errCh <- srv.Run(mux) }()
 

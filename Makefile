@@ -9,7 +9,7 @@ dev: up
 	@echo "  make dev-web"
 
 up:
-	docker compose -f deployments/docker-compose.yml up -d postgres redis nats mailpit
+	docker compose -f deployments/docker-compose.yml up -d postgres redis mailpit
 
 up-full:
 	docker compose -f deployments/docker-compose.yml --profile full up -d
