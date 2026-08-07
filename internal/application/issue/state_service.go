@@ -3,10 +3,8 @@ package issue
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -135,7 +133,7 @@ func (s *StateService) ValidateTransition(ctx context.Context, wsID, projectID i
 	}
 
 	// 校验 required_fields
-	return s.checkRequiredFields(ctx, in)
+	return s.checkRequiredFields(ctx, wsID, in)
 }
 
 func (s *StateService) checkTransitionRule(ctx context.Context, wsID, projectID int64, in TransitionInput) (bool, error) {
@@ -154,23 +152,26 @@ func (s *StateService) checkTransitionRule(ctx context.Context, wsID, projectID 
 	return exists, nil
 }
 
-func (s *StateService) checkRequiredFields(ctx context.Context, in TransitionInput) error {
-	// 获取 to_state 的名称以查找 required_fields
-	var toStateName string
-	_ = ctx // reserved
-
-	// 从内置规则查找
-	for key, fields := range RequiredFieldsForTransition {
-		parts := strings.Split(key, " -> ")
-		if len(parts) == 2 && parts[1] == toStateName {
-			return validateFields(in.Context, fields)
-		}
+func (s *StateService) checkRequiredFields(ctx context.Context, wsID int64, in TransitionInput) error {
+	// 查询 from/to 状态名称
+	fromState, err := s.GetStateByID(ctx, wsID, in.FromState)
+	if err != nil {
+		return err
+	}
+	toState, err := s.GetStateByID(ctx, wsID, in.ToState)
+	if err != nil {
+		return err
 	}
 
-	// 查 DB 中的 required_fields（自定义项目规则）
-	// 注：type_code 和状态名可能不匹配 DB 行；这里简化处理
-	// 完整实现在 IssueService.Transition 中查 to_state 名
-	return validateFieldsFromTransitions(fieldsFromDB(in), in.Context, toStateName)
+	// 构造流转 key： "from_name -> to_name"
+	transitionKey := fromState.Name + " -> " + toState.Name
+
+	// 从内置规则查找 required_fields
+	if fields, ok := RequiredFieldsForTransition[transitionKey]; ok {
+		return validateFields(in.Context, fields)
+	}
+
+	return nil
 }
 
 // validateFields 校验必填字段。
@@ -221,7 +222,7 @@ func (s *StateService) StateGroupByID(ctx context.Context, stateID int64) (State
 	var group StateGroup
 	err := s.db.QueryRow(ctx, `SELECT "group" FROM states WHERE id = $1 AND deleted_at IS NULL`, stateID).Scan(&group)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return "", errs.ErrNotFound
 		}
 		return "", errs.ErrInternal.Wrap(err)

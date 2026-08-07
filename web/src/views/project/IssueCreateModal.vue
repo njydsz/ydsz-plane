@@ -238,13 +238,11 @@ function cancel() {
                 <label class="form-label">发现阶段</label>
                 <select v-model="foundPhase" class="form-select">
                   <option value="">-- 请选择 --</option>
-                  <option value="开发自测">开发自测</option>
-                  <option value="Code Review">Code Review</option>
-                  <option value="功能测试">功能测试</option>
-                  <option value="集成测试">集成测试</option>
-                  <option value="验收测试">验收测试</option>
-                  <option value="线上监控">线上监控</option>
-                  <option value="用户反馈">用户反馈</option>
+                  <option value="unit">单元测试</option>
+                  <option value="integration">集成测试</option>
+                  <option value="uat">验收测试 (UAT)</option>
+                  <option value="production">生产环境</option>
+                  <option value="customer">用户反馈</option>
                 </select>
               </div>
             </div>

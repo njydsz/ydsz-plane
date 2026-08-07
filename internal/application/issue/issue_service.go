@@ -400,6 +400,10 @@ func (s *Service) Transition(ctx context.Context, wsID, projectID, issueID, toSt
 		// 校验流转
 		if err := s.stateSvc.ValidateTransition(ctx, wsID, projectID, TransitionInput{
 			IssueID: issueID, FromState: iss.StateID, ToState: toStateID, TypeCode: iss.TypeCode,
+			Context: TransitionContext{
+				RootCauseCategory: iss.RootCauseCategory,
+				FixVersionID:      iss.FixVersionID,
+			},
 		}); err != nil {
 			return err
 		}
@@ -503,7 +507,7 @@ func (s *Service) insertIssue(ctx context.Context, in CreateIssueInput, stateID,
 			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)
 			RETURNING id`,
 			in.WorkspaceID, in.ProjectID, seqID, string(in.TypeCode), parent, depth,
-			in.Name, in.DescriptionHTML, in.DescriptionHTML, stateID, string(in.Priority),
+			in.Name, nil, in.DescriptionHTML, stateID, string(in.Priority),
 			in.Severity, in.FoundPhase, in.ReproduceSteps, in.Category, in.Source,
 			in.Point, in.StartDate, in.TargetDate, in.IsDraft, in.CreatedBy,
 			in.FoundVersionID, in.FixVersionID, in.ReleaseVersionID).Scan(&issueID)

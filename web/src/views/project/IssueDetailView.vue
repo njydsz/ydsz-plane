@@ -8,6 +8,7 @@ import { useRoute, useRouter } from "vue-router";
 
 import { issueApi, type Issue, type IssueActivity, type State, type TimeLog } from "@/api/services/issue";
 import { workspaceApi, type Workspace } from "@/api/services/workspace";
+import CommentList from "@/components/CommentList.vue";
 import RelationPanel from "./RelationPanel.vue";
 import IssueCreateModal from "./IssueCreateModal.vue";
 
@@ -158,6 +159,13 @@ function fmtDuration(mins: number): string {
   const h = Math.floor(mins / 60);
   const m = mins % 60;
   return m > 0 ? `${h}小时${m}分钟` : `${h}小时`;
+}
+
+/** 格式化小时数（用于 actual_effort / remaining_effort 等以小时存储的字段）。 */
+function fmtDurationHours(hours: number): string {
+  if (hours < 0.01) return "0 分钟";
+  const totalMins = Math.round(hours * 60);
+  return fmtDuration(totalMins);
 }
 
 // --- 行内编辑 ---
@@ -327,6 +335,14 @@ onMounted(() => {
           </div>
         </div>
 
+        <!-- 评论 -->
+        <CommentList
+          v-if="ws"
+          :workspace-id="ws.id"
+          :project-id="props.projectId"
+          :issue-id="props.issueId"
+        />
+
         <!-- 流转操作 -->
         <div class="issue-detail__section">
           <h3>状态流转</h3>
@@ -367,10 +383,10 @@ onMounted(() => {
         <div class="timelog-summary" v-if="totalMinutes > 0">
           累计 {{ fmtDuration(totalMinutes) }}
           <span v-if="issue.actual_effort != null" class="timelog-effort">
-            · 实耗 {{ fmtDuration(issue.actual_effort) }}
+            · 实耗 {{ fmtDurationHours(issue.actual_effort) }}
           </span>
           <span v-if="issue.remaining_effort != null" class="timelog-effort">
-            · 剩余 {{ fmtDuration(issue.remaining_effort) }}
+            · 剩余 {{ fmtDurationHours(issue.remaining_effort) }}
           </span>
         </div>
 

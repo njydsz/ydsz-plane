@@ -119,6 +119,43 @@ export interface IssueRelation {
   created_at: string;
 }
 
+/** 评论（富文本 + @提及 + 嵌套回复） */
+export interface IssueComment {
+  id: number;
+  workspace_id: number;
+  project_id: number;
+  issue_id: number;
+  content_json: Record<string, unknown>;
+  content_html: string;
+  content_stripped: string;
+  created_by: number;
+  creator_name: string;
+  creator_avatar: string;
+  mentions: number[];
+  parent_id: number | null;
+  is_edited: boolean;
+  edited_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** 创建评论入参 */
+export interface CreateCommentInput {
+  content_json: string;
+  content_html: string;
+  content_stripped: string;
+  mentions?: number[];
+  parent_id?: number | null;
+}
+
+/** 更新评论入参 */
+export interface UpdateCommentInput {
+  content_json: string;
+  content_html: string;
+  content_stripped: string;
+  mentions?: number[];
+}
+
 /** 工作项依赖关系（前置/后继 + 滞后天数） */
 export interface IssueDependency {
   id: number;
@@ -250,6 +287,18 @@ export const issueApi = {
     wrap<IssueRelation>(http.post(`/workspaces/${wsId}/projects/${projectId}/issues/${issueId}/relations`, input)),
   deleteRelation: (wsId: number, projectId: number, issueId: number, relationId: number) =>
     wrap<void>(http.delete(`/workspaces/${wsId}/projects/${projectId}/issues/${issueId}/relations/${relationId}`)),
+
+  // --- 评论 ---
+  listComments: (wsId: number, projectId: number, issueId: number) =>
+    wrap<{ results: IssueComment[] }>(
+      http.get(`/workspaces/${wsId}/projects/${projectId}/issues/${issueId}/comments`),
+    ),
+  createComment: (wsId: number, projectId: number, issueId: number, input: CreateCommentInput) =>
+    wrap<IssueComment>(http.post(`/workspaces/${wsId}/projects/${projectId}/issues/${issueId}/comments`, input)),
+  updateComment: (wsId: number, projectId: number, issueId: number, commentId: number, input: UpdateCommentInput) =>
+    wrap<IssueComment>(http.patch(`/workspaces/${wsId}/projects/${projectId}/issues/${issueId}/comments/${commentId}`, input)),
+  deleteComment: (wsId: number, projectId: number, issueId: number, commentId: number) =>
+    wrap<void>(http.delete(`/workspaces/${wsId}/projects/${projectId}/issues/${issueId}/comments/${commentId}`)),
 
   // --- 依赖关系 ---
   listDependencies: (wsId: number, projectId: number, issueId: number) =>
