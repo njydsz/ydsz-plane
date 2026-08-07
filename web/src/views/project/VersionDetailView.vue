@@ -235,7 +235,7 @@ onMounted(async () => {
       <!-- Header -->
       <header class="detail-header">
         <div class="detail-header__left">
-          <button class="back-btn" @click="router.back()" title="返回列表">
+          <button class="back-btn" title="返回列表" @click="router.back()">
             ← 返回
           </button>
           <div>
@@ -367,7 +367,7 @@ onMounted(async () => {
           <h3 class="panel__title">迭代时间线</h3>
           <MiniGantt
             :sprints="ganttSprints"
-            :versionEnd="version.target_date"
+            :version-end="version.target_date"
           />
         </div>
 
@@ -387,10 +387,10 @@ onMounted(async () => {
               :class="{ 'checklist__item--checked': item.checked }"
             >
               <input
+                :id="`chk-${item.id}`"
                 type="checkbox"
                 :checked="item.checked"
                 :disabled="!canEdit"
-                :id="`chk-${item.id}`"
                 class="checklist__checkbox"
                 @change="toggleChecklist(item.id)"
               />
@@ -435,7 +435,9 @@ onMounted(async () => {
               v-for="s in availableSprints"
               :key="s.id"
               :value="s.id"
-            >{{ s.name }}</option>
+            >
+{{ s.name }}
+</option>
           </select>
           <button class="add-sprint-panel__cancel" @click="showAddSprint = false">取消</button>
         </div>
@@ -460,7 +462,7 @@ onMounted(async () => {
                 v-if="s.progress"
                 :percent="s.progress.total_points > 0 ? Math.round((s.progress.done_points / s.progress.total_points) * 100) : 0"
                 size="sm"
-                :showLabel="false"
+                :show-label="false"
                 :label="`${s.progress.done_points}/${s.progress.total_points} 点`"
               />
             </div>

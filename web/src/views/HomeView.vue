@@ -31,7 +31,7 @@
         <section class="wb-section">
           <h3>我的任务</h3>
           <div class="task-section">
-            <div class="task-group" v-if="overdueTasks.length">
+            <div v-if="overdueTasks.length" class="task-group">
               <div class="task-group-title overdue">逾期 ({{ overdueTasks.length }})</div>
               <div v-for="t in overdueTasks.slice(0,5)" :key="t.id" class="task-item" @click="goIssue(t.group_id, t.id)">
                 <span class="task-id">{{ t.identifier }}</span>
@@ -39,7 +39,7 @@
                 <span class="task-meta">{{ t.project_name }}</span>
               </div>
             </div>
-            <div class="task-group" v-if="todayTasks.length">
+            <div v-if="todayTasks.length" class="task-group">
               <div class="task-group-title today">今日 ({{ todayTasks.length }})</div>
               <div v-for="t in todayTasks.slice(0,5)" :key="t.id" class="task-item" @click="goIssue(t.group_id, t.id)">
                 <span class="task-id">{{ t.identifier }}</span>
@@ -47,7 +47,7 @@
                 <span class="task-meta">{{ t.project_name }}</span>
               </div>
             </div>
-            <div class="task-group" v-if="inProgressTasks.length">
+            <div v-if="inProgressTasks.length" class="task-group">
               <div class="task-group-title in-progress">进行中 ({{ inProgressTasks.length }})</div>
               <div v-for="t in inProgressTasks.slice(0,5)" :key="t.id" class="task-item" @click="goIssue(t.group_id, t.id)">
                 <span class="task-id">{{ t.identifier }}</span>
@@ -76,14 +76,14 @@
               <div class="sc-status planned">规划中</div>
               <div class="sc-name">{{ nextSprint.sprint_name }}</div>
               <div class="sc-project">{{ nextSprint.project_name }}</div>
-              <div class="sc-date" v-if="nextSprint.days_remaining">剩 {{ nextSprint.days_remaining }} 天</div>
+              <div v-if="nextSprint.days_remaining" class="sc-date">剩 {{ nextSprint.days_remaining }} 天</div>
             </div>
           </div>
         </section>
       </div>
 
       <!-- 最近访问 -->
-      <section class="wb-section" v-if="recentItems.length">
+      <section v-if="recentItems.length" class="wb-section">
         <h3>最近访问</h3>
         <div class="recent-list">
           <div v-for="item in recentItems.slice(0,10)" :key="`${item.item_type}-${item.item_id}`" class="recent-item" @click="goRecent(item)">

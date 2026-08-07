@@ -238,7 +238,9 @@ const showExportDropdown = ref(false);
           <button
             class="btn btn--sm btn--export"
             @mouseenter="showExportDropdown = true"
-          >导出</button>
+          >
+导出
+</button>
           <div v-if="showExportDropdown" class="export-dropdown__menu">
             <a :href="exportCsvUrl" class="export-dropdown__item" download>导出 CSV</a>
             <a :href="exportXlsxUrl" class="export-dropdown__item" download>导出 Excel (.xlsx)</a>
@@ -248,11 +250,15 @@ const showExportDropdown = ref(false);
           <router-link
             :to="`/${route.params.workspaceSlug}/projects/${projectId}/board`"
             class="view-tab"
-          >看板</router-link>
+          >
+看板
+</router-link>
           <router-link
             :to="`/${route.params.workspaceSlug}/projects/${projectId}/list`"
             class="view-tab is-active"
-          >列表</router-link>
+          >
+列表
+</router-link>
         </div>
       </div>
     </header>
@@ -385,12 +391,14 @@ const showExportDropdown = ref(false);
       </table>
 
       <!-- 分页器 -->
-      <div class="pagination" v-if="totalPages > 1">
+      <div v-if="totalPages > 1" class="pagination">
         <button
           class="page-btn"
           :disabled="page <= 1"
           @click="goToPage(page - 1)"
-        >上一页</button>
+        >
+上一页
+</button>
 
         <template v-for="p in totalPages" :key="p">
           <button
@@ -398,7 +406,9 @@ const showExportDropdown = ref(false);
             class="page-btn"
             :class="{ 'page-btn--active': p === page }"
             @click="goToPage(p)"
-          >{{ p }}</button>
+          >
+{{ p }}
+</button>
           <span v-else-if="p === 4 || p === totalPages - 3" class="page-ellipsis">...</span>
         </template>
 
@@ -406,7 +416,9 @@ const showExportDropdown = ref(false);
           class="page-btn"
           :disabled="page >= totalPages"
           @click="goToPage(page + 1)"
-        >下一页</button>
+        >
+下一页
+</button>
 
         <span class="page-info">第 {{ page }} / {{ totalPages }} 页</span>
       </div>
@@ -423,7 +435,9 @@ const showExportDropdown = ref(false);
             class="btn btn--danger"
             :disabled="batchDeleting"
             @click="batchDelete"
-          >{{ batchDeleting ? "删除中..." : "确认删除" }}</button>
+          >
+{{ batchDeleting ? "删除中..." : "确认删除" }}
+</button>
         </div>
       </div>
     </div>

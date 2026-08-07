@@ -1,4 +1,5 @@
 <script setup lang="ts">
+/* eslint-disable vue/no-v-html -- highlight 由服务端 PostgreSQL ts_headline 生成：内容已被 ts_headline 自动 HTML 转义，仅包裹 <b> 高亮标签，属受信输出，无 XSS 注入面。 */
 /**
  * SearchView — 独立搜索结果页。
  *
@@ -248,7 +249,7 @@ onMounted(load);
             >
               <div class="result-card__top">
                 <span class="result-card__identifier">{{ item.identifier }}</span>
-                <span class="result-card__name" v-html="item.highlight || item.name"></span>
+                <span v-if="item.highlight" class="result-card__name" v-html="item.highlight"></span><span v-else class="result-card__name">{{ item.name }}</span>
               </div>
               <div class="result-card__meta">
                 <span>{{ item.project_name }}</span>
@@ -274,7 +275,7 @@ onMounted(load);
             >
               <div class="result-card__top">
                 <span class="result-card__icon">🏃</span>
-                <span class="result-card__name" v-html="item.highlight || item.name"></span>
+                <span v-if="item.highlight" class="result-card__name" v-html="item.highlight"></span><span v-else class="result-card__name">{{ item.name }}</span>
               </div>
               <div class="result-card__meta">
                 <span>{{ item.project_name }}</span>
@@ -299,7 +300,7 @@ onMounted(load);
             >
               <div class="result-card__top">
                 <span class="result-card__icon">🚀</span>
-                <span class="result-card__name" v-html="item.highlight || item.name"></span>
+                <span v-if="item.highlight" class="result-card__name" v-html="item.highlight"></span><span v-else class="result-card__name">{{ item.name }}</span>
               </div>
               <div class="result-card__meta">
                 <span>{{ item.project_name }}</span>

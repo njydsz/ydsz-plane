@@ -152,6 +152,8 @@ func (s *CommentService) Create(ctx context.Context, input CreateCommentInput) (
 	if input.ContentJSON == nil {
 		input.ContentJSON = json.RawMessage("{}")
 	}
+	// 服务端白名单清洗，防存储型 XSS（content_html 由前端 v-html 渲染）
+	input.ContentHTML = sanitizeCommentHTML(input.ContentHTML)
 
 	var c Comment
 	err := s.db.QueryRow(ctx, `
@@ -223,6 +225,8 @@ func (s *CommentService) Update(ctx context.Context, commentID, userID int64, in
 	if mentions == nil {
 		mentions = []int64{}
 	}
+	// 服务端白名单清洗（与 Create 一致）
+	input.ContentHTML = sanitizeCommentHTML(input.ContentHTML)
 
 	var c Comment
 	err := s.db.QueryRow(ctx, `

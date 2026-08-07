@@ -197,11 +197,15 @@ onMounted(() => {
           <router-link
             :to="`/${route.params.workspaceSlug}/projects/${projectId}/board`"
             class="view-tab is-active"
-          >看板</router-link>
+          >
+看板
+</router-link>
           <router-link
             :to="`/${route.params.workspaceSlug}/projects/${projectId}/list`"
             class="view-tab"
-          >列表</router-link>
+          >
+列表
+</router-link>
         </div>
         <button class="btn btn--primary" @click="showCreateModal = true">+ 创建工作项</button>
       </div>

@@ -3,6 +3,7 @@
   通过 Ctrl/Cmd+K 快捷键唤起，在工作空间内对工作项/迭代/版本执行全文搜索，
   支持键盘上下键导航选中项、Enter 打开、ESC 关闭，结果按实体类型分组展示。
   搜索请求做 200ms 防抖，避免每次按键都触发后端请求。
+  注：highlight 由服务端 PostgreSQL ts_headline 生成（内容已转义，仅包裹 <b>），v-html 属受信输出。
 -->
 <template>
   <Teleport to="body">
@@ -10,7 +11,7 @@
       <div class="search-dialog">
         <div class="search-input-wrap">
           <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            <circle cx="11" cy="11" r="8" /> <line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
           <input
             ref="inputRef"
@@ -25,7 +26,7 @@
           />
           <kbd class="shortcut-hint">ESC</kbd>
         </div>
-        <div class="search-body" v-if="q.trim()">
+        <div v-if="q.trim()" class="search-body">
           <div v-if="store.loading" class="search-status">搜索中...</div>
           <template v-else-if="store.results">
             <!-- issues -->
@@ -86,6 +87,7 @@
 </template>
 
 <script setup lang="ts">
+/* eslint-disable vue/no-v-html -- highlight 由服务端 PostgreSQL ts_headline 生成（内容已转义，仅包裹 <b> 标签），属受信输出，无 XSS 注入面。 */
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useSearchStore } from '@/stores/search'

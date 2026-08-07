@@ -216,7 +216,7 @@ onMounted(load);
           <p v-else class="step-section__empty">暂无检查项。你可以在版本编辑中配置检查清单。</p>
 
           <label class="force-toggle">
-            <input type="checkbox" v-model="forceChecklist" />
+            <input v-model="forceChecklist" type="checkbox" />
             <span>强制跳过清单校验（管理员豁免）</span>
           </label>
         </section>
@@ -231,7 +231,7 @@ onMounted(load);
           </p>
 
           <label class="notes-toggle">
-            <input type="checkbox" v-model="addKnown" />
+            <input v-model="addKnown" type="checkbox" />
             <span>在 Release Notes 中附带已知未关闭问题列表</span>
           </label>
 

@@ -307,7 +307,7 @@ watch(ready, (r) => {
           <SprintStatusBadge :status="sp.status" />
         </div>
         <p v-if="sp.goal" class="goal">{{ sp.goal }}</p>
-        <div class="date-range" v-if="sp.start_date || sp.end_date">
+        <div v-if="sp.start_date || sp.end_date" class="date-range">
           <span>{{ fmtDate(sp.start_date) }}</span>
           <span class="sep">→</span>
           <span>{{ fmtDate(sp.end_date) }}</span>
@@ -341,8 +341,7 @@ watch(ready, (r) => {
           </button>
         </div>
       </div>
-
-    </div>
+</div>
 
     <!-- 加载更多 -->
     <div v-if="hasMore" class="load-more">

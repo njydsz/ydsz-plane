@@ -189,31 +189,41 @@ defineExpose({ editor });
         :class="{ 'rich-editor__btn--active': isActiveBold }"
         title="粗体 (Ctrl+B)"
         @click="toggleBold"
-      >B</button>
+      >
+B
+</button>
       <button
         class="rich-editor__btn"
         :class="{ 'rich-editor__btn--active': isActiveItalic }"
         title="斜体 (Ctrl+I)"
         @click="toggleItalic"
-      ><em>I</em></button>
+      >
+<em>I</em>
+</button>
       <button
         class="rich-editor__btn"
         :class="{ 'rich-editor__btn--active': isActiveUnderline }"
         title="下划线 (Ctrl+U)"
         @click="toggleUnderline"
-      ><u>U</u></button>
+      >
+<u>U</u>
+</button>
       <button
         class="rich-editor__btn"
         :class="{ 'rich-editor__btn--active': isActiveStrike }"
         title="删除线"
         @click="toggleStrike"
-      ><s>S</s></button>
+      >
+<s>S</s>
+</button>
       <button
         class="rich-editor__btn"
         :class="{ 'rich-editor__btn--active': isActiveCode }"
         title="行内代码"
         @click="toggleCode"
-      >{ }</button>
+      >
+{ }
+</button>
 
       <span class="rich-editor__divider"></span>
 
@@ -222,13 +232,17 @@ defineExpose({ editor });
         :class="{ 'rich-editor__btn--active': isActiveHeading2 }"
         title="标题 2"
         @click="setHeading(2)"
-      >H2</button>
+      >
+H2
+</button>
       <button
         class="rich-editor__btn"
         :class="{ 'rich-editor__btn--active': isActiveHeading3 }"
         title="标题 3"
         @click="setHeading(3)"
-      >H3</button>
+      >
+H3
+</button>
 
       <span class="rich-editor__divider"></span>
 
@@ -237,19 +251,25 @@ defineExpose({ editor });
         :class="{ 'rich-editor__btn--active': isActiveBulletList }"
         title="无序列表"
         @click="toggleBulletList"
-      >•≡</button>
+      >
+•≡
+</button>
       <button
         class="rich-editor__btn"
         :class="{ 'rich-editor__btn--active': isActiveOrderedList }"
         title="有序列表"
         @click="toggleOrderedList"
-      >1≡</button>
+      >
+1≡
+</button>
       <button
         class="rich-editor__btn"
         :class="{ 'rich-editor__btn--active': isActiveBlockquote }"
         title="引用"
         @click="toggleBlockquote"
-      >❝</button>
+      >
+❝
+</button>
 
       <span class="rich-editor__divider"></span>
 
@@ -258,12 +278,16 @@ defineExpose({ editor });
         :class="{ 'rich-editor__btn--active': isActiveLink }"
         title="链接"
         @click="addLink"
-      >🔗</button>
+      >
+🔗
+</button>
       <button
         class="rich-editor__btn"
         title="图片"
         @click="insertImage"
-      >🖼</button>
+      >
+🖼
+</button>
     </div>
 
     <!-- 编辑区域 -->

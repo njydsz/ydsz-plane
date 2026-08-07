@@ -113,8 +113,8 @@ defineExpose({ focus });
         <button
           v-if="isEditing || isReplying"
           class="btn btn--sm"
-          @click="emit('cancel')"
           :disabled="loading"
+          @click="emit('cancel')"
         >
           取消
         </button>

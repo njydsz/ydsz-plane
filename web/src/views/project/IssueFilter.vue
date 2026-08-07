@@ -159,7 +159,9 @@ watch([stateGroup, type, priority, severityFrom], () => emitFilter());
             v-for="opt in stateGroupOptions"
             :key="opt.value"
             :value="opt.value"
-          >{{ opt.label }}</option>
+          >
+{{ opt.label }}
+</option>
         </select>
       </div>
 
@@ -170,7 +172,9 @@ watch([stateGroup, type, priority, severityFrom], () => emitFilter());
             v-for="opt in typeOptions"
             :key="opt.value"
             :value="opt.value"
-          >{{ opt.label }}</option>
+          >
+{{ opt.label }}
+</option>
         </select>
       </div>
 
@@ -181,7 +185,9 @@ watch([stateGroup, type, priority, severityFrom], () => emitFilter());
             v-for="opt in priorityOptions"
             :key="opt.value"
             :value="opt.value"
-          >{{ opt.label }}</option>
+          >
+{{ opt.label }}
+</option>
         </select>
       </div>
 
@@ -192,7 +198,9 @@ watch([stateGroup, type, priority, severityFrom], () => emitFilter());
             v-for="opt in severityOptions"
             :key="String(opt.value)"
             :value="opt.value"
-          >{{ opt.label }}</option>
+          >
+{{ opt.label }}
+</option>
         </select>
       </div>
 

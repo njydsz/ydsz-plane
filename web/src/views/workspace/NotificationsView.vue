@@ -88,7 +88,7 @@
             <span class="notif-action">{{ getEventLabel(item.event_type) }}</span>
           </div>
           <div class="notif-title">{{ item.title }}</div>
-          <div class="notif-body" v-if="item.body">{{ truncate(item.body, 120) }}</div>
+          <div v-if="item.body" class="notif-body">{{ truncate(item.body, 120) }}</div>
           <div class="notif-time">{{ formatRelativeTime(item.created_at) }}</div>
         </div>
 
@@ -97,7 +97,7 @@
           <span v-if="!item.is_read" class="unread-dot" title="未读" />
           <button class="notif-archive" title="归档" @click.stop="handleArchive(item.id)">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+              <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
             </svg>
           </button>
         </div>

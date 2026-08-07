@@ -16,7 +16,7 @@
    - 主题感知（亮/暗）通过 CSS 变量
 -->
 <template>
-  <div class="notification-bell" ref="bellRef">
+  <div ref="bellRef" class="notification-bell">
     <!-- 铃铛按钮 -->
     <button
       class="bell-btn"
@@ -28,8 +28,8 @@
       @click="toggle"
     >
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-        <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+        <path d="M13.73 21a2 2 0 0 1-3.46 0" />
       </svg>
       <span v-if="unreadCount > 0" class="badge">{{ unreadCount > 99 ? '99+' : unreadCount }}</span>
     </button>
@@ -51,7 +51,7 @@
         </div>
 
         <!-- 内容区 -->
-        <div class="dropdown-body" ref="scrollRef">
+        <div ref="scrollRef" class="dropdown-body">
           <!-- 加载中 -->
           <div v-if="loading" class="state-wrapper">
             <div class="spinner" />
@@ -61,8 +61,8 @@
           <!-- 空态 -->
           <div v-else-if="displayItems.length === 0" class="state-wrapper empty">
             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="empty-icon">
-              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-              <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+              <path d="M13.73 21a2 2 0 0 1-3.46 0" />
             </svg>
             <span class="state-text">暂无通知</span>
             <span class="state-hint">新通知将在这里显示</span>
@@ -92,7 +92,7 @@
                   <span class="notif-action">{{ getEventLabel(item.event_type) }}</span>
                 </div>
                 <div class="notif-title" :title="item.title">{{ truncate(item.title, 60) }}</div>
-                <div class="notif-body" v-if="item.body">{{ truncate(item.body, 80) }}</div>
+                <div v-if="item.body" class="notif-body">{{ truncate(item.body, 80) }}</div>
                 <div class="notif-time">{{ formatRelativeTime(item.created_at) }}</div>
               </div>
 
@@ -105,7 +105,7 @@
                   @click.stop="handleArchive(item.id)"
                 >
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+                    <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
                   </svg>
                 </button>
               </div>
@@ -118,7 +118,7 @@
           <router-link :to="`/${wsStore.currentSlug}/notifications`" class="view-all-link" @click="open = false">
             查看全部通知
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="9 18 15 12 9 6"/>
+              <polyline points="9 18 15 12 9 6" />
             </svg>
           </router-link>
         </div>

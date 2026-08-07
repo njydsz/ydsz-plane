@@ -274,13 +274,13 @@ watch(ready, (r) => {
             <span class="num">{{ sprint.progress.done_points }}/{{ sprint.progress.total_points }}</span>
             <span class="label">已完成故事点</span>
           </div>
-          <div class="stat" v-if="sprint.progress.saturation != null">
+          <div v-if="sprint.progress.saturation != null" class="stat">
             <span class="num" :class="{ over: sprint.progress.saturation > 1 }">{{ Math.round(sprint.progress.saturation * 100) }}%</span>
             <span class="label">饱和度</span>
           </div>
         </div>
         <div v-if="sprint.progress?.by_state_group" class="state-bars">
-          <div class="bar-row" v-for="(pts, group) in sprint.progress.by_state_group" :key="group">
+          <div v-for="(pts, group) in sprint.progress.by_state_group" :key="group" class="bar-row">
             <span class="grp">{{ groupLabel[group] ?? group }}</span>
             <div class="bar">
               <div class="fill" :class="`fill-${group}`" :style="{ width: sprint.progress!.total_points > 0 ? (pts / sprint.progress!.total_points) * 100 + '%' : '0%' }"></div>
@@ -371,14 +371,14 @@ watch(ready, (r) => {
         <form @submit.prevent="submitComplete">
           <p class="hint">选择未完成任务的处理策略：</p>
           <label class="radio">
-            <input type="radio" v-model="strategy" value="backlog" />
+            <input v-model="strategy" type="radio" value="backlog" />
             <div>
               <strong>退回 Backlog</strong>
               <span>未完成任务从当前迭代移除，回到 Backlog 池</span>
             </div>
           </label>
           <label class="radio">
-            <input type="radio" v-model="strategy" value="next_sprint" />
+            <input v-model="strategy" type="radio" value="next_sprint" />
             <div>
               <strong>移至下一迭代</strong>
               <span>未完成任务结转至指定的计划中迭代</span>
@@ -392,7 +392,7 @@ watch(ready, (r) => {
             </select>
           </label>
           <label class="radio">
-            <input type="radio" v-model="strategy" value="keep" />
+            <input v-model="strategy" type="radio" value="keep" />
             <div>
               <strong>仅归档</strong>
               <span>保留在原迭代但关闭关联</span>

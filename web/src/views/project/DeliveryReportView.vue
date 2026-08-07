@@ -129,7 +129,7 @@ onMounted(load);
             :percent="completionPercent"
             size="sm"
             :color="completionPercent >= 80 ? 'var(--success-500)' : 'var(--warning-500)'"
-            :showLabel="false"
+            :show-label="false"
           />
         </div>
 
@@ -141,7 +141,7 @@ onMounted(load);
             :percent="fixRatePercent"
             size="sm"
             :color="fixRatePercent >= 80 ? 'var(--success-500)' : 'var(--warning-500)'"
-            :showLabel="false"
+            :show-label="false"
           />
         </div>
 
@@ -153,7 +153,7 @@ onMounted(load);
             :percent="passRatePercent"
             size="sm"
             :color="passRatePercent >= 80 ? 'var(--success-500)' : 'var(--danger-500)'"
-            :showLabel="false"
+            :show-label="false"
           />
         </div>
 

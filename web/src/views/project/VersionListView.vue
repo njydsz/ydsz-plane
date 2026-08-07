@@ -330,10 +330,12 @@ onMounted(load);
           <span class="card__sprint-count">
             {{ v.sprints?.length ?? 0 }} 个迭代
           </span>
-          <span v-if="v.quality" class="card__quality" :class="{
+          <span
+v-if="v.quality" class="card__quality" :class="{
             'card__quality--pass': v.quality.pass_quality_gate,
             'card__quality--fail': !v.quality.pass_quality_gate,
-          }">
+          }"
+>
             {{ v.quality.pass_quality_gate ? '✓ 质量通过' : '✗ 质量未通过' }}
           </span>
         </div>

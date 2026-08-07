@@ -346,7 +346,7 @@ function openSprint(sp: Sprint) {
           </span>
         </div>
 
-        <div class="panel-header" v-if="selectedSprint">
+        <div v-if="selectedSprint" class="panel-header">
           <div>
             <h2>{{ selectedSprint.name }}</h2>
             <p v-if="selectedSprint.goal" class="goal">{{ selectedSprint.goal }}</p>
@@ -360,7 +360,7 @@ function openSprint(sp: Sprint) {
               <span class="num">{{ totalPoints }}</span>
               <span class="label">承诺</span>
             </div>
-            <div class="stat" v-if="saturation !== null">
+            <div v-if="saturation !== null" class="stat">
               <span class="num" :class="{ over: saturation > 100 }" :title="saturation > 100 ? '已超出容量，请减少承诺点数' : ''">
                 {{ saturation }}%
               </span>
@@ -422,7 +422,7 @@ function openSprint(sp: Sprint) {
           <div class="empty">请先选择或创建一个迭代</div>
         </div>
 
-        <div class="panel-footer" v-if="selectedSprint">
+        <div v-if="selectedSprint" class="panel-footer">
           <button class="btn btn-primary" :disabled="saving" @click="openSprint(selectedSprint)">
             查看迭代详情
           </button>

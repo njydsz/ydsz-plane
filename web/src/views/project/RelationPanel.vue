@@ -105,8 +105,8 @@ onMounted(load);
         </select>
       </div>
       <div class="relation-form__actions">
-        <button class="btn btn--sm" @click="showForm = false" :disabled="submitting">取消</button>
-        <button class="btn btn--sm btn--primary" @click="createRel" :disabled="!targetIssueId || submitting">
+        <button class="btn btn--sm" :disabled="submitting" @click="showForm = false">取消</button>
+        <button class="btn btn--sm btn--primary" :disabled="!targetIssueId || submitting" @click="createRel">
           {{ submitting ? "添加中..." : "确认" }}
         </button>
       </div>
@@ -127,7 +127,7 @@ onMounted(load);
             #{{ rel.source_issue_id === props.issueId ? rel.target_issue_id : rel.source_issue_id }}
           </span>
         </div>
-        <button class="relation-item__remove" @click="removeRel(rel.id)" title="移除关联">✕</button>
+        <button class="relation-item__remove" title="移除关联" @click="removeRel(rel.id)">✕</button>
       </div>
     </div>
     <div v-else-if="!showForm" class="text-muted">暂无关联关系</div>

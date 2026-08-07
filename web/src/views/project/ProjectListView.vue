@@ -87,7 +87,7 @@ onMounted(load);
     </AppEmptyState>
     <div v-else class="project-grid">
       <div v-for="p in projects" :key="p.id" class="project-card" :style="{ borderTopColor: p.color || 'var(--brand-500)' }">
-        <div class="project-card__icon" v-if="p.icon">{{ p.icon }}</div>
+        <div v-if="p.icon" class="project-card__icon">{{ p.icon }}</div>
         <div class="project-card__body">
           <div class="project-card__name">{{ p.name }}</div>
           <div class="project-card__meta">

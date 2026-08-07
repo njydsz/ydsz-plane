@@ -180,7 +180,7 @@ function cancel() {
           <h2 class="modal__title">
             {{ currentStep === "type" ? "创建工作项" : "新建" + ({ requirement: "需求", task: "任务", defect: "缺陷" } as Record<string, string>)[selectedType] }}
           </h2>
-          <button class="modal__close" @click="cancel" :disabled="submitting">✕</button>
+          <button class="modal__close" :disabled="submitting" @click="cancel">✕</button>
         </div>
 
         <!-- Step 1: 选择类型 -->
@@ -331,7 +331,7 @@ function cancel() {
                 />
               </div>
               <div class="form-check">
-                <input v-model="isDraft" type="checkbox" id="chk-draft" />
+                <input id="chk-draft" v-model="isDraft" type="checkbox" />
                 <label for="chk-draft">创建为草稿</label>
               </div>
             </div>
@@ -339,12 +339,12 @@ function cancel() {
 
           <!-- 操作栏 -->
           <div class="modal__actions">
-            <button v-if="!props.presetType" class="btn btn--ghost" @click="backToType" :disabled="submitting">
+            <button v-if="!props.presetType" class="btn btn--ghost" :disabled="submitting" @click="backToType">
               ← 返回选择类型
             </button>
             <div class="spacer"></div>
-            <button class="btn btn--secondary" @click="cancel" :disabled="submitting">取消</button>
-            <button class="btn btn--primary" @click="submit" :disabled="!canSubmit || submitting">
+            <button class="btn btn--secondary" :disabled="submitting" @click="cancel">取消</button>
+            <button class="btn btn--primary" :disabled="!canSubmit || submitting" @click="submit">
               {{ submitting ? "创建中..." : "创建" }}
             </button>
           </div>

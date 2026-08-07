@@ -154,7 +154,8 @@ const months = computed(() => {
       </div>
 
       <!-- 版本目标日期标记 -->
-      <div v-if="versionEnd" class="gantt__marker" :style="{
+      <div
+v-if="versionEnd" class="gantt__marker" :style="{
         left: `${(() => {
           const items = sprints.filter(s => s.startDate || s.endDate);
           const allDates: number[] = [];
@@ -166,7 +167,8 @@ const months = computed(() => {
           const range = Math.max(max - min, 7 * 86400000);
           return ((new Date(versionEnd).getTime() - min) / range) * 100;
         })()}%`,
-      }">
+      }"
+>
         <span class="gantt__marker-label">目标 {{ versionEnd }}</span>
       </div>
     </div>

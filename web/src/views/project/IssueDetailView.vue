@@ -383,11 +383,11 @@ onMounted(() => {
       <div class="issue-detail__main">
         <div class="issue-detail__identifier">{{ issue.identifier }}</div>
         <div v-if="editField === 'name'" class="edit-row">
-          <input v-model="editValue" class="edit-input" @keydown.enter="saveEdit" @keydown.escape="cancelEdit" autofocus />
-          <button class="btn btn--sm btn--primary" @click="saveEdit" :disabled="editSaving || !editValue.trim()">
+          <input v-model="editValue" class="edit-input" autofocus @keydown.enter="saveEdit" @keydown.escape="cancelEdit" />
+          <button class="btn btn--sm btn--primary" :disabled="editSaving || !editValue.trim()" @click="saveEdit">
             {{ editSaving ? "保存中..." : "保存" }}
           </button>
-          <button class="btn btn--sm" @click="cancelEdit" :disabled="editSaving">取消</button>
+          <button class="btn btn--sm" :disabled="editSaving" @click="cancelEdit">取消</button>
           <span v-if="editError" class="form-error">{{ editError }}</span>
         </div>
         <h1 v-else class="issue-detail__name editable" @click="startEdit('name', issue.name)">
@@ -411,7 +411,7 @@ onMounted(() => {
               <option value="low">低</option>
               <option value="none">无</option>
             </select>
-            <button class="btn btn--sm" @click="cancelEdit" :disabled="editSaving">取消</button>
+            <button class="btn btn--sm" :disabled="editSaving" @click="cancelEdit">取消</button>
           </span>
           <span v-else class="issue-detail__priority editable" @click="startEdit('priority', issue.priority)">
             优先级: {{ ({ urgent: "紧急", high: "高", medium: "中", low: "低", none: "无" } as Record<string, string>)[issue.priority] ?? issue.priority }}
@@ -446,8 +446,8 @@ onMounted(() => {
               @paste-image="handleDescPasteImage"
             />
             <div class="edit-row__actions">
-              <button class="btn btn--sm btn--primary" @click="saveDesc" :disabled="descSaving">{{ descSaving ? "保存中..." : "保存" }}</button>
-              <button class="btn btn--sm" @click="cancelEditDesc" :disabled="descSaving">取消</button>
+              <button class="btn btn--sm btn--primary" :disabled="descSaving" @click="saveDesc">{{ descSaving ? "保存中..." : "保存" }}</button>
+              <button class="btn btn--sm" :disabled="descSaving" @click="cancelEditDesc">取消</button>
               <span v-if="descError" class="form-error">{{ descError }}</span>
             </div>
           </div>
@@ -534,7 +534,7 @@ onMounted(() => {
 
         <!-- 工时 -->
         <h3 style="margin-top: 24px">工时</h3>
-        <div class="timelog-summary" v-if="totalMinutes > 0">
+        <div v-if="totalMinutes > 0" class="timelog-summary">
           累计 {{ fmtDuration(totalMinutes) }}
           <span v-if="issue.actual_effort != null" class="timelog-effort">
             · 实耗 {{ fmtDurationHours(issue.actual_effort) }}
@@ -572,8 +572,8 @@ onMounted(() => {
             rows="2"
           ></textarea>
           <div class="timelog-form__actions">
-            <button class="btn btn--sm" @click="showTimeLogForm = false" :disabled="timeLogSubmitting">取消</button>
-            <button class="btn btn--sm btn--primary" @click="submitTimeLog" :disabled="timeLogSubmitting">
+            <button class="btn btn--sm" :disabled="timeLogSubmitting" @click="showTimeLogForm = false">取消</button>
+            <button class="btn btn--sm btn--primary" :disabled="timeLogSubmitting" @click="submitTimeLog">
               {{ timeLogSubmitting ? "保存中..." : "保存" }}
             </button>
           </div>
