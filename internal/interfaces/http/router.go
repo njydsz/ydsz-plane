@@ -25,6 +25,7 @@ import (
 	"github.com/njydsz/ydsz-plane/internal/application/issue"
 	"github.com/njydsz/ydsz-plane/internal/application/metrics"
 	notif "github.com/njydsz/ydsz-plane/internal/application/notification"
+	"github.com/njydsz/ydsz-plane/internal/application/pages"
 	"github.com/njydsz/ydsz-plane/internal/application/preference"
 	"github.com/njydsz/ydsz-plane/internal/application/search"
 	"github.com/njydsz/ydsz-plane/internal/application/sprint"
@@ -68,6 +69,7 @@ type Deps struct {
 	TimeLogSvc          *issue.TimeLogService
 	IssueHandler        *issue.IssueHandler
 	PrefHandler         *preference.Handler
+	PagesHandler        *pages.Handler
 	SearchHandler       *search.SearchHandler
 	SprintHandler       *sprint.Handler
 	VersionHandler      *version.Handler
@@ -119,6 +121,21 @@ func RegisterPreferenceRoutes(r *gin.Engine, d *Deps) {
 		middleware.RequirePermission(d.WorkspaceStore, auth.PermWorkspaceRead),
 	)
 	d.PrefHandler.Register(projects)
+}
+
+// RegisterPagesRoutes 注册页面路由（项目级）。
+func RegisterPagesRoutes(r *gin.Engine, d *Deps) {
+	if d.PagesHandler == nil {
+		return
+	}
+	projects := r.Group("/api/v1/workspaces/:workspace_id/projects/:project_id")
+	projects.Use(
+		middleware.RequireAuth(d.principalParser()),
+		middleware.RequireWorkspaceParam(),
+		middleware.RequireProjectParam(),
+		middleware.RequirePermission(d.WorkspaceStore, auth.PermWorkspaceRead),
+	)
+	d.PagesHandler.Register(projects)
 }
 
 // RegisterSprintRoutes 注册迭代路由（独立于 Issue 路由，可在 IssueHandler 未就绪时注册）。
@@ -388,7 +405,13 @@ func NewEngine(d *Deps) *gin.Engine {
 	}
 	r := gin.New()
 
-	origins := []string{"http://localhost:5173", "http://localhost:8080"}
+	// CORS 允许的 origins：包含 Vite 默认 5173 与备选 5174（端口冲突时回退）
+	// 以及后端自身的 8080（Swagger/SPA 直连场景）
+	origins := []string{
+		"http://localhost:5173", "http://127.0.0.1:5173",
+		"http://localhost:5174", "http://127.0.0.1:5174",
+		"http://localhost:8080", "http://127.0.0.1:8080",
+	}
 	r.Use(
 		middleware.SecurityHeaders(),
 		middleware.RequestID(),

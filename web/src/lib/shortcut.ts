@@ -55,6 +55,7 @@ class ShortcutManager {
   }
 }
 
+/** 全局快捷键管理器单例（支持注册/注销/ESC 全局事件）。 */
 export const shortcuts = new ShortcutManager()
 
 // 初始化全局监听

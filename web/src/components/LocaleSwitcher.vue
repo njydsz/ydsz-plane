@@ -6,10 +6,7 @@
  * 切换后立即生效（所有使用 $t() 的文本实时更新）。
  */
 import { computed } from "vue";
-import { useI18n } from "vue-i18n";
 import { SUPPORTED_LOCALES, setLocale, getLocale, type SupportedLocale } from "../locales";
-
-const { t } = useI18n();
 
 const currentLocale = computed(() => getLocale());
 

@@ -5,7 +5,6 @@
  * 依赖箭头由 relation 数据在后续迭代补充。
  * 路径：复用 /api/v1/workspaces/:ws/projects/:pid/issues（带日期过滤）
  */
-import { apiClient } from '../client';
 import { issueApi } from './issue';
 
 /** 甘特图工作项条目（精简，仅含时间线必要字段） */

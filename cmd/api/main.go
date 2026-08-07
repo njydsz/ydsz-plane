@@ -23,6 +23,7 @@ import (
 	"github.com/njydsz/ydsz-plane/internal/application/issue"
 	"github.com/njydsz/ydsz-plane/internal/application/metrics"
 	notif "github.com/njydsz/ydsz-plane/internal/application/notification"
+	"github.com/njydsz/ydsz-plane/internal/application/pages"
 	"github.com/njydsz/ydsz-plane/internal/application/preference"
 	"github.com/njydsz/ydsz-plane/internal/application/search"
 	"github.com/njydsz/ydsz-plane/internal/application/sprint"
@@ -244,6 +245,10 @@ func run() error {
 	prefSvc := preference.NewService(pool.Pool)
 	prefHandler := preference.NewHandler(prefSvc)
 
+	// ---------- Pages (文档页面) ----------
+	pagesSvc := pages.NewService(pool.Pool)
+	pagesHandler := pages.NewHandler(pagesSvc)
+
 	// ---------- Webhook (S10) ----------
 	webhookSvc := webhook.NewService(pool.Pool)
 	webhookDispatcher := webhook.NewDispatcher(webhookSvc, nil, log)
@@ -345,6 +350,14 @@ func run() error {
 		PrincipalParser: parsePrincipal,
 		WorkspaceStore:  wsStore,
 		PrefHandler:     prefHandler,
+	})
+
+	// 注册页面路由（项目级）
+	httpapi.RegisterPagesRoutes(engine, &httpapi.Deps{
+		Auth:            authSvc,
+		PrincipalParser: parsePrincipal,
+		WorkspaceStore:  wsStore,
+		PagesHandler:    pagesHandler,
 	})
 
 	// 注册搜索路由（项目级 + 工作空间级）

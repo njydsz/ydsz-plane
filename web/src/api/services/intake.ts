@@ -104,7 +104,7 @@ export interface ListIssuesParams {
   offset?: number;
 }
 
-//** 工单审核入参（approve / reject / archive + 目标类型与原因）。 */
+/** 工单审核入参（approve / reject / archive + 目标类型与原因）。 */
 export interface ReviewInput {
   action: "approve" | "reject" | "archive";
   target_issue_type?: string;
@@ -145,7 +145,7 @@ export interface SubmitResult {
   message: string;
 }
 
-//** 工单追踪结果（状态 + 提交时间 + 审核时间 + 转换项）。 */
+/** 工单追踪结果（状态 + 提交时间 + 审核时间 + 转换项）。 */
 export interface TrackResult {
   tracking_id: string;
   status: string;

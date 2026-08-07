@@ -13,6 +13,7 @@ export interface ProjectTemplate {
   apply_requirement_flow: boolean;
 }
 
+/** 项目模板 API — 获取 / 应用预置模板（agile/waterfall/generic）。 */
 export const templateApi = {
   /** 获取全部预置模板列表 */
   async listTemplates(wsId: number): Promise<ProjectTemplate[]> {

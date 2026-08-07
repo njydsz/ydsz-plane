@@ -24,6 +24,7 @@ const emptyResults: SearchResponse = {
   suggestions: [],
 }
 
+/** 搜索 Pinia store —— 管理全局搜索弹层状态与搜索结果缓存。 */
 export const useSearchStore = defineStore('search', () => {
   /** 当前搜索关键字 */
   const query = ref('')

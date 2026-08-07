@@ -11,6 +11,7 @@ import { computed, ref, watchEffect } from "vue";
 import { useRoute } from "vue-router";
 import { workspaceApi } from "@/api/services/workspace";
 
+/** Workspace/project 上下文结构体（含 wsId / projectId / ready / resolve）。 */
 export interface WorkspaceContext {
   /** 工作空间 ID ref（解析成功后 > 0） */
   wsId: Readonly<import("vue").Ref<number>>;
@@ -35,6 +36,7 @@ export async function resolveWorkspaceId(slug: string): Promise<number> {
   return ws.id;
 }
 
+/** 从路由解析 workspace/project 上下文的 composable（带 slug→ID 缓存）。 */
 export function useWorkspaceContext(): WorkspaceContext {
   const route = useRoute();
 

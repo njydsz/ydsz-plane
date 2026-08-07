@@ -21,6 +21,7 @@ export const SUPPORTED_LOCALES = [
   { code: "en-US", name: "English", flag: "🇺🇸" },
 ] as const;
 
+/** 支持的语言代码类型（与 SUPPORTED_LOCALES 的 code 字段对齐）。 */
 export type SupportedLocale = (typeof SUPPORTED_LOCALES)[number]["code"];
 
 /** 从 localStorage 或浏览器检测用户语言 */

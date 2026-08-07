@@ -10,6 +10,7 @@
 
 const PREFIX = 'ydsz:'
 
+/** 视图偏好持久化对象 — 基于 localStorage 的用户设置存储（get/set/remove/clear）。 */
 export const prefs = {
   get<T>(key: string, fallback: T): T {
     try {

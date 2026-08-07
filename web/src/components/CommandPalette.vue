@@ -140,7 +140,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, nextTick, onMounted, onUnmounted, reactive } from "vue"
+import { ref, computed, watch, nextTick, onMounted, onUnmounted } from "vue"
 import { useRouter, useRoute } from "vue-router"
 import { useSearchStore } from "@/stores/search"
 import { useWorkspaceStore } from "@/stores/workspace"
@@ -283,8 +283,9 @@ const allCommandFlat = computed(() => {
 const offsetSprint = computed(() => store.results?.results.issues?.length ?? 0)
 const offsetVersion = computed(() => offsetSprint.value + (store.results?.results.sprints?.length ?? 0))
 
-function isSelected(group: Pick<CommandGroupDef, "title">, idx: number) {
-  return selectedGroup.value === group.title && selectedIdx.value === idx
+function isSelected(group: Pick<CommandGroupDef, "title"> | string, idx: number, _entityType?: string) {
+  const g = typeof group === "string" ? group : group.title
+  return selectedGroup.value === g && selectedIdx.value === idx
 }
 
 function selectItem(groupTitle: string, idx: number, _entityType?: string) {

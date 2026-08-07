@@ -231,7 +231,7 @@ function typeColor(type: string): string {
     <!-- 加载中 -->
     <AppSkeleton v-if="loading" variant="dashboard" :rows="2" />
     <!-- 错误 -->
-    <AppErrorState v-else-if="error" :message="error" :retry="load" />
+    <AppErrorState v-else-if="error" :message="error" @retry="load" />
 
     <!-- 月视图 -->
     <div v-else-if="viewMode === 'month'" class="calendar-month">

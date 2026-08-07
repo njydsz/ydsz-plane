@@ -104,6 +104,7 @@ export interface LayoutWidget {
 
 const wrap = <T>(p: Promise<{ data: T }>) => p.then((r) => r.data);
 
+/** 工作台域 API — 聚合汇总首屏数据 + 工作台配置读写 + 布局保存。 */
 export const workbenchApi = {
   /** 获取工作空间级工作台汇总（首屏数据） */
   getSummary: (wsId: number | string) =>

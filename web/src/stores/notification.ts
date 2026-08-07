@@ -15,6 +15,7 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { notificationApi, type AppNotification } from '@/api/services/notification'
 
+/** 通知 Pinia store —— 集中管理工作空间内站内通知的状态与操作。 */
 export const useNotificationStore = defineStore('notification', () => {
   /** 当前工作空间的通知列表 */
   const items = ref<AppNotification[]>([])

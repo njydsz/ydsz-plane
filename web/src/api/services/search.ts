@@ -93,6 +93,7 @@ export interface SearchBookmark {
   updated_at?: string
 }
 
+/** 搜索域 API — 项目级 / 工作空间级全文搜索 + 搜索历史与书签管理。 */
 export const searchApi = {
   /** 项目级搜索 */
   async searchProject(wsId: number | string, projectId: number | string, params: {

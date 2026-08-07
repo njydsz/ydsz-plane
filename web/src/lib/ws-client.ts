@@ -184,4 +184,5 @@ class WSClient {
   }
 }
 
+/** WebSocket 客户端单例 — 自动重连、心跳、事件订阅、断线补偿。 */
 export const wsClient = new WSClient()

@@ -10,6 +10,7 @@ import { ref } from "vue";
 
 const STORAGE_KEY = "ydsz:theme";
 
+/** 主题模式：手动亮/暗 或 跟随系统。 */
 export type ThemeMode = "light" | "dark" | "system";
 
 /** 当前实际生效的主题 */

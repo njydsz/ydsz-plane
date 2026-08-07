@@ -260,7 +260,7 @@ const emptyChartOption: EChartsCoreOption = {
     <!-- 加载中 -->
     <AppLoadingState v-if="loading" />
     <!-- 加载错误 -->
-    <AppErrorState v-else-if="error" :message="error" :retry="load" />
+    <AppErrorState v-else-if="error" :message="error" @retry="load" />
     <!-- 空数据 -->
     <AppEmptyState v-else-if="analytics && analytics.total_defects === 0" description="当前时间范围内无缺陷数据" />
     <!-- 图表内容 -->

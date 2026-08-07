@@ -84,6 +84,7 @@ export interface PreferenceUpdateInput {
   is_enabled?: boolean
 }
 
+/** 通知域 API — 通知列表、未读数、已读 / 归档、偏好读写。 */
 export const notificationApi = {
   /** 查询通知列表 */
   async list(wsId: number | string, params?: {

@@ -11,8 +11,10 @@
  */
 import { reactive } from "vue";
 
+/** 消息类型（success / error / info / warning）。 */
 export type ToastType = "success" | "error" | "info" | "warning";
 
+/** 单条消息项（id + type + 内容 + 持续时长，<=0 表示常驻）。 */
 export interface ToastItem {
   id: number;
   type: ToastType;
@@ -42,6 +44,7 @@ export function dismiss(id: number) {
   if (idx >= 0) toasts.splice(idx, 1);
 }
 
+/** 全局消息提示对象 — success / error / info / warning 四方法 + dismiss。 */
 export const toast = {
   success: (msg: string, duration?: number) => push("success", msg, duration),
   error: (msg: string, duration?: number) => push("error", msg, duration ?? 4000),

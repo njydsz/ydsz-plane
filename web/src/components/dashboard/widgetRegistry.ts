@@ -16,6 +16,7 @@ import RiskAlertWidget from "./RiskAlertWidget.vue";
 
 import type { WidgetType } from "@/api/services/dashboard";
 
+/** 显示名映射表：widget_type → 中文名（仅用于 UI 展示，不参与后端交互）。 */
 export const WIDGET_NAME_MAP: Record<WidgetType, string> = {
   progress_overview: "进度总览",
   burndown: "燃尽图",

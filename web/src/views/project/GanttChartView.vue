@@ -242,7 +242,7 @@ const svgHeight = computed(() => HEADER_HEIGHT + issues.value.length * ROW_HEIGH
 
     <!-- 状态 -->
     <AppSkeleton v-if="loading" variant="board" :cols="2" />
-    <AppErrorState v-else-if="error" :message="error" :retry="load" />
+    <AppErrorState v-else-if="error" :message="error" @retry="load" />
 
     <!-- 主内容 -->
     <div v-else class="gantt-container">

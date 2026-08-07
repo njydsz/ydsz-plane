@@ -6,8 +6,10 @@
  */
 import { http } from "../client";
 
+/** 偏好视图类型（看板 / 列表 / 日历 / 甘特图）。 */
 export type PreferenceViewType = "kanban" | "list" | "calendar" | "gantt";
 
+/** 视图偏好实体 — 按 (workspace, project, user, view_type) 持久化的布局 / 过滤 / 排序配置。 */
 export interface ViewPreference {
   id: number;
   workspace_id: number;

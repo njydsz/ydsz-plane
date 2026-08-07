@@ -16,6 +16,7 @@
  */
 import { computed, onMounted, onUnmounted, ref } from "vue";
 
+/** 内联选择编辑器的选项定义（value + label + 可选颜色/图标/title）。 */
 export interface SelectOption<T = unknown> {
   value: T;
   label: string;

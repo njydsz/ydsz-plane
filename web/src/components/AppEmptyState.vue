@@ -15,6 +15,7 @@
 
 import { computed } from "vue"
 
+/** 预设空状态场景枚举（自动匹配插画 + 标题 + 描述）。 */
 export type EmptyScenario =
   | "default"
   | "issues"
@@ -33,6 +34,7 @@ export type EmptyScenario =
   | "webhooks"
   | "error"
 
+/** 插画尺寸（sm/md/lg）。 */
 export type IllustrationSize = "sm" | "md" | "lg"
 
 const props = withDefaults(
