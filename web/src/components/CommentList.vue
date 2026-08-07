@@ -17,11 +17,18 @@ import AppEmptyState from "./AppEmptyState.vue";
 import AppLoadingState from "./AppLoadingState.vue";
 import AppErrorState from "./AppErrorState.vue";
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   workspaceId: number;
   projectId: number;
   issueId: number;
-}>();
+  /** 紧凑模式：隐藏新建表单，仅展示评论列表 */
+  compact?: boolean;
+  /** 限制显示条数（紧凑模式下生效） */
+  limit?: number;
+}>(), {
+  compact: false,
+  limit: 0,
+});
 
 const auth = useAuthStore();
 const currentUserId = computed(() => auth.user?.id ?? 0);
@@ -73,6 +80,14 @@ const repliesByParent = computed(() => {
     }
   }
   return map;
+});
+
+// compact + limit 时截断顶级评论列表
+const displayedComments = computed(() => {
+  if (props.compact && props.limit > 0) {
+    return topLevelComments.value.slice(0, props.limit);
+  }
+  return topLevelComments.value;
 });
 
 /* ---- 操作 ---- */
@@ -170,7 +185,7 @@ watch(
 </script>
 
 <template>
-  <div class="comment-list">
+  <div class="comment-list" :class="{ 'comment-list--compact': compact }">
     <div class="comment-list__header">
       <h3 class="comment-list__title">
         评论
@@ -178,8 +193,8 @@ watch(
       </h3>
     </div>
 
-    <!-- 新建评论表单 -->
-    <div v-if="!editingComment && !replyingTo" class="comment-list__new">
+    <!-- 新建评论表单（compact 模式下隐藏） -->
+    <div v-if="!compact && !editingComment && !replyingTo" class="comment-list__new">
       <CommentForm
         ref="newFormRef"
         :loading="submitting"
@@ -218,9 +233,9 @@ watch(
       description="成为第一个评论的人"
     />
 
-    <!-- 评论列表 -->
+    <!-- 评论列表（compact 模式下按 limit 截断，隐藏回复表单） -->
     <div v-if="comments.length > 0" class="comment-list__items">
-      <template v-for="topComment in topLevelComments" :key="topComment.id">
+      <template v-for="topComment in displayedComments" :key="topComment.id">
         <CommentItem
           :comment="topComment"
           :current-user-id="currentUserId"
@@ -370,5 +385,21 @@ watch(
   cursor: pointer;
   font-family: inherit;
   text-decoration: underline;
+}
+
+/* ===== Compact 模式（用于 Peek Overview） ===== */
+.comment-list--compact {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+.comment-list--compact .comment-list__header {
+  margin-bottom: 8px;
+}
+.comment-list--compact .comment-list__title {
+  font-size: 12px;
+}
+.comment-list--compact .comment-list__items {
+  gap: 0;
 }
 </style>

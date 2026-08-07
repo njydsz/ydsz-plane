@@ -19,7 +19,6 @@ import {
   commentExtensions,
   compactExtensions,
 } from "@/lib/editor/extensions"
-import { baseWithPlaceholder } from "@/lib/editor/extensions/base"
 import { computed, onBeforeUnmount, watch } from "vue"
 
 const props = withDefaults(

@@ -14,10 +14,10 @@
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 
-import { issueApi, type Issue, type IssueActivity, type State } from "@/api/services/issue";
+import { issueApi, type Issue, type State } from "@/api/services/issue";
 import { workspaceApi } from "@/api/services/workspace";
 import { usePeekStore } from "@/stores/peek";
-import { AppButton, AppBadge } from "@/components";
+import { AppButton } from "@/components";
 import RichTextEditor from "@/components/RichTextEditor.vue";
 import CommentList from "@/components/CommentList.vue";
 
@@ -29,7 +29,6 @@ const loading = ref(true);
 const error = ref("");
 const issue = ref<Issue | null>(null);
 const states = ref<State[]>([]);
-const activities = ref<IssueActivity[]>(null);
 const wsId = ref<number | null>(null);
 
 // ---- 派生 ----

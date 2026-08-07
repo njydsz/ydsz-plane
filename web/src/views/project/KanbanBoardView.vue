@@ -4,19 +4,20 @@
  * 支持: 列间拖拽流转 / 列内拖拽排序 / 视觉反馈 / 中值插入排序。
  */
 import { computed, onMounted, ref } from "vue";
-import { useRoute, useRouter } from "vue-router";
+import { useRoute } from "vue-router";
 
 import { workspaceApi } from "@/api/services/workspace";
 import { issueApi, type Issue } from "@/api/services/issue";
 import { useIssueStore } from "@/stores/issue";
+import { usePeekStore } from "@/stores/peek";
 import { prefs } from "@/lib/prefs";
 import { toast } from "@/lib/toast";
 import IssueCreateModal from "./IssueCreateModal.vue";
 import { AppLoadingState, AppErrorState, AppEmptyState } from "@/components";
 
 const route = useRoute();
-const router = useRouter();
 const issueStore = useIssueStore();
+const peek = usePeekStore();
 
 const projectId = computed(() => Number(route.params.projectId));
 const wsId = ref(0);
@@ -166,7 +167,8 @@ async function onColumnDrop(stateId: number, event: DragEvent) {
 }
 
 function openIssue(issueId: number) {
-  router.push(`/${route.params.workspaceSlug}/projects/${projectId.value}/issues/${issueId}`);
+  // 单击打开 Peek 预览抽屉；抽屉内有「打开详情」按钮执行路由跳转
+  peek.open(String(route.params.workspaceSlug), projectId.value, issueId);
 }
 
 function priorityColor(priority: string): string {

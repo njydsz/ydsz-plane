@@ -20,6 +20,7 @@ import (
 	"github.com/njydsz/ydsz-plane/internal/application/automation"
 	"github.com/njydsz/ydsz-plane/internal/application/metrics"
 	notifApp "github.com/njydsz/ydsz-plane/internal/application/notification"
+	"github.com/njydsz/ydsz-plane/internal/application/search"
 	"github.com/njydsz/ydsz-plane/internal/application/sprint"
 	"github.com/njydsz/ydsz-plane/internal/application/webhook"
 	"github.com/njydsz/ydsz-plane/internal/config"
@@ -145,14 +146,51 @@ func run() error {
 	worker.Register("webhook.retry", func(ctx context.Context, task mq.Task) error {
 		return webhookConsumer.HandleRetryTask(ctx, task)
 	})
+
+	// ----- 搜索索引填充链路 -----
+	//
+	// search_documents 表是 Service.Search 的数据源，既往只有 issues 有 DB 触发器自动填充，
+	// sprints / versions 从未被索引且存量数据无回填。本链路:
+	//   1) RunConsumer 订阅 plane.events.#，把 issue.*/sprint.*/version.* 事件增量同步进索引；
+	//   2) search.index 任务：显式 upsert/delete 指定文档（可用于运维回填、
+	//      迁移后修复等）。
+	searchIndexer := search.NewIndexer(pool.Pool)
+	searchIndexLog := log.Named("search.index")
+	go search.RunConsumer(ctx, mqClient, searchIndexer, searchIndexLog)
+
 	worker.Register("search.index", func(ctx context.Context, task mq.Task) error {
-		log.Info("task: search.index", zap.String("id", task.ID))
-		return nil
+		// payload 约定: {"doc_type":"issue|sprint|version","doc_id":123,"op":"upsert"|"delete","workspace_id":456}
+		var payload struct {
+			DocType      string `json:"doc_type"`
+			DocID        int64  `json:"doc_id"`
+			Op           string `json:"op"`
+			WorkspaceID  int64  `json:"workspace_id"`
+		}
+		if err := json.Unmarshal(task.Payload, &payload); err != nil {
+			searchIndexLog.Warn("bad payload, skipping",
+				zap.String("id", task.ID), zap.Error(err))
+			return nil // 格式错误不重试
+		}
+		switch payload.Op {
+		case "delete":
+			if payload.WorkspaceID == 0 {
+				return fmt.Errorf("search.index delete requires workspace_id")
+			}
+			return searchIndexer.RemoveDocument(ctx, payload.DocType, payload.WorkspaceID, payload.DocID)
+		default:
+			// upsert：无 workspace_id 时由 indexer 内部解析（注意 RLS 限制），有则直接走
+			switch payload.DocType {
+			case "sprint":
+				return searchIndexer.SyncSprint(ctx, payload.DocID)
+			case "version":
+				return searchIndexer.SyncVersion(ctx, payload.DocID)
+			default:
+				return searchIndexer.SyncIssue(ctx, payload.DocID)
+			}
+		}
 	})
-	worker.Register("automation.evaluate", func(ctx context.Context, task mq.Task) error {
-		log.Info("task: automation.evaluate", zap.String("id", task.ID))
-		return nil
-	})
+	// automation.evaluate 已由 automation.RunConsumer 直连 EventExchange 驱动（cmd/worker/main.go 约 line 227），
+	// 此处不再重复注册 task handler —— automation 引擎基于事件而非任务调度。
 
 	// ----- 通知多渠道分发 Worker -----
 	//

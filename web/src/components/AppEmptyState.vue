@@ -2,18 +2,18 @@
 /**
  * AppEmptyState — 情感化空状态组件。
  *
- * 相比 v1 新增：
- *   - scenario: 预设场景模板 (issues / projects / cycles / modules / search / inbox / notifications / labels / error)
- *   - illustration: 内置 SVG 插画系统 (无需外部资源)
+ * 特性：
+ *   - scenario: 预设场景模板 (issues / projects / sprints / modules / search / ...)
+ *   - Inline SVG 插画系统（无需外部资源）
  *   - cta / secondaryCta: 主/次行动按钮
  *   - illustrationSize: sm / md / lg
  *
  * 使用方式：
- *   <AppEmpty-state scenario="issues" />
- *   <AppEmptyState title="暂无数据" description="开始创建第一个工作项">
- *     <template #cta><button>创建工作项</button></template>
- *   </AppEmptyState>
+ *   <AppEmptyState scenario="issues" @cta-click="createIssue" />
+ *   <AppEmptyState title="暂无数据" description="开始创建第一个工作项" />
  */
+
+import { computed } from "vue"
 
 export type EmptyScenario =
   | "default"
@@ -45,7 +45,7 @@ const props = withDefaults(
     description?: string
     /** 插画尺寸 */
     illustrationSize?: IllustrationSize
-    /** 自定义图标/emoji（优先级低于 scenario 内置插画） */
+    /** 自定义图标/emoji（优先级高于 scenario 内置插画） */
     icon?: string
   }>(),
   {
@@ -63,7 +63,7 @@ const emit = defineEmits<{
 }>()
 
 /* ---- 场景模板 ---- */
-const scenarioMap: Record<Exclude<EmptyScenario, "default">, { title: string; description: string }> = {
+const scenarioMap: Record<Exclude<EmptyScenario, "default" | "error">, { title: string; description: string }> = {
   issues: {
     title: "还没有工作项",
     description: "创建第一个需求、任务或缺陷，开始管理你的项目进度。",
@@ -120,13 +120,10 @@ const scenarioMap: Record<Exclude<EmptyScenario, "default">, { title: string; de
     title: "还没有 Webhook",
     description: "配置 Webhook 将事件推送到外部系统。",
   },
-  error: {
-    title: "出错了",
-    description: "加载数据时遇到问题，请稍后重试或联系管理员。",
-  },
 }
 
 const resolvedTitle = computed(() => {
+  if (props.scenario === "error") return "出错了"
   if (props.scenario !== "default" && scenarioMap[props.scenario]) {
     return scenarioMap[props.scenario].title
   }
@@ -134,6 +131,7 @@ const resolvedTitle = computed(() => {
 })
 
 const resolvedDescription = computed(() => {
+  if (props.scenario === "error") return "加载数据时遇到问题，请稍后重试或联系管理员。"
   if (props.scenario !== "default" && scenarioMap[props.scenario]) {
     return scenarioMap[props.scenario].description
   }
@@ -143,151 +141,136 @@ const resolvedDescription = computed(() => {
 /* ---- 尺寸 ---- */
 const sizeMap: Record<IllustrationSize, number> = { sm: 64, md: 96, lg: 128 }
 const illustrationPx = computed(() => sizeMap[props.illustrationSize])
-
-import { computed } from "vue"
 </script>
 
 <template>
   <div class="app-empty" :class="[`app-empty--${illustrationSize}`]">
-    <!-- 插画区 -->
-    <div v-if="icon" class="app-empty__emoji">{{ icon </div>
-    <component
+    <!-- 自定义 emoji 图标（优先级最高） -->
+    <div v-if="icon" class="app-empty__emoji">{{ icon }}</div>
+
+    <!-- 场景插画（SVG 内联） -->
+    <svg
       v-else-if="scenario !== 'default' && scenario !== 'error'"
-      :is="'svg'"
       class="app-empty__illustration"
       :width="illustrationPx"
       :height="illustrationPx"
-      :viewBox="scenario === 'search' ? '0 0 96 96' : '0 0 96 96'"
+      viewBox="0 0 96 96"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
     >
-      <!-- 默认空状态插画 -->
-      <template v-if="scenario === 'default'">
-        <circle cx="48" cy="48" r="46" :fill="`var(--neutral-200, #f0f0f0)`" />
-        <rect x="28" y="36" width="40" height="4" rx="2" :fill="`var(--neutral-600, #999)`" />
-        <rect x="28" y="46" width="30" height="3" rx="1.5" :fill="`var(--neutral-500, #bbb)`" />
-        <rect x="28" y="54" width="35" height="3" rx="1.5" :fill="`var(--neutral-500, #bbb)`" />
-      </template>
-
       <!-- Issues: 卡片 + 勾选 -->
-      <template v-else-if="scenario === 'issues'">
-        <rect x="14" y="20" width="68" height="56" rx="8" :fill="`var(--neutral-200)`" />
-        <rect x="22" y="28" width="28" height="4" rx="2" :fill="`var(--neutral-600)`" opacity="0.7" />
-        <rect x="22" y="38" width="40" height="3" rx="1.5" :fill="`var(--neutral-500)`" opacity="0.5" />
-        <rect x="22" y="46" width="34" height="3" rx="1.5" :fill="`var(--neutral-500)`" opacity="0.5" />
-        <rect x="22" y="58" width="16" height="8" rx="2" :fill="`var(--brand-default)`" opacity="0.15" />
-        <circle cx="72" cy="22" r="14" :fill="`var(--brand-default)`" />
+      <g v-if="scenario === 'issues'">
+        <rect x="14" y="20" width="68" height="56" rx="8" fill="var(--neutral-200, #e5e7eb)" />
+        <rect x="22" y="28" width="28" height="4" rx="2" fill="var(--neutral-600, #9ca3af)" opacity="0.7" />
+        <rect x="22" y="38" width="40" height="3" rx="1.5" fill="var(--neutral-500, #d1d5db)" opacity="0.5" />
+        <rect x="22" y="46" width="34" height="3" rx="1.5" fill="var(--neutral-500, #d1d5db)" opacity="0.5" />
+        <rect x="22" y="58" width="16" height="8" rx="2" fill="var(--brand-default, #3b82f6)" opacity="0.15" />
+        <circle cx="72" cy="22" r="14" fill="var(--brand-default, #3b82f6)" />
         <path d="M66 22l4 4 8-8" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
-      </template>
+      </g>
 
       <!-- Projects: 文件夹 -->
-      <template v-else-if="scenario === 'projects'">
-        <path d="M16 28a4 4 0 014-4h16l6 6h24a4 4 0 014 4v36a4 4 0 01-4 4H20a4 4 0 01-4-4V28z" :fill="`var(--brand-300)`" opacity="0.3" />
-        <path d="M16 36h64a4 4 0 014 4v28a4 4 0 01-4 4H16a4 4 0 01-4-4V40a4 4 0 014-4z" :fill="`var(--neutral-200)`" />
-        <rect x="22" y="46" width="18" height="4" rx="2" :fill="`var(--neutral-600)`" opacity="0.6" />
-        <rect x="22" y="54" width="30" height="3" rx="1.5" :fill="`var(--neutral-500)`" opacity="0.4" />
-      </template>
+      <g v-else-if="scenario === 'projects'">
+        <path d="M16 28a4 4 0 014-4h16l6 6h24a4 4 0 014 4v36a4 4 0 01-4 4H20a4 4 0 01-4-4V28z" fill="var(--brand-300, #93c5fd)" opacity="0.3" />
+        <path d="M16 36h64a4 4 0 014 4v28a4 4 0 01-4 4H16V36z" fill="var(--neutral-200, #e5e7eb)" />
+        <rect x="22" y="46" width="18" height="4" rx="2" fill="var(--neutral-600, #9ca3af)" opacity="0.6" />
+        <rect x="22" y="54" width="30" height="3" rx="1.5" fill="var(--neutral-500, #d1d5db)" opacity="0.4" />
+      </g>
 
-      <!-- Sprints / Cycles: 循环箭头 -->
-      <template v-else-if="scenario === 'sprints'">
-        <circle cx="48" cy="48" r="28" :fill="`var(--neutral-200)`" />
-        <path d="M48 28a20 20 0 11-14 5.7" :stroke="`var(--brand-default)`" stroke-width="3" fill="none" stroke-linecap="round" />
-        <path d="M32 22l16 6-6 16" :fill="`var(--brand-default)`" />
-      </template>
+      <!-- Sprints: 火山/冲刺 -->
+      <g v-else-if="scenario === 'sprints'">
+        <circle cx="48" cy="56" r="28" fill="var(--neutral-200, #e5e7eb)" />
+        <path d="M32 56l8-16 8 12 6-8 6 8 8-12v24H32z" fill="var(--brand-default, #3b82f6)" opacity="0.3" />
+        <circle cx="68" cy="28" r="12" fill="var(--warning-300, #fcd34d)" opacity="0.4" />
+        <path d="M65 28l3 3 6-6" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+      </g>
+
+      <!-- Modules: 积木/模块 -->
+      <g v-else-if="scenario === 'modules'">
+        <rect x="16" y="40" width="24" height="24" rx="4" fill="var(--brand-200, #bfdbfe)" />
+        <rect x="44" y="40" width="24" height="24" rx="4" fill="var(--success-200, #bbf7d0)" />
+        <rect x="30" y="20" width="24" height="24" rx="4" fill="var(--warning-200, #fde68a)" />
+        <rect x="44" y="56" width="36" height="24" rx="4" fill="var(--neutral-200, #e5e7eb)" opacity="0.6" />
+      </g>
 
       <!-- Search: 放大镜 -->
-      <template v-else-if="scenario === 'search'">
-        <circle cx="44" cy="44" r="24" :fill="`var(--neutral-200)`" />
-        <circle cx="44" cy="44" r="14" :stroke="`var(--neutral-700)`" stroke-width="3" fill="none" />
-        <line x1="54" y1="54" x2="72" y2="72" :stroke="`var(--neutral-700)`" stroke-width="3" stroke-linecap="round" />
-        <!-- 空搜索结果 -->
-        <circle cx="44" cy="44" r="6" :fill="`var(--neutral-500)`" opacity="0.3" />
-      </template>
+      <g v-else-if="scenario === 'search'">
+        <circle cx="44" cy="44" r="20" stroke="var(--neutral-400, #9ca3af)" stroke-width="4" fill="none" />
+        <path d="M58 58l16 16" stroke="var(--neutral-400, #9ca3af)" stroke-width="4" stroke-linecap="round" />
+        <circle cx="44" cy="44" r="8" fill="var(--neutral-200, #e5e7eb)" />
+      </g>
+
+      <!-- Intake/Inbox: 收件箱 -->
+      <g v-else-if="scenario === 'intake' || scenario === 'inbox'">
+        <rect x="16" y="32" width="64" height="40" rx="6" fill="var(--neutral-200, #e5e7eb)" />
+        <path d="M16 32l32 20 32-20" stroke="var(--neutral-400, #9ca3af)" stroke-width="2.5" fill="none" />
+        <path d="M32 20h12l8 12H24z" fill="var(--brand-200, #bfdbfe)" />
+      </g>
 
       <!-- Notifications: 铃铛 -->
-      <template v-else-if="scenario === 'notifications'">
-        <path d="M48 18a20 20 0 0120 20v16l6 8H22l6-8V38a20 20 0 0120-20z" :fill="`var(--neutral-200)`" />
-        <rect x="44" y="10" width="8" height="8" rx="4" :fill="`var(--brand-default)`" opacity="0.6" />
-        <rect x="22" y="62" width="52" height="8" rx="4" :fill="`var(--neutral-300)`" />
-        <circle cx="48" cy="76" r="6" :fill="`var(--neutral-500)`" opacity="0.5" />
-      </template>
+      <g v-else-if="scenario === 'notifications'">
+        <path d="M48 16c-12 0-20 8-20 22v8l-6 8h52l-6-8v-8c0-14-8-22-20-22z" fill="var(--neutral-200, #e5e7eb)" />
+        <rect x="44" y="10" width="8" height="12" rx="4" fill="var(--brand-default, #3b82f6)" opacity="0.6" />
+        <ellipse cx="48" cy="76" rx="10" ry="4" fill="var(--neutral-300, #d1d5db)" />
+      </g>
 
       <!-- Labels: 标签 -->
-      <template v-else-if="scenario === 'labels'">
-        <path d="M20 28a8 8 0 018-8h32l16 16v28a8 8 0 01-8 8H28l-16-16V28z" :fill="`var(--extended-color-indigo-50, #eef2fe)`" />
-        <circle cx="32" cy="44" r="5" :fill="`var(--extended-color-indigo-700, #4f46e5)`" opacity="0.6" />
-      </template>
+      <g v-else-if="scenario === 'labels'">
+        <path d="M20 28l20-12 32 12v32l-32 16-20-16z" fill="var(--neutral-200, #e5e7eb)" />
+        <circle cx="36" cy="44" r="6" fill="var(--brand-default, #3b82f6)" opacity="0.5" />
+      </g>
 
       <!-- Members: 人群 -->
-      <template v-else-if="scenario === 'members'">
-        <circle cx="40" cy="32" r="10" :fill="`var(--neutral-300)`" />
-        <circle cx="60" cy="36" r="8" :fill="`var(--neutral-300)`" opacity="0.8" />
-        <circle cx="32" cy="40" r="7" :fill="`var(--neutral-300)`" opacity="0.6" />
-        <path d="M18 68c0-12 10-20 22-20s22 8 22 20" :fill="`var(--neutral-200)`" />
-        <path d="M50 68c0-8 6-14 14-14s14 6 14 14" :fill="`var(--neutral-200)`" opacity="0.8" />
-      </template>
+      <g v-else-if="scenario === 'members'">
+        <circle cx="36" cy="32" r="10" fill="var(--brand-200, #bfdbfe)" />
+        <circle cx="60" cy="32" r="10" fill="var(--success-200, #bbf7d0)" />
+        <circle cx="48" cy="48" r="10" fill="var(--warning-200, #fde68a)" />
+        <path d="M20 72c0-10 8-18 18-18s18 8 18 18" stroke="var(--neutral-300, #d1d5db)" stroke-width="3" fill="none" />
+        <path d="M52 72c0-10 8-18 18-18s18 8 18 18" stroke="var(--neutral-300, #d1d5db)" stroke-width="3" fill="none" />
+      </g>
 
       <!-- Analytics: 图表 -->
-      <template v-else-if="scenario === 'analytics'">
-        <rect x="14" y="60" width="12" height="20" rx="2" :fill="`var(--neutral-400)`" opacity="0.4" />
-        <rect x="30" y="48" width="12" height="32" rx="2" :fill="`var(--neutral-400)`" opacity="0.5" />
-        <rect x="46" y="36" width="12" height="44" rx="2" :fill="`var(--brand-default)`" opacity="0.4" />
-        <rect x="62" y="44" width="12" height="36" rx="2" :fill="`var(--neutral-400)`" opacity="0.5" />
-        <rect x="74" y="28" width="12" height="52" rx="2" :fill="`var(--brand-default)`" opacity="0.6" />
-      </template>
+      <g v-else-if="scenario === 'analytics'">
+        <rect x="20" y="56" width="10" height="20" rx="2" fill="var(--brand-default, #3b82f6)" opacity="0.6" />
+        <rect x="36" y="44" width="10" height="32" rx="2" fill="var(--brand-default, #3b82f6)" opacity="0.4" />
+        <rect x="52" y="34" width="10" height="42" rx="2" fill="var(--brand-default, #3b82f6)" opacity="0.7" />
+        <rect x="68" y="48" width="10" height="28" rx="2" fill="var(--brand-default, #3b82f6)" opacity="0.5" />
+      </g>
 
-      <!-- Views: 看板 -->
-      <template v-else-if="scenario === 'views'">
-        <rect x="12" y="22" width="20" height="52" rx="4" :fill="`var(--neutral-200)`" />
-        <rect x="38" y="22" width="20" height="52" rx="4" :fill="`var(--neutral-200)`" opacity="0.8" />
-        <rect x="64" y="22" width="20" height="52" rx="4" :fill="`var(--neutral-200)`" opacity="0.6" />
-        <rect x="16" y="30" width="12" height="3" rx="1.5" :fill="`var(--neutral-600)`" opacity="0.4" />
-        <rect x="16" y="38" width="10" height="3" rx="1.5" :fill="`var(--neutral-500)`" opacity="0.3" />
-        <rect x="42" y="30" width="12" height="3" rx="1.5" :fill="`var(--neutral-600)`" opacity="0.4" />
-      </template>
-
-      <!-- Intake / Inbox: 收件箱 -->
-      <template v-else-if="scenario === 'intake' || scenario === 'inbox'">
-        <rect x="20" y="32" width="56" height="40" rx="6" :fill="`var(--neutral-200)`" />
-        <path d="M20 36l20 16a8 8 0 008 0l20-16" :stroke="`var(--neutral-500)`" stroke-width="2" fill="none" />
-        <path d="M10 42l8 4 30-24 30 24 8-4" :stroke="`var(--brand-default)`" stroke-width="1.5" fill="none" opacity="0.4" stroke-dasharray="4 3" />
-      </template>
+      <!-- Views: 视图/网格 -->
+      <g v-else-if="scenario === 'views'">
+        <rect x="16" y="20" width="28" height="24" rx="4" fill="var(--neutral-200, #e5e7eb)" />
+        <rect x="52" y="20" width="28" height="24" rx="4" fill="var(--neutral-200, #e5e7eb)" />
+        <rect x="16" y="52" width="28" height="24" rx="4" fill="var(--brand-200, #bfdbfe)" />
+        <rect x="52" y="52" width="28" height="24" rx="4" fill="var(--neutral-200, #e5e7eb)" />
+      </g>
 
       <!-- API Token: 钥匙 -->
-      <template v-else-if="scenario === 'api-token'">
-        <circle cx="56" cy="34" r="14" :stroke="`var(--neutral-400)`" stroke-width="4" fill="none" />
-        <rect x="30" y="44" width="36" height="8" rx="2" transform="rotate(-45 30 44)" :fill="`var(--neutral-400)`" />
-        <circle cx="50" cy="34" r="4" :fill="`var(--neutral-300)`" />
-      </template>
+      <g v-else-if="scenario === 'api-token'">
+        <circle cx="36" cy="44" r="14" stroke="var(--neutral-400, #9ca3af)" stroke-width="4" fill="none" />
+        <path d="M46 54l30 30" stroke="var(--neutral-400, #9ca3af)" stroke-width="4" stroke-linecap="round" />
+        <path d="M70 70l-6 6M76 76l-6 6" stroke="var(--neutral-400, #9ca3af)" stroke-width="3" stroke-linecap="round" />
+      </g>
 
-      <!-- Webhooks: 连接 -->
-      <template v-else-if="scenario === 'webhooks'">
-        <circle cx="28" cy="48" r="10" :fill="`var(--brand-300)`" opacity="0.3" />
-        <circle cx="68" cy="48" r="10" :fill="`var(--brand-300)`" opacity="0.3" />
-        <path d="M38 48h20" :stroke="`var(--brand-default)`" stroke-width="2" stroke-dasharray="4 3" />
-        <path d="M35 44l-6 4 6 4" :fill="`var(--brand-default)`" />
-        <path d="M61 44l6 4-6 4" :fill="`var(--brand-default)`" />
-      </template>
+      <!-- Webhooks: 钩子/链接 -->
+      <g v-else-if="scenario === 'webhooks'">
+        <rect x="16" y="36" width="28" height="24" rx="4" fill="var(--neutral-200, #e5e7eb)" />
+        <rect x="52" y="36" width="28" height="24" rx="4" fill="var(--neutral-200, #e5e7eb)" />
+        <path d="M44 48h8" stroke="var(--brand-default, #3b82f6)" stroke-width="3" stroke-linecap="round" stroke-dasharray="2 3" />
+        <circle cx="44" cy="48" r="4" fill="var(--brand-default, #3b82f6)" opacity="0.4" />
+        <circle cx="52" cy="48" r="4" fill="var(--brand-default, #3b82f6)" opacity="0.4" />
+      </g>
 
-      <!-- Modules: 模块 -->
-      <template v-else-if="scenario === 'modules'">
-        <rect x="12" y="16" width="32" height="24" rx="4" :fill="`var(--neutral-200)`" />
-        <rect x="52" y="16" width="32" height="24" rx="4" :fill="`var(--neutral-200)`" opacity="0.7" />
-        <rect x="12" y="56" width="32" height="24" rx="4" :fill="`var(--neutral-200)`" opacity="0.8" />
-        <rect x="52" y="56" width="32" height="24" rx="4" :fill="`var(--neutral-200)`" opacity="0.6" />
-        <path d="M44 28h8" :stroke="`var(--neutral-400)`" stroke-width="2" stroke-linecap="round" />
-        <path d="M28 48v8M68 48v8M44 68h8" :stroke="`var(--neutral-400)`" stroke-width="2" stroke-linecap="round" />
-      </template>
+      <!-- Default fallback: simple box -->
+      <g v-else>
+        <circle cx="48" cy="48" r="32" fill="var(--neutral-200, #e5e7eb)" />
+        <rect x="32" y="40" width="32" height="4" rx="2" fill="var(--neutral-500, #9ca3af)" opacity="0.5" />
+        <rect x="36" y="48" width="24" height="3" rx="1.5" fill="var(--neutral-400, #d1d5db)" opacity="0.4" />
+      </g>
+    </svg>
 
-      <!-- Error: 警告 -->
-      <template v-else-if="scenario === 'error'">
-        <circle cx="48" cy="48" r="36" :fill="`var(--red-100)`" />
-        <path d="M48 30v22" :stroke="`var(--red-600)`" stroke-width="4" stroke-linecap="round" />
-        <circle cx="48" cy="62" r="3" :fill="`var(--red-600)`" />
-      </template>
-    </component>
-
-    <!-- Error inline SVG fallback -->
+    <!-- Error 插画 -->
     <svg
       v-else-if="scenario === 'error'"
       class="app-empty__illustration"
@@ -296,63 +279,41 @@ import { computed } from "vue"
       viewBox="0 0 96 96"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
     >
-      <circle cx="48" cy="48" r="36" :fill="`var(--red-100)`" />
-      <path d="M48 30v22" :stroke="`var(--red-600)`" stroke-width="4" stroke-linecap="round" />
-      <circle cx="48" cy="62" r="3" :fill="`var(--red-600)`" />
+      <circle cx="48" cy="48" r="40" fill="var(--danger-50, #fef2f2)" />
+      <path d="M48 28v24" stroke="var(--danger-500, #ef4444)" stroke-width="5" stroke-linecap="round" />
+      <circle cx="48" cy="66" r="3" fill="var(--danger-500, #ef4444)" />
     </svg>
 
-    <!-- 文案 -->
-    <p class="app-empty__title">{{ resolvedTitle }}</p>
-    <p v-if="resolvedDescription" class="app-empty__description">{{ resolvedDescription }}</p>
+    <!-- 标题与描述 -->
+    <h3 class="app-empty__title">{{ resolvedTitle }}</h3>
+    <p v-if="resolvedDescription" class="app-empty__desc">{{ resolvedDescription }}</p>
 
-    <!-- 插槽: 自定义 CTA / 按钮区 -->
+    <!-- 默认插槽（自定义内容） -->
+    <div v-if="$slots.default" class="app-empty__content">
+      <slot />
+    </div>
+
+    <!-- CTA 按钮 -->
     <div class="app-empty__actions">
-      <slot>
-        <AppButton
-          v-if="scenario !== 'default' && scenario !== 'search' && scenario !== 'error'"
-          variant="primary"
-          size="sm"
-          @click="emit('cta-click')"
-        >
-          {{ ctaLabelMap[scenario] ?? "开始创建" }}
-        </AppButton>
-        <AppButton
-          v-if="scenario === 'error'"
-          variant="secondary"
-          size="sm"
-          @click="emit('secondary-click')"
-        >
-          重试
-        </AppButton>
-      </slot>
+      <button
+        v-if="$slots.cta"
+        class="app-empty__cta"
+        @click="emit('cta-click')"
+      >
+        <slot name="cta" />
+      </button>
+      <button
+        v-if="$slots.secondary"
+        class="app-empty__cta app-empty__cta--secondary"
+        @click="emit('secondary-click')"
+      >
+        <slot name="secondary" />
+      </button>
     </div>
   </div>
 </template>
-
-<script lang="ts">
-// CTA 标签映射
-import AppButton from "./AppButton.vue"
-
-export const ctaLabelMap: Record<EmptyScenario, string> = {
-  default: "开始创建",
-  issues: "创建工作项",
-  projects: "创建项目",
-  sprints: "规划迭代",
-  modules: "创建模块",
-  search: "",
-  intake: "",
-  notifications: "",
-  labels: "创建标签",
-  members: "邀请成员",
-  analytics: "",
-  views: "创建视图",
-  inbox: "",
-  "api-token": "创建令牌",
-  webhooks: "配置 Webhook",
-  error: "",
-}
-</script>
 
 <style scoped>
 .app-empty {
@@ -362,60 +323,75 @@ export const ctaLabelMap: Record<EmptyScenario, string> = {
   justify-content: center;
   padding: 48px 24px;
   text-align: center;
-  gap: 8px;
 }
 
-.app-empty--sm { padding: 24px 16px; gap: 6px; }
-.app-empty--md { padding: 48px 24px; gap: 8px; }
-.app-empty--lg { padding: 64px 32px; gap: 12px; }
+.app-empty--sm { padding: 32px 16px; }
+.app-empty--md { padding: 48px 24px; }
+.app-empty--lg { padding: 64px 32px; }
 
 .app-empty__emoji {
-  font-size: 32px;
-  margin-bottom: 4px;
-  line-height: 1;
+  font-size: 48px;
+  margin-bottom: 12px;
 }
-
-.app-empty--sm .app-empty__emoji { font-size: 24px; }
-.app-empty--md .app-empty__emoji { font-size: 32px; }
-.app-empty--lg .app-empty__emoji { font-size: 40px; }
 
 .app-empty__illustration {
-  margin-bottom: 8px;
-  flex-shrink: 0;
+  margin-bottom: 16px;
 }
 
-.app-empty--sm .app-empty__illustration { margin-bottom: 4px; }
-.app-empty--lg .app-empty__illustration { margin-bottom: 12px; }
+.app-empty--sm .app-empty__illustration { width: 64px; height: 64px; }
+.app-empty--md .app-empty__illustration { width: 96px; height: 96px; }
+.app-empty--lg .app-empty__illustration { width: 128px; height: 128px; }
 
 .app-empty__title {
-  margin: 0;
-  font-size: 15px;
-  color: var(--txt-secondary);
-  font-weight: 500;
-  line-height: 1.4;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--txt-primary, var(--text-primary, #1f2937));
+  margin: 0 0 8px;
 }
 
-.app-empty--sm .app-empty__title { font-size: 13px; }
-.app-empty--lg .app-empty__title { font-size: 17px; }
-
-.app-empty__description {
-  margin: 0;
+.app-empty__desc {
   font-size: 13px;
-  color: var(--txt-tertiary);
-  max-width: 320px;
+  color: var(--txt-tertiary, var(--text-tertiary, #9ca3af));
+  margin: 0 0 16px;
   line-height: 1.5;
+  max-width: 320px;
 }
 
-.app-empty--sm .app-empty__description { font-size: 12px; max-width: 260px; }
-.app-empty--lg .app-empty__description { font-size: 14px; max-width: 380px; }
+.app-empty__content {
+  margin-bottom: 12px;
+}
 
 .app-empty__actions {
-  margin-top: 16px;
   display: flex;
   gap: 8px;
-  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
 }
 
-.app-empty--sm .app-empty__actions { margin-top: 10px; }
-.app-empty--lg .app-empty__actions { margin-top: 20px; }
+.app-empty__cta {
+  padding: 6px 14px;
+  border-radius: var(--radius-sm, 6px);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid var(--border-default);
+  background: var(--bg-surface-1, var(--surface-1, #fff));
+  color: var(--txt-primary);
+  transition: all 0.15s;
+  font-family: inherit;
+}
+
+.app-empty__cta:hover {
+  background: var(--bg-surface-2, var(--surface-2, #f9fafb));
+}
+
+.app-empty__cta--secondary {
+  background: transparent;
+  border-color: transparent;
+  color: var(--txt-secondary, var(--text-secondary, #6b7280));
+}
+
+.app-empty__cta--secondary:hover {
+  background: var(--bg-surface-2);
+}
 </style>

@@ -18,6 +18,7 @@ import { useWorkspaceStore } from "@/stores/workspace";
 import { useNotificationStore } from "@/stores/notification";
 import { wsClient } from "@/lib/ws-client";
 import NotificationBell from "@/components/NotificationBell.vue";
+import { IssuePeekOverview } from "@/components";
 
 const route = useRoute();
 const router = useRouter();
@@ -335,6 +336,9 @@ onMounted(bootstrap);
         <router-view />
       </main>
     </div>
+
+    <!-- 全局 Issue Peek Overview 抽屉 -->
+    <IssuePeekOverview />
   </div>
 </template>
 

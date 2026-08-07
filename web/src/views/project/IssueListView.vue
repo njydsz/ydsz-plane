@@ -4,18 +4,19 @@
  * 支持: 服务端排序 / 分页 / 列过滤 / 批量选择与删除。
  */
 import { computed, onMounted, ref } from "vue";
-import { useRoute, useRouter } from "vue-router";
+import { useRoute } from "vue-router";
 
 import { type IssueType, type ListIssuesParams, type State, issueApi } from "@/api/services/issue";
 import { workspaceApi } from "@/api/services/workspace";
 import { useIssueStore } from "@/stores/issue";
+import { usePeekStore } from "@/stores/peek";
 import { prefs } from "@/lib/prefs";
 import IssueFilter from "./IssueFilter.vue";
 import { AppLoadingState, AppErrorState, AppEmptyState } from "@/components";
 
 const route = useRoute();
-const router = useRouter();
 const issueStore = useIssueStore();
+const peek = usePeekStore();
 
 // ---- 状态 ----
 const projectId = computed(() => Number(route.params.projectId));
@@ -128,7 +129,8 @@ function goToPage(p: number) {
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / perPage.value)));
 
 function openIssue(issueId: number) {
-  router.push(`/${route.params.workspaceSlug}/projects/${projectId.value}/issues/${issueId}`);
+  // 单击打开 Peek 预览抽屉；抽屉内有「打开详情」按钮执行路由跳转
+  peek.open(String(route.params.workspaceSlug), projectId.value, issueId);
 }
 
 function toggleSelect(issueId: number) {

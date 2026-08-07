@@ -7,7 +7,6 @@ import Italic from "@tiptap/extension-italic"
 import Underline from "@tiptap/extension-underline"
 import Strike from "@tiptap/extension-strike"
 import Code from "@tiptap/extension-code"
-import Highlight from "@tiptap/extension-highlight"
 
 /** 全量格式化扩展 */
 export const formattingExtensions = [
@@ -16,12 +15,11 @@ export const formattingExtensions = [
   Underline,
   Strike,
   Code,
-  Highlight.configure({ multicolor: true }),
 ]
 
-/** 精简格式化（不含高亮） */
+/** 精简格式化 */
 export function formattingBasic() {
   return [Bold, Italic, Underline, Strike, Code]
 }
 
-export { Bold, Italic, Underline, Strike, Code, Highlight }
+export { Bold, Italic, Underline, Strike, Code }
