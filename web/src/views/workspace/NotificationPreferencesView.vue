@@ -64,6 +64,24 @@ function toggleEvent(value: string) {
   pref.value.event_types = arr;
 }
 
+function toggleChannel(value: string) {
+  if (!pref.value) return;
+  // 始终保留 "in_app"（站内信不可取消）
+  const arr = pref.value.channels?.filter((c: string) => c !== "in_app") ?? [];
+  const idx = arr.indexOf(value);
+  if (idx >= 0) {
+    arr.splice(idx, 1);
+  } else {
+    arr.push(value);
+  }
+  pref.value.channels = ["in_app", ...arr];
+}
+
+function isChannelOn(value: string): boolean {
+  if (!pref.value) return value === "in_app";
+  return (pref.value.channels ?? []).includes(value);
+}
+
 function isEventOn(value: string): boolean {
   // 空数组 = 全部启用
   if (!pref.value) return false;
@@ -153,6 +171,38 @@ onMounted(load);
         <p class="notification-prefs__hint">
           站内信（铃铛）始终保留；选择摘要后，即时渠道消息将聚合后按周期送达。
         </p>
+
+        <!-- 通知渠道 -->
+        <div class="notification-prefs__channels">
+          <div class="notification-prefs__channels-header">
+            <span class="notification-prefs__channels-title">通知渠道</span>
+            <span class="notification-prefs__channels-subtitle">勾选后渠道将同步推送</span>
+          </div>
+          <div class="notification-prefs__grid notification-prefs__grid--channels">
+            <label class="notification-prefs__checkbox notification-prefs__checkbox--disabled">
+              <input type="checkbox" checked disabled />
+              <span>站内信</span>
+              <span class="notification-prefs__channel-hint">始终开启</span>
+            </label>
+            <label class="notification-prefs__checkbox">
+              <input type="checkbox" :checked="isChannelOn('email')" @change="toggleChannel('email')" />
+              <span>邮件</span>
+            </label>
+            <label class="notification-prefs__checkbox">
+              <input type="checkbox" :checked="isChannelOn('wecom')" @change="toggleChannel('wecom')" />
+              <span>企业微信</span>
+              <span class="notification-prefs__channel-hint">需要配置 webhook</span>
+            </label>
+            <label class="notification-prefs__checkbox">
+              <input type="checkbox" :checked="isChannelOn('dingtalk')" @change="toggleChannel('dingtalk')" />
+              <span>钉钉</span>
+            </label>
+            <label class="notification-prefs__checkbox">
+              <input type="checkbox" :checked="isChannelOn('feishu')" @change="toggleChannel('feishu')" />
+              <span>飞书</span>
+            </label>
+          </div>
+        </div>
       </div>
 
       <!-- 免打扰 -->
@@ -310,6 +360,45 @@ onMounted(load);
   border: 1px solid var(--border-default, #d1d5db);
   border-radius: var(--radius-sm, 6px);
   outline: none;
+}
+
+/* ===== Channel subscription ===== */
+.notification-prefs__channels {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-subtle, #e5e7eb);
+}
+
+.notification-prefs__channels-header {
+  margin-bottom: 12px;
+}
+
+.notification-prefs__channels-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary, #1f2937);
+}
+
+.notification-prefs__channels-subtitle {
+  display: block;
+  font-size: 11px;
+  color: var(--text-tertiary, #9ca3af);
+  margin-top: 2px;
+}
+
+.notification-prefs__grid--channels {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.notification-prefs__checkbox--disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.notification-prefs__channel-hint {
+  font-size: 10px;
+  color: var(--text-tertiary, #9ca3af);
+  margin-left: auto;
 }
 
 .notification-prefs__dnd {

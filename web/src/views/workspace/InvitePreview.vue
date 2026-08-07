@@ -54,12 +54,8 @@ onMounted(load);
 
 <template>
   <div class="invite-page">
-    <div v-if="loading" class="card">加载中...</div>
-    <div v-else-if="error" class="card card--error">
-      <h2>邀请不可用</h2>
-      <p>{{ error }}</p>
-      <button class="btn btn--primary" @click="router.push('/')">返回工作空间</button>
-    </div>
+    <AppLoadingState v-if="loading" text="加载邀请信息..." />
+    <AppErrorState v-else-if="error" :message="error" @retry="load" />
     <div v-else-if="preview" class="card">
       <div class="card__header">
         <h1>加入「{{ preview.workspace_name }}」</h1>

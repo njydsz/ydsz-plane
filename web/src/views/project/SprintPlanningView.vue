@@ -22,6 +22,7 @@ import {
   type SprintIssueView,
 } from "@/api/services/sprint";
 import { useWorkspaceContext } from "@/composables/useWorkspaceContext";
+import { AppLoadingState, AppErrorState } from "@/components";
 
 /* ------------------------------------------------------------------ */
 /* 路由上下文                                                           */
@@ -269,8 +270,8 @@ function openSprint(sp: Sprint) {
       </div>
     </header>
 
-    <div v-if="loading" class="state" role="status">加载中...</div>
-    <div v-else-if="error" class="state state-error" role="alert">{{ error }}</div>
+    <AppLoadingState v-if="loading" />
+    <AppErrorState v-else-if="error" :message="error" @retry="loadAll" />
 
     <div v-else class="content">
       <!-- 左：Backlog -->

@@ -621,7 +621,7 @@ func resolveTemplate(tpl string, ctx *ExecutionContext) string {
 // resolveAssignTarget: 解析 assign 动作的目标用户。
 func resolveAssignTarget(act Action, ctx *ExecutionContext) (int64, error) {
 	if act.Value != nil {
-		if uid, err := toFloat64(act.Value); err == nil {
+		if uid, ok := toFloat64(act.Value); ok {
 			return int64(uid), nil
 		}
 	}

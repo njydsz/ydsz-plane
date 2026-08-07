@@ -12,6 +12,7 @@ import { useIssueStore } from "@/stores/issue";
 import { prefs } from "@/lib/prefs";
 import { toast } from "@/lib/toast";
 import IssueCreateModal from "./IssueCreateModal.vue";
+import { AppLoadingState, AppErrorState, AppEmptyState } from "@/components";
 
 const route = useRoute();
 const router = useRouter();
@@ -206,8 +207,11 @@ onMounted(() => {
       </div>
     </header>
 
-    <div v-if="loading" class="loading">加载中...</div>
-    <div v-else-if="error" class="error">{{ error }}</div>
+    <AppLoadingState v-if="loading" />
+    <AppErrorState v-else-if="error" :message="error" @retry="load" />
+    <AppEmptyState v-else-if="issueStore.issues.length === 0" icon="📋" title="暂无工作项" description="创建或拖拽工作项到此看板">
+      <button class="btn btn--primary" @click="showCreateModal = true">+ 创建工作项</button>
+    </AppEmptyState>
 
     <div v-else class="kanban__board">
       <div

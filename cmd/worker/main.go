@@ -17,10 +17,11 @@ import (
 
 	"go.uber.org/zap"
 
-	notif "github.com/njydsz/ydsz-plane/internal/application/notification"
+	notifApp "github.com/njydsz/ydsz-plane/internal/application/notification"
 	"github.com/njydsz/ydsz-plane/internal/application/sprint"
 	"github.com/njydsz/ydsz-plane/internal/config"
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/events"
+	"github.com/njydsz/ydsz-plane/internal/infrastructure/mail"
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/mq"
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/persistence"
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/telemetry"
@@ -105,13 +106,13 @@ func run() error {
 
 	worker.Register("notifications.send", func(ctx context.Context, task mq.Task) error {
 		// 兼容直接通过 TaskExchange 投递的通知任务
-		var input notif.CreateNotificationInput
+		var input notifApp.CreateNotificationInput
 		if err := json.Unmarshal(task.Payload, &input); err != nil {
 			log.Warn("task: notifications.send: bad payload",
 				zap.String("id", task.ID), zap.Error(err))
 			return nil // 格式错误不重试
 		}
-		svc := notif.NewService(pool.Pool)
+		svc := notifApp.NewService(pool.Pool)
 		if _, err := svc.Create(ctx, input); err != nil {
 			return fmt.Errorf("notifications.send: create: %w", err)
 		}
@@ -123,7 +124,7 @@ func run() error {
 	// 消费 EventExchange 上的 issue.* 和 comment.* 事件，
 	// 根据事件类型与 payload 创建对应的站内通知。
 	// 独立于 Task-based 投递通道，直接订阅事件总线以获得更低延迟。
-	go notif.RunConsumer(ctx, mqClient, pool.Pool, log)
+	go notifApp.RunConsumer(ctx, mqClient, pool.Pool, log)
 	worker.Register("webhook.deliver", func(ctx context.Context, task mq.Task) error {
 		log.Info("task: webhook.deliver", zap.String("id", task.ID))
 		return nil
@@ -136,6 +137,25 @@ func run() error {
 		log.Info("task: automation.evaluate", zap.String("id", task.ID))
 		return nil
 	})
+
+	// ----- 通知多渠道分发 Worker -----
+	//
+	// 每 30s 轮询 notification_deliveries 表中 pending 记录，
+	// 按 channel 投递 email / wecom / dingtalk / feishu，失败指数退避重试。
+	var mailSvc mail.EmailService
+	if cfg.Email.Enabled {
+		mailSvc = mail.NewSmtpService(mail.SmtpConfig{
+			Host:     cfg.Email.Host,
+			Port:     cfg.Email.Port,
+			Username: cfg.Email.Username,
+			Password: cfg.Email.Password,
+			From:     cfg.Email.From,
+			UseTLS:   cfg.Email.UseTLS,
+		})
+	} else {
+		mailSvc = mail.NewNoopService(0)
+	}
+	go notifApp.StartDispatchWorker(ctx, pool.Pool, mailSvc, cfg.Email.AppBaseURL, log)
 
 	// ----- Sprint 每日快照定时任务（幂等） -----
 	//

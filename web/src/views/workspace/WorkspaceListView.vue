@@ -58,12 +58,15 @@ defineExpose({ roleLabel });
       <button class="btn btn--primary" @click="showCreate = true">创建工作空间</button>
     </header>
 
-    <div v-if="loading" class="loading">加载中...</div>
-    <div v-else-if="error" class="error">{{ error }}</div>
-    <div v-else-if="workspaces.length === 0" class="empty">
-      <p>您还没有加入任何工作空间</p>
+    <AppLoadingState v-if="loading" />
+    <AppErrorState v-else-if="error" :message="error" @retry="load" />
+    <AppEmptyState
+      v-else-if="workspaces.length === 0"
+      title="暂无工作空间"
+      description="创建或加入一个工作空间"
+    >
       <button class="btn btn--primary" @click="showCreate = true">创建工作空间</button>
-    </div>
+    </AppEmptyState>
     <div v-else class="ws-grid">
       <div
         v-for="ws in workspaces"

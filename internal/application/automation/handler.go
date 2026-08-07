@@ -3,6 +3,7 @@ package automation
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 
@@ -105,7 +106,7 @@ func (h *Handler) List(c *gin.Context) {
 func (h *Handler) Create(c *gin.Context) {
 	var req createRuleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.AbortWithError(c, errs.ErrValidation.WithDetails(err.Error()))
+		middleware.AbortWithError(c, errs.ErrValidation.WithDetails(errs.FieldDetail{Field: "body", Reason: err.Error()}))
 		return
 	}
 
@@ -148,7 +149,7 @@ func (h *Handler) Create(c *gin.Context) {
 func (h *Handler) CreateFromTemplate(c *gin.Context) {
 	var req createFromTemplateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.AbortWithError(c, errs.ErrValidation.WithDetails(err.Error()))
+		middleware.AbortWithError(c, errs.ErrValidation.WithDetails(errs.FieldDetail{Field: "body", Reason: err.Error()}))
 		return
 	}
 
@@ -221,7 +222,7 @@ func (h *Handler) Update(c *gin.Context) {
 
 	var req updateRuleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.AbortWithError(c, errs.ErrValidation.WithDetails(err.Error()))
+		middleware.AbortWithError(c, errs.ErrValidation.WithDetails(errs.FieldDetail{Field: "body", Reason: err.Error()}))
 		return
 	}
 
@@ -295,7 +296,7 @@ func (h *Handler) Toggle(c *gin.Context) {
 
 	var req toggleRuleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.AbortWithError(c, errs.ErrValidation.WithDetails(err.Error()))
+		middleware.AbortWithError(c, errs.ErrValidation.WithDetails(errs.FieldDetail{Field: "body", Reason: err.Error()}))
 		return
 	}
 
@@ -328,7 +329,7 @@ func (h *Handler) Toggle(c *gin.Context) {
 func (h *Handler) DryRun(c *gin.Context) {
 	var req dryRunRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.AbortWithError(c, errs.ErrValidation.WithDetails(err.Error()))
+		middleware.AbortWithError(c, errs.ErrValidation.WithDetails(errs.FieldDetail{Field: "body", Reason: err.Error()}))
 		return
 	}
 
@@ -445,13 +446,11 @@ func writeError(c *gin.Context, err error) {
 }
 
 func parseInt64Param(c *gin.Context, name string) (int64, error) {
-	return parseInt(c.Param(name))
-}
-
-func parseInt(s string) (int, error) {
-	var v int
-	_, err := fmt.Sscanf(s, "%d", &v)
-	return v, err
+	v, err := strconv.ParseInt(c.Param(name), 10, 64)
+	if err != nil {
+		return 0, err
+	}
+	return v, nil
 }
 
 func min(a, b int) int {

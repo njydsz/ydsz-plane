@@ -12,6 +12,7 @@ import { useRoute, useRouter } from "vue-router";
 
 import { sprintApi, type Sprint, type SprintIssueView } from "@/api/services/sprint";
 import { workspaceApi } from "@/api/services/workspace";
+import { AppLoadingState, AppErrorState, AppEmptyState } from "@/components";
 
 const route = useRoute();
 const router = useRouter();
@@ -188,19 +189,11 @@ onMounted(load);
     </header>
 
     <!-- 状态：加载 / 错误 / 空 -->
-    <div v-if="loading" class="center-message">
-      <div class="skeleton-line" v-for="i in 4" :key="i" :style="{ width: (80 - i * 10) + '%' }"></div>
-    </div>
-    <div v-else-if="error" class="center-message error">
-      <p>{{ error }}</p>
-      <button class="btn btn-secondary" @click="load">重试</button>
-    </div>
-    <div v-else-if="!sprint || issues.length === 0" class="center-message empty">
-      <p>该迭代暂无工作项。</p>
-      <button class="btn btn-secondary" @click="router.push(`/${workspaceSlug}/projects/${projectId}/sprints/planning`)">
-        前往排期规划
-      </button>
-    </div>
+    <AppLoadingState v-if="loading" />
+    <AppErrorState v-else-if="error" :message="error" @retry="load" />
+    <AppEmptyState v-else-if="!sprint || issues.length === 0" title="该迭代暂无工作项" description="前往排期规划页添加工作项">
+      <button class="btn btn-secondary" @click="router.push(`/${workspaceSlug}/projects/${projectId}/sprints/planning`)">前往排期规划</button>
+    </AppEmptyState>
 
     <!-- 三栏分组视图 -->
     <div v-else class="columns">
