@@ -116,7 +116,6 @@ CREATE OR REPLACE FUNCTION fn_refresh_search_document()
 RETURNS TRIGGER AS $$
 DECLARE
     v_title TEXT;
-    v_identifier TEXT;
     v_content TEXT;
     v_metadata JSONB;
 BEGIN
@@ -124,7 +123,6 @@ BEGIN
     CASE TG_TABLE_NAME
         WHEN 'issues' THEN
             v_title := COALESCE(NEW.name, '');
-            v_identifier := COALESCE(NEW.identifier, '');
             v_content := COALESCE(NEW.description_stripped, '');
             v_metadata := jsonb_build_object(
                 'type_code', NEW.type_code,
@@ -134,9 +132,8 @@ BEGIN
             INSERT INTO search_documents (workspace_id, project_id, doc_type, doc_id, title, identifier, content, search_tsv, metadata)
             VALUES (
                 NEW.workspace_id, NEW.project_id, 'issue', NEW.id,
-                v_title, v_identifier, v_content,
+                v_title, NEW.sequence_id::text, v_content,
                 to_tsvector('simple',
-                    coalesce(v_identifier, '') || ' ' ||
                     coalesce(v_title, '') || ' ' ||
                     coalesce(v_content, '')
                 ),
@@ -159,7 +156,7 @@ $$ LANGUAGE plpgsql;
 
 -- 工作项创建/更新时自动同步搜索文档
 CREATE TRIGGER trg_issue_search_sync
-    AFTER INSERT OR UPDATE OF name, description_stripped, identifier ON issues
+    AFTER INSERT OR UPDATE OF name, description_stripped ON issues
     FOR EACH ROW
     WHEN (NEW.deleted_at IS NULL)
     EXECUTE FUNCTION fn_refresh_search_document();
