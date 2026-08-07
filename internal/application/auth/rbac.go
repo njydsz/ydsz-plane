@@ -41,6 +41,8 @@ const (
 	PermVersionUpdate = "version:update"
 	// 自动化管理（S11）
 	PermProjectAutomation = "project:automation"
+	// 效能度量（S11）
+	PermProjectAnalytics = "project:analytics"
 )
 
 /* ------------------------------------------------------------------ */
@@ -88,7 +90,7 @@ var Roles = map[WorkspaceRole][]string{
 		PermAuditRead,
 		PermIssueCreate, PermIssueDelete,
 		PermVersionCreate, PermVersionRelease, PermVersionDelete, PermVersionUpdate,
-		PermProjectAutomation,
+		PermProjectAutomation, PermProjectAnalytics,
 	},
 	RoleAdmin: {
 		PermWorkspaceRead, PermWorkspaceUpdate,
@@ -97,11 +99,12 @@ var Roles = map[WorkspaceRole][]string{
 		PermAuditRead,
 		PermIssueCreate, PermIssueDelete,
 		PermVersionCreate, PermVersionRelease, PermVersionDelete, PermVersionUpdate,
-		PermProjectAutomation,
+		PermProjectAutomation, PermProjectAnalytics,
 	},
 	RoleMember: {
 		PermWorkspaceRead,
 		PermProjectCreate,
+		PermProjectAnalytics,
 		PermIssueCreate,
 		PermVersionCreate, PermVersionUpdate,
 	},

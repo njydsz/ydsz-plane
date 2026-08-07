@@ -71,12 +71,36 @@ openapi:
 reindex:
 	go run ./scripts/reindex
 
-# 性能压测：需 k6 已安装且后端已启动并 seed
-perf:
-	k6 run scripts/k6/smoke.js
+# 性能压测：需 k6 已安装且后端已启动并 seed（脚本位于 tests/perf/）
+# 用法：
+#   make perf-smoke                      # 冒烟：核心端点可用性
+#   make perf-load                       # 负载：10→100 VU，断言 P95<200ms
+#   make perf-stress                     # 压力：200 VU 恒定 3 分钟
+# 可用环境变量：BASE_URL / TEST_USER_EMAIL / TEST_USER_PASSWORD
+perf-smoke:
+	k6 run -e BASE_URL=$(or $(BASE_URL),http://127.0.0.1:8080/api/v1) \
+		-e TEST_USER_EMAIL=$(or $(TEST_USER_EMAIL),admin@ydsz.dev) \
+		-e TEST_USER_PASSWORD=$(or $(TEST_USER_PASSWORD),Admin@123) \
+		tests/perf/smoke-test.js
+
+perf-load:
+	k6 run -e BASE_URL=$(or $(BASE_URL),http://127.0.0.1:8080/api/v1) \
+		-e TEST_USER_EMAIL=$(or $(TEST_USER_EMAIL),admin@ydsz.dev) \
+		-e TEST_USER_PASSWORD=$(or $(TEST_USER_PASSWORD),Admin@123) \
+		tests/perf/load-test.js
+
+perf-stress:
+	k6 run -e BASE_URL=$(or $(BASE_URL),http://127.0.0.1:8080/api/v1) \
+		-e TEST_USER_EMAIL=$(or $(TEST_USER_EMAIL),admin@ydsz.dev) \
+		-e TEST_USER_PASSWORD=$(or $(TEST_USER_PASSWORD),Admin@123) \
+		tests/perf/stress-test.js
 
 perf-json:
-	k6 run --out json=scripts/k6/result.json scripts/k6/smoke.js
+	k6 run --out json=docs/perf/result.json \
+		-e BASE_URL=$(or $(BASE_URL),http://127.0.0.1:8080/api/v1) \
+		-e TEST_USER_EMAIL=$(or $(TEST_USER_EMAIL),admin@ydsz.dev) \
+		-e TEST_USER_PASSWORD=$(or $(TEST_USER_PASSWORD),Admin@123) \
+		tests/perf/load-test.js
 
 fmt:
 	gofmt -w .
