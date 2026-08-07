@@ -1,4 +1,9 @@
 <script setup lang="ts">
+/**
+ * ProjectSettingsView — 项目设置页。
+ *
+ * 展示并编辑项目基本信息（名称、描述、标识、网络类型等）。
+ */
 import { onMounted, reactive, ref } from "vue";
 import { useRoute } from "vue-router";
 

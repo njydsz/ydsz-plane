@@ -1,6 +1,13 @@
 <script lang="ts">
+/**
+ * BurndownChart — 燃尽图 SVG 组件（无外部图表依赖）。
+ *
+ * 根据迭代每日快照渲染三条折线：剩余点数（actual）、已完成点数（done）
+ * 与理想线（ideal_line）。支持 startDate / endDate 边界与空数据占位。
+ */
 import { defineComponent, h } from "vue";
 
+/** 燃尽图单日数据点 */
 export interface BPoint {
   date: string;
   done_points: number;

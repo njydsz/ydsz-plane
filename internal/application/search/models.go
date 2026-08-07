@@ -1,0 +1,135 @@
+// Package search — 全文搜索应用服务（PostgreSQL FTS + 多对象分组）。
+//
+// 对标:
+//   - Plane: /api/workspaces/{slug}/search/
+//   - Jira: /rest/api/latest/search with JQL
+//   - Linear: search API with filters
+//
+// 设计要点:
+//   - 搜索结果按对象类型分组（issues / sprints / versions）
+//   - 支持高亮（PostgreSQL ts_headline）
+//   - 支持过滤（状态/优先级/指派人/日期/类型）
+//   - 搜索历史自动记录
+//   - 收藏过滤器持久化
+package search
+
+import (
+	"time"
+)
+
+// --- Search Types ---
+
+// DocType 搜索文档类型。
+type DocType string
+
+const (
+	DocTypeIssue   DocType = "issue"
+	DocTypeSprint  DocType = "sprint"
+	DocTypeVersion DocType = "version"
+)
+
+// SearchQuery 搜索请求。
+type SearchQuery struct {
+	WorkspaceID int64    `json:"workspace_id"`
+	ProjectID   int64    `json:"project_id"` // 0 = 全局搜索
+	UserID      int64    `json:"user_id"`
+	Query       string   `json:"query"` // 原始搜索词
+	DocTypes    []string `json:"doc_types"` // 空 = 全部
+	Filters     map[string]any `json:"filters"`
+	Limit       int      `json:"limit"`
+	Offset      int      `json:"offset"`
+}
+
+// SearchHit 单条搜索结果。
+type SearchHit struct {
+	DocType    string   `json:"doc_type"`
+	DocID      int64    `json:"doc_id"`
+	Title      string   `json:"title"`
+	Identifier string   `json:"identifier,omitempty"`
+	Highlights []string `json:"highlights"` // 匹配片段（含 <b> 标签）
+	Rank       float64  `json:"rank"`       // 相关性得分
+	Metadata   Metadata `json:"metadata"`
+	URL        string   `json:"url"` // 前端跳转路径
+}
+
+// Metadata 搜索结果元数据。
+type Metadata struct {
+	TypeCode  string `json:"type_code,omitempty"` // issue type
+	StateID   int64  `json:"state_id,omitempty"`
+	StateName string `json:"state_name,omitempty"`
+	Priority  string `json:"priority,omitempty"`
+}
+
+// SearchGroup 分组搜索结果。
+type SearchGroup struct {
+	DocType     string      `json:"doc_type"`
+	Total       int64       `json:"total"`
+	Hits        []SearchHit `json:"hits"`
+}
+
+// SearchResponse 搜索响应。
+type SearchResponse struct {
+	Query       string        `json:"query"`
+	Total       int           `json:"total"`        // 总命中数
+	Groups      []SearchGroup `json:"groups"`       // 按类型分组
+	TimeMs      int64         `json:"time_ms"`      // 查询耗时
+	Suggestions []string      `json:"suggestions"`  // 查询建议
+}
+
+// --- Search History ---
+
+// SearchHistoryEntry 搜索历史记录。
+type SearchHistoryEntry struct {
+	ID          int64           `json:"id"`
+	WorkspaceID int64           `json:"workspace_id"`
+	UserID      int64           `json:"user_id"`
+	Query       string          `json:"query"`
+	Filters     map[string]any  `json:"filters"`
+	ResultCount int             `json:"result_count"`
+	SearchedAt  time.Time       `json:"searched_at"`
+}
+
+// RecordHistoryInput 记录搜索历史。
+type RecordHistoryInput struct {
+	WorkspaceID int64
+	UserID      int64
+	Query       string
+	Filters     map[string]any
+	ResultCount int
+}
+
+// --- Search Bookmark ---
+
+// SearchBookmark 保存的搜索过滤器。
+type SearchBookmark struct {
+	ID          int64           `json:"id"`
+	WorkspaceID int64           `json:"workspace_id"`
+	ProjectID   *int64          `json:"project_id,omitempty"`
+	UserID      int64           `json:"user_id"`
+	Name        string          `json:"name"`
+	Query       string          `json:"query"`
+	Filters     map[string]any  `json:"filters"`
+	IsShared    bool            `json:"is_shared"`
+	SortOrder   float64         `json:"sort_order"`
+	CreatedAt   time.Time       `json:"created_at"`
+	UpdatedAt   time.Time       `json:"updated_at"`
+}
+
+// CreateBookmarkInput 创建收藏。
+type CreateBookmarkInput struct {
+	WorkspaceID int64
+	ProjectID   *int64
+	UserID      int64
+	Name        string
+	Query       string
+	Filters     map[string]any
+	IsShared    bool
+}
+
+// UpdateBookmarkInput 更新收藏。
+type UpdateBookmarkInput struct {
+	Name     *string
+	Query    *string
+	Filters  map[string]any
+	IsShared *bool
+}

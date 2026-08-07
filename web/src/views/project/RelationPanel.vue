@@ -1,4 +1,9 @@
 <script setup lang="ts">
+/**
+ * RelationPanel — 工作项关联关系面板。
+ *
+ * 展示当前工作项的关联/被关联列表，支持新增关联与删除。
+ */
 import { onMounted, ref } from "vue";
 
 import { issueApi, type IssueRelation } from "@/api/services/issue";
