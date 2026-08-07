@@ -83,7 +83,7 @@ type Deps struct {
 	// Automation 域（S11）
 	AutomationHandler *automation.Handler
 	// Metrics 域（S11）
-	MetricsHandler *metrics.Handler
+	MetricsHandler *metrics.MetricsHandler
 }
 
 // RegisterIssueRoutes 注册工作项路由（在 NewEngine 之后调用）。

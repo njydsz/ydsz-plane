@@ -221,9 +221,9 @@ func (h *MetricsHandler) RecordDeployment(c *gin.Context) {
 
 	var req deploymentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		writeErr(c, errs.ErrValidation.WithDetails([]errs.FieldDetail{
-			{Field: "body", Reason: err.Error()},
-		}))
+		writeErr(c, errs.ErrValidation.WithDetails(
+			errs.FieldDetail{Field: "body", Reason: err.Error()},
+		))
 		return
 	}
 
