@@ -22,6 +22,7 @@ type Config struct {
 	Auth     AuthConfig
 	Log      LogConfig
 	Features FeatureFlags
+	Email    EmailConfig
 }
 
 type ServerConfig struct {
@@ -96,6 +97,15 @@ func Load() (*Config, error) {
 	v.SetDefault("log.format", "console")
 	v.SetDefault("features.registration_open", true)
 
+	v.SetDefault("email.enabled", false)
+	v.SetDefault("email.smtp_host", "localhost")
+	v.SetDefault("email.smtp_port", 1025) // mailpit default
+	v.SetDefault("email.smtp_user", "")
+	v.SetDefault("email.smtp_pass", "")
+	v.SetDefault("email.smtp_from", "Ydsz Plane <no-reply@ydsz.dev>")
+	v.SetDefault("email.smtp_use_tls", false)
+	v.SetDefault("email.app_base_url", "http://localhost:5173")
+
 	cfg := &Config{}
 	if err := v.Unmarshal(cfg); err != nil {
 		return nil, fmt.Errorf("config: unmarshal: %w", err)
@@ -152,3 +162,15 @@ func (c *Config) validate() error {
 
 // IsDev reports whether the server runs in development mode.
 func (c *Config) IsDev() bool { return c.Server.Env == "development" }
+
+// EmailConfig SMTP 配置。
+type EmailConfig struct {
+	Enabled    bool   `mapstructure:"enabled"`
+	Host       string `mapstructure:"smtp_host"`
+	Port       int    `mapstructure:"smtp_port"`
+	Username   string `mapstructure:"smtp_user"`
+	Password   string `mapstructure:"smtp_pass"`
+	From       string `mapstructure:"smtp_from"`
+	UseTLS     bool   `mapstructure:"smtp_use_tls"`
+	AppBaseURL string `mapstructure:"app_base_url"`
+}

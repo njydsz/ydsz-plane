@@ -17,6 +17,7 @@ import (
 	"github.com/njydsz/ydsz-plane/internal/application/auth"
 	"github.com/njydsz/ydsz-plane/internal/config"
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/cache"
+	"github.com/njydsz/ydsz-plane/internal/infrastructure/mail"
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/persistence"
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/telemetry"
 	httpapi "github.com/njydsz/ydsz-plane/internal/interfaces/http"
@@ -65,9 +66,22 @@ func run() error {
 		cfg.Features.RegistrationOpen)
 	wsStore := auth.NewWorkspaceMembershipStore(pool.Pool)
 
+	// 邮件服务：未配置 SMTP → Noop（dev/CI 不打真实邮件，写入 channel 供测试断言）
+	var mailSvc mail.EmailService
+	if cfg.Email.Enabled {
+		mailSvc = mail.NewSmtpService(mail.SmtpConfig{
+			Host: cfg.Email.Host, Port: cfg.Email.Port,
+			Username: cfg.Email.Username, Password: cfg.Email.Password,
+			From: cfg.Email.From, UseTLS: cfg.Email.UseTLS,
+		})
+	} else {
+		mailSvc = mail.NewNoopService(0)
+		log.Info("email: disabled (no-op mode) — set YDSZ_EMAIL_ENABLED=true to enable SMTP")
+	}
+
 	engine := httpapi.NewEngine(&httpapi.Deps{
 		Cfg: cfg, Log: log, DB: pool.Pool, Redis: rdb, Auth: authSvc,
-		WorkspaceStore: wsStore,
+		WorkspaceStore: wsStore, Mail: mailSvc,
 	})
 
 	srv := &http.Server{
