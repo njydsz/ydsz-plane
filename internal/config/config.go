@@ -102,143 +102,133 @@ func (r RedisConfig) RedisOptions() *redis.Options {
 	}
 }
 
-// RabbitMQConfig holds RabbitMQ client parameters for the event bus.
+// RabbitMQConfig 保存事件总线的 RabbitMQ 客户端参数。
 type RabbitMQConfig struct {
-	// URL is the full AMQP connection string.
-	// Format: "amqp://user:pass@host:port/vhost" or "amqps://..." for TLS.
-	// Default: "amqp://guest:guest@127.0.0.1:5672/".
+	// URL 是完整的 AMQP 连接串。
+	// 格式："amqp://user:pass@host:port/vhost"，TLS 使用 "amqps://..."。
+	// 默认："amqp://guest:guest@127.0.0.1:5672/"。
 	URL string
 }
 
-// AuthConfig groups authentication and authorization parameters.
+// AuthConfig 聚合认证与授权参数。
 type AuthConfig struct {
-	// JWTIssuer is the "iss" claim embedded in every JWT. It is validated on
-	// the receiving end to prevent cross-service token replay.
-	// Format: URI-recommended string (e.g. "ydsz-plane").
-	// Default: "ydsz-plane".
+	// JWTIssuer 是每个 JWT 内嵌的 "iss" 声明。接收端会校验该值，
+	// 防止跨服务 token 重放。
+	// 格式：建议 URI 形式字符串（如 "ydsz-plane"）。
+	// 默认："ydsz-plane"。
 	JWTIssuer string
 
-	// JWTSecret is the symmetric key used to sign HS256 JWTs.
-	// Security requirements:
-	//   - Minimum 256 bits (32 bytes) of entropy for HS256.
-	//   - In production, MUST be set via YDSZ_AUTH_JWT_SECRET; an empty value
-	//     or a "dev-" prefixed value is rejected by validate().
-	//   - In development, an ephemeral 256-bit secret is auto-generated on each
-	//     startup and prefixed with "dev-" for easy identification.
-	// Migration note: Phase 3 will rotate to RS256 (asymmetric) keys; this
-	// field will remain as the HMAC key for the transition period.
-	// Default: "" (dev-only auto-generation).
+	// JWTSecret 是签署 HS256 JWT 的对称密钥。
+	// 安全要求：
+	//   - 至少 256 位（32 字节）熵，满足 HS256 最低要求。
+	//   - 生产环境必须通过 YDSZ_AUTH_JWT_SECRET 设置；空值或
+	//     "dev-" 前缀的值会被 validate() 拒绝。
+	//   - 开发环境下每次启动自动生成 256 位临时密钥，并以 "dev-" 前缀
+	//     便于识别。
+	// 迁移说明：Phase 3 将轮换为 RS256（非对称）密钥；该字段在过渡期
+	// 仍作为 HMAC 密钥保留。
+	// 默认：""（仅开发模式自动生成）。
 	JWTSecret string
 
-	// AccessTokenTTL is the lifetime of short-lived access tokens.
-	// Trade-off: shorter values reduce the window of token theft but increase
-	// refresh frequency (and thus Redis write load via the refresh rotation).
-	// Format: Go duration string (e.g. "15m", "1h").
-	// Recommended range: 5m-1h.
-	// Default: "15m".
+	// AccessTokenTTL 是短期访问令牌的生命周期。
+	// 权衡：更短的值可缩小令牌被盗利用的时间窗，但会增加刷新频率
+	// （以及经刷新轮换产生的 Redis 写入压力）。
+	// 格式：Go 时长字符串（如 "15m"、"1h"）。
+	// 推荐范围：5m-1h。
+	// 默认："15m"。
 	AccessTokenTTL time.Duration
 
-	// RefreshTokenTTL is the maximum lifetime of refresh tokens before the
-	// user must re-authenticate. Long-lived tokens improve UX but widen the
-	// compromise window; pair with rotation and revocation list for safety.
-	// Format: Go duration string (e.g. "720h", "168h").
-	// Recommended range: 24h-720h (30d).
-	// Default: "720h" (30d).
+	// RefreshTokenTTL 是刷新令牌的最大生命周期，到期后用户必须重新认证。
+	// 长生命令牌改善体验，但扩大失窃利用窗口；建议配合轮换与吊销列表。
+	// 格式：Go 时长字符串（如 "720h"、"168h"）。
+	// 推荐范围：24h-720h（30 天）。
+	// 默认："720h"（30 天）。
 	RefreshTokenTTL time.Duration
 
-	// BcryptCost is the bcrypt work factor (2^cost iterations). Each increment
-	// doubles the CPU and memory cost.
-	// Trade-off: higher values improve resistance to offline brute-force on
-	// stolen hashes but linearly increase login/signup latency.
-	//   - 10: ~100ms on modern hardware (bare minimum, avoid below).
-	//   - 12: ~300ms (current default; balanced for most services).
-	//   - 14: ~1s (high-security, expect user-visible latency).
-	// Range: 4-31 (bcrypt specification limit).
-	// Default: 12.
+	// BcryptCost 是 bcrypt 工作因子（2^cost 次迭代）。每 +1 ，
+	// CPU 与内存成本翻倍。
+	// 权衡：更高的值增强对泄露哈希的离线暴力破解抵抗力，
+	// 但线性增加登录/注册延迟。
+	//   - 10：现代硬件约 100ms（最低要求，不建议更低）。
+	//   - 12：约 300ms（当前默认，对大多数服务均衡）。
+	//   - 14：约 1s（高安全，可感知的用户延迟）。
+	// 范围：4-31（bcrypt 规范上限）。
+	// 默认：12。
 	BcryptCost int
 
-	// LoginRateLimitPer is the maximum number of login attempts allowed per
-	// client IP within the rate-limit window. Mitigates credential stuffing
-	// and brute-force attacks.
-	// Unit: requests per minute.
-	// Range: 1-1000. Extremely low values may lock out legitimate users sharing
-	// a NAT gateway (e.g. corporate networks).
-	// Default: 10.
+	// LoginRateLimitPer 是限流窗口内每个客户端 IP 允许的最大登录尝试次数。
+	// 用于缓解撞库与暴力破解攻击。
+	// 单位：每分钟请求数。
+	// 范围：1-1000。过低的值可能误伤共享 NAT 网关的合法用户
+	// （如企业网络）。
+	// 默认：10。
 	LoginRateLimitPer int
 }
 
-// LogConfig controls structured logging behaviour.
+// LogConfig 控制结构化日志行为。
 type LogConfig struct {
-	// Level is the minimum severity threshold. Messages below this level are
-	// discarded.
-	// Valid values: "debug" | "info" | "warn" | "error" | "fatal" | "panic".
-	// Default: "info".
+	// Level 是最小严重级别阈值。低于该级别的消息被丢弃。
+	// 合法值："debug" | "info" | "warn" | "error" | "fatal" | "panic"。
+	// 默认："info"。
 	Level string
 
-	// Format selects the log encoder. "json" emits one JSON object per line
-	// (suitable for ELK / Loki ingestion); "console" emits human-readable
-	// pretty-printed logs for local development.
-	// Valid values: "json" | "console".
-	// Default: "console".
+	// Format 选择日志编码器。"json" 每行输出一个 JSON 对象
+	// （适合 ELK / Loki 采集）；"console" 输出人类可读的格式化日志，
+	// 用于本地开发。
+	// 合法值："json" | "console"。
+	// 默认："console"。
 	Format string
 }
 
-// FeatureFlags gate unfinished or experimental features so that code can be
-// merged to main without exposing it to production traffic. Each flag is
-// read at the call-site (not cached) to allow runtime-flipping without a
-// restart.
+// FeatureFlags 用于门控未完成或实验性功能，使代码可以在不暴露给生产流量的
+// 情况下合入 main 分支。每个开关在调用点读取（不缓存），
+// 支持不重启即可运行时切换。
 type FeatureFlags struct {
-	// SearchEnabled toggles the full-text search API (/api/v1/search) and the
-	// background indexer goroutine. When disabled, search endpoints return
-	// 501 Not Implemented to signal intentional unavailability.
-	// Default: false.
+	// SearchEnabled 切换全文搜索 API（/api/v1/search）与后台索引 goroutine。
+	// 关闭时搜索端点返回 501 Not Implemented，表明功能有意不可用。
+	// 默认：false。
 	SearchEnabled bool
 
-	// AutomationEnabled toggles the workflow automation engine (rule evaluation,
-	// scheduled triggers). When disabled, no automation jobs fire and the
-	// /api/v1/automation routes return 501.
-	// Default: false.
+	// AutomationEnabled 切换工作流自动化引擎（规则评估、定时触发）。
+	// 关闭时无自动化任务执行，/api/v1/automation 路由返回 501。
+	// 默认：false。
 	AutomationEnabled bool
 
-	// WebhooksEnabled controls outbound webhook delivery. When disabled, webhook
-	// registrations remain stored but no HTTP requests are dispatched; a
-	// synthetic 200 response is logged for auditability.
-	// Default: false.
+	// WebhooksEnabled 控制外发 webhook 投递。关闭时 webhook 注册仍然保留，
+	// 但不发出任何 HTTP 请求；记录合成 200 响应以留审计痕迹。
+	// 默认：false。
 	WebhooksEnabled bool
 
-	// RegistrationOpen toggles public user registration. When disabled,
-	// POST /api/v1/auth/register returns 403, effectively making the instance
-	// invite-only. Useful for private beta or maintenance mode.
-	// Default: true.
+	// RegistrationOpen 切换公开用户注册。关闭时 POST /api/v1/auth/register
+	// 返回 403，实例实质变为邀请制。适用于私有内测或维护模式。
+	// 默认：true。
 	RegistrationOpen bool
 }
 
-// Load reads configuration from environment variables (prefix YDSZ_) with
-// sensible local-development defaults. The complete pipeline is:
+// Load 从环境变量（前缀 YDSZ_）读取配置并附带合理的本地开发默认值。
+// 完整流水线如下：
 //
-//  1. Default registration: Viper SetDefault seeds every known key with a
-//     development-safe value.
-//  2. Environment override: YDSZ_* env vars replace defaults. Nested keys
-//     use double-underscore (e.g. YDSZ_AUTH__JWT_SECRET → auth.jwt_secret).
-//  3. Unmarshal: Viper merges defaults + env and decodes into *Config.
-//  4. Duration fixup: time.Duration fields are re-parsed from strings to
-//     work around a Viper limitation with nested key unmarshalling.
-//  5. Derived secrets: empty JWTSecret in dev mode generates a random
-//     ephemeral value so that service starts cleanly without human setup.
-//  6. Validation: business-rule checks (non-empty production secrets, valid
-//     port range); returns wrapped error on failure.
+//  1. 默认值注册：Viper SetDefault 为每个已知 key 植入开发安全值。
+//  2. 环境变量覆盖：YDSZ_* 环境变量替换默认值。嵌套 key 使用双下划线
+//     （如 YDSZ_AUTH__JWT_SECRET → auth.jwt_secret）。
+//  3. 反序列化：Viper 合并默认值与环境变量后解码到 *Config。
+//  4. 时长修复：time.Duration 字段从字符串重新解析，
+//     规避 Viper 对嵌套 key 反序列化的限制。
+//  5. 派生密钥：开发模式下 JWTSecret 为空时生成随机临时值，
+//     使服务无需人工配置即可启动。
+//  6. 校验：业务规则检查（非开发环境必填密钥、合法端口范围）；
+//     失败时返回包装错误。
 //
-// It fails fast when required values are missing in non-development
-// environments, ensuring that misconfigured pods crash-loop at startup
-// rather than serving requests with invalid configuration.
+// 非开发环境下缺失必填值会快速失败，确保配置错误的 Pod 在启动时
+// 崩溃循环，而不是带病处理请求。
 func Load() (*Config, error) {
 	v := viper.New()
 	v.SetEnvPrefix("YDSZ")
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	v.AutomaticEnv()
 
-	// ----- Step 1: local-development defaults -----
-	// These values assume a standard Docker Compose local setup.
+	// ----- 第 1 步：本地开发默认值 -----
+	// 这些值假设标准 Docker Compose 本地环境。
 	v.SetDefault("server.env", "development")
 	v.SetDefault("server.port", 8080)
 	v.SetDefault("database.url", "postgres://postgres:Limw1020@127.0.0.1:5432/ydsz-plane?sslmode=disable")
@@ -249,9 +239,9 @@ func Load() (*Config, error) {
 	v.SetDefault("redis.db", 0)
 	v.SetDefault("rabbitmq.url", "amqp://guest:guest@127.0.0.1:5672/")
 	v.SetDefault("auth.jwt_issuer", "ydsz-plane")
-	v.SetDefault("auth.jwt_secret", "") // dev-only ephemeral secret (rotated each startup); production requires explicit value
+	v.SetDefault("auth.jwt_secret", "") // 仅开发模式临时密钥（每次启动轮换）；生产环境必须显式配置
 	v.SetDefault("auth.access_token_ttl", "15m")
-	v.SetDefault("auth.refresh_token_ttl", "720h") // 30d
+	v.SetDefault("auth.refresh_token_ttl", "720h") // 30 天
 	v.SetDefault("auth.bcrypt_cost", 12)
 	v.SetDefault("auth.login_rate_limit_per", 10)
 	v.SetDefault("log.level", "info")
@@ -260,20 +250,20 @@ func Load() (*Config, error) {
 
 	v.SetDefault("email.enabled", false)
 	v.SetDefault("email.smtp_host", "127.0.0.1")
-	v.SetDefault("email.smtp_port", 1025) // mailpit default
+	v.SetDefault("email.smtp_port", 1025) // mailpit 默认端口
 	v.SetDefault("email.smtp_user", "")
 	v.SetDefault("email.smtp_pass", "")
 	v.SetDefault("email.smtp_from", "Ydsz Plane <no-reply@ydsz.dev>")
 	v.SetDefault("email.smtp_use_tls", false)
 	v.SetDefault("email.app_base_url", "http://127.0.0.1:5173")
 
-	// ----- Step 2-3: environment override + unmarshal -----
+	// ----- 第 2-3 步：环境变量覆盖 + 反序列化 -----
 	cfg := &Config{}
 	if err := v.Unmarshal(cfg); err != nil {
 		return nil, fmt.Errorf("config: unmarshal: %w", err)
 	}
 
-	// ----- Step 4: duration fixup (Viper limitation with nested keys) -----
+	// ----- 第 4 步：时长修复（Viper 对嵌套 key 的限制） -----
 	var err error
 	if cfg.Database.ConnMaxLifetime, err = time.ParseDuration(v.GetString("database.conn_max_lifetime")); err != nil {
 		return nil, fmt.Errorf("config: database.conn_max_lifetime: %w", err)
@@ -285,9 +275,9 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("config: auth.refresh_token_ttl: %w", err)
 	}
 
-	// ----- Step 5: derive ephemeral secrets for dev -----
-	// If jwt_secret is empty in dev, generate a random one. This is logged at
-	// startup so developers know in-flight tokens get invalidated on restart.
+	// ----- 第 5 步：为开发模式派生临时密钥 -----
+	// 开发模式下 jwt_secret 为空时生成随机值。启动时会记录日志，
+	// 提醒开发者重启后存量 token 会失效。
 	if cfg.Auth.JWTSecret == "" {
 		if cfg.Server.Env != "development" {
 			return nil, fmt.Errorf("config: YDSZ_AUTH_JWT_SECRET is required in non-development environments")
@@ -295,49 +285,45 @@ func Load() (*Config, error) {
 		cfg.Auth.JWTSecret = generateDevSecret()
 	}
 
-	// ----- Step 6: business-rule validation -----
+	// ----- 第 6 步：业务规则校验 -----
 	if err := cfg.validate(); err != nil {
 		return nil, err
 	}
 	return cfg, nil
 }
 
-// generateDevSecret creates a 256-bit (32-byte) random secret for local
-// development and prefixes it with "dev-" so it is easily identifiable in
-// logs and rejected by the production validator.
+// generateDevSecret 生成本地开发用的 256 位（32 字节）随机密钥，
+// 并以 "dev-" 前缀标识，便于在日志中识别、被生产校验器拒绝。
 func generateDevSecret() string {
 	var b [32]byte
 	_, _ = rand.Read(b[:])
 	return "dev-" + hex.EncodeToString(b[:])
 }
 
-// validate enforces cross-field business rules that cannot be expressed
-// through Viper defaults or struct tags. It covers the following scenarios:
+// validate 执行无法用 Viper 默认值或 struct tag 表达的跨字段业务规则。
+// 覆盖以下场景：
 //
-//   - Production mandatory fields: JWTSecret and Database.URL must be set and
-//     must not use the ephemeral "dev-" prefix; otherwise an attacker could
-//     forge tokens with a known dev secret.
-//   - Port range check: Server.Port must be a valid TCP port (1-65535) in all
-//     environments regardless of tier.
+//   - 生产环境必填字段：JWTSecret 与 Database.URL 必须设置，
+//     且不得使用临时的 "dev-" 前缀；否则攻击者可用已知的开发密钥伪造 token。
+//   - 端口范围检查：Server.Port 在所有环境中必须是合法 TCP 端口（1-65535）。
 //
-// Additional checks (e.g. BcryptCost range, env value whitelist) can be
-// added here as the configuration surface grows.
+// 随着配置面增长，可在此继续增加检查（如 BcryptCost 范围、env 值白名单）。
 func (c *Config) validate() error {
-	// --- Production hardening: require explicit secrets ---
+	// --- 生产环境加固：要求显式密钥 ---
 	if c.Server.Env == "production" {
-		// JWTSecret must be present and must not be an ephemeral dev value.
+		// JWTSecret 必须存在且不能是临时的开发值。
 		if c.Auth.JWTSecret == "" || strings.HasPrefix(c.Auth.JWTSecret, "dev-") {
 			return fmt.Errorf("config: YDSZ_AUTH_JWT_SECRET must be set to a strong value in production")
 		}
-		// Database URL is always required in production (no sensible default).
+		// 生产环境始终需要 Database URL（没有合理的默认值）。
 		if c.Database.URL == "" {
 			return fmt.Errorf("config: YDSZ_DATABASE_URL is required")
 		}
 	}
 
-	// --- Universal invariants: valid TCP port range ---
-	// Ports outside 1-65535 would cause the OS net.Listen call to fail; catch
-	// the misconfiguration early with a descriptive error.
+	// --- 通用不变量：合法 TCP 端口范围 ---
+	// 1-65535 之外的端口会导致 OS net.Listen 调用失败；
+	// 尽早捕获配置错误并给出描述性信息。
 	if c.Server.Port <= 0 || c.Server.Port > 65535 {
 		return fmt.Errorf("config: invalid server.port %d (must be 1-65535)", c.Server.Port)
 	}
@@ -345,56 +331,51 @@ func (c *Config) validate() error {
 	return nil
 }
 
-// IsDev reports whether the server runs in development mode. Callers can use
-// this to enable debug endpoints (pprof, expvar) or relaxed CORS policies,
-// but should never use it to bypass authentication or authorization.
+// IsDev 报告服务是否运行在开发模式。调用方可据此启用调试端点
+// （pprof、expvar）或宽松 CORS 策略，但绝不可用它绕过认证或授权。
 func (c *Config) IsDev() bool { return c.Server.Env == "development" }
 
-// EmailConfig holds SMTP parameters for sending transactional emails
-// (welcome, password reset, verification). All fields are controlled via
-// YDSZ_EMAIL_-prefixed environment variables.
+// EmailConfig 保存发送事务邮件（欢迎、密码重置、验证）的 SMTP 参数。
+// 所有字段通过 YDSZ_EMAIL_ 前缀的环境变量控制。
 type EmailConfig struct {
-	// Enabled toggles outbound email delivery entirely. When false, all
-	// email-sending code paths are short-circuited and the SMTP connection
-	// pool is never initialised. Useful for worker-only instances.
-	// Default: false.
+	// Enabled 整体开关外发邮件。关闭时所有发信代码路径被短路，
+	// SMTP 连接池永不初始化。适用于仅运行 worker 的实例。
+	// 默认：false。
 	Enabled bool `mapstructure:"enabled"`
 
-	// Host is the SMTP server hostname or IP address.
-	// Default: "127.0.0.1".
+	// Host 是 SMTP 服务器主机名或 IP 地址。
+	// 默认："127.0.0.1"。
 	Host string `mapstructure:"smtp_host"`
 
-	// Port is the SMTP server port.
-	// Common values: 25 (plain), 587 (STARTTLS), 465 (implicit TLS), 1025 (Mailpit local).
-	// Range: 1-65535.
-	// Default: 1025 (Mailpit).
+	// Port 是 SMTP 服务器端口。
+	// 常见值：25（明文）、587（STARTTLS）、465（隐式 TLS）、1025（本地 Mailpit）。
+	// 范围：1-65535。
+	// 默认：1025（Mailpit）。
 	Port int `mapstructure:"smtp_port"`
 
-	// Username is the SMTP AUTH login. Empty string skips AUTH (relevant for
-	// local relay or internal network without authentication).
-	// Default: "".
+	// Username 是 SMTP AUTH 登录名。空字符串跳过 AUTH
+	// （适用于本地中继或无认证内网）。
+	// 默认：""。
 	Username string `mapstructure:"smtp_user"`
 
-	// Password is the SMTP AUTH password. Sourced from secrets manager in
-	// production; never hard-coded.
-	// Default: "".
+	// Password 是 SMTP AUTH 密码。生产环境从密钥管理服务获取；
+	// 绝不硬编码。
+	// 默认：""。
 	Password string `mapstructure:"smtp_pass"`
 
-	// From is the display name and email address shown in the From header of
-	// outbound messages. Must be a valid RFC 5322 address for deliverability.
-	// Default: "Ydsz Plane <no-reply@ydsz.dev>".
+	// From 是外发邮件 From 头中显示的展示名与邮箱地址。
+	// 必须是合法的 RFC 5322 地址以保证可投递性。
+	// 默认："Ydsz Plane <no-reply@ydsz.dev>"。
 	From string `mapstructure:"smtp_from"`
 
-	// UseTLS controls whether the SMTP connection uses implicit TLS (SMTPS)
-	// from the start. For STARTTLS on port 587, this should be false and the
-	// upgrade is handled separately by the net/smtp client.
-	// Default: false.
+	// UseTLS 控制 SMTP 连接是否从一开始就使用隐式 TLS（SMTPS）。
+	// 587 端口的 STARTTLS 应设为 false，升级由 net/smtp 客户端单独处理。
+	// 默认：false。
 	UseTLS bool `mapstructure:"smtp_use_tls"`
 
-	// AppBaseURL is the public URL of the frontend application, used to
-	// construct links in email templates (reset password link, verification
-	// link). Must include scheme and host without trailing slash.
-	// Format: "https://example.com" or "http://localhost:5173".
-	// Default: "http://127.0.0.1:5173".
+	// AppBaseURL 是前端应用的公网地址，用于构造邮件模板中的链接
+	// （重置密码链接、验证链接）。必须包含协议与主机，不带结尾斜杠。
+	// 格式："https://example.com" 或 "http://localhost:5173"。
+	// 默认："http://127.0.0.1:5173"。
 	AppBaseURL string `mapstructure:"app_base_url"`
 }

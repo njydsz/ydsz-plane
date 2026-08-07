@@ -14,8 +14,6 @@ withDefaults(defineProps<{
 }>(), {
   size: "md",
 });
-
-const sizes = { sm: 24, md: 32, lg: 40 };
 </script>
 
 <template>

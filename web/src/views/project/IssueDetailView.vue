@@ -2,7 +2,7 @@
 import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
-import { issueApi, type Issue, type IssueActivity, type State } from "@/api/services/issue";
+import { issueApi, type Issue, type IssueActivity, type State, type TimeLog } from "@/api/services/issue";
 import { workspaceApi, type Workspace } from "@/api/services/workspace";
 
 const props = defineProps<{
@@ -22,6 +22,18 @@ const loading = ref(true);
 const error = ref("");
 const transitionError = ref("");
 const showTransitionMenu = ref(false);
+
+// --- 工时 ---
+const timeLogs = ref<TimeLog[]>([]);
+const totalMinutes = ref(0);
+const showTimeLogForm = ref(false);
+const newSpentDate = ref(new Date().toISOString().slice(0, 10));
+const newDurationHours = ref(1);
+const newDurationMinutes = ref(0);
+const newTimeDesc = ref("");
+const timeLogError = ref("");
+const timeLogSubmitting = ref(false);
+const timeLogsLoading = ref(false);
 
 async function load() {
   loading.value = true;
@@ -85,7 +97,58 @@ const availableTransitions = computed(() => {
   return states.value.filter((s) => s.id !== issue.value!.state_id);
 });
 
-onMounted(load);
+async function loadTimeLogs() {
+  if (!ws.value) return;
+  timeLogsLoading.value = true;
+  try {
+    const res = await issueApi.listTimeLogs(ws.value.id, props.projectId, props.issueId);
+    timeLogs.value = res.results;
+    totalMinutes.value = res.results.reduce((sum, tl) => sum + tl.duration_minutes, 0);
+  } catch {
+    // 非关键模块，静默失败
+  } finally {
+    timeLogsLoading.value = false;
+  }
+}
+
+async function submitTimeLog() {
+  if (!ws.value || timeLogSubmitting.value) return;
+  const totalMins = newDurationHours.value * 60 + newDurationMinutes.value;
+  if (totalMins <= 0 || totalMins > 1440) {
+    timeLogError.value = "请填写有效的工时（1分钟-24小时）";
+    return;
+  }
+  timeLogSubmitting.value = true;
+  timeLogError.value = "";
+  try {
+    await issueApi.createTimeLog(ws.value.id, props.projectId, props.issueId, {
+      spent_date: newSpentDate.value,
+      duration_minutes: totalMins,
+      description: newTimeDesc.value.trim() || undefined,
+    });
+    showTimeLogForm.value = false;
+    newTimeDesc.value = "";
+    newDurationHours.value = 1;
+    newDurationMinutes.value = 0;
+    await loadTimeLogs();
+  } catch (e: unknown) {
+    timeLogError.value = e instanceof Error ? e.message : "记录失败";
+  } finally {
+    timeLogSubmitting.value = false;
+  }
+}
+
+function fmtDuration(mins: number): string {
+  if (mins < 60) return `${mins}分钟`;
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return m > 0 ? `${h}小时${m}分钟` : `${h}小时`;
+}
+
+onMounted(() => {
+  load();
+  loadTimeLogs();
+});
 </script>
 
 <template>

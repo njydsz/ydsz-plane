@@ -124,41 +124,6 @@ async function saveEdit() {
   }
 }
 
-// 邀请表单
-const inviteEmail = ref("");
-const inviteRole = ref("member");
-const inviteMessage = ref("");
-const inviteSending = ref(false);
-const inviteError = ref("");
-const inviteSuccess = ref("");
-
-// 当前用户角色（计算属性，决定 UI 是否显示管理操作）
-const myRole = computed(() => ws.value?.role ?? "");
-const canManageMembers = computed(() => ["owner", "admin"].includes(myRole.value));
-
-async function loadAll() {
-  loading.value = true;
-  error.value = "";
-  try {
-    // 先根据 slug 拿 ID
-    const wsData = await workspaceApi.getBySlug(wsSlug.value);
-    ws.value = wsData;
-    wsId.value = wsData.id;
-
-    const [mems] = await Promise.all([
-      workspaceApi.listMembers(wsId.value),
-    ]);
-    members.value = mems;
-    if (canManageMembers.value) {
-      invitations.value = await workspaceApi.listInvitations(wsId.value);
-    }
-  } catch (e: any) {
-    error.value = e.message ?? "加载失败";
-  } finally {
-    loading.value = false;
-  }
-}
-
 async function sendInvite() {
   inviteError.value = "";
   inviteSuccess.value = "";
