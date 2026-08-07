@@ -13,6 +13,8 @@ withDefaults(defineProps<{
   icon?: string;
 }>(), {
   title: "暂无数据",
+  description: "",
+  icon: "",
 });
 </script>
 

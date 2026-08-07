@@ -6,13 +6,61 @@
 
 ## [Unreleased]
 
-### 工程与质量（进行中）
-- 新增 GitHub Actions CI：后端 lint / test(race) / 覆盖率门禁 / govulncheck，前端 lint / typecheck / test / build / audit
-- 引入前端组件单测框架（Vitest + @vue/test-utils + happy-dom）并补充原子组件测试
-- 引入 Playwright E2E 冒烟链路（鉴权）
-- 后端覆盖率渐进式门槛（当前 15%，随补测逐步提升）
-- 清理仓库残留临时文件，补充 `.gitignore` 忽略测试产物
-- 修复 `web/package.json` 的 `packageManager` 版本与本机工具链不一致问题
+### 后续规划（Phase 3+）
+- 通知多渠道：IM（企微 / 钉钉 / 飞书）、邮件摘要
+- 全局搜索升级为 Elasticsearch（IK 分词 + 类 JQL 语法解析器）
+- 甘特图 / 日历 / 电子表格视图
+- SSO / SAML 集成、国际化、PWA
+- 数据迁移工具（Jira / 云效 / ONES 导入）
+- AI 功能（智能分配、重复检测）
+- 信创数据库实测（达梦 / 人大金仓 + 国密算法）
+
+## [0.2.0] - 2026-08-07（M6 开放与智能 — S8–S11 发布）
+
+> 对应路线图 M6：搜索、工作台、仪表盘、视图偏好、Webhook、Intake、自动化规则引擎、效能度量全部就绪。
+> 特性：多对象全文搜索、个人工作台首屏、项目 Widget 仪表盘、Webhook 订阅与投递、Intake 收件箱与公开提交通道、TCA 自动化规则引擎、DORA/速度/前置时间/质量效能度量。
+
+### 新增（已实现）
+
+#### S8 搜索
+- **后端**：PostgreSQL FTS（search_tsv tsvector + GIN 索引 + 触发器自动同步）、多对象检索（issues/sprints/versions 通过 search_documents 统一表）、搜索历史（search_history）、搜索书签（search_bookmarks 支持共享）
+- **前端**：SearchView 独立搜索页（左过滤器 + 中间结果分组 + 关键词高亮 + 历史/书签侧边栏）
+
+#### S9 工作台 / 仪表盘 / 视图偏好
+- **后端**：个人工作台首屏聚合（workbench_summary：任务分桶 / 迭代概览 / 最近访问 / 快捷操作）、工作台配置与模板应用；项目仪表盘 Widget 框架（10 种 Widget 类型）、dashboard_snapshots 快照加速、risk_rules 风险预警（6 种规则类型）、risk_alerts 告警管理、dashboard_templates 预设模板（3 套）；view_preferences 视图偏好持久化
+- **前端**：WorkbenchView、DashboardView（CSS Grid 12 列响应式）、Widget 组件注册表、风险告警列表、通知偏好设置页
+
+#### S10 Webhook / Intake
+- **后端**：webhook 管理（CRUD + HMAC-SHA256 签名 + events 过滤 + unhealthy 标记）、webhook_logs 投递日志（30 天保留 + 测试投递 / 手动重试）；intake_channels 收件通道（公开表单 + 限流 + 验证码 + 自定义字段 + 自动分配规则）、intake_issues 收件工单（审核 + 转正 + tracking 回执）
+- **前端**：暂无独立管理页（API 就绪，待后续迭代补齐前端视图）
+
+#### S11 自动化规则 / 效能度量
+- **后端**：automation_rules（TCA DSL JSONB + draft/active/disabled/error 状态机 + 连续失败自动降级）、rule_executions 执行审计（防循环 + dry-run + 触发深度链路）、automation_templates 7 条内置模板；metric_snapshots 每日效能快照（DORA + 速度 + 前置时间 + 质量 + WIP）、deployment_events 部署事件上报（幂等）、metric_adjustments 管理员数据校准
+- **前端**：暂无独立管理页（API 就绪，待后续迭代补齐前端视图）
+
+### 增强（已有功能迭代）
+- **Issue 域扩展**：batchIssues 批量创建工作项、reorderIssue 看板排序、工时记录完整 CRUD（updateTimeLog / deleteTimeLog）、评论完整 CRUD（updateComment / deleteComment）
+- **认证扩展**：API Token 管理（创建 / 吊销 / scopes）、Principal 双通道认证（JWT + API Token 复合解析器）
+- **CI 扩展**：CodeQL 安全分析工作流、k6 perf 性能压测工作流
+- **seeds 扩展**：seed-scale 大规模造数脚本（100 万工作项、8 并发、断点续传）
+- **导出基础设施**：internal/interfaces/http/export 通用导出包（CSV UTF-8 BOM / 最小合法 OOXML xlsx）
+
+### 新增数据库迁移（0008–0017）
+- `0008_search` — search_tsv 列 + search_documents/search_history/search_bookmarks 表 + FTS 触发器
+- `0009_version_fix` + `0009_workbench` — 版本修复 + 工作台首屏
+- `0010_dashboard` + `0010_notifications` — 仪表盘 Widget / 风险告警 / 通知表
+- `0011_issue_comments` — 评论主表扩容
+- `0012_notification_settings` — 通知偏好设置
+- `0013_attachments` + `0013_s6_hardening` — 附件表 + S6 加固
+- `0014_view_preferences` — 视图偏好持久化
+- `0015_automation` + `0015_webhooks` — 自动化规则 + Webhook 管理
+- `0016_intake` + `0016_metrics` — Intake 收件箱 + 效能度量
+- `0017_notification_dispatcher` — 通知分发 Worker 支撑（next_retry_at + 部分索引）
+
+## [0.1.0] - 2026-08-07（MVP v0.1 发布）
+
+> 对应路线图 M0–M5：功能底座、核心域 API 与前端视图骨架全部就绪，Sprint 1–7 完成。
+> 特性：附件（MinIO）、评论（富文本 + @提及）、通知（站内信 + 偏好）、WebSocket 实时推送（Redis Pub/Sub 多节点扇出）、CSV/xlsx 导出、性能基线脚本与 CI 压测流水线。
 
 ## [0.1.0] - 2026-08-07（MVP v0.1 发布）
 

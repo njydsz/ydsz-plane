@@ -1,4 +1,5 @@
 <script setup lang="ts">
+/* eslint-disable vue/no-v-html -- content_html 由服务端 bluemonday 白名单清洗后落库（internal/application/issue/comment_sanitize.go），已剥离 script/事件属性/外链，属受信输出。 */
 /**
  * CommentItem — 单条评论展示（含编辑/删除操作）
  *

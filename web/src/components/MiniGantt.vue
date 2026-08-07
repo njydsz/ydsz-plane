@@ -23,7 +23,10 @@ const props = withDefaults(defineProps<{
   sprints: GanttSprint[];
   versionStart?: string;
   versionEnd?: string;
-}>(), {});
+}>(), {
+  versionStart: "",
+  versionEnd: "",
+});
 
 interface TimelineEntry {
   sprint: GanttSprint;

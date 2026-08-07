@@ -18,6 +18,7 @@ const props = withDefaults(defineProps<{
   title?: string;
   width?: string;
 }>(), {
+  title: "",
   width: "480px",
 });
 

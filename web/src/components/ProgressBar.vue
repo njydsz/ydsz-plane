@@ -21,15 +21,17 @@ withDefaults(defineProps<{
   striped?: boolean;
 }>(), {
   size: "md",
+  color: "",
   showLabel: true,
   animated: true,
+  label: "",
 });
 </script>
 
 <template>
   <div class="progress" :class="[`progress--${size}`]">
     <div v-if="showLabel" class="progress__header">
-      <span class="progress__label">{{ label ?? `${Math.round(percent)}%` }}</span>
+      <span class="progress__label">{{ label || `${Math.round(percent)}%` }}</span>
       <slot name="header" />
     </div>
     <div class="progress__track">
@@ -38,12 +40,12 @@ withDefaults(defineProps<{
         :class="{ 'progress__bar--animated': animated, 'progress__bar--striped': striped }"
         :style="{
           width: `${Math.min(Math.max(percent, 0), 100)}%`,
-          background: color ?? 'var(--success-500)',
+          background: color || 'var(--success-500)',
         }"
       ></div>
     </div>
     <div v-if="!showLabel" class="progress__inline-label">
-      {{ label ?? `${Math.round(percent)}%` }}
+      {{ label || `${Math.round(percent)}%` }}
     </div>
   </div>
 </template>

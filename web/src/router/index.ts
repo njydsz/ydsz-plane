@@ -109,6 +109,36 @@ const router = createRouter({
             projectId: Number(route.params.projectId),
           }),
         },
+        // 缺陷分析报表
+        {
+          path: ":workspaceSlug/projects/:projectId/analytics",
+          name: "defect-analytics",
+          component: () => import("@/views/project/DefectAnalyticsView.vue"),
+          props: (route) => ({
+            workspaceSlug: route.params.workspaceSlug,
+            projectId: Number(route.params.projectId),
+          }),
+        },
+        // 甘特图视图
+        {
+          path: ":workspaceSlug/projects/:projectId/gantt",
+          name: "gantt-chart",
+          component: () => import("@/views/project/GanttChartView.vue"),
+          props: (route) => ({
+            workspaceSlug: route.params.workspaceSlug,
+            projectId: Number(route.params.projectId),
+          }),
+        },
+        // 日历视图
+        {
+          path: ":workspaceSlug/projects/:projectId/calendar",
+          name: "calendar-view",
+          component: () => import("@/views/project/CalendarView.vue"),
+          props: (route) => ({
+            workspaceSlug: route.params.workspaceSlug,
+            projectId: Number(route.params.projectId),
+          }),
+        },
         // 项目列表视图
         {
           path: ":workspaceSlug/projects/:projectId/list",

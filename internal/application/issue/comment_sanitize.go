@@ -34,7 +34,8 @@ func init() {
 		"h1", "h2", "h3", "h4", "h5", "h6",
 	)
 	// 链接策略：仅 http/https/mailto；外链强制 nofollow + noreferrer（防 window.opener 漏洞）
-	p.AllowAttrs("href").Matching(regexp.MustCompile(`^(https?://|mailto:)`)).OnElements("a")
+	p.AllowAttrs("href").OnElements("a")
+	p.AllowURLSchemes("http", "https", "mailto")
 	p.AllowAttrs("target", "rel").Matching(regexp.MustCompile(`^(_blank|noopener|noreferrer|nofollow)$`)).OnElements("a")
 	p.RequireNoFollowOnLinks(true)
 	p.RequireNoReferrerOnLinks(true)

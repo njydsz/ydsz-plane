@@ -40,6 +40,7 @@
                 @click="goIssue(item)"
               >
                 <span class="ri-type">#</span>
+                <!-- eslint-disable-next-line vue/no-v-html -- highlight 由服务端 ts_headline 生成，内容已转义，受信输出 -->
                 <span class="ri-name" v-html="item.highlight || item.name"></span>
                 <span class="ri-meta">{{ item.project_name }}</span>
               </div>
@@ -55,6 +56,7 @@
                 @click="goSprint(item)"
               >
                 <span class="ri-type type-sprint">🏃</span>
+                <!-- eslint-disable-next-line vue/no-v-html -- highlight 由服务端 ts_headline 生成，内容已转义，受信输出 -->
                 <span class="ri-name" v-html="item.highlight || item.name"></span>
                 <span class="ri-meta">{{ item.project_name }}</span>
               </div>
@@ -69,6 +71,7 @@
                 @click="goVersion(item)"
               >
                 <span class="ri-type type-version">🚀</span>
+                <!-- eslint-disable-next-line vue/no-v-html -- highlight 由服务端 ts_headline 生成，内容已转义，受信输出 -->
                 <span class="ri-name" v-html="item.highlight || item.name"></span>
                 <span class="ri-meta">{{ item.project_name }}</span>
               </div>
@@ -87,7 +90,6 @@
 </template>
 
 <script setup lang="ts">
-/* eslint-disable vue/no-v-html -- highlight 由服务端 PostgreSQL ts_headline 生成（内容已转义，仅包裹 <b> 标签），属受信输出，无 XSS 注入面。 */
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useSearchStore } from '@/stores/search'

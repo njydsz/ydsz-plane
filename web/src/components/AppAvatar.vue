@@ -12,6 +12,7 @@ withDefaults(defineProps<{
   src?: string;
   size?: "sm" | "md" | "lg";
 }>(), {
+  src: "",
   size: "md",
 });
 </script>
