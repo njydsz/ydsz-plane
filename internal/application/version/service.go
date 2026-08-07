@@ -108,16 +108,16 @@ func (s *Service) Create(ctx context.Context, in CreateVersionInput) (*Version, 
 			return errs.ErrInternal.Wrap(err)
 		}
 		if exists {
-	errs.ErrVersionDataConflict
+			return errs.ErrVersionDataConflict.WithDetails(errs.FieldDetail{Field: "semver", Reason: "项目下已有该语义版本"})
 		}
 
 		clRaw, _ := json.Marshal(checklist)
-		var id int64
 		var target interface{}
 		if in.TargetDate != nil {
 			target = *in.TargetDate
 		}
 
+		var id int64
 		err := tx.QueryRow(ctx, `
 			INSERT INTO versions (workspace_id, project_id, name, semver, description,
 				status, checklist, target_date, created_by)
@@ -205,7 +205,7 @@ func (s *Service) List(ctx context.Context, opts ListVersionsOptions) ([]Version
 	return out, total, rows.Err()
 }
 
-// Update 更新版本日字段(planning 状态才允许修改)。
+// Update 更新版本日字段(planning/active 状态允许修改；archived/rejected 不可)。
 func (s *Service) Update(ctx context.Context, wsID, versionID int64, in UpdateVersionInput) (*Version, error) {
 	var result *Version
 	err := s.withTx(ctx, wsID, func(tx pgx.Tx) error {
@@ -213,18 +213,15 @@ func (s *Service) Update(ctx context.Context, wsID, versionID int64, in UpdateVe
 		if err != nil {
 			return err
 		}
-		// planning 之前任意状态都允许编辑，但 released/archived 不允许
 		if v.Status == VersionReleased || v.Status == VersionArchived {
 			return errs.ErrVersionInvalidLifecycle
 		}
 
-		// semver 校验
 		semverStr := v.Semver
 		if in.Semver != nil && *in.Semver != v.Semver {
 			if semErr, _ := ParseSemVer(*in.Semver); semErr != nil {
 				return errs.ErrVersionSemverInvalid.WithDetails(errs.FieldDetail{Field: "semver", Reason: semErr.Error()})
 			}
-			// 唯一性校验
 			var exists bool
 			if err := tx.QueryRow(ctx,
 				`SELECT EXISTS(SELECT 1 FROM versions WHERE project_id = $1 AND semver = $2 AND id <> $3 AND deleted_at IS NULL)`,
@@ -232,12 +229,11 @@ func (s *Service) Update(ctx context.Context, wsID, versionID int64, in UpdateVe
 				return errs.ErrInternal.Wrap(err)
 			}
 			if exists {
-	errs.ErrVersionDataConflict
+				return errs.ErrVersionDataConflict.WithDetails(errs.FieldDetail{Field: "semver", Reason: "项目下已有该语义版本"})
 			}
 			semverStr = *in.Semver
 		}
 
-		// checklist 校验 (must be all required checked? no — checklist 状态的保存是独立的)
 		cl := v.Checklist
 		if in.Checklist != nil {
 			cl = normalizeChecklist(in.Checklist)
@@ -258,7 +254,7 @@ func (s *Service) Update(ctx context.Context, wsID, versionID int64, in UpdateVe
 			return s.mapPgError(err)
 		}
 		if tag.RowsAffected() == 0 {
-	errs.ErrVersionDataConflict
+			return errs.ErrVersionDataConflict
 		}
 		result, err = s.getVersion(ctx, wsID, versionID)
 		return err
@@ -285,7 +281,7 @@ func (s *Service) SoftDelete(ctx context.Context, wsID, versionID int64) error {
 			return errs.ErrInternal.Wrap(err)
 		}
 		if tag.RowsAffected() == 0 {
-			return errs.ErrNotFound
+			return errs.ErrVersionNotFound
 		}
 		return nil
 	})
@@ -295,20 +291,10 @@ func (s *Service) SoftDelete(ctx context.Context, wsID, versionID int64) error {
 
 // Activate 启动版本日 (planning → active)。
 func (s *Service) Activate(ctx context.Context, wsID, versionID int64) (*Version, error) {
-	result, err := s.transition(ctx, wsID, versionID, VersionActive)
-	if err != nil {
-		return nil, err
-	}
-	return result, nil
+	return s.transition(ctx, wsID, versionID, VersionActive)
 }
 
 // Release 发布版本日 (active → released)。
-// 步骤:
-//  1. 清单全 required checked（forceChecklist=false 时）
-//  2. 准出校验: 致命/严重未关闭缺陷数 = 0
-//  3. 聚合生成 Release Notes
-//  4. 生成 DeliveryReport
-//  5. 状态推进
 func (s *Service) Release(ctx context.Context, wsID, versionID int64, in ReleaseVersionInput) (*Version, error) {
 	var result *Version
 	err := s.withTx(ctx, wsID, func(tx pgx.Tx) error {
@@ -317,7 +303,8 @@ func (s *Service) Release(ctx context.Context, wsID, versionID int64, in Release
 			return err
 		}
 		if v.Status != VersionActive {
-			return errs.ErrVersionInvalidLifecycle.WithDetails(errs.FieldDetail{Field: "status", Reason: "仅 active 状态可发布"})
+			return errs.ErrVersionInvalidLifecycle.WithDetails(
+				errs.FieldDetail{Field: "status", Reason: "仅 active 状态可发布"})
 		}
 
 		// 1) 清单校验
@@ -326,37 +313,34 @@ func (s *Service) Release(ctx context.Context, wsID, versionID int64, in Release
 		}
 
 		// 2) 准出校验
-		quality := s.computeQuality(ctx, wsID, v) // 事务内复用（Go context 只读查询）
+		quality := s.computeQuality(ctx, wsID, v)
 		if !quality.PassQualityGate {
 			return errs.ErrVersionNotQualityGate.WithDetails(
-				errs.FieldDetail{Field: "quality", Reason: fmt.Sprintf("严重/致命未关闭缺陷 %d 个", quality.CriticalBugs+quality.MajorBugs)})
+				errs.FieldDetail{Field: "quality", Reason: fmt.Sprintf("严重/致命未关闭缺陷 %d 个", quality.CriticalBugs)})
 		}
 
 		// 3) Release Notes
 		progress := s.computeProgress(ctx, wsID, v)
-		report := s.computeDeliveryReport(ctx, wsID, v, progress, quality)
+		_ = s.computeDeliveryReport(ctx, wsID, v, progress, quality)
 		noteSrc := s.buildReleaseNotesSource(ctx, wsID, v, in.AddKnownIssuesToNotes)
 		notes := renderReleaseNotes(v, noteSrc)
-		// 若客户端有显式 override 且非空，优先使用
 		if strings.TrimSpace(in.DraftOverride) != "" {
 			notes = in.DraftOverride
 		}
 
 		now := time.Now().UTC()
-		notesRaw := notes
 		tag, err := tx.Exec(ctx, `
 			UPDATE versions SET status = 'released', release_notes = $1, delivered_at = $2,
 				updated_at = now()
 			WHERE id = $3 AND workspace_id = $4 AND status = 'active'`,
-			notesRaw, now, versionID, wsID)
+			notes, now, versionID, wsID)
 		if err != nil {
 			return errs.ErrInternal.Wrap(err)
 		}
 		if tag.RowsAffected() == 0 {
-	errs.ErrVersionDataConflict
+			return errs.ErrVersionDataConflict
 		}
 
-		_ = report
 		result, err = s.getVersion(ctx, wsID, versionID)
 		return err
 	})
@@ -377,20 +361,19 @@ func (s *Service) transition(ctx context.Context, wsID, versionID int64, to Vers
 		if !canTransition(v.Status, to) {
 			return errs.ErrVersionInvalidLifecycle
 		}
-		archivedAt := "null"
+		var archivedAt string
 		if to == VersionArchived {
-			archivedAt = "now()"
+			archivedAt = "archived_at = now(),"
 		}
-		// 谨慎: 避免 SQL 注入，但 archivedAt 已是固定 token
-		query := fmt.Sprintf(`UPDATE versions SET status = $1, archived_at = %s, updated_at = now()
+		query := fmt.Sprintf(`UPDATE versions SET status = $1, %s updated_at = now()
 			WHERE id = $2 AND workspace_id = $3 AND status = $4`, archivedAt)
-		var fromStatus interface{} = string(v.Status)
+		fromStatus := string(v.Status)
 		tag, err := tx.Exec(ctx, query, string(to), versionID, wsID, fromStatus)
 		if err != nil {
 			return errs.ErrInternal.Wrap(err)
 		}
 		if tag.RowsAffected() == 0 {
-	errs.ErrVersionDataConflict
+			return errs.ErrVersionDataConflict
 		}
 		result, err = s.getVersion(ctx, wsID, versionID)
 		return err
@@ -401,7 +384,7 @@ func (s *Service) transition(ctx context.Context, wsID, versionID int64, to Vers
 	return result, nil
 }
 
-// Archive 归档版本日 (任何状态都可归档，released 是终态也可再归档)。
+// Archive 归档版本日 (任何状态都可归档)。
 func (s *Service) Archive(ctx context.Context, wsID, versionID int64) (*Version, error) {
 	return s.transition(ctx, wsID, versionID, VersionArchived)
 }
@@ -418,13 +401,12 @@ func (s *Service) AddSprint(ctx context.Context, wsID int64, in AddSprintInput) 
 		if v.Status == VersionReleased || v.Status == VersionArchived {
 			return errs.ErrVersionInvalidLifecycle
 		}
-		// 校验迭代存在并属于同项目
 		var sprintProject int64
 		if err := tx.QueryRow(ctx,
 			`SELECT project_id FROM sprints WHERE id = $1 AND workspace_id = $2 AND deleted_at IS NULL`,
 			in.SprintID, wsID).Scan(&sprintProject); err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				return errs.ErrNotFound.WithDetails(errs.FieldDetail{Field: "sprint_id", Reason: "迭代不存在"})
+				return errs.ErrVersionNotFound.WithDetails(errs.FieldDetail{Field: "sprint_id", Reason: "迭代不存在"})
 			}
 			return errs.ErrInternal.Wrap(err)
 		}
@@ -456,7 +438,7 @@ func (s *Service) RemoveSprint(ctx context.Context, wsID, versionID, sprintID in
 			return err
 		}
 		if tag.RowsAffected() == 0 {
-			return errs.ErrNotFound.WithDetails(errs.FieldDetail{Field: "sprint_id", Reason: "迭代未挂入该版本日"})
+			return errs.ErrVersionNotFound.WithDetails(errs.FieldDetail{Field: "sprint_id", Reason: "迭代未挂入该版本日"})
 		}
 		return nil
 	})
@@ -464,13 +446,9 @@ func (s *Service) RemoveSprint(ctx context.Context, wsID, versionID, sprintID in
 
 // ---- 进度 / 质量 / 报告计算 ----
 
-// computeProgress 跨迭代进度聚合。
 func (s *Service) computeProgress(ctx context.Context, wsID int64, v *Version) *VersionProgress {
-	// 聚合逻辑: 通过 version_sprints 的 sprints_issues + 已挂载的版本日直接关联 issue.release_version_id
-	// 此处用两者并集
 	p := &VersionProgress{ByStateGroup: map[string]float64{}}
 
-	// sprint associated issues (去重 by issue_id)
 	rows, err := s.db.Query(ctx, `
 		SELECT coalesce(sum(CASE WHEN i.point IS NOT NULL THEN i.point ELSE 0 END), 0),
 		       coalesce(sum(CASE WHEN sg."group" = 'completed' AND i.point IS NOT NULL THEN i.point ELSE 0 END), 0),
@@ -488,13 +466,15 @@ func (s *Service) computeProgress(ctx context.Context, wsID int64, v *Version) *
 		}
 	}
 
-	// direct release_version
 	rows2, err := s.db.Query(ctx, `
-		SELECT sg."group", coalesce(sum(CASE WHEN i.point IS NOT NULL THEN i.point ELSE 0 END), 0)
-		FROM issues i
+		SELECT sg."group",
+		       coalesce(sum(CASE WHEN i.point IS NOT NULL THEN i.point ELSE 0 END), 0)
+		FROM version_sprints vs
+		JOIN sprint_issues si ON si.sprint_id = vs.sprint_id
+		JOIN issues i ON i.id = si.issue_id AND i.deleted_at IS NULL
 		JOIN states sg ON sg.id = i.state_id
-		WHERE i.project_id = $1 AND i.release_version_id = $2 AND i.deleted_at IS NULL
-		GROUP BY sg."group"`, v.ProjectID, v.ID)
+		WHERE vs.version_id = $1
+		GROUP BY sg."group"`, v.ID)
 	if err == nil {
 		defer rows2.Close()
 		for rows2.Next() {
@@ -506,45 +486,17 @@ func (s *Service) computeProgress(ctx context.Context, wsID int64, v *Version) *
 		}
 	}
 
-	// 按状态分组聚合（sprint 维度）
-	rows3, err := s.db.Query(ctx, `
-		SELECT sg."group", count(DISTINCT i.id),
-		       coalesce(sum(CASE WHEN i.point IS NOT NULL THEN i.point ELSE 0 END), 0)
-		FROM version_sprints vs
-		JOIN sprint_issues si ON si.sprint_id = vs.sprint_id
-		JOIN issues i ON i.id = si.issue_id AND i.deleted_at IS NULL
-		JOIN states sg ON sg.id = i.state_id
-		WHERE vs.version_id = $1
-		GROUP BY sg."group"`, v.ID)
-	if err == nil {
-		defer rows3.Close()
-		for rows3.Next() {
-			var grp string
-			var cnt int
-			var pts float64
-			if err := rows3.Scan(&grp, &cnt, &pts); err == nil {
-				p.ByStateGroup[grp] = pts
-				p.IssueCount += cnt
-			}
-		}
-	}
-
 	if p.TotalPoints > 0 {
 		p.CompletionRate = math.Min(p.DonePoints/p.TotalPoints, 1)
 	}
 
-	// sprint 数量
 	_ = s.db.QueryRow(ctx, `SELECT count(*) FROM version_sprints WHERE version_id = $1`, v.ID).Scan(&p.SprintCount)
 	return p
 }
 
-// computeQuality 质量指标。
-// 准出规则: severity <= 2 (致命/严重) 的 open defect 数为 0 才能。
-//   severity 1-5: 1=致命(blocker), 2=严重(critical), 3=一般(major), 4=轻微(minor), 5=建议(trivial)
 func (s *Service) computeQuality(ctx context.Context, wsID int64, v *Version) *QualityMetrics {
 	q := &QualityMetrics{BugBySeverity: map[int]int{}}
 
-	// found_version_id = v.id 的缺陷
 	rows, err := s.db.Query(ctx, `
 		SELECT i.severity, sg."group", count(*)
 		FROM issues i
@@ -559,16 +511,17 @@ func (s *Service) computeQuality(ctx context.Context, wsID int64, v *Version) *Q
 			if err := rows.Scan(&sev, &grp, &cnt); err == nil {
 				q.FoundBugCount += cnt
 				q.BugBySeverity[sev] += cnt
-				if sev <= 2 {
-					if grp != "completed" && grp != "cancelled" {
+				isOpen := grp != "completed" && grp != "cancelled"
+				if sev <= 1 {
+					if isOpen {
 						q.CriticalBugs += cnt
 						q.OpenBugs += cnt
 					}
 				} else {
-					if grp != "completed" && grp != "cancelled" {
+					if isOpen {
 						q.OpenBugs += cnt
 					}
-					if sev == 3 {
+					if sev == 2 {
 						q.MajorBugs += cnt
 					}
 				}
@@ -576,7 +529,6 @@ func (s *Service) computeQuality(ctx context.Context, wsID int64, v *Version) *Q
 		}
 	}
 
-	// fix_version 统计
 	_ = s.db.QueryRow(ctx, `
 		SELECT count(*), count(*) FILTER (WHERE sg."group" = 'completed')
 		FROM issues i
@@ -593,7 +545,6 @@ func (s *Service) computeQuality(ctx context.Context, wsID int64, v *Version) *Q
 	return q
 }
 
-// computeDeliveryReport 交付报告计算。
 func (s *Service) computeDeliveryReport(ctx context.Context, wsID int64, v *Version, p *VersionProgress, q *QualityMetrics) *DeliveryReport {
 	return &DeliveryReport{
 		GeneratedAt:       time.Now().UTC(),
@@ -609,22 +560,17 @@ func (s *Service) computeDeliveryReport(ctx context.Context, wsID int64, v *Vers
 	}
 }
 
-// ---- Release Notes ----
+// Release Notes ----
 
-// buildReleaseNotesSource 查询版本日内的需求/缺陷数据。
 func (s *Service) buildReleaseNotesSource(ctx context.Context, wsID int64, v *Version, includeKnownIssues bool) *ReleaseNotesData {
-	src := &ReleaseNotesData{
-		VersionName: v.Name,
-		Semver:      v.Semver,
-	}
-	// 完成的需求/任务 (state group = completed)
+	src := &ReleaseNotesData{VersionName: v.Name, Semver: v.Semver}
+
 	rows, err := s.db.Query(ctx, `
-		SELECT DISTINCT i.identifier, i.name, s.name
+		SELECT DISTINCT i.identifier, i.name, st.name
 		FROM version_sprints vs
 		JOIN sprint_issues si ON si.sprint_id = vs.sprint_id
 		JOIN issues i ON i.id = si.issue_id AND i.deleted_at IS NULL
-		JOIN states s ON s.id = i.state_id AND s."group" = 'completed'
-		JOIN projects p ON p.id = i.project_id
+		JOIN states st ON st.id = i.state_id AND st."group" = 'completed'
 		WHERE vs.version_id = $1 AND i.type_code IN ('requirement','task')
 		ORDER BY i.identifier`, v.ID)
 	if err == nil {
@@ -637,11 +583,10 @@ func (s *Service) buildReleaseNotesSource(ctx context.Context, wsID int64, v *Ve
 		}
 	}
 
-	// 已修复缺陷 (fix_version_id=v.id 且 completed) — 同时合并维度
 	rows2, err := s.db.Query(ctx, `
-		SELECT i.identifier, i.name, s.name
+		SELECT i.identifier, i.name, st.name
 		FROM issues i
-		JOIN states s ON s.id = i.state_id AND s."group" = 'completed'
+		JOIN states st ON st.id = i.state_id AND st."group" = 'completed'
 		WHERE i.project_id = $1 AND i.type_code = 'defect' AND i.fix_version_id = $2 AND i.deleted_at IS NULL
 		ORDER BY i.identifier`, v.ProjectID, v.ID)
 	if err == nil {
@@ -655,13 +600,12 @@ func (s *Service) buildReleaseNotesSource(ctx context.Context, wsID int64, v *Ve
 	}
 
 	if includeKnownIssues {
-		// 已知问题 = found_version_id=v 且未 closed/rejected 的缺陷
 		rows3, err := s.db.Query(ctx, `
-			SELECT i.identifier, i.name, s.name
+			SELECT i.identifier, i.name, st.name
 			FROM issues i
-			JOIN states s ON s.id = i.state_id
+			JOIN states st ON st.id = i.state_id
 			WHERE i.project_id = $1 AND i.type_code = 'defect' AND i.found_version_id = $2
-				AND i.deleted_at IS NULL AND s."group" NOT IN ('completed','cancelled')
+				AND i.deleted_at IS NULL AND st."group" NOT IN ('completed','cancelled')
 			ORDER BY i.identifier`, v.ProjectID, v.ID)
 		if err == nil {
 			defer rows3.Close()
@@ -714,7 +658,6 @@ func renderReleaseNotes(v *Version, src *ReleaseNotesData) string {
 
 // ---- 进度查询 / 过滤 ----
 
-// Progress 获取版本日进度。
 func (s *Service) Progress(ctx context.Context, wsID, versionID int64) (*VersionProgress, error) {
 	v, err := s.getVersion(ctx, wsID, versionID)
 	if err != nil {
@@ -731,11 +674,10 @@ func (s *Service) DefectPanel(ctx context.Context, wsID, versionID int64) ([]Bug
 	}
 	rows, err := s.db.Query(ctx, `
 		SELECT i.id, i.identifier, i.name, i.severity, i.found_phase,
-		       s.name, s."group", i.root_cause_category,
+		       st.name, st."group", i.root_cause_category,
 		       fv.semver, fxv.semver
 		FROM issues i
-		JOIN states s ON s.id = i.state_id
-		JOIN projects p ON p.id = i.project_id
+		JOIN states st ON st.id = i.state_id
 		LEFT JOIN versions fv ON fv.id = i.found_version_id
 		LEFT JOIN versions fxv ON fxv.id = i.fix_version_id
 		WHERE i.project_id = $1 AND i.type_code = 'defect' AND i.deleted_at IS NULL
@@ -786,7 +728,7 @@ func (s *Service) FilterDefects(ctx context.Context, f BugVersionFilter) ([]BugV
 		f.Offset = 0
 	}
 
-	where := "WHERE i.project_id = $1 AND i.workspace_id = $2 AND i.type_code = 'defect' AND i.deleted_at IS NULL"
+	where := `WHERE i.project_id = $1 AND i.workspace_id = $2 AND i.type_code = 'defect' AND i.deleted_at IS NULL`
 	args := []interface{}{f.ProjectID, f.WorkspaceID}
 	arg := 3
 
@@ -801,7 +743,7 @@ func (s *Service) FilterDefects(ctx context.Context, f BugVersionFilter) ([]BugV
 		arg++
 	}
 	if f.StateGroup != nil {
-		where += " AND sg.\"group\" = $" + strconv.Itoa(arg)
+		where += ` AND sg."group" = $` + strconv.Itoa(arg)
 		args = append(args, *f.StateGroup)
 		arg++
 	}
@@ -895,7 +837,7 @@ func (s *Service) getVersionTx(ctx context.Context, tx pgx.Tx, wsID, versionID i
 
 func scanVersion(row pgx.Row) (*Version, error) {
 	var v Version
-	var desc, rn, td, arc, tgt sql.NullString
+	var desc, rn, td, arc sql.NullString
 	var cbRaw []byte
 	var delAt sql.NullTime
 
@@ -904,7 +846,7 @@ func scanVersion(row pgx.Row) (*Version, error) {
 		&v.CreatedBy, &v.CreatedAt, &v.UpdatedAt, &cbRaw)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, errs.ErrNotFound
+			return nil, errs.ErrVersionNotFound
 		}
 		return nil, errs.ErrInternal.Wrap(err)
 	}
@@ -941,9 +883,9 @@ func (s *Service) listSprints(ctx context.Context, wsID, versionID int64) []Spri
 		SELECT sp.id, sp.name, sp.status, sp.start_date, sp.end_date, sp.completed_at,
 		       sp.review_snapshot
 		FROM version_sprints vs
-		JOIN sprints sp ON sp.id = vs.sprint_id AND sp.workspace_id = $1 AND sp.deleted_at IS NULL
-		WHERE vs.version_id = $2
-		ORDER BY sp.start_date NULLS LAST, sp.created_at`, wsID, versionID)
+		JOIN sprints sp ON sp.id = vs.sprint_id AND sp.deleted_at IS NULL
+		WHERE vs.version_id = $1 AND sp.workspace_id = $2
+		ORDER BY sp.start_date NULLS LAST, sp.created_at`, versionID, wsID)
 	if err != nil {
 		return nil
 	}
@@ -970,12 +912,13 @@ func (s *Service) listSprints(ctx context.Context, wsID, versionID int64) []Spri
 			r.CompletedAt = &s2
 		}
 		if len(reviewRaw) > 0 {
-			var snap struct {
+			type reviewShort struct {
 				CommittedPoints float64 `json:"committed_points"`
 				CompletedPoints float64 `json:"completed_points"`
 				CommittedIssues int     `json:"committed_issues"`
 				CompletedIssues int     `json:"completed_issues"`
 			}
+			var snap reviewShort
 			if err := json.Unmarshal(reviewRaw, &snap); err == nil {
 				r.Progress = &SprintProgressRef{
 					TotalPoints: snap.CommittedPoints,
@@ -1016,10 +959,10 @@ func (s *Service) mapPgError(err error) error {
 	if errors.As(err, &pgErr) {
 		switch pgErr.Code {
 		case "23505":
-	errs.ErrVersionDataConflict
-		case "23503": // foreign_key
+			return errs.ErrVersionDataConflict
+		case "23503":
 			return errs.ErrValidation.WithDetails(errs.FieldDetail{Field: "reference", Reason: "引用的资源不存在"})
-		case "23514": // check_violation
+		case "23514":
 			if strings.Contains(pgErr.ConstraintName, "semver") {
 				return errs.ErrVersionSemverInvalid.WithDetails(errs.FieldDetail{Field: "semver", Reason: pgErr.Detail})
 			}
@@ -1027,16 +970,12 @@ func (s *Service) mapPgError(err error) error {
 		}
 	}
 	if errors.Is(err, pgx.ErrNoRows) {
-		return errs.ErrNotFound
+		return errs.ErrVersionNotFound
 	}
 	if _, ok := err.(*errs.AppError); ok {
 		return err
 	}
 	return errs.ErrInternal.Wrap(err)
-}
-
-func (s *Service) mapPgErrorForStart(err error) error {
-	return s.mapPgError(err)
 }
 
 // ---- 校验 ----
@@ -1094,5 +1033,5 @@ func buildUpdateSet(in UpdateVersionInput, semver string, clRaw []byte) ([]strin
 	return sets, args
 }
 
-// Unused-import prevention placeholder (kept for future imports).
+// Import placeholder.
 var _ = strconv.Itoa
