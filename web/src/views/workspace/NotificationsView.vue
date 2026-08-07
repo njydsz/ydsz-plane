@@ -50,20 +50,22 @@
     </div>
 
     <!-- 加载中 -->
-    <div v-if="loading && items.length === 0" class="state-wrapper">
-      <div class="spinner" />
-      <span class="state-text">加载中...</span>
-    </div>
+    <AppLoadingState v-if="loading && items.length === 0" />
+
+    <!-- 错误态 -->
+    <AppErrorState
+      v-else-if="notifStore.error"
+      :message="notifStore.error"
+      @retry="reload"
+    />
 
     <!-- 空态 -->
-    <div v-else-if="!loading && filteredItems.length === 0" class="state-wrapper empty">
-      <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="empty-icon">
-        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-        <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-      </svg>
-      <span class="state-text">{{ filter === 'unread' ? '没有未读通知' : '暂无通知' }}</span>
-      <span class="state-hint">新通知将在这里显示</span>
-    </div>
+    <AppEmptyState
+      v-else-if="filteredItems.length === 0"
+      icon="🔔"
+      :title="filter === 'unread' ? '没有未读通知' : '暂无通知'"
+      description="新通知将在这里显示"
+    />
 
     <!-- 通知列表 -->
     <div v-else class="notif-list">

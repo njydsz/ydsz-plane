@@ -1,21 +1,22 @@
-// Command seed 向开发/演示环境插入确定性种子数据。
+// Command seed 向数据库插入种子数据，支持两种模式：
 //
-// 种子数据（幂等，可重复执行）：
-//   - 管理员 / PM / 工程 / 设计 / 访客 5 个测试账号（详见 users 变量）。
-//   - 3 个工作空间（核心产品 / 设计系统 / 基础设施），含成员关系。
-//   - 审计日志演示条目。
+// 1) 确定性种子模式（默认）：插入测试账号、工作空间、成员关系、审计日志（幂等）。
+// 2) 性能压测造数模式（--count N）：批量生成 N 条工作项，用于负载测试基线建立。
 //
-// 参考: Linear / Plane / Asana 的 seed 策略——确定性数据便于复现 bug 与演示。
+// 使用示例：
+//   # 确定性种子
+//   go run ./scripts/seed
 //
-// 典型的 run() 顺序：
-//   1. 加载配置
-//   2. 建 DB 连接池
-//   3. 构造 auth.Service（用于 HashPassword）
-//   4. INSERT ... ON CONFLICT 幂等写入 users / workspaces / workspace_members / audit_logs
+//   # 造 10 万工作项
+//   go run ./scripts/seed --count 100000
+//
+//   # 指定数据库连接
+//   go run ./scripts/seed --count 100000 --db-dsn "postgres://..." --batch-size 2000
 package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"os"
 	"time"
@@ -25,83 +26,84 @@ import (
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/persistence"
 )
 
+// ----- 命令行参数 -----
+var (
+	flagCount     = flag.Int("count", 0, "批量造工作项数量；0 表示运行确定性种子模式")
+	flagBatchSize = flag.Int("batch-size", 1000, "每批 INSERT 数量（性能模式）")
+	flagDBDSN     = flag.String("db-dsn", "", "数据库连接串；空则读取 YDSZ_DATABASE_URL 或默认值")
+)
+
 /* ------------------------------------------------------------------ */
-/* seed data (deterministic)                                            */
+/* 确定性种子数据                                                       */
 /* ------------------------------------------------------------------ */
 
-// seedUser 一个种子用户的基本信息。
 type seedUser struct {
-	Email       string // 邮箱，唯一标识。
-	Password    string // 明文密码（seed 中仅用于生成 bcrypt hash，不落库）。
-	DisplayName string // 显示名。
-	Timezone    string // IANA 时区。
+	Email       string
+	Password    string
+	DisplayName string
+	Timezone    string
 }
 
-// seedWorkspace 一个种子工作空间的定义。
 type seedWorkspace struct {
-	Name    string            // 显示名。
-	Slug    string            // URL 友好唯一标识。
-	Members map[string]string // 成员映射：email → role（owner / admin / member / guest）。
+	Name    string
+	Slug    string
+	Members map[string]string // email → role
 }
 
-var users = []seedUser{
-	{"admin@ydsz.dev",    "Admin@123",   "系统管理员", "Asia/Shanghai"},
-	{"pm@ydsz.dev",       "Pm@123456",   "李产品",     "Asia/Shanghai"},
-	{"dev@ydsz.dev",      "Dev@123456",   "王工程",     "Asia/Shanghai"},
-	{"designer@ydsz.dev", "Design@123",  "张设计",     "Asia/Shanghai"},
-	{"viewer@ydsz.dev",   "Viewer@123",  "访客小赵",   "Asia/Shanghai"},
+var deterministicUsers = []seedUser{
+	{"admin@ydsz.dev", "Admin@123", "系统管理员", "Asia/Shanghai"},
+	{"pm@ydsz.dev", "Pm@123456", "李产品", "Asia/Shanghai"},
+	{"dev@ydsz.dev", "Dev@123456", "王工程", "Asia/Shanghai"},
+	{"designer@ydsz.dev", "Design@123", "张设计", "Asia/Shanghai"},
+	{"viewer@ydsz.dev", "Viewer@123", "访客小赵", "Asia/Shanghai"},
 }
 
-var workspaces = []seedWorkspace{
+var deterministicWorkspaces = []seedWorkspace{
 	{
-		Name: "核心产品",
-		Slug: "core",
+		Name: "核心产品", Slug: "core",
 		Members: map[string]string{
-			"admin@ydsz.dev":    "owner",
-			"pm@ydsz.dev":       "admin",
-			"dev@ydsz.dev":      "member",
-			"designer@ydsz.dev": "member",
-			"viewer@ydsz.dev":   "guest",
+			"admin@ydsz.dev": "owner", "pm@ydsz.dev": "admin",
+			"dev@ydsz.dev": "member", "designer@ydsz.dev": "member", "viewer@ydsz.dev": "guest",
 		},
 	},
 	{
-		Name: "设计系统",
-		Slug: "design-system",
+		Name: "设计系统", Slug: "design-system",
 		Members: map[string]string{
-			"admin@ydsz.dev":    "admin",
-			"designer@ydsz.dev": "owner",
-			"pm@ydsz.dev":       "member",
+			"admin@ydsz.dev": "admin", "designer@ydsz.dev": "owner", "pm@ydsz.dev": "member",
 		},
 	},
 	{
-		Name: "基础设施",
-		Slug: "infra",
+		Name: "基础设施", Slug: "infra",
 		Members: map[string]string{
-			"admin@ydsz.dev": "owner",
-			"dev@ydsz.dev":    "admin",
+			"admin@ydsz.dev": "owner", "dev@ydsz.dev": "admin",
 		},
 	},
 }
 
 /* ------------------------------------------------------------------ */
-/* main                                                                 */
+/* main                                                                */
 /* ------------------------------------------------------------------ */
 
 func main() {
-	if err := run(); err != nil {
+	flag.Parse()
+
+	var err error
+	if *flagCount > 0 {
+		err = runBulk(*flagCount, *flagBatchSize, *flagDBDSN)
+	} else {
+		err = runDeterministic()
+	}
+	if err != nil {
 		fmt.Fprintln(os.Stderr, "seed:", err)
 		os.Exit(1)
 	}
 }
 
-// run 执行种子数据写入流程。
-//
-// 顺序：
-//  1. 加载配置并建立 DB 连接池；
-//  2. 构造 auth.Service（用于 HashPassword 生成 bcrypt 散列）；
-//  3. 幂等写入 users / workspaces / workspace_members / audit_logs；
-//  4. 打印账号与工作空间摘要。
-func run() error {
+/* ================================================================== */
+/* 模式 1：确定性种子                                                    */
+/* ================================================================== */
+
+func runDeterministic() error {
 	cfg, err := config.Load()
 	if err != nil {
 		return err
@@ -121,33 +123,24 @@ func run() error {
 	if err != nil {
 		return err
 	}
-
 	wsSlugsToIDs, err := seedWorkspaces(ctx, pool, emailsToIDs)
 	if err != nil {
 		return err
 	}
-
-	if err := seedMembers(ctx, pool, wsSlugsToIDs, workspaces); err != nil {
+	if err := seedMembers(ctx, pool, wsSlugsToIDs, deterministicWorkspaces); err != nil {
 		return err
 	}
-
 	if err := seedAuditLogs(ctx, pool, emailsToIDs); err != nil {
 		return err
 	}
-
 	printSummary(emailsToIDs, wsSlugsToIDs)
 	return nil
 }
 
-/* ------------------------------------------------------------------ */
-/* helpers                                                              */
-/* ------------------------------------------------------------------ */
-
-// seedUsers 幂等写入种子用户，返回 email → 用户 ID 的映射。
-// 已存在的用户按 email 冲突更新密码散列，保证可重复执行。
+// seedUsers 幂等写入确定性种子用户。
 func seedUsers(ctx context.Context, pool *persistence.Pool, svc *auth.Service) (map[string]int64, error) {
-	out := make(map[string]int64, len(users))
-	for _, u := range users {
+	out := make(map[string]int64, len(deterministicUsers))
+	for _, u := range deterministicUsers {
 		hash, err := svc.HashPassword(u.Password)
 		if err != nil {
 			return nil, fmt.Errorf("hash %s: %w", u.Email, err)
@@ -166,16 +159,12 @@ func seedUsers(ctx context.Context, pool *persistence.Pool, svc *auth.Service) (
 	return out, nil
 }
 
-// seedWorkspaces 幂等写入种子工作空间，返回 slug → 工作空间 ID 的映射。
-// 已归档的同 slug 记录会被跳过（WHERE status <> 'archived'），
-// 激活状态的记录按 name 更新。
+// seedWorkspaces 幂等写入工作空间。
 func seedWorkspaces(ctx context.Context, pool *persistence.Pool, userIDs map[string]int64) (map[string]int64, error) {
 	ownerID := userIDs["admin@ydsz.dev"]
-	out := make(map[string]int64, len(workspaces))
-	for _, ws := range workspaces {
+	out := make(map[string]int64, len(deterministicWorkspaces))
+	for _, ws := range deterministicWorkspaces {
 		var id int64
-		// 兜底保护：若 Members 映射中恰好没有 admin，
-		// 首个写入的成员也会成为 owner。
 		err := pool.QueryRow(ctx, `
 			INSERT INTO workspaces (name, slug, owner_id)
 			VALUES ($1, $2, $3)
@@ -199,7 +188,6 @@ func seedWorkspaces(ctx context.Context, pool *persistence.Pool, userIDs map[str
 }
 
 // seedMembers 幂等写入工作空间成员关系。
-// 已存在的 (workspace_id, user_id) 组合按角色更新，保证可重复执行。
 func seedMembers(ctx context.Context, pool *persistence.Pool, wsIDs map[string]int64, wsList []seedWorkspace) error {
 	for _, ws := range wsList {
 		wsID, ok := wsIDs[ws.Slug]
@@ -224,7 +212,7 @@ func seedMembers(ctx context.Context, pool *persistence.Pool, wsIDs map[string]i
 	return nil
 }
 
-// seedAuditLogs 写入 5 条演示用审计日志，便于开发环境查看审计时间线。
+// seedAuditLogs 写入演示审计日志。
 func seedAuditLogs(ctx context.Context, pool *persistence.Pool, userIDs map[string]int64) error {
 	admin := userIDs["admin@ydsz.dev"]
 	for i := 0; i < 5; i++ {
@@ -241,21 +229,21 @@ func seedAuditLogs(ctx context.Context, pool *persistence.Pool, userIDs map[stri
 	return nil
 }
 
-// printSummary 打印种子数据执行结果（账号列表与工作空间成员数）。
+// printSummary 打印确定性种子执行结果。
 func printSummary(userIDs map[string]int64, wsIDs map[string]int64) {
 	fmt.Println("═══════════════════════════════════════")
 	fmt.Println("  Ydsz Plane Seed — OK")
 	fmt.Println("═══════════════════════════════════════")
-	fmt.Printf("  Users:      %d\n", len(users))
-	fmt.Printf("  Workspaces: %d\n", len(workspaces))
+	fmt.Printf("  Users:      %d\n", len(deterministicUsers))
+	fmt.Printf("  Workspaces: %d\n", len(deterministicWorkspaces))
 	fmt.Println("───────────────────────────────────────")
 	fmt.Println(" 用户 / 密码:")
-	for _, u := range users {
+	for _, u := range deterministicUsers {
 		fmt.Printf("   %-22s %s\n", u.Email, u.Password)
 	}
 	fmt.Println("───────────────────────────────────────")
 	fmt.Println(" 工作空间:")
-	for _, ws := range workspaces {
+	for _, ws := range deterministicWorkspaces {
 		fmt.Printf("   %-16s (%d 成员)\n", ws.Slug, len(ws.Members))
 	}
 	_ = userIDs

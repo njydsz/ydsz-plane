@@ -133,6 +133,61 @@ type BlockedItem struct {
 	BlockerNames   string `json:"blocker_names"`
 }
 
+// --- Widget Data: Team Workload ---
+
+// TeamWorkloadWidget 团队工作负载 widget 数据。
+type TeamWorkloadWidget struct {
+	Members []TeamMemberWorkload `json:"members"`
+}
+
+// TeamMemberWorkload 成员工作负载。
+type TeamMemberWorkload struct {
+	UserID     int64  `json:"user_id"`
+	UserName   string `json:"user_name"`
+	Avatar     string `json:"avatar,omitempty"`
+	Todo       int    `json:"todo"`
+	InProgress int    `json:"in_progress"`
+	Done       int    `json:"done"`
+	Total      int    `json:"total"`
+}
+
+// --- Widget Data: Recent Activity ---
+
+// RecentActivityWidget 最近活动 widget 数据。
+type RecentActivityWidget struct {
+	Items []ActivityItem `json:"items"`
+}
+
+// ActivityItem 活动条目。
+type ActivityItem struct {
+	ID              int64  `json:"id"`
+	IssueID         int64  `json:"issue_id"`
+	IssueIdentifier string `json:"issue_identifier"`
+	ActorID         int64  `json:"actor_id"`
+	ActorName       string `json:"actor_name"`
+	ActorAvatar     string `json:"actor_avatar,omitempty"`
+	Verb            string `json:"verb"`
+	TargetState     string `json:"target_state,omitempty"`
+	CreatedAt       string `json:"created_at"`
+}
+
+// --- Widget Data: Velocity ---
+
+// VelocityWidget 速率图 widget 数据。
+type VelocityWidget struct {
+	Sprints []VelocityPoint `json:"sprints"`
+	Average float64         `json:"average"`
+}
+
+// VelocityPoint 单迭代速率数据点。
+type VelocityPoint struct {
+	SprintID       int64   `json:"sprint_id"`
+	SprintName     string  `json:"sprint_name"`
+	CompletedCount int     `json:"completed_count"`
+	CommittedCount int     `json:"committed_count"`
+	CompletionRate float64 `json:"completion_rate"`
+}
+
 // --- Risk Alerts ---
 
 // RiskAlert 风险告警。

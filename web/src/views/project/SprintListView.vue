@@ -11,6 +11,7 @@ import { sprintApi, type Sprint, type SprintStatus } from "@/api/services/sprint
 import { useWorkspaceContext } from "@/composables/useWorkspaceContext";
 import SprintStatusBadge from "@/components/sprint/SprintStatusBadge.vue";
 import SprintProgressBar from "@/components/sprint/SprintProgressBar.vue";
+import { AppLoadingState, AppErrorState, AppEmptyState } from "@/components";
 
 /* ------------------------------------------------------------------ */
 /* 路由上下文                                                           */
@@ -280,17 +281,16 @@ watch(ready, (r) => {
       </label>
     </div>
 
-    <div v-if="loading" class="center-message">
-      <div class="skeleton-row" v-for="i in 3" :key="i">
-        <div class="skeleton-line" style="width:70%"></div>
-        <div class="skeleton-line" style="width:40%"></div>
-      </div>
-    </div>
-    <div v-else-if="error" class="center-message error">
-      <p>迭代列表加载失败</p>
-      <p class="detail">{{ error }}</p>
-      <button class="btn btn-secondary" @click="load(true)">重试</button>
-    </div>
+    <AppLoadingState v-if="loading" />
+    <AppErrorState v-else-if="error" :message="error" @retry="load(true)" />
+
+    <AppEmptyState
+      v-else-if="!loading && !error && sprints.length === 0"
+      title="暂无迭代"
+      description="当前筛选条件下没有迭代"
+    >
+      <button class="btn btn-primary" @click="showCreate = true">创建第一个迭代</button>
+    </AppEmptyState>
 
     <div v-else class="grid">
       <div
@@ -342,14 +342,7 @@ watch(ready, (r) => {
         </div>
       </div>
 
-      <div v-if="sprints.length === 0 && !loading" class="empty">
-        <p>当前筛选条件下没有迭代</p>
-        <button class="btn btn-primary" @click="showCreate = true">创建第一个迭代</button>
-      </div>
-    </div>
-
-    <!-- 加载更多 -->
-    <div v-if="hasMore" class="load-more">
+      <div v-if="hasMore" class="load-more">
       <button class="btn btn-secondary" :disabled="loading" @click="loadMore">
         {{ loading ? "加载中..." : "加载更多" }}
       </button>

@@ -24,11 +24,17 @@
 - **RBAC**：Owner/Admin/Member/Guest 四角色 × 10 项权限中间件
 - **工作空间**：CRUD、Slug 校验、成员邀请（token + 7 天有效 + 可撤销）、审计日志
 - **项目**：CRUD、Identifier 生成、RLS 租户隔离
-- **工作项**：Issue CRUD、状态机流转、WBS 三级、类型差异化字段、工时记录、关联（6 种关系）、依赖（FS/SS/FF/SF）
+- **工作项**：Issue CRUD、状态机流转、WBS 三级、类型差异化字段、工时记录、关联（6 种关系）、依赖（FS/SS/FF/SF）、CSV/xlsx 导出
 - **迭代**：Sprint 生命周期、燃尽图、容量规划、速率建议、复盘快照、站会模式
 - **版本日**：Version CRUD + 状态机、进度聚合、交付报告、Release Notes、缺陷面板
-- **协同增强**：评论（富文本 + @提及）、附件（MinIO 预签名）、通知（站内信）、WebSocket 实时推送、API Token 认证
+- **协同增强**：评论（富文本 + @提及 + 嵌套回复）、附件（MinIO 预签名上传/下载/预览）、通知系统（站内信 + 默认规则矩阵 + 铃铛下拉面板 + 偏好设置）、WebSocket 实时推送（Redis Pub/Sub 多节点扇出）、API Token 认证
 - **可观测与安全**：Prometheus RED 指标、8 项安全头、Swagger、SMTP 邮件抽象
+
+### S7 收尾（MVP v0.1）
+- 工作项导出：新增 xlsx 格式导出（纯标准库实现，无需第三方依赖），前端增加导出格式下拉菜单（CSV / Excel）
+- 性能基线：创建 `docs/perf/` 目录归档基线报告，新增 `scripts/seed-scale/` 大规模造数脚本（支持 100 万工作项并发写入、断点续传）
+- 通知中心：铃铛下拉面板（未读角标、领域图标、已读/未读高亮）、通知列表页（筛选/分页/全部已读/归档）、通知偏好设置页
+- MVP 加固：全链路加载态/空态/错误态组件（AppLoadingState / AppEmptyState / AppErrorState / NotFoundView）覆盖通知、评论、看板、工作项列表
 
 ### 已知待完善（发布前）
 - 前端测试覆盖率仍偏低，需按测试策略文档持续补充

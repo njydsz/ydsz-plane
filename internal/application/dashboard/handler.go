@@ -139,6 +139,8 @@ func (h *DashboardHandler) ListAlerts(c *gin.Context) {
 	if alerts == nil {
 		alerts = []RiskAlert{}
 	}
+	// TODO: 待 worker 定时检测新风险命中后，通过 hub.Publish 广播告警给全 ws 用户。
+	// 调用 dashboard.BroadcastRiskAlert(ctx, hub, wsID, newAlert) 推送 {"type":"risk_alert","data":...}
 	c.JSON(http.StatusOK, gin.H{"results": alerts})
 }
 

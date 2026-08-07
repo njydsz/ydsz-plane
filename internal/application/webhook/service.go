@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -93,7 +94,7 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*Webhook, erro
 	return &w, nil
 }
 
-// GetByID 查询单条 Webhook 订阅。
+// GetByID 查询单条 Webhook 订阅（不返回 secret；供内部/日志使用）。
 func (s *Service) GetByID(ctx context.Context, workspaceID, webhookID int64) (*Webhook, error) {
 	var w Webhook
 	err := s.db.QueryRow(ctx, `
@@ -113,6 +114,51 @@ func (s *Service) GetByID(ctx context.Context, workspaceID, webhookID int64) (*W
 		return nil, fmt.Errorf("webhook.GetByID: %w", err)
 	}
 	return &w, nil
+}
+
+// GetByIDWithSecret 查询 Webhook 并返回签名密钥（供投递流程使用）。
+func (s *Service) GetByIDWithSecret(ctx context.Context, workspaceID, webhookID int64) (*Webhook, error) {
+	var w Webhook
+	err := s.db.QueryRow(ctx, `
+		SELECT id, workspace_id, project_id, name, target_url, secret, events, is_active,
+			last_error, last_triggered, last_status, unhealthy_at, created_by, created_at, updated_at
+		FROM webhooks WHERE id = $1 AND workspace_id = $2`,
+		webhookID, workspaceID,
+	).Scan(
+		&w.ID, &w.WorkspaceID, &w.ProjectID, &w.Name, &w.TargetURL, &w.Secret,
+		&w.Events, &w.IsActive, &w.LastError, &w.LastTriggered, &w.LastStatus,
+		&w.UnhealthyAt, &w.CreatedBy, &w.CreatedAt, &w.UpdatedAt,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, errs.NotFound("WEBHOOK.NOT_FOUND", "Webhook 不存在")
+		}
+		return nil, fmt.Errorf("webhook.GetByIDWithSecret: %w", err)
+	}
+	return &w, nil
+}
+
+// ProjectSlug 查询项目 slug。工作空间级返回空。
+func (s *Service) ProjectSlug(ctx context.Context, projectID int64) string {
+	if projectID <= 0 {
+		return ""
+	}
+	var slug string
+	err := s.db.QueryRow(ctx, `SELECT slug FROM projects WHERE id = $1`, projectID).Scan(&slug)
+	if err != nil {
+		return ""
+	}
+	return slug
+}
+
+// WorkspaceSlug 查询工作空间 slug。
+func (s *Service) WorkspaceSlug(ctx context.Context, wsID int64) string {
+	var slug string
+	err := s.db.QueryRow(ctx, `SELECT slug FROM workspaces WHERE id = $1`, wsID).Scan(&slug)
+	if err != nil {
+		return fmt.Sprintf("workspace-%d", wsID)
+	}
+	return slug
 }
 
 // ListInput 查询参数。
@@ -435,4 +481,48 @@ func (s *Service) SendTestPing(ctx context.Context, webhookID, workspaceID int64
 		FROM webhooks WHERE id = $1 AND workspace_id = $2`,
 		webhookID, workspaceID,
 	).Scan(
-		&w.ID, &w.WorkspaceID, &w.ProjectID, &w.Name, &w.TargetUR
+		&w.ID, &w.WorkspaceID, &w.ProjectID, &w.Name, &w.TargetURL, &w.Secret,
+		&w.Events, &w.IsActive, &w.LastError, &w.LastTriggered, &w.LastStatus,
+		&w.UnhealthyAt, &w.CreatedBy, &w.CreatedAt, &w.UpdatedAt,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, errs.NotFound("WEBHOOK.NOT_FOUND", "Webhook 不存在")
+		}
+		return nil, fmt.Errorf("webhook.SendTestPing: %w", err)
+	}
+
+	// 构造 ping payload
+	pingData := map[string]interface{}{
+		"ping":      true,
+		"hook_id":   w.ID,
+		"timestamp": time.Now().Unix(),
+	}
+	pingBody, _ := json.Marshal(pingData)
+
+	// 返回待投递的配置（实际投递由 dispatcher 异步完成）
+	log := &WebhookLog{
+		WebhookID:  w.ID,
+		WorkspaceID: w.WorkspaceID,
+		EventType:  "ping",
+		RequestBody: string(pingBody),
+		Status:     LogStatusRetrying, // 占位；实际状态取决于投递
+		Attempt:    0,
+		OccurredAt: time.Now(),
+	}
+	_ = pingBody
+	return log, nil
+}
+
+// --- 辅助函数 ---
+
+func joinSets(sets []string) string {
+	result := ""
+	for i, s := range sets {
+		if i > 0 {
+			result += ", "
+		}
+		result += s
+	}
+	return result
+}

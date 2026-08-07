@@ -15,6 +15,7 @@ import CommentList from "@/components/CommentList.vue";
 import AttachmentUploader from "@/components/AttachmentUploader.vue";
 import RelationPanel from "./RelationPanel.vue";
 import IssueCreateModal from "./IssueCreateModal.vue";
+import { AppLoadingState, AppErrorState, AppEmptyState } from "@/components";
 
 const props = defineProps<{
   workspaceSlug: string;
@@ -368,10 +369,17 @@ onMounted(() => {
       </div>
     </header>
 
-    <div v-if="loading" class="loading">加载中...</div>
-    <div v-else-if="error" class="error">{{ error }}</div>
+    <AppLoadingState v-if="loading" />
+    <AppErrorState v-else-if="error" :message="error" @retry="load" />
+    <AppEmptyState
+      v-else-if="!issue"
+      title="工作项不存在或已被删除"
+      description="请检查工作项 ID 是否正确"
+    >
+      <button class="btn btn--ghost" @click="goBack">← 返回看板</button>
+    </AppEmptyState>
 
-    <div v-else-if="issue" class="issue-detail__body">
+    <div v-else class="issue-detail__body">
       <div class="issue-detail__main">
         <div class="issue-detail__identifier">{{ issue.identifier }}</div>
         <div v-if="editField === 'name'" class="edit-row">

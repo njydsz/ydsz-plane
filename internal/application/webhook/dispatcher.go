@@ -80,7 +80,7 @@ func NewDispatcher(svc *Service, mqClient *mq.TaskClient, log *zap.Logger) *Disp
 // DispatchEvent 处理单个领域事件：查找匹配订阅、投递/排队重试。
 // 返回成功投递的订阅数与错误数（用于指标统计）。
 func (d *Dispatcher) DispatchEvent(ctx context.Context, envelope mq.EventEnvelope) (ok int, failed int) {
-	if d.mq == nil || !d.mqEnabled() {
+	if d.mq == nil {
 		return 0, 0
 	}
 
@@ -97,7 +97,7 @@ func (d *Dispatcher) DispatchEvent(ctx context.Context, envelope mq.EventEnvelop
 		return 0, 0
 	}
 
-	// 投递到每一个匹配的订阅
+	// SSRF 防护 + 投递到每一个匹配的订阅
 	for _, w := range webhooks {
 		if err := d.deliverOne(ctx, w, envelope, 1); err != nil {
 			d.log.Warn("webhook: deliver failed, enqueue retry",
@@ -128,10 +128,13 @@ func (d *Dispatcher) deliverOne(ctx context.Context, w *Webhook, envelope mq.Eve
 	// 构造投递负载
 	payload := DeliveryPayload{
 		Event:      envelope.EventType,
-		Workspace:  d.workspaceSlug(ctx, envelope.WorkspaceID),
+		Workspace:  d.svc.WorkspaceSlug(ctx, envelope.WorkspaceID),
 		Data:       envelope.Payload,
 		ActorName:  "",
 		OccurredAt: envelope.OccurredAt,
+	}
+	if envelope.AggregateType == "project" && envelope.AggregateID > 0 {
+		payload.Project = d.svc.ProjectSlug(ctx, envelope.AggregateID)
 	}
 
 	body, err := json.Marshal(payload)
@@ -182,11 +185,11 @@ func (d *Dispatcher) deliverOne(ctx context.Context, w *Webhook, envelope mq.Eve
 	if err != nil {
 		logEntry.Status = LogStatusFailed
 		logEntry.Error = err.Error()
-		_ = d.saveLog(ctx, logEntry)
+		_ = d.svc.SaveLog(ctx, logEntry)
 		_ = d.svc.RecordResult(ctx, w.ID, WebhookStatusFailed, err.Error())
 		return fmt.Errorf("http do: %w", err)
 	}
-	defer resp.Body()
+	defer resp.Body.Close()
 
 	// 读取响应体（限 1MB 防止内存耗尽）
 	respBody, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
@@ -200,7 +203,7 @@ func (d *Dispatcher) deliverOne(ctx context.Context, w *Webhook, envelope mq.Eve
 
 	if respStatus >= 200 && respStatus < 300 {
 		logEntry.Status = LogStatusDelivered
-		_ = d.saveLog(ctx, logEntry)
+		_ = d.svc.SaveLog(ctx, logEntry)
 		_ = d.svc.RecordResult(ctx, w.ID, WebhookStatusSuccess, "")
 		return nil
 	}
@@ -209,7 +212,7 @@ func (d *Dispatcher) deliverOne(ctx context.Context, w *Webhook, envelope mq.Eve
 	errText := fmt.Sprintf("unexpected status %d: %s", respStatus, truncate(string(respBody), 500))
 	logEntry.Status = LogStatusFailed
 	logEntry.Error = errText
-	_ = d.saveLog(ctx, logEntry)
+	_ = d.svc.SaveLog(ctx, logEntry)
 	_ = d.svc.RecordResult(ctx, w.ID, WebhookStatusFailed, errText)
 	return fmt.Errorf("delivery rejected: %s", errText)
 }
@@ -302,8 +305,8 @@ func (d *Dispatcher) HandleRetry(ctx context.Context, task mq.Task) error {
 		return fmt.Errorf("unmarshal retry task: %w", err)
 	}
 
-	// 重新查询 Webhook 配置
-	w, err := d.svc.GetByID(ctx, rt.Envelope.WorkspaceID, rt.WebhookID)
+	// 重新查询 Webhook 配置（需要签名密钥）
+	w, err := d.svc.GetByIDWithSecret(ctx, rt.Envelope.WorkspaceID, rt.WebhookID)
 	if err != nil {
 		return fmt.Errorf("webhook not found for retry: %w", err)
 	}
@@ -350,24 +353,6 @@ func (d *Dispatcher) ExecuteTestPing(ctx context.Context, w *Webhook) error {
 }
 
 // --- 内部辅助 ---
-
-// saveLog 写入投递日志。错误仅 log 不返回（投递成功优先）。
-func (d *Dispatcher) saveLog(ctx context.Context, log *WebhookLog) error {
-	// 由于 Service 层没有直接的 saveLog 方法，后续添加。
-	// 这里简化：直接写 DB。
-	return nil // TODO: wire up via service method
-}
-
-// mqEnabled 检查消息客户端是否可用。
-func (d *Dispatcher) mqEnabled() bool {
-	return d.mq != nil
-}
-
-// workspaceSlug 查询工作空间 slug（带缓存优化可后续加入）。
-func (d *Dispatcher) workspaceSlug(ctx context.Context, wsID int64) string {
-	// TODO: 从 WorkspaceService 查询；MVP 用 ID 占位
-	return fmt.Sprintf("workspace-%d", wsID)
-}
 
 // generateDeliveryID 生成唯一投递 ID。
 func generateDeliveryID() string {

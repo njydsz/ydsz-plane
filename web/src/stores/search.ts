@@ -9,10 +9,20 @@
  * 设计说明：
  *  - open 与 query/results 耦合管理：关闭面板时自动清空上次搜索，
  *    避免下次打开时残留旧结果。
+ *  - results 与 SearchResponse 结构对齐：{ results: { issues, sprints, versions }, total, time_ms }
  */
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { searchApi, type SearchResponse } from '@/api/services/search'
+
+/** 默认空结果结构（对齐后端 SearchResponse，避免模板空引用） */
+const emptyResults: SearchResponse = {
+  query: '',
+  total: 0,
+  results: { issues: [], sprints: [], versions: [] },
+  time_ms: 0,
+  suggestions: [],
+}
 
 export const useSearchStore = defineStore('search', () => {
   /** 当前搜索关键字 */
@@ -40,8 +50,8 @@ export const useSearchStore = defineStore('search', () => {
     try {
       results.value = await searchApi.searchWorkspace(wsId, { q, limit: 10 })
     } catch {
-      // 失败时回退为空结果，保证 UI 有稳定的空态
-      results.value = null
+      // 失败时回退为默认空结果，保证 UI 有稳定的空态（避免模板崩溃）
+      results.value = { ...emptyResults, query: q }
     } finally {
       loading.value = false
     }

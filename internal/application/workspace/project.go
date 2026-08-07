@@ -93,6 +93,8 @@ func (s *ProjectService) Create(ctx context.Context, in ProjectCreateInput) (*Pr
 		}
 		return nil, errs.ErrInternal.Wrap(err)
 	}
+	// 创建默认风险规则（失败不阻塞项目创建）
+	go EnsureProjectDefaultRiskRules(context.Background(), s.db, in.WorkspaceID, p.ID)
 	return &p, nil
 }
 

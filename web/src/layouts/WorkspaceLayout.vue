@@ -13,6 +13,7 @@ import { useRoute, useRouter } from "vue-router";
 
 import type { Workspace } from "@/api/services/workspace";
 import { useAuthStore } from "@/stores/auth";
+import { useSearchStore } from "@/stores/search";
 import { useWorkspaceStore } from "@/stores/workspace";
 import { useNotificationStore } from "@/stores/notification";
 import { wsClient } from "@/lib/ws-client";
@@ -23,6 +24,7 @@ const router = useRouter();
 const auth = useAuthStore();
 const wsStore = useWorkspaceStore();
 const notifStore = useNotificationStore();
+const searchStore = useSearchStore();
 
 const collapsed = ref(false);
 const showSwitcher = ref(false);
@@ -177,6 +179,14 @@ onMounted(bootstrap);
           <span v-if="!collapsed">工作台</span>
         </router-link>
         <router-link
+          :to="`/${wsStore.currentSlug}/search`"
+          class="nav-item"
+          active-class="is-active"
+        >
+          <span class="nav-icon">🔍</span>
+          <span v-if="!collapsed">搜索</span>
+        </router-link>
+        <router-link
           :to="`/${wsStore.currentSlug}/projects`"
           class="nav-item"
           active-class="is-active"
@@ -215,7 +225,7 @@ onMounted(bootstrap);
           </slot>
         </div>
         <div class="header__actions">
-          <kbd class="cmdk-hint" title="搜索 (Ctrl+K)" @click="$emit('search')">⌘ K</kbd>
+          <kbd class="cmdk-hint" title="搜索 (Ctrl+K)" @click="searchStore.toggle()">⌘ K</kbd>
           <NotificationBell />
           <span class="user">{{ auth.user?.display_name ?? "" }}</span>
           <button class="logout" @click="auth.logout()">退出</button>

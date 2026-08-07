@@ -289,12 +289,13 @@ export const issueApi = {
       http.post(`/workspaces/${wsId}/projects/${projectId}/issues/batch`, input),
     ),
 
-  // --- 导出 CSV ---
-  exportUrl: (wsId: number, projectId: number, params?: ListIssuesParams) => {
+  // --- 导出 CSV / xlsx ---
+  exportUrl: (wsId: number, projectId: number, params?: ListIssuesParams, format?: string) => {
     const qs = new URLSearchParams();
     if (params?.type) qs.set("type", params.type);
     if (params?.state_id) qs.set("state_id", String(params.state_id));
     if (params?.search) qs.set("search", params.search);
+    if (format) qs.set("format", format);
     const q = qs.toString();
     return `/api/v1/workspaces/${wsId}/projects/${projectId}/issues/export${q ? "?" + q : ""}`;
   },

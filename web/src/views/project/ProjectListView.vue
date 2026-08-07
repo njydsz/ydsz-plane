@@ -7,6 +7,7 @@ import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
 import { workspaceApi, type Project, type Workspace } from "@/api/services/workspace";
+import { AppLoadingState, AppErrorState, AppEmptyState } from "@/components";
 
 const route = useRoute();
 const router = useRouter();
@@ -75,12 +76,15 @@ onMounted(load);
       </div>
     </header>
 
-    <div v-if="loading" class="loading">加载中...</div>
-    <div v-else-if="error" class="error">{{ error }}</div>
-    <div v-else-if="projects.length === 0" class="empty">
-      <p>该项目空间下暂无项目</p>
+    <AppLoadingState v-if="loading" />
+    <AppErrorState v-else-if="error" :message="error" @retry="load" />
+    <AppEmptyState
+      v-else-if="projects.length === 0"
+      title="暂无项目"
+      description="该项目空间下暂无项目"
+    >
       <button class="btn btn--primary" @click="showCreate = true">创建项目</button>
-    </div>
+    </AppEmptyState>
     <div v-else class="project-grid">
       <div v-for="p in projects" :key="p.id" class="project-card" :style="{ borderTopColor: p.color || 'var(--brand-500)' }">
         <div class="project-card__icon" v-if="p.icon">{{ p.icon }}</div>

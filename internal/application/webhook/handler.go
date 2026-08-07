@@ -136,7 +136,7 @@ func (h *Handler) List(c *gin.Context) {
 // Get godoc
 //   - GET .../webhooks/:webhook_id
 func (h *Handler) Get(c *gin.Context) {
-	wsID := c.GetInt64("webhook_id")
+	wsID := c.GetInt64("workspace_id")
 	webhookID := c.GetInt64("webhook_id")
 
 	w, err := h.svc.GetByID(c.Request.Context(), wsID, webhookID)

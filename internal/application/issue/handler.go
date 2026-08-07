@@ -2,6 +2,7 @@
 package issue
 
 import (
+	"archive/zip"
 	"context"
 	"encoding/csv"
 	"fmt"
@@ -505,7 +506,11 @@ func (h *IssueHandler) listIssues(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"results": issues, "total": total, "limit": opts.Limit, "offset": opts.Offset})
 }
 
-// exportIssues 导出工作项为 CSV 文件。
+// exportIssues 导出工作项为 CSV 或 xlsx 文件。
+//
+// 查询参数：
+//   - format: csv（默认）| xlsx — 导出格式
+//   - type / state_id / search: 过滤条件（同列表接口）
 func (h *IssueHandler) exportIssues(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	projectID := c.GetInt64(middleware.CtxProjectID)
@@ -533,6 +538,13 @@ func (h *IssueHandler) exportIssues(c *gin.Context) {
 		return
 	}
 
+	format := c.Query("format")
+	if format == "xlsx" {
+		writeXLSX(c, issues)
+		return
+	}
+
+	// 默认 CSV 格式（含 UTF-8 BOM 兼容 Excel）
 	c.Header("Content-Type", "text/csv; charset=utf-8")
 	c.Header("Content-Disposition",
 		fmt.Sprintf("attachment; filename=issues-export-%s.csv", time.Now().Format("20060102")))
@@ -569,6 +581,148 @@ func (h *IssueHandler) exportIssues(c *gin.Context) {
 		})
 	}
 	w.Flush()
+}
+
+// xlsxTemplate 是 OOXML 最小化模板，用于纯标准库生成 .xlsx。
+// 参考 ECMA-376 第 4 版 SpreadsheetML 规范。
+const xlsxTemplate = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+<cols>
+  <col min="1" max="1" width="14" customWidth="1"/>
+  <col min="2" max="2" width="10" customWidth="1"/>
+  <col min="3" max="3" width="40" customWidth="1"/>
+  <col min="4" max="4" width="12" customWidth="1"/>
+  <col min="5" max="5" width="10" customWidth="1"/>
+  <col min="6" max="6" width="10" customWidth="1"/>
+  <col min="7" max="7" width="8" customWidth="1"/>
+  <col min="8" max="8" width="16" customWidth="1"/>
+  <col min="9" max="9" width="18" customWidth="1"/>
+  <col min="10" max="10" width="18" customWidth="1"/>
+</cols>
+<sheetData>%s</sheetData></worksheet>`
+
+// xlsxRow 是一行单元格 XML 片段。
+const xlsxRow = `<row>%s</row>`
+
+// xlsxCell 是一个单元格 XML 片段（内联字符串）。
+const xlsxCell = `<c t="inlineStr"><is><t>%s</t></is></c>`
+
+// writeXLSX 使用纯 Go 标准库生成 .xlsx 文件并写入响应体。
+//
+// .xlsx 本质是 ZIP 归档，内含固定的 XML 文件集合。
+// 此处生成最小有效 xlsx（含 [Content_Types].xml / _rels/.rels / xl/workbook.xml / xl/worksheets/sheet1.xml）。
+func writeXLSX(c *gin.Context, issues []Issue) {
+	filename := fmt.Sprintf("issues-export-%s.xlsx", time.Now().Format("20060102"))
+	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filename))
+
+	zw := zip.NewWriter(c.Writer)
+	defer zw.Close()
+
+	// 辅助函数：向 ZIP 中添加一个文件
+	addZIPFile := func(name string, content string) {
+		w, err := zw.CreateHeader(&zip.FileHeader{
+			Name:   name,
+			Method: zip.Deflate,
+		})
+		if err != nil {
+			return
+		}
+		fmt.Fprint(w, content)
+	}
+
+	// [Content_Types].xml — 声明部件内容类型
+	addZIPFile("[Content_Types].xml",
+		`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>`+
+			`<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">`+
+			`<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>`+
+			`<Default Extension="xml" ContentType="application/xml"/>`+
+			`<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>`+
+			`<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`+
+			`</Types>`)
+
+	// _rels/.rels — 包级关系
+	addZIPFile("_rels/.rels",
+		`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>`+
+			`<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">`+
+			`<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>`+
+			`</Relationships>`)
+
+	// xl/workbook.xml — 工作簿定义
+	addZIPFile("xl/workbook.xml",
+		`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>`+
+			`<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">`+
+			`<sheets><sheet name="工作项" sheetId="1" r:id="rId1"/></sheets>`+
+			`</workbook>`)
+
+	// xl/_rels/workbook.xml.rels
+	addZIPFile("xl/_rels/workbook.xml.rels",
+		`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>`+
+			`<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">`+
+			`<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>`+
+			`</Relationships>`)
+
+	// 构建表头行
+	headerCells := buildXLSXRow([]string{
+		"编号", "类型", "名称", "状态", "优先级", "严重级别", "点数", "指派人", "创建时间", "更新时间",
+	})
+
+	// 构建数据行
+	var dataRows strings.Builder
+	for _, iss := range issues {
+		assignees := ""
+		if len(iss.Assignees) > 0 {
+			assignees = strings.Trim(strings.Join(strings.Fields(fmt.Sprint(iss.Assignees)), ","), "[]")
+		}
+		severity := ""
+		if iss.Severity != nil {
+			severity = fmt.Sprintf("S%d", *iss.Severity)
+		}
+		stateName := ""
+		if iss.State != nil {
+			stateName = iss.State.Name
+		}
+		row := buildXLSXRow([]string{
+			iss.Identifier,
+			string(iss.TypeCode),
+			iss.Name,
+			stateName,
+			string(iss.Priority),
+			severity,
+			fmt.Sprintf("%d", func() int { if iss.Point != nil { return *iss.Point }; return 0 }()),
+			assignees,
+			iss.CreatedAt.Format("2006-01-02 15:04"),
+			iss.UpdatedAt.Format("2006-01-02 15:04"),
+		})
+		dataRows.WriteString(row)
+	}
+
+	// xl/worksheets/sheet1.xml — 数据表
+	sheetXML := fmt.Sprintf(xlsxTemplate, headerCells+dataRows.String())
+	addZIPFile("xl/worksheets/sheet1.xml",
+		`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>`+sheetXML)
+}
+
+// buildXLSXRow 构建一行 xlsx 单元格 XML。
+// 所有值作为内联字符串（t="inlineStr"）写入，避免数字/日期类型歧义。
+func buildXLSXRow(vals []string) string {
+	var cells strings.Builder
+	for _, v := range vals {
+		// XML 转义：& < > " '
+		escaped := xmlEscape(v)
+		cells.WriteString(fmt.Sprintf(xlsxCell, escaped))
+	}
+	return fmt.Sprintf(xlsxRow, cells.String())
+}
+
+// xmlEscape 转义 XML 特殊字符。
+func xmlEscape(s string) string {
+	s = strings.ReplaceAll(s, "&", "&amp;")
+	s = strings.ReplaceAll(s, "<", "&lt;")
+	s = strings.ReplaceAll(s, ">", "&gt;")
+	s = strings.ReplaceAll(s, "\"", "&quot;")
+	s = strings.ReplaceAll(s, "'", "&apos;")
+	return s
 }
 
 // --- Activity handlers ---

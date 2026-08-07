@@ -104,6 +104,12 @@ func (s *Service) refreshWidgetSnapshot(ctx context.Context, projectID int64, wt
 		return s.getBlockedList(ctx, projectID)
 	case WidgetBurndown:
 		return s.getActiveSprintBurndown(ctx, projectID)
+	case WidgetTeamWorkload:
+		return s.getTeamWorkload(ctx, projectID)
+	case WidgetRecentActivity:
+		return s.getRecentActivity(ctx, projectID)
+	case WidgetVelocity:
+		return s.getVelocity(ctx, projectID)
 	default:
 		// 未知 widget: 尝试读取数据库快照
 		var data map[string]any
@@ -296,6 +302,147 @@ func max(a, b int) int {
 		return a
 	}
 	return b
+}
+
+// getTeamWorkload 按负责人分组统计未完成 issues。
+func (s *Service) getTeamWorkload(ctx context.Context, projectID int64) (any, error) {
+	rows, err := s.db.Query(ctx, `
+		SELECT u.id, u.display_name, u.avatar_url,
+		       count(*) FILTER (WHERE sg."group" IN ('backlog','unstarted')) AS todo,
+		       count(*) FILTER (WHERE sg."group" = 'started') AS in_progress,
+		       count(*) FILTER (WHERE sg."group" = 'completed') AS done,
+		       count(*) AS total
+		FROM issue_assignees ia
+		JOIN issues i ON i.id = ia.issue_id AND i.project_id = $1 AND i.deleted_at IS NULL
+		JOIN states sg ON sg.id = i.state_id
+		JOIN users u ON u.id = ia.user_id
+		GROUP BY u.id, u.display_name, u.avatar_url
+		ORDER BY total DESC
+		LIMIT 20`,
+		projectID)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, nil
+		}
+		return nil, errs.ErrInternal.Wrap(err)
+	}
+	defer rows.Close()
+
+	w := TeamWorkloadWidget{}
+	for rows.Next() {
+		var m TeamMemberWorkload
+		if err := rows.Scan(&m.UserID, &m.UserName, &m.Avatar, &m.Todo, &m.InProgress, &m.Done, &m.Total); err != nil {
+			return nil, errs.ErrInternal.Wrap(err)
+		}
+		w.Members = append(w.Members, m)
+	}
+	if len(w.Members) == 0 {
+		return nil, nil
+	}
+	return &w, rows.Err()
+}
+
+// getRecentActivity 查询项目最近 20 条活动记录。
+func (s *Service) getRecentActivity(ctx context.Context, projectID int64) (any, error) {
+	rows, err := s.db.Query(ctx, `
+		SELECT a.id, a.issue_id, i.identifier, a.actor_id, u.display_name, u.avatar_url,
+		       a.verb, COALESCE(s.name, '') AS target_state, a.created_at
+		FROM issue_activities a
+		JOIN issues i ON i.id = a.issue_id
+		LEFT JOIN users u ON u.id = a.actor_id
+		LEFT JOIN states s ON s.id = i.state_id
+		WHERE a.project_id = $1
+		ORDER BY a.created_at DESC
+		LIMIT 20`,
+		projectID)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, nil
+		}
+		return nil, errs.ErrInternal.Wrap(err)
+	}
+	defer rows.Close()
+
+	w := RecentActivityWidget{}
+	for rows.Next() {
+		var it ActivityItem
+		var createdAt time.Time
+		if err := rows.Scan(&it.ID, &it.IssueID, &it.IssueIdentifier, &it.ActorID,
+			&it.ActorName, &it.ActorAvatar, &it.Verb, &it.TargetState, &createdAt); err != nil {
+			return nil, errs.ErrInternal.Wrap(err)
+		}
+		verbLabel := it.Verb
+		switch it.Verb {
+		case "created":
+			verbLabel = "创建了"
+		case "transitioned":
+			verbLabel = "流转到"
+		case "commented":
+			verbLabel = "评论了"
+		case "updated":
+			verbLabel = "更新了"
+		case "attached":
+			verbLabel = "附件"
+		default:
+			verbLabel = it.Verb
+		}
+		it.Verb = verbLabel
+		it.CreatedAt = createdAt.Format(time.RFC3339)
+		w.Items = append(w.Items, it)
+	}
+	if len(w.Items) == 0 {
+		return nil, nil
+	}
+	return &w, rows.Err()
+}
+
+// getVelocity 查询最近 5 个已完成迭代的工作速率。
+func (s *Service) getVelocity(ctx context.Context, projectID int64) (any, error) {
+	rows, err := s.db.Query(ctx, `
+		SELECT s.id, s.name,
+		       (SELECT count(*) FROM sprint_issues si
+		           JOIN issues i ON i.id = si.issue_id
+		           JOIN states sg ON sg.id = i.state_id
+		       WHERE si.sprint_id = s.id AND sg."group" = 'completed'
+		           AND i.deleted_at IS NULL) AS completed_count,
+		       (SELECT count(*) FROM sprint_issues si2
+		           JOIN issues i2 ON i2.id = si2.issue_id
+		       WHERE si2.sprint_id = s.id AND i2.deleted_at IS NULL) AS committed_count
+		FROM sprints s
+		WHERE s.project_id = $1 AND s.status = 'completed' AND s.deleted_at IS NULL
+		ORDER BY s.completed_at DESC
+		LIMIT 5`,
+		projectID)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, nil
+		}
+		return nil, errs.ErrInternal.Wrap(err)
+	}
+	defer rows.Close()
+
+	w := VelocityWidget{}
+	var totalRate float64
+	var count int
+	for rows.Next() {
+		var p VelocityPoint
+		if err := rows.Scan(&p.SprintID, &p.SprintName, &p.CompletedCount, &p.CommittedCount); err != nil {
+			return nil, errs.ErrInternal.Wrap(err)
+		}
+		if p.CommittedCount > 0 {
+			p.CompletionRate = float64(p.CompletedCount) / float64(p.CommittedCount)
+		}
+		w.Sprints = append(w.Sprints, p)
+		totalRate += p.CompletionRate
+		count++
+	}
+	if count > 0 {
+		w.Average = totalRate / float64(count)
+	}
+	if len(w.Sprints) == 0 {
+		return nil, nil
+	}
+	return &w, rows.Err()
 }
 
 // --- Risk Alerts ---

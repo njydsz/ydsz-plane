@@ -11,6 +11,7 @@ import { workspaceApi } from "@/api/services/workspace";
 import { useIssueStore } from "@/stores/issue";
 import { prefs } from "@/lib/prefs";
 import IssueFilter from "./IssueFilter.vue";
+import { AppLoadingState, AppErrorState, AppEmptyState } from "@/components";
 
 const route = useRoute();
 const router = useRouter();
@@ -212,9 +213,17 @@ onMounted(() => {
   load();
 });
 
-const exportUrl = computed(() =>
-  issueApi.exportUrl(wsId.value, projectId.value, currentFilter.value),
+const exportCsvUrl = computed(() =>
+  issueApi.exportUrl(wsId.value, projectId.value, currentFilter.value, "csv"),
 );
+
+const exportXlsxUrl = computed(() =>
+  issueApi.exportUrl(wsId.value, projectId.value, currentFilter.value, "xlsx"),
+);
+
+/** 导出格式下拉是否展开 */
+const showExportDropdown = ref(false);
+
 </script>
 
 <template>
@@ -225,11 +234,16 @@ const exportUrl = computed(() =>
         <p class="hint">共 {{ total }} 个工作项</p>
       </div>
       <div class="list-view__header-right">
-        <a
-          :href="exportUrl"
-          class="btn btn--sm btn--export"
-          download
-        >导出 CSV</a>
+        <div class="export-dropdown" @mouseleave="showExportDropdown = false">
+          <button
+            class="btn btn--sm btn--export"
+            @mouseenter="showExportDropdown = true"
+          >导出</button>
+          <div v-if="showExportDropdown" class="export-dropdown__menu">
+            <a :href="exportCsvUrl" class="export-dropdown__item" download>导出 CSV</a>
+            <a :href="exportXlsxUrl" class="export-dropdown__item" download>导出 Excel (.xlsx)</a>
+          </div>
+        </div>
         <div class="view-switcher">
           <router-link
             :to="`/${route.params.workspaceSlug}/projects/${projectId}/board`"
@@ -269,10 +283,15 @@ const exportUrl = computed(() =>
       <button class="btn btn--sm btn--ghost" @click="selectedIds = new Set()">取消选择</button>
     </div>
 
-    <div v-if="loading" class="loading">加载中...</div>
-    <div v-else-if="error" class="error">{{ error }}</div>
+    <AppLoadingState v-if="loading" />
+    <AppErrorState v-else-if="error" :message="error" @retry="load" />
 
     <!-- 表格 -->
+    <AppEmptyState
+      v-else-if="!loading && !error && issueStore.issues.length === 0"
+      title="暂无工作项"
+      description="当前过滤条件下没有工作项"
+    />
     <div v-else class="table-wrap">
       <table class="table">
         <thead>
@@ -468,6 +487,22 @@ const exportUrl = computed(() =>
 .btn--ghost { background: none; color: var(--text-secondary); }
 .btn--export { background: var(--success-500); color: #fff; text-decoration: none; border: none; font-size: 12px; }
 .btn--export:hover { background: var(--success-600); }
+
+/* 导出下拉菜单 */
+.export-dropdown { position: relative; }
+.export-dropdown__menu {
+  position: absolute; top: 100%; right: 0; margin-top: 4px;
+  background: var(--surface-1); border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm); box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  min-width: 160px; z-index: 100;
+}
+.export-dropdown__item {
+  display: block; padding: 8px 14px; font-size: 13px;
+  color: var(--text-primary); text-decoration: none;
+  transition: background 0.1s;
+}
+.export-dropdown__item:hover { background: var(--surface-2); }
+.export-dropdown__item + .export-dropdown__item { border-top: 1px solid var(--border-subtle); }
 .btn--ghost:hover { background: var(--surface-3); }
 
 /* 表格 */

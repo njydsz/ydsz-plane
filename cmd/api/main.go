@@ -197,7 +197,11 @@ func run() error {
 		DashboardSvc: dashboardSvc,
 	})
 
-	// ---------- Attachment / Storage ----------
+	// ---------- Defect Analytics (S12) ----------
+defectAnalyticsSvc := issue.NewDefectAnalyticsService(pool.Pool)
+defectAnalyticsHandler := issue.NewDefectAnalyticsHandler(defectAnalyticsSvc)
+
+// ---------- Attachment / Storage ----------
 	stClient, err := storage.New(cfg.Storage)
 	if err != nil {
 		return fmt.Errorf("storage: %w", err)
@@ -242,6 +246,8 @@ func run() error {
 		NotificationHandler: notifHandler,
 		// Attachment domain
 		AttachmentHandler: attHandler,
+		// Defect Analytics
+		DefectAnalyticsHandler: defectAnalyticsHandler,
 		// WebSocket Hub
 		WSHub: wsHub,
 		// Sprint domain
@@ -320,6 +326,14 @@ func run() error {
 		PrincipalParser:   parsePrincipal,
 		WorkspaceStore:    wsStore,
 		AttachmentHandler: attHandler,
+	})
+
+	// 注册缺陷分析路由（项目级）
+	httpapi.RegisterDefectAnalyticsRoutes(engine, &httpapi.Deps{
+		Auth:                    authSvc,
+		PrincipalParser:         parsePrincipal,
+		WorkspaceStore:          wsStore,
+		DefectAnalyticsHandler:  defectAnalyticsHandler,
 	})
 
 	// 注册 WebSocket 路由

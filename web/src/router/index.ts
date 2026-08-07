@@ -52,6 +52,12 @@ const router = createRouter({
           component: () => import("@/views/workspace/WorkbenchView.vue"),
           props: (route) => ({ workspaceSlug: route.params.workspaceSlug }),
         },
+        {
+          path: ":workspaceSlug/search",
+          name: "search",
+          component: () => import("@/views/workspace/SearchView.vue"),
+          props: (route) => ({ workspaceSlug: route.params.workspaceSlug }),
+        },
         // 通知中心全屏页（从铃铛下拉「查看全部通知」进入）
         {
           path: ":workspaceSlug/notifications",
