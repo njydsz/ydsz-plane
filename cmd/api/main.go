@@ -202,8 +202,14 @@ func run() error {
 	})
 
 	// ---------- Defect Analytics (S12) ----------
-defectAnalyticsSvc := issue.NewDefectAnalyticsService(pool.Pool)
-defectAnalyticsHandler := issue.NewDefectAnalyticsHandler(defectAnalyticsSvc)
+	defectAnalyticsSvc := issue.NewDefectAnalyticsService(pool.Pool)
+	defectAnalyticsHandler := issue.NewDefectAnalyticsHandler(defectAnalyticsSvc)
+
+	// ---------- Issue domain init (templates) ----------
+	projectInitSvc := issue.NewProjectInitService(pool.Pool)
+
+	// ---------- Workspace Template service ----------
+	templateSvc := workspace.NewTemplateService()
 
 // ---------- Attachment / Storage ----------
 	stClient, err := storage.New(cfg.Storage)
@@ -264,6 +270,8 @@ defectAnalyticsHandler := issue.NewDefectAnalyticsHandler(defectAnalyticsSvc)
 		MemberSvc:       memberSvc,
 		InvitationSvc:   invitationSvc,
 		ProjectSvc:      projectSvc,
+		TemplateSvc:     templateSvc,
+		ProjectInitSvc:  projectInitSvc,
 		AuditSvc:        auditSvc,
 		Mail:            mailSvc,
 		// Issue domain

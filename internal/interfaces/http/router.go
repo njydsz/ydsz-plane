@@ -57,6 +57,8 @@ type Deps struct {
 	MemberSvc       *workspace.MemberService
 	InvitationSvc   *workspace.InvitationService
 	ProjectSvc      *workspace.ProjectService
+	TemplateSvc     *workspace.TemplateService
+	ProjectInitSvc  *issue.ProjectInitService
 	AuditSvc        *workspace.AuditService
 	Mail            mail.EmailService
 	// Issue 域
@@ -464,12 +466,15 @@ func NewEngine(d *Deps) *gin.Engine {
 				// 审计（owner/admin only）
 				ws.GET("/audit-logs", requireWsPermission(d, auth.PermAuditRead), listAuditLogs(d))
 
-				// 项目
-				ws.GET("/projects", requireWsPermission(d, auth.PermWorkspaceRead), listProjects(d))
-				ws.POST("/projects", requireWsPermission(d, auth.PermProjectCreate), createProject(d))
-				ws.GET("/projects/:project_id", requireWsPermission(d, auth.PermWorkspaceRead), getProject(d))
-				ws.PATCH("/projects/:project_id", requireWsPermission(d, auth.PermProjectCreate), updateProject(d))
-				ws.DELETE("/projects/:project_id", requireWsPermission(d, auth.PermProjectDelete), archiveProject(d))
+			// 项目
+			ws.GET("/projects", requireWsPermission(d, auth.PermWorkspaceRead), listProjects(d))
+			ws.POST("/projects", requireWsPermission(d, auth.PermProjectCreate), createProject(d))
+			ws.GET("/projects/:project_id", requireWsPermission(d, auth.PermWorkspaceRead), getProject(d))
+			ws.PATCH("/projects/:project_id", requireWsPermission(d, auth.PermProjectCreate), updateProject(d))
+			ws.DELETE("/projects/:project_id", requireWsPermission(d, auth.PermProjectDelete), archiveProject(d))
+
+			// 项目模板（工作空间级只读，无需项目级 RBAC）
+			ws.GET("/templates", requireWsPermission(d, auth.PermProjectCreate), listProjectTemplates(d))
 			}
 		}
 	}

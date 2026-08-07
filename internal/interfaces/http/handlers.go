@@ -4,8 +4,11 @@
 package httpapi
 
 import (
+	"context"
+	"fmt"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -299,7 +302,7 @@ func listProjects(d *Deps) gin.HandlerFunc {
 	}
 }
 
-// createProject 在工作空间下创建项目并初始化默认状态机，记录审计日志。
+// createProject 在工作空间下创建项目并初始化状态模板，记录审计日志。
 func createProject(d *Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		wsID := c.GetInt64(middleware.CtxWorkspaceID)
@@ -317,19 +320,39 @@ func createProject(d *Deps) gin.HandlerFunc {
 			Network:     req.Network,
 			Icon:        req.Icon,
 			Color:       req.Color,
+			Template:    req.Template,
 			CreatedBy:   c.GetInt64(middleware.CtxUserID),
 		})
 		if err != nil {
 			writeError(c, err)
 			return
 		}
+		// 异步初始化项目状态模板（失败仅记录日志，不阻塞响应）。
+		// 注意：调用方需确保 ProjectInitSvc 已在 Deps 中装配。
+		if d.ProjectInitSvc != nil {
+			go func() {
+				initCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+				defer cancel()
+				if err := d.ProjectInitSvc.InitializeForProject(initCtx, wsID, p.ID, req.Template); err != nil {
+					// TODO: 通过结构化日志 + 监控告警替代 fmt 占位
+					fmt.Printf("init project template %s for %s: %v\n", req.Template, p.Identifier, err)
+				}
+			}()
+		}
 		d.AuditSvc.RecordFromGin(c, wsID, "project.create", p.Identifier, map[string]any{
-			"name": p.Name, "slug": p.Slug,
+			"name": p.Name, "slug": p.Slug, "template": req.Template,
 		})
 		c.JSON(http.StatusCreated, p)
 	}
 }
 
+// listProjectTemplates 返回预置项目模板列表（供前端模板选择器）。
+func listProjectTemplates(d *Deps) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		tpls := d.TemplateSvc.ListTemplates()
+		c.JSON(http.StatusOK, tpls)
+	}
+}
 // getProject 返回指定项目的详情。
 func getProject(d *Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {

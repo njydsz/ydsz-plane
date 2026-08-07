@@ -1078,13 +1078,17 @@ func (h *IssueHandler) createComment(c *gin.Context) {
 		return
 	}
 
+	// XSS 防御：服务端二次净化 HTML（客户端 ProseMirror 渲染不可信）
+	htmlSanitized := SanitizeHTML(req.ContentHTML)
+	strippedSafe := StripHTML(req.ContentStripped)
+
 	comment, err := h.d.CommentSvc.CreateWithEvent(c.Request.Context(), CreateCommentInput{
 		IssueID:         issueID,
 		WorkspaceID:     wsID,
 		ProjectID:       projectID,
 		ContentJSON:     []byte(req.ContentJSON),
-		ContentHTML:     req.ContentHTML,
-		ContentStripped: req.ContentStripped,
+		ContentHTML:     htmlSanitized,
+		ContentStripped: strippedSafe,
 		CreatedBy:       userID,
 		Mentions:        req.Mentions,
 		ParentID:        req.ParentID,
@@ -1117,10 +1121,14 @@ func (h *IssueHandler) updateComment(c *gin.Context) {
 		return
 	}
 
+	// XSS 防御：服务端二次净化 HTML
+	htmlSanitized := SanitizeHTML(req.ContentHTML)
+	strippedSafe := StripHTML(req.ContentStripped)
+
 	comment, err := h.d.CommentSvc.Update(c.Request.Context(), commentID, userID, UpdateCommentInput{
 		ContentJSON:     []byte(req.ContentJSON),
-		ContentHTML:     req.ContentHTML,
-		ContentStripped: req.ContentStripped,
+		ContentHTML:     htmlSanitized,
+		ContentStripped: strippedSafe,
 		Mentions:        req.Mentions,
 	})
 	if err != nil {

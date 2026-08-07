@@ -32,42 +32,6 @@
 | 对象存储 | MinIO（可选 profile） | 附件、Logo |
 | 部署 | Docker Compose（一键）/ K8s（Phase 3） | 信创兼容：openEuler/麒麟 + ARM64 |
 
-## 系统架构
-
-```
-                        ┌────────────────────────────┐
-                        │     Web SPA (Vue3+Vite)     │
-                        │  Design Tokens / Plane 风格  │
-                        └──────────────┬─────────────┘
-                                       │ HTTPS / WSS
-                        ┌──────────────▼─────────────┐
-                        │   Nginx（反代/静态/限流）    │
-                        └──────────────┬─────────────┘
-                                       │
-              ┌────────────────────────▼────────────────────────┐
-              │            ydsz-plane-api (Go + Gin)            │
-              │  Interfaces（HTTP + Middleware）                │
-              │  Application Services（用例编排/事务边界）        │
-              │  Domain（限界上下文：iam / workspace / project   │
-              │      / issue / sprint / version / search        │
-              │      / dashboard / workbench / automation        │
-              │      / webhook / intake / metrics / preference）│
-              │  Infrastructure（PG / Redis / RabbitMQ / ES）   │
-              └───────┬───────────────────────┬────────────────┘
-                      │ 写事件 (Outbox)        │ 读
-        ┌─────────────▼──────────┐   ┌────────▼───────┐
-        │  ydsz-plane-worker     │   │ PostgreSQL 18  │
-        │  (Asynq + Outbox Relay)│   │ Redis 8        │
-        │  · 通知投递 + 多渠道   │   │   · Asynq      │
-        │  · ES/FTS 索引同步     │   │   · Cache      │
-        │  · Webhook 分发        │   │   · RateLimit  │
-        │  · 自动化规则执行       │   │ RabbitMQ 4     │
-        │  · 迭代快照 / 效能计算  │   │   · Event Bus  │
-        │  · 风险告警触发         │   │   · DLX / DLQ  │
-        │  · 搜索文档同步         │   │                │
-        └────────────────────────┘   └────────────────┘
-```
-
 **双中间件分工**
 
 | 中间件 | 用途 | 选型理由 |
@@ -711,14 +675,10 @@ Ydsz Plane 采用 [MIT License](LICENSE) 开源协议。
 
 本项目的设计参考了以下优秀的开源项目与商业产品：
 
-- [Plane](https://github.com/makeplane/plane) - 项目设计语言与信息架构参考
-- [GitLab](https://gitlab.com/gitlab-org/gitlab) - DevOps 平台
+- [Plane](https://github.com/makeplane/plane) 
+- [GitLab](https://gitlab.com/gitlab-org/gitlab) 
 - [云效](https://www.aliyun.com/product/yunxiao)
 - [TAPD](https://www.tapd.cn)
 - [ONES](https://ones.cn)
 
 ---
-
-<p align="center">
-  ⭐ 如果觉得这个项目对你有帮助，欢迎 <b>Star</b> 支持我们
-</p>

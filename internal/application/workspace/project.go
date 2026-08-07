@@ -108,11 +108,11 @@ func (s *ProjectService) Create(ctx context.Context, in ProjectCreateInput) (*Pr
 func (s *ProjectService) Get(ctx context.Context, wsID, projectID int64) (*Project, error) {
 	var p Project
 	err := s.db.QueryRow(ctx, `
-		SELECT id, workspace_id, name, slug, identifier, description, network, icon, color, status, sort_order, created_by, created_at, updated_at
+		SELECT id, workspace_id, name, slug, identifier, description, network, icon, color, template, status, sort_order, created_by, created_at, updated_at
 		FROM projects WHERE id = $1 AND workspace_id = $2 AND deleted_at IS NULL`,
 		projectID, wsID).
 		Scan(&p.ID, &p.WorkspaceID, &p.Name, &p.Slug, &p.Identifier, &p.Description,
-			&p.Network, &p.Icon, &p.Color, &p.Status, &p.SortOrder, &p.CreatedBy, &p.CreatedAt, &p.UpdatedAt)
+			&p.Network, &p.Icon, &p.Color, &p.Template, &p.Status, &p.SortOrder, &p.CreatedBy, &p.CreatedAt, &p.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, errs.ErrNotFound
@@ -125,7 +125,7 @@ func (s *ProjectService) Get(ctx context.Context, wsID, projectID int64) (*Proje
 // ListByWorkspace 列出工作空间下的全部项目。
 func (s *ProjectService) ListByWorkspace(ctx context.Context, wsID int64) ([]Project, error) {
 	rows, err := s.db.Query(ctx, `
-		SELECT id, workspace_id, name, slug, identifier, description, network, icon, color, status, sort_order, created_by, created_at, updated_at
+		SELECT id, workspace_id, name, slug, identifier, description, network, icon, color, template, status, sort_order, created_by, created_at, updated_at
 		FROM projects WHERE workspace_id = $1 AND deleted_at IS NULL
 		ORDER BY sort_order, created_at ASC`, wsID)
 	if err != nil {
