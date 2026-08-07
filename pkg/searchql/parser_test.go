@@ -161,15 +161,15 @@ func TestParseClauseValues(t *testing.T) {
 
 // TestParseNowOffset 验证时间偏移解析。
 func TestParseNowOffset(t *testing.T) {
-	now := time.Now().Truncate(24 * time.Hour)
+	now := time.Now()
 	tests := []struct {
-		offset string
-		want   time.Time
+		offset   string
+		wantDiff time.Duration // 期望与 now 的差值
 	}{
-		{"", now},
-		{"-7d", now.Add(-7 * 24 * time.Hour)},
-		{"+1w", now.Add(7 * 24 * time.Hour)},
-		{"-3h", now.Add(-3 * time.Hour)},
+		{"", 0},              // now() → 截断到当天 00:00
+		{"-7d", -7 * 24 * time.Hour},
+		{"+1w", 7 * 24 * time.Hour},
+		{"-3h", -3 * time.Hour},
 	}
 
 	for _, tt := range tests {
@@ -179,10 +179,26 @@ func TestParseNowOffset(t *testing.T) {
 			t.Errorf("parseNowOffset(%q) returned non-time value: %v", tt.offset, got)
 			continue
 		}
-		if !gotTime.Equal(tt.want) {
-			t.Errorf("parseNowOffset(%q) = %v, want %v", tt.offset, gotTime, tt.want)
+
+		diff := gotTime.Sub(now)
+		// 允许 2s 误差（测试执行时间）
+		if tt.offset == "" {
+			// now() 无偏移 → 验证截断到当天 00:00
+			truncated := now.Truncate(24 * time.Hour)
+			if !gotTime.Equal(truncated) {
+				t.Errorf("parseNowOffset(%q) = %v, want truncated to %v", tt.offset, gotTime, truncated)
+			}
+		} else if absDiff(diff-tt.wantDiff) > 2*time.Second {
+			t.Errorf("parseNowOffset(%q) diff = %v, want diff ≈ %v (got %v)", tt.offset, diff, tt.wantDiff, gotTime)
 		}
 	}
+}
+
+func absDiff(d time.Duration) time.Duration {
+	if d < 0 {
+		return -d
+	}
+	return d
 }
 
 // TestKnownFields 验证字段列表。

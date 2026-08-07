@@ -124,7 +124,33 @@ func (l *lexer) readWord() string {
 		r := l.peek()
 		if r == ' ' || r == '\t' || r == '\n' || r == '\r' ||
 			r == ':' || r == '=' || r == '!' || r == '>' || r == '<' ||
-			r == '(' || r == ')' || r == 0 {
+			r == 0 {
+			break
+		}
+		// 遇到 '(' 时检查是否是函数调用语法 (word + '(' + ... + ')')
+		if r == '(' {
+			// 保存位置，尝试读取函数调用
+			saved := l.pos
+			l.next() // skip '('
+			depth := 1
+			for l.pos < len(l.input) && depth > 0 {
+				c := l.peek()
+				if c == '(' {
+					depth++
+				} else if c == ')' {
+					depth--
+				}
+				l.next()
+			}
+			if depth == 0 {
+				// 成功匹配函数调用语法
+				return string(l.input[start:l.pos])
+			}
+			// 未匹配，回退
+			l.pos = saved
+			break
+		}
+		if r == ')' {
 			break
 		}
 		l.next()
@@ -487,8 +513,10 @@ func parseSpecialValue(field string, val any) any {
 
 func parseNowOffset(offset string) any {
 	offset = strings.TrimSpace(offset)
+	now := time.Now()
+
 	if offset == "" {
-		return time.Now().Truncate(24 * time.Hour)
+		return now.Truncate(24 * time.Hour)
 	}
 
 	// parse: -7d, +1w, -3h
@@ -512,7 +540,7 @@ func parseNowOffset(offset string) any {
 
 	num, err := strconv.Atoi(numStr)
 	if err != nil || num == 0 {
-		return time.Now().Truncate(24 * time.Hour)
+		return now.Truncate(24 * time.Hour)
 	}
 
 	var d time.Duration
@@ -526,13 +554,13 @@ func parseNowOffset(offset string) any {
 	case "m", "min", "minute", "minutes":
 		d = time.Duration(num) * time.Minute
 	default:
-		return time.Now().Truncate(24 * time.Hour)
+		return now.Truncate(24 * time.Hour)
 	}
 
 	if neg {
-		return time.Now().Add(-d).Truncate(24 * time.Hour)
+		return now.Add(-d)
 	}
-	return time.Now().Add(d).Truncate(24 * time.Hour)
+	return now.Add(d)
 }
 
 // --- 已知字段列表 ---
