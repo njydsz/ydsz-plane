@@ -67,7 +67,7 @@ services:
   api:
     build:
       context: ..
-      dockerfile: deployments/Dockerfile.api
+      dockerfile: docs/deployments/Dockerfile.api
     depends_on:
       postgres: { condition: service_healthy }
       redis: { condition: service_healthy }
@@ -86,7 +86,7 @@ services:
   worker:
     build:
       context: ..
-      dockerfile: deployments/Dockerfile.api
+      dockerfile: docs/deployments/Dockerfile.api
     command: ["/app/worker"]
     depends_on:
       api: { condition: service_started }
@@ -102,7 +102,7 @@ services:
   web:
     build:
       context: ..
-      dockerfile: deployments/Dockerfile.web
+      dockerfile: docs/deployments/Dockerfile.web
     depends_on:
       - api
     ports:

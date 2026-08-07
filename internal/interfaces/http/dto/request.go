@@ -1,57 +1,97 @@
-// Package dto — request DTOs for HTTP API (decouple handler params from domain models).
+// Package dto — HTTP API 请求 DTO。
+//
+// 设计原则：
+//  - DTO 与域模型（domain model）解耦：handler 层负责 DTO → domain 入参转换。
+//  - 所有 Update 请求使用指针字段区分「未传」(nil) 与「显式置零」("")。
+//  - binding tag 做第一轮结构校验，复杂业务校验在 application 层完成。
+//
+// 校验规则遵循 Gin binding 约定：required / min / max / oneof / email / url / hexcolor。
 package dto
 
 // --- Workspace ---
 
+// CreateWorkspaceRequest 创建工作空间的请求体。
 type CreateWorkspaceRequest struct {
-	Name     string `json:"name" binding:"required,min=1,max=80"`
-	Slug     string `json:"slug" binding:"omitempty,max=60"`
+	// Name 工作空间显示名，1-80 字符。
+	Name string `json:"name" binding:"required,min=1,max=80"`
+	// Slug 友好 URL 标识符，留空则由后端根据 Name 自动生成。格式：^[a-z0-9-]+$。
+	Slug string `json:"slug" binding:"omitempty,max=60"`
+	// Timezone IANA 时区名（如 Asia/Shanghai），默认 UTC。
 	Timezone string `json:"timezone" binding:"omitempty"`
+	// Language 界面语言代码，支持 zh-CN / en-US / en。
 	Language string `json:"language" binding:"omitempty,oneof=zh-CN en-US en"`
 }
 
+// UpdateWorkspaceRequest 更新工作空间的请求体（指针字段 = 可选更新）。
 type UpdateWorkspaceRequest struct {
-	Name     *string `json:"name,omitempty" binding:"omitempty,min=1,max=80"`
+	// Name 新的显示名；nil 表示不更新。
+	Name *string `json:"name,omitempty" binding:"omitempty,min=1,max=80"`
+	// Timezone 新的时区；nil 表示不更新。
 	Timezone *string `json:"timezone,omitempty"`
+	// Language 新的语言代码；nil 表示不更新。
 	Language *string `json:"language,omitempty" binding:"omitempty,oneof=zh-CN en-US en"`
-	LogoURL  *string `json:"logo_url,omitempty" binding:"omitempty,url,max=500"`
+	// LogoURL 工作空间 Logo 的公开 URL；nil 表示不更新，传空字符串表示清除。
+	LogoURL *string `json:"logo_url,omitempty" binding:"omitempty,url,max=500"`
 }
 
 // --- Member ---
 
+// ChangeRoleRequest 变更成员角色的请求体。
 type ChangeRoleRequest struct {
+	// Role 目标角色。限制为 admin / member / guest（owner 角色不可通过该接口变更）。
 	Role string `json:"role" binding:"required,oneof=admin member guest"`
 }
 
 // --- Invitation ---
 
+// SendInvitationRequest 发送成员邀请的请求体。
 type SendInvitationRequest struct {
-	Email   string `json:"email" binding:"required,email"`
-	Role    string `json:"role" binding:"required,oneof=admin member guest"`
+	// Email 被邀请人的邮箱（唯一标识，用于账户匹配）。
+	Email string `json:"email" binding:"required,email"`
+	// Role 邀请时预设的角色；被邀请人接受后直接获得该角色。
+	Role string `json:"role" binding:"required,oneof=admin member guest"`
+	// Message 附赠的邀请说明，显示在邀请邮件中。
 	Message string `json:"message" binding:"omitempty,max=500"`
 }
 
+// AcceptInvitationRequest 接受邀请的请求体。
 type AcceptInvitationRequest struct {
+	// Token 邀请 URL 中携带的随机 token（原始值，非 hash）。
 	Token string `json:"token" binding:"required"`
 }
 
 // --- Project ---
 
+// CreateProjectRequest 创建项目的请求体。
 type CreateProjectRequest struct {
-	Name        string `json:"name" binding:"required,min=1,max=80"`
-	Slug        string `json:"slug" binding:"omitempty,max=60"`
-	Identifier  string `json:"identifier" binding:"omitempty,max=6"`
+	// Name 项目名称，1-80 字符。
+	Name string `json:"name" binding:"required,min=1,max=80"`
+	// Slug 友好 URL 片段，留空则由 Name 自动生成。
+	Slug string `json:"slug" binding:"omitempty,max=60"`
+	// Identifier 项目前缀（2-6 位大写字母），用于工作项标识（如 `PROJ-12`），留空则自动生成。
+	Identifier string `json:"identifier" binding:"omitempty,max=6"`
+	// Description 项目简介，最长 500 字符。
 	Description string `json:"description" binding:"omitempty,max=500"`
-	Network     string `json:"network" binding:"omitempty,oneof=public private"`
-	Icon        string `json:"icon" binding:"omitempty,max=32"`
-	Color       string `json:"color" binding:"omitempty,hexcolor,len=7"`
+	// Network 可见性：public（空间内默认可见） / private（仅成员可见）。默认 public。
+	Network string `json:"network" binding:"omitempty,oneof=public private"`
+	// Icon Emoji 或图标标识，最长 32 字符。
+	Icon string `json:"icon" binding:"omitempty,max=32"`
+	// Color Hex 主题色（如 `#2563eb`），7 字符定长。
+	Color string `json:"color" binding:"omitempty,hexcolor,len=7"`
 }
 
+// UpdateProjectRequest 更新项目的请求体（指针字段 = 可选更新）。
 type UpdateProjectRequest struct {
-	Name        *string `json:"name,omitempty" binding:"omitempty,min=1,max=80"`
-	Slug        *string `json:"slug,omitempty"`
+	// Name 新名称；nil 表示不更新。
+	Name *string `json:"name,omitempty" binding:"omitempty,min=1,max=80"`
+	// Slug 新 URL 片段；nil 表示不更新。
+	Slug *string `json:"slug,omitempty"`
+	// Description 新简介；nil 表示不更新。
 	Description *string `json:"description,omitempty"`
-	Network     *string `json:"network,omitempty" binding:"omitempty,oneof=public private"`
-	Icon        *string `json:"icon,omitempty"`
-	Color       *string `json:"color,omitempty" binding:"omitempty,hexcolor,len=7"`
+	// Network 新可见性；nil 表示不更新。
+	Network *string `json:"network,omitempty" binding:"omitempty,oneof=public private"`
+	// Icon 新图标；nil 表示不更新。
+	Icon *string `json:"icon,omitempty"`
+	// Color 新主题色；nil 表示不更新。
+	Color *string `json:"color,omitempty" binding:"omitempty,hexcolor,len=7"`
 }

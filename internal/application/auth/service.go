@@ -17,15 +17,20 @@ import (
 	"github.com/njydsz/ydsz-plane/pkg/errs"
 )
 
-// Service provides auth use cases.
+// Service 提供认证用例：登录、注册、token 签发/解析。
+//
+// 安全约束：
+//   - secret 长度须 ≥ 32 字节（HS256 最低要求）。
+//   - accessTTL / refreshTTL 建议分别为 15min / 7d（refresh 另见 S2 refresh rotation）。
+//   - bcryptCost 建议 12（≈ 250ms/哈希，每 +1 约耗时翻倍）。
 type Service struct {
-	db              *pgxpool.Pool
-	secret          []byte
-	issuer          string
-	accessTTL       time.Duration
-	refreshTTL      time.Duration
-	bcryptCost      int
-	registrationOpen bool
+	db               *pgxpool.Pool
+	secret           []byte        // JWT 签名密钥（HS256 共享密钥）。
+	issuer           string        // JWT iss 声明，用于多租户签发者区分。
+	accessTTL        time.Duration // access token 有效期。
+	refreshTTL       time.Duration // refresh token 有效期。
+	bcryptCost       int           // bcrypt 成本因子（4-31）。
+	registrationOpen bool          // 是否开放注册；false 时仅允许邀请注册。
 }
 
 // NewService constructs the auth service.

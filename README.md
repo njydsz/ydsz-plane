@@ -113,15 +113,11 @@ ydsz-plane/
 │   └── config/                # Viper 配置加载 + 校验
 ├── pkg/
 │   └── errs/                  # 统一错误类型 + 错误码注册
-├── migrations/                # 递增编号迁移脚本（0001_init.up/down.sql）
+├── sql/                       # 递增编号迁移脚本（0001_init.up/down.sql）
 ├── scripts/seed/              # 开发环境种子数据
-├── deployments/
-│   ├── docker-compose.yml     # 核心栈 + full profile（ES + MinIO）
-│   ├── Dockerfile.api         # 多阶段构建（api + worker + migrate）
-│   ├── Dockerfile.web         # 前端 Nginx 静态服务
-│   └── nginx/web.conf
 ├── docs/
 │   ├── architecture/          # 架构设计文档（14 份，含完整设计）
+│   ├── deployments/           # Docker 部署配置（compose + Dockerfile + nginx）
 │   └── Ydsz Plane PRD-终极完整版.docx
 ├── web/                       # 前端（pnpm workspace）
 │   ├── src/
@@ -151,10 +147,10 @@ git clone https://github.com/njydsz/ydsz-plane.git
 cd ydsz-plane
 
 # 启动核心服务（PostgreSQL + Redis + RabbitMQ + API + Worker + Web）
-docker compose -f deployments/docker-compose.yml up -d
+docker compose -f docs/deployments/docker-compose.yml up -d
 
 # 启动完整栈（额外包含 Elasticsearch + MinIO）
-docker compose -f deployments/docker-compose.yml --profile full up -d
+docker compose -f docs/deployments/docker-compose.yml --profile full up -d
 
 # 访问 http://localhost （前端） / API 运行在 8080
 ```

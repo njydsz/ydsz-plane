@@ -28,7 +28,7 @@ func run() error {
 		return err
 	}
 
-	m, err := migrate.New("file://migrations", cfg.Database.URL)
+	m, err := migrate.New("file://sql", cfg.Database.URL)
 	if err != nil {
 		return err
 	}

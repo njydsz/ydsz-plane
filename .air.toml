@@ -5,5 +5,5 @@ tmp_dir = "tmp"
   bin = "./tmp/api.exe"
   cmd = "go build -o ./tmp/api.exe ./cmd/api"
   delay = 800
-  exclude_dir = ["tmp", "web", "docs", "deployments", "node_modules"]
+  exclude_dir = ["tmp", "web", "docs", "node_modules"]
   include_ext = ["go", "yaml", "yml"]

@@ -1,4 +1,7 @@
-// Package issue — 活动日志服务（问题时间线）。
+// Package issue — 工作项活动日志。
+//
+// 提供工作项维度时间线查询（谁在什么时候改了什么字段）与行内写入。
+// 写入由各域服务通过 appendActivity() 调用，不对外暴露为 HTTP handler。
 package issue
 
 import (
@@ -9,7 +12,7 @@ import (
 	"github.com/njydsz/ydsz-plane/pkg/errs"
 )
 
-// ActivityService 活动日志查询。
+// ActivityService 工作项活动日志查询 + 写入。
 type ActivityService struct {
 	db *pgxpool.Pool
 }
@@ -20,6 +23,8 @@ func NewActivityService(db *pgxpool.Pool) *ActivityService {
 }
 
 // ListByIssue 获取工作项的活动日志时间线。
+//
+// 返回 (activities, total, error)：total 为满足过滤条件的总行数（用于分页 UI 展示）。
 func (s *ActivityService) ListByIssue(ctx context.Context, wsID, issueID int64, limit, offset int) ([]IssueActivity, int64, error) {
 	if limit <= 0 || limit > 100 {
 		limit = 50
@@ -64,7 +69,14 @@ func (s *ActivityService) ListByIssue(ctx context.Context, wsID, issueID int64, 
 	return activities, total, rows.Err()
 }
 
-// appendActivity 写活动日志（辅助）。
+// appendActivity 追加活动日志条目（内部 helper，write-only）。
+//
+// 仅在事务回调内调用；失败时静默吞掉错误（不影响主业务），
+// 调用方应自行判断是否需要严谨审计。
+//
+// verb 字段取值约定（issue.*）：
+//   - issue.create / issue.update / issue.delete
+//   - issue.state_change / issue.assignee_change / issue.label_change
 func (s *ActivityService) appendActivity(ctx context.Context, issueID, wsID, projectID int64,
 	verb string, actorID *int64, oldVal, newVal *string) {
 	_, _ = s.db.Exec(ctx, `
