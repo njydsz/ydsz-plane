@@ -125,7 +125,7 @@ func (s *Service) getProgressOverview(ctx context.Context, projectID int64) (any
 	var w ProgressOverviewWidget
 	err := s.db.QueryRow(ctx, `
 		SELECT
-			count(*) FILTER (WHERE deleted_at IS NULL) AS total,
+			count(*) FILTER (WHERE i.deleted_at IS NULL) AS total,
 			count(*) FILTER (WHERE sg."group" = 'completed' AND i.deleted_at IS NULL) AS done,
 			count(*) FILTER (WHERE sg."group" = 'started' AND i.deleted_at IS NULL) AS in_progress,
 			count(*) FILTER (WHERE i.target_date < CURRENT_DATE AND sg."group" NOT IN ('completed','cancelled') AND i.deleted_at IS NULL) AS overdue,
@@ -189,7 +189,7 @@ func (s *Service) getStateDistribution(ctx context.Context, projectID int64) (an
 		LEFT JOIN issues i ON i.state_id = st.id AND i.project_id = $1 AND i.deleted_at IS NULL
 		WHERE st.workspace_id = (SELECT workspace_id FROM projects WHERE id = $1) AND st.deleted_at IS NULL
 		GROUP BY st.id, st.name, st."group", st.color
-		ORDER BY st.sort_order`,
+		ORDER BY st.sequence`,
 		projectID)
 	if err != nil {
 		return nil, errs.ErrInternal.Wrap(err)

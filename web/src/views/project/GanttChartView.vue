@@ -200,7 +200,6 @@ const arrowPaths = computed<ArrowPath[]>(() => {
       const srcRight = percentFromDate(srcIssue.start_date) + widthFromDates(srcIssue.start_date, srcIssue.target_date);
       const tgtLeft = percentFromDate(tgtIssue.start_date);
 
-      const svgWidth = 100; // viewBox width (percentage-based)
       const x1 = srcRight;
       const x2 = tgtLeft;
       const midX = (x1 + x2) / 2;

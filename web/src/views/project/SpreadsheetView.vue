@@ -15,9 +15,9 @@
  *   - Airtable / Notion database / Linear spreadsheet
  *   - Jira 列表视图增强版
  */
-import { ref, computed, onMounted, onUnmounted, watch } from "vue";
+import { ref, computed, onMounted, onUnmounted } from "vue";
 import { useRoute } from "vue-router";
-import type { Issue, IssueType, Priority } from "@/api/services/issue";
+import type { Issue } from "@/api/services/issue";
 
 const route = useRoute();
 const workspaceSlug = route.params.workspaceSlug as string;
@@ -36,7 +36,7 @@ interface Column {
 
 const defaultColumns: Column[] = [
   { key: "identifier", label: "编号", width: 100, visible: true, editable: false, type: "text" },
-  { key: "title", label: "标题", width: 300, visible: true, editable: true, type: "text" },
+  { key: "name", label: "标题", width: 300, visible: true, editable: true, type: "text" },
   { key: "type_code", label: "类型", width: 100, visible: true, editable: true, type: "select" },
   { key: "state_name", label: "状态", width: 100, visible: true, editable: true, type: "select" },
   { key: "priority", label: "优先级", width: 80, visible: true, editable: true, type: "select" },
@@ -367,10 +367,10 @@ onUnmounted(() => {
                   {{ issue.identifier }}
                 </span>
                 <span
-                  v-else-if="col.key === 'title'"
+                  v-else-if="col.key === 'name'"
                   class="cell-title"
                 >
-                  {{ issue.title }}
+                  {{ issue.name }}
                 </span>
                 <span
                   v-else-if="col.key === 'priority'"

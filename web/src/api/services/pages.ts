@@ -5,6 +5,7 @@
  */
 import { http } from "../client";
 
+/** 文档页面实体（富文本内容 + 嵌套层级 + 乐观锁版本）。 */
 export interface Page {
   id: number;
   public_id: string;
@@ -23,6 +24,7 @@ export interface Page {
   version: number;
 }
 
+/** 创建文档页入参（name 必填，描述 + 父节点可选）。 */
 export interface CreatePageInput {
   name: string;
   description_json?: string;
@@ -32,6 +34,7 @@ export interface CreatePageInput {
   sort_order?: number;
 }
 
+/** 更新文档页入参（可选字段 + 乐观锁 version）。 */
 export interface UpdatePageInput {
   name?: string;
   description_json?: string;
@@ -44,6 +47,7 @@ export interface UpdatePageInput {
 
 const wrap = <T>(p: Promise<{ data: T }>) => p.then((r) => r.data);
 
+/** Pages 文档域 API — 文档页 CRUD（列表、创建、更新、删除）。 */
 export const pagesApi = {
   /** 列出项目全部文档页面（扁平列表，由前端组装树） */
   list: (wsId: number, projectId: number) =>

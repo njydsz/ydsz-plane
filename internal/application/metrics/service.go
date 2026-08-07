@@ -350,7 +350,7 @@ func (s *Service) AggregateDailySnapshots(ctx context.Context, snapshotDate stri
 			continue
 		}
 
-		// 今日活跃 sprint WIP
+		// 写入 WIP 快照（今日活跃 sprint WIP）
 		var wipCount int
 		_ = s.db.QueryRow(ctx,
 			`SELECT count(*) FROM issues i JOIN sprint_issues si ON si.issue_id = i.id
@@ -358,34 +358,92 @@ func (s *Service) AggregateDailySnapshots(ctx context.Context, snapshotDate stri
 			 WHERE i.project_id = $1 AND sp.status = 'active' AND st."group" = 'started'
 			 AND i.deleted_at IS NULL`,
 			projectID).Scan(&wipCount)
-
-		// 写入 WIP 快照
-		if _, err := s.db.Exec(ctx, `
-			INSERT INTO metric_snapshots (workspace_id, project_id, granularity, ref_id, metric, value, snapshot_date)
-			VALUES ($1, $2, 'daily', NULL, 'wip', $3, $4)
-			ON CONFLICT (workspace_id, project_id, granularity, ref_id, metric, snapshot_date)
-			DO UPDATE SET value = $3, dimensions = '{}'::jsonb`,
-			wsID, projectID, wipCount, snapshotDate); err != nil {
-			// 记录错误但不中断其他项目
-			continue
-		}
-		totalWritten++
-
-		// Velocity
-		vel, err := s.GetVelocity(ctx, wsID, projectID, 1)
-		if err == nil && vel.SprintCount > 0 {
-			_, _ = s.db.Exec(ctx, `
-				INSERT INTO metric_snapshots (workspace_id, project_id, granularity, ref_id, metric, value, dimensions, snapshot_date)
-				VALUES ($1, $2, 'daily', NULL, 'velocity', $3, $4, $5)
-				ON CONFLICT (workspace_id, project_id, granularity, ref_id, metric, snapshot_date)
-				DO UPDATE SET value = $3, dimensions = $4`,
-				wsID, projectID, vel.Average,
-				map[string]any{"sprint_count": vel.SprintCount}, snapshotDate)
+		if err := s.writeSnapshot(ctx, wsID, projectID, MetricWIP, float64(wipCount), nil, snapshotDate); err == nil {
 			totalWritten++
+		}
+
+		// Velocity（近 6 个完成迭代均值）
+		if vel, err := s.GetVelocity(ctx, wsID, projectID, 6); err == nil && vel.SprintCount > 0 {
+			if err := s.writeSnapshot(ctx, wsID, projectID, MetricVelocity, vel.Average,
+				map[string]any{"sprint_count": vel.SprintCount}, snapshotDate); err == nil {
+				totalWritten++
+			}
+		}
+
+		// Lead Time P50 / P85（过去 90 天完成的需求）
+		if lt, err := s.GetLeadTime(ctx, wsID, projectID, 90); err == nil && lt.SampleSize > 0 {
+			if err := s.writeSnapshot(ctx, wsID, projectID, MetricLeadTimeP50, lt.P50Days,
+				map[string]any{"sample_size": lt.SampleSize}, snapshotDate); err == nil {
+				totalWritten++
+			}
+			if err := s.writeSnapshot(ctx, wsID, projectID, MetricLeadTimeP85, lt.P85Days, nil, snapshotDate); err == nil {
+				totalWritten++
+			}
+		}
+
+		// Throughput（过去 30 天完成 issue 的日均值）
+		var throughput float64
+		if err := s.db.QueryRow(ctx, `
+			SELECT COALESCE(count(*)::numeric / 30.0, 0)
+			FROM issues i
+			JOIN states st ON st.id = i.state_id
+			WHERE i.project_id = $1 AND i.workspace_id = $2
+			  AND st."group" = 'completed' AND i.completed_at IS NOT NULL
+			  AND i.completed_at >= now() - INTERVAL '30 days' AND i.deleted_at IS NULL`,
+			projectID, wsID).Scan(&throughput); err == nil && throughput > 0 {
+			if err := s.writeSnapshot(ctx, wsID, projectID, MetricThroughput, throughput, nil, snapshotDate); err == nil {
+				totalWritten++
+			}
+		}
+
+		// 质量指标：缺陷密度 / 逃逸率 / 返工率
+		if qm, err := s.GetQualityMetrics(ctx, wsID, projectID); err == nil {
+			if qm.TotalDefects > 0 {
+				if err := s.writeSnapshot(ctx, wsID, projectID, MetricDefectDensity, qm.DefectDensity, nil, snapshotDate); err == nil {
+					totalWritten++
+				}
+				if err := s.writeSnapshot(ctx, wsID, projectID, MetricEscapeRate, qm.EscapeRate, nil, snapshotDate); err == nil {
+					totalWritten++
+				}
+				if err := s.writeSnapshot(ctx, wsID, projectID, MetricReworkRate, qm.ReopenRate, nil, snapshotDate); err == nil {
+					totalWritten++
+				}
+			}
+		}
+
+		// DORA 四指标（基于 deployment_events 30 天窗口）
+		if dora, err := s.GetDORA(ctx, wsID, projectID); err == nil {
+			if err := s.writeSnapshot(ctx, wsID, projectID, MetricDORADF, dora.DeploymentFrequency, nil, snapshotDate); err == nil {
+				totalWritten++
+			}
+			if err := s.writeSnapshot(ctx, wsID, projectID, MetricDORALT, dora.LeadTimeForChanges, nil, snapshotDate); err == nil {
+				totalWritten++
+			}
+			if err := s.writeSnapshot(ctx, wsID, projectID, MetricDORACFR, dora.ChangeFailureRate, nil, snapshotDate); err == nil {
+				totalWritten++
+			}
+			if err := s.writeSnapshot(ctx, wsID, projectID, MetricDORAMTTR, dora.MTTR,
+				map[string]any{"performance_level": dora.Level}, snapshotDate); err == nil {
+				totalWritten++
+			}
 		}
 	}
 
 	return totalWritten, nil
+}
+
+// writeSnapshot 写一条 metric_snapshots 记录（幂等：ON CONFLICT DO UPDATE）。
+func (s *Service) writeSnapshot(ctx context.Context, wsID, projectID int64, metric string, value float64, dims map[string]any, snapshotDate string) error {
+	if dims == nil {
+		dims = map[string]any{}
+	}
+	_, err := s.db.Exec(ctx, `
+		INSERT INTO metric_snapshots (workspace_id, project_id, granularity, ref_id, metric, value, dimensions, snapshot_date)
+		VALUES ($1, $2, 'daily', NULL, $3, $4, $5, $6)
+		ON CONFLICT (workspace_id, project_id, granularity, ref_id, metric, snapshot_date)
+		DO UPDATE SET value = $4, dimensions = $5`,
+		wsID, projectID, metric, value, dims, snapshotDate)
+	return err
 }
 
 // RecordDeploymentEvent 记录外部 CI/CD 推送的部署事件（DORA 数据源）。

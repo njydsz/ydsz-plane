@@ -25,6 +25,7 @@ export interface ViewPreference {
   updated_at: string;
 }
 
+/** 保存视图偏好入参（layout/columns/filters/sort/extra 字段部分更新）。 */
 export interface SavePreferenceInput {
   layout?: string;
   columns?: unknown;
@@ -35,6 +36,7 @@ export interface SavePreferenceInput {
 
 const wrap = <T>(p: Promise<{ data: T }>) => p.then((r) => r.data);
 
+/** 视图偏好域 API — 按 (workspace, project, user, view_type) 读写布局 / 过滤 / 排序配置。 */
 export const preferenceApi = {
   /** 获取指定视图偏好（无偏好时返回 null） */
   get: async (wsId: number, projectId: number, viewType: PreferenceViewType) => {

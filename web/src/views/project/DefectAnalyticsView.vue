@@ -9,7 +9,6 @@
 import { computed, onMounted, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import type { EChartsCoreOption } from "echarts";
-import VChart from "vue-echarts";
 
 import { defectAnalyticsApi, SEVERITY_LABELS, PHASE_LABELS } from "@/api/services/defectAnalytics";
 import type { DefectAnalytics, SeverityCount, PhaseCount, ModuleCount, RootCauseCount, AgeBucket, TrendPoint } from "@/api/services/defectAnalytics";
