@@ -1,17 +1,80 @@
-// Command seed inserts minimal development seed data:
-// one admin user and one demo workspace (idempotent).
-// Demo data (projects/issues/...) lands with the corresponding Sprints.
+// Command seed inserts rich development seed data: multiple users,
+// workspaces, memberships, outbox events, and audit logs (idempotent).
+//
+// Reference: big-tech seed scripts (Linear, Plane, Asana) prioritize
+// deterministic data for predictable dev/demo environments.
 package main
 
 import (
 	"context"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/ydszopen/ydsz-plane/internal/application/auth"
 	"github.com/ydszopen/ydsz-plane/internal/config"
 	"github.com/ydszopen/ydsz-plane/internal/infrastructure/persistence"
 )
+
+/* ------------------------------------------------------------------ */
+/* seed data (deterministic)                                            */
+/* ------------------------------------------------------------------ */
+
+type seedUser struct {
+	Email       string
+	Password    string
+	DisplayName string
+	Timezone    string
+}
+
+type seedWorkspace struct {
+	Name    string
+	Slug    string
+	Members map[string] string // email → role
+}
+
+var users = []seedUser{
+	{"admin@ydsz.dev",    "Admin@123",   "系统管理员", "Asia/Shanghai"},
+	{"pm@ydsz.dev",       "Pm@123456",   "李产品",     "Asia/Shanghai"},
+	{"dev@ydsz.dev",      "Dev@123456",   "王工程",     "Asia/Shanghai"},
+	{"designer@ydsz.dev", "Design@123",  "张设计",     "Asia/Shanghai"},
+	{"viewer@ydsz.dev",   "Viewer@123",  "访客小赵",   "Asia/Shanghai"},
+}
+
+var workspaces = []seedWorkspace{
+	{
+		Name: "核心产品",
+		Slug: "core",
+		Members: map[string]string{
+			"admin@ydsz.dev":    "owner",
+			"pm@ydsz.dev":       "admin",
+			"dev@ydsz.dev":      "member",
+			"designer@ydsz.dev": "member",
+			"viewer@ydsz.dev":   "guest",
+		},
+	},
+	{
+		Name: "设计系统",
+		Slug: "design-system",
+		Members: map[string]string{
+			"admin@ydsz.dev":    "admin",
+			"designer@ydsz.dev": "owner",
+			"pm@ydsz.dev":       "member",
+		},
+	},
+	{
+		Name: "基础设施",
+		Slug: "infra",
+		Members: map[string]string{
+			"admin@ydsz.dev": "owner",
+			"dev@ydsz.dev":    "admin",
+		},
+	},
+}
+
+/* ------------------------------------------------------------------ */
+/* main                                                                 */
+/* ------------------------------------------------------------------ */
 
 func main() {
 	if err := run(); err != nil {
@@ -36,44 +99,139 @@ func run() error {
 	authSvc := auth.NewService(pool.Pool, cfg.Auth.JWTSecret, cfg.Auth.JWTIssuer,
 		cfg.Auth.AccessTokenTTL, cfg.Auth.RefreshTokenTTL, cfg.Auth.BcryptCost, true)
 
-	hash, err := authSvc.HashPassword("Admin@123")
+	emailsToIDs, err := seedUsers(ctx, pool, authSvc)
 	if err != nil {
 		return err
 	}
 
-	var userID int64
-	err = pool.QueryRow(ctx, `
-		INSERT INTO users (email, password_hash, display_name)
-		VALUES ('admin@ydsz.dev', $1, '系统管理员')
-		ON CONFLICT (email) DO UPDATE SET email = EXCLUDED.email
-		RETURNING id`, hash).Scan(&userID)
+	wsSlugsToIDs, err := seedWorkspaces(ctx, pool, emailsToIDs)
 	if err != nil {
-		return fmt.Errorf("seed user: %w", err)
+		return err
 	}
 
-	var wsID int64
-	err = pool.QueryRow(ctx, `
-		INSERT INTO workspaces (name, slug, owner_id)
-		VALUES ('演示工作空间', 'demo', $1)
-		ON CONFLICT (slug) WHERE status <> 'archived' DO NOTHING
-		RETURNING id`, userID).Scan(&wsID)
-	if err != nil {
-		if err.Error() == "no rows in result set" {
-			if err := pool.QueryRow(ctx, `SELECT id FROM workspaces WHERE slug = 'demo'`).Scan(&wsID); err != nil {
-				return fmt.Errorf("seed workspace lookup: %w", err)
+	if err := seedMembers(ctx, pool, wsSlugsToIDs, workspaces); err != nil {
+		return err
+	}
+
+	if err := seedAuditLogs(ctx, pool, emailsToIDs); err != nil {
+		return err
+	}
+
+	printSummary(emailsToIDs, wsSlugsToIDs)
+	return nil
+}
+
+/* ------------------------------------------------------------------ */
+/* helpers                                                              */
+/* ------------------------------------------------------------------ */
+
+func seedUsers(ctx context.Context, pool *persistence.Pool, svc *auth.Service) (map[string]int64, error) {
+	out := make(map[string]int64, len(users))
+	for _, u := range users {
+		hash, err := svc.HashPassword(u.Password)
+		if err != nil {
+			return nil, fmt.Errorf("hash %s: %w", u.Email, err)
+		}
+		var id int64
+		err = pool.QueryRow(ctx, `
+			INSERT INTO users (email, password_hash, display_name, timezone)
+			VALUES ($1, $2, $3, $4)
+			ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash
+			RETURNING id`, u.Email, hash, u.DisplayName, u.Timezone).Scan(&id)
+		if err != nil {
+			return nil, fmt.Errorf("seed user %s: %w", u.Email, err)
+		}
+		out[u.Email] = id
+	}
+	return out, nil
+}
+
+func seedWorkspaces(ctx context.Context, pool *persistence.Pool, userIDs map[string]int64) (map[string]int64, error) {
+	ownerID := userIDs["admin@ydsz.dev"]
+	out := make(map[string]int64, len(workspaces))
+	for _, ws := range workspaces {
+		var id int64
+		// First member becomes owner if admin is not a member
+		// (extra safety for the rare case where admin isn't in Members).
+		err := pool.QueryRow(ctx, `
+			INSERT INTO workspaces (name, slug, owner_id)
+			VALUES ($1, $2, $3)
+			ON CONFLICT (slug) WHERE status <> 'archived'
+			DO UPDATE SET name = EXCLUDED.name
+			RETURNING id`, ws.Name, ws.Slug, ownerID).Scan(&id)
+		if err != nil {
+			if err.Error() == "no rows in result set" {
+				err = pool.QueryRow(ctx,
+					`SELECT id FROM workspaces WHERE slug = $1 AND status = 'active'`, ws.Slug).Scan(&id)
+				if err != nil {
+					return nil, fmt.Errorf("seed ws lookup %s: %w", ws.Slug, err)
+				}
+			} else {
+				return nil, fmt.Errorf("seed workspace %s: %w", ws.Slug, err)
 			}
-		} else {
-			return fmt.Errorf("seed workspace: %w", err)
+		}
+		out[ws.Slug] = id
+	}
+	return out, nil
+}
+
+func seedMembers(ctx context.Context, pool *persistence.Pool, wsIDs map[string]int64, wsList []seedWorkspace) error {
+	for _, ws := range wsList {
+		wsID, ok := wsIDs[ws.Slug]
+		if !ok {
+			continue
+		}
+		for email, role := range ws.Members {
+			var userID int64
+			if err := pool.QueryRow(ctx,
+				`SELECT id FROM users WHERE email = $1 AND is_active`, email).Scan(&userID); err != nil {
+				return fmt.Errorf("lookup user %s: %w", email, err)
+			}
+			if _, err := pool.Exec(ctx, `
+				INSERT INTO workspace_members (workspace_id, user_id, role, joined_at)
+				VALUES ($1, $2, $3, $4)
+				ON CONFLICT (workspace_id, user_id) DO UPDATE SET role = EXCLUDED.role`,
+				wsID, userID, role, time.Now().Add(-30*24*time.Hour)); err != nil {
+				return fmt.Errorf("seed member %s@%s: %w", email, ws.Slug, err)
+			}
 		}
 	}
-
-	if _, err := pool.Exec(ctx, `
-		INSERT INTO workspace_members (workspace_id, user_id, role)
-		VALUES ($1, $2, 'owner')
-		ON CONFLICT DO NOTHING`, wsID, userID); err != nil {
-		return fmt.Errorf("seed member: %w", err)
-	}
-
-	fmt.Println("seed ok: admin@ydsz.dev / Admin@123, workspace: demo")
 	return nil
+}
+
+func seedAuditLogs(ctx context.Context, pool *persistence.Pool, userIDs map[string]int64) error {
+	admin := userIDs["admin@ydsz.dev"]
+	for i := 0; i < 5; i++ {
+		if _, err := pool.Exec(ctx, `
+			INSERT INTO audit_logs (actor_id, action, target, detail)
+			VALUES ($1, $2, $3, $4)`,
+			admin,
+			fmt.Sprintf("seed.demo_event_%d", i),
+			fmt.Sprintf("demo-target-%d", i),
+			fmt.Sprintf(`{"index":%d,"note":"seeded for demo"}`, i)); err != nil {
+			return fmt.Errorf("seed audit %d: %w", i, err)
+		}
+	}
+	return nil
+}
+
+func printSummary(userIDs map[string]int64, wsIDs map[string]int64) {
+	fmt.Println("═══════════════════════════════════════")
+	fmt.Println("  Ydsz Plane Seed — OK")
+	fmt.Println("═══════════════════════════════════════")
+	fmt.Printf("  Users:      %d\n", len(users))
+	fmt.Printf("  Workspaces: %d\n", len(workspaces))
+	fmt.Println("───────────────────────────────────────")
+	fmt.Println(" 用户 / 密码:")
+	for _, u := range users {
+		fmt.Printf("   %-22s %s\n", u.Email, u.Password)
+	}
+	fmt.Println("───────────────────────────────────────")
+	fmt.Println(" 工作空间:")
+	for _, ws := range workspaces {
+		fmt.Printf("   %-16s (%d 成员)\n", ws.Slug, len(ws.Members))
+	}
+	_ = userIDs
+	_ = wsIDs
+	fmt.Println("═══════════════════════════════════════")
 }
