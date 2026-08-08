@@ -1919,7 +1919,8 @@ CACHE 1
   "created_at" timestamptz(6) NOT NULL DEFAULT now(),
   "updated_at" timestamptz(6) NOT NULL DEFAULT now(),
   "deleted_at" timestamptz(6),
-  "template" text COLLATE "pg_catalog"."default" NOT NULL DEFAULT 'generic'::text
+  "template" text COLLATE "pg_catalog"."default" NOT NULL DEFAULT 'generic'::text,
+  "modules" jsonb NOT NULL DEFAULT '{"intake": true, "sprint": true, "version": true, "estimate": true}'::jsonb
 )
 ;
 COMMENT ON TABLE public.projects IS '项目表（工作项聚合根容器，含状态模板、工作流配置、封面、默认外观）';
@@ -1940,6 +1941,7 @@ COMMENT ON COLUMN public.projects.deleted_at IS '软删除时间戳';
 COMMENT ON COLUMN public.projects.version IS '乐观锁版本号（默认 1）';
 COMMENT ON COLUMN public.projects.is_default IS '是否工作空间默认项目: true=默认（用于项目选择器/快捷入口）';
 COMMENT ON COLUMN public.projects.icon IS '项目图标（Emoji / Lucide 图标名）';
+COMMENT ON COLUMN public.projects.modules IS '功能模块开关 JSON: {intake, sprint, version, estimate}';
 
 -- ----------------------------
 -- Records of projects

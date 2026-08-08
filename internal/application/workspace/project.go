@@ -5,6 +5,8 @@ package workspace
 
 import (
 	"context"
+	"database/sql/driver"
+	"encoding/json"
 	"errors"
 	"strconv"
 	"strings"
@@ -16,23 +18,62 @@ import (
 	"github.com/njydsz/ydsz-plane/pkg/errs"
 )
 
+// ProjectModuleToggles — 项目功能模块开关集合。
+// 实现 driver.Valuer / sql.Scanner 以透明持久化为 JSONB。
+type ProjectModuleToggles struct {
+	Intake   bool `json:"intake"`
+	Sprint   bool `json:"sprint"`
+	Version  bool `json:"version"`
+	Estimate bool `json:"estimate"`
+}
+
+// Value 实现 driver.Valuer，将结构体序列化为 JSON 字节。
+func (m ProjectModuleToggles) Value() (driver.Value, error) {
+	return json.Marshal(m)
+}
+
+// Scan 实现 sql.Scanner，从 JSON 字节反序列化。
+func (m *ProjectModuleToggles) Scan(src any) error {
+	var b []byte
+	switch v := src.(type) {
+	case []byte:
+		b = v
+	case string:
+		b = []byte(v)
+	case nil:
+		return nil
+	default:
+		return errs.ErrValidation.WithDetails(errs.FieldDetail{Field: "modules", Reason: "unsupported scan type"})
+	}
+	if len(b) == 0 {
+		return nil
+	}
+	return json.Unmarshal(b, m)
+}
+
+// ProjectModuleAllEnabled 返回全部模块启用的默认开关集合。
+func ProjectModuleAllEnabled() ProjectModuleToggles {
+	return ProjectModuleToggles{Intake: true, Sprint: true, Version: true, Estimate: true}
+}
+
 // Project 项目 DTO。
 type Project struct {
-	ID          int64     `json:"id"`
-	WorkspaceID int64     `json:"workspace_id"`
-	Name        string    `json:"name"`
-	Slug        string    `json:"slug"`
-	Identifier  string    `json:"identifier"`
-	Description string    `json:"description,omitempty"`
-	Network     string    `json:"network"`
-	Icon        string    `json:"icon,omitempty"`
-	Color       string    `json:"color,omitempty"`
-	Template    string    `json:"template"`
-	Status      string    `json:"status"`
-	SortOrder   float64   `json:"sort_order"`
-	CreatedBy   int64     `json:"created_by"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	ID          int64                  `json:"id"`
+	WorkspaceID int64                  `json:"workspace_id"`
+	Name        string                 `json:"name"`
+	Slug        string                 `json:"slug"`
+	Identifier  string                 `json:"identifier"`
+	Description string                 `json:"description,omitempty"`
+	Network     string                 `json:"network"`
+	Icon        string                 `json:"icon,omitempty"`
+	Color       string                 `json:"color,omitempty"`
+	Template    string                 `json:"template"`
+	Status      string                 `json:"status"`
+	SortOrder   float64                `json:"sort_order"`
+	Modules     ProjectModuleToggles   `json:"modules"`
+	CreatedBy   int64                  `json:"created_by"`
+	CreatedAt   time.Time              `json:"created_at"`
+	UpdatedAt   time.Time              `json:"updated_at"`
 }
 
 // ProjectCreateInput 入参。
@@ -48,6 +89,8 @@ type ProjectCreateInput struct {
 	CreatedBy   int64
 	// Template 项目模板代码（agile / waterfall / generic），默认 generic。
 	Template string
+	// Modules 功能模块开关集合；nil 表示全部启用。
+	Modules *ProjectModuleToggles
 }
 
 // ProjectUpdateInput 入参。
@@ -58,6 +101,7 @@ type ProjectUpdateInput struct {
 	Network     *string
 	Icon        *string
 	Color       *string
+	Modules     *ProjectModuleToggles
 }
 
 // ProjectService 项目应用服务。
