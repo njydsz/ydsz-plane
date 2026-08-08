@@ -6672,3 +6672,684 @@ $$;
 -- 全部 schema 定义 + 注释 + 辅助函数 + RLS 完毕。
 -- 调用 ydsz_check_comment_coverage() 验证注释完整性。
 -- ============================================================================
+
+
+-- ============================================================================
+-- 以下为增量迁移整合（原 0023_rbac_roles_and_permissions / 0024_work_item_split /
+--                0025_work_item_archive / 0025_epic_and_modules /
+--                0026_work_item_migration 五个迁移的 up 内容合并）。
+-- 调整说明：
+--   1. 所有 CREATE TABLE 改为 CREATE TABLE IF NOT EXISTS，保证幂等。
+--   2. modules 表原本缺少 public_id 列与 RLS，通过 ALTER 补全。
+--   3. workspace_members 旧 role 约束 (owner/admin/member/guest) 替换为新版
+--      (admin/owner/pm/po/techlead/qalead/dev/guest)。
+-- ============================================================================
+
+
+-- ============================================================================
+-- [原 0023] RBAC 体系重构 —— 角色/权限 DB 化
+-- ============================================================================
+
+-- -----------------------------------------------------------------------------
+-- 1. roles 表
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.roles (
+    slug        VARCHAR(20)  PRIMARY KEY,
+    name        VARCHAR(50)  NOT NULL UNIQUE,
+    description TEXT         NOT NULL DEFAULT '',
+    level       SMALLINT     NOT NULL,
+    is_system   BOOLEAN      NOT NULL DEFAULT true,
+    icon        VARCHAR(20)  DEFAULT '',
+    sort_order  SMALLINT     DEFAULT 0,
+    created_at  TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    updated_at  TIMESTAMPTZ  NOT NULL DEFAULT now()
+);
+
+COMMENT ON TABLE  public.roles           IS '工作空间级角色定义（全局共享，通过 role_permissions 表热更新权限映射）';
+COMMENT ON COLUMN public.roles.slug      IS '角色枚举标识：admin/owner/pm/po/techlead/qalead/dev/guest';
+COMMENT ON COLUMN public.roles.level     IS '角色层级：admin=100(系统) owner=80(空间) pm/po/techlead/qalead=50 dev=30 guest=10';
+COMMENT ON COLUMN public.roles.is_system IS '是否系统内置角色；true=不可删改 slug，仅能改 name/description/权限矩阵';
+
+-- -----------------------------------------------------------------------------
+-- 2. role_permissions 表
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.role_permissions (
+    id              BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    role_slug       VARCHAR(20)  NOT NULL REFERENCES public.roles(slug) ON DELETE CASCADE,
+    permission_code VARCHAR(64)  NOT NULL,
+    description     TEXT         DEFAULT '',
+    created_at      TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    UNIQUE (role_slug, permission_code)
+);
+
+CREATE INDEX IF NOT EXISTS idx_role_permissions_role ON public.role_permissions (role_slug);
+CREATE INDEX IF NOT EXISTS idx_role_permissions_perm ON public.role_permissions (permission_code);
+
+COMMENT ON TABLE  public.role_permissions                  IS '角色-权限映射表（一张表承载全部 RBAC 矩阵，支持运行时增删权限）';
+COMMENT ON COLUMN public.role_permissions.role_slug       IS '关联 roles.slug；CASCADE 删除保证一致性';
+COMMENT ON COLUMN public.role_permissions.permission_code IS '权限点标识，与 internal/auth/rbac.go 的 PermXxx 常量严格对齐';
+
+-- -----------------------------------------------------------------------------
+-- 3. workspace_members 表结构增强（追加列 + 替换 role 约束）
+-- -----------------------------------------------------------------------------
+ALTER TABLE public.workspace_members
+    ADD COLUMN IF NOT EXISTS is_active  BOOLEAN     NOT NULL DEFAULT true,
+    ADD COLUMN IF NOT EXISTS created_by BIGINT      REFERENCES public.users(id),
+    ADD COLUMN IF NOT EXISTS created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    ADD COLUMN IF NOT EXISTS updated_at  TIMESTAMPTZ NOT NULL DEFAULT now();
+
+-- 替换旧的 role CHECK 约束（旧: owner/admin/member/guest → 新: 8 级 RBAC）
+ALTER TABLE public.workspace_members DROP CONSTRAINT IF EXISTS workspace_members_role_check;
+ALTER TABLE public.workspace_members DROP CONSTRAINT IF EXISTS chk_workspace_member_role;
+ALTER TABLE public.workspace_members
+    ADD CONSTRAINT chk_workspace_member_role
+    CHECK (role IN ('admin','owner','pm','po','techlead','qalead','dev','guest'));
+
+COMMENT ON COLUMN public.workspace_members.is_active  IS '成员激活状态；false=暂停访问';
+COMMENT ON COLUMN public.workspace_members.created_by IS '添加人（邀请人）';
+
+-- -----------------------------------------------------------------------------
+-- 4. 种子数据 —— 8 个系统角色 + 完整权限矩阵
+-- -----------------------------------------------------------------------------
+INSERT INTO public.roles (slug, name, description, level, is_system, icon, sort_order) VALUES
+    ('admin',    '系统管理员',    '平台最高权限。可管理所有工作空间、任意进入某个空间行使空间管理员权力、管理系统通用配置（SMTP/SSO/安全策略）。', 100, true, '🛡️', 1),
+    ('owner',    '空间管理员',    '工作空间最高权限。可管理工作空间下所有事项：项目、版本、迭代、需求、任务、缺陷、成员、设置、审计日志。可删除空间或转移所有权。',  80, true, '👑', 2),
+    ('pm',       '项目经理',      '项目全生命周期负责人：创建/归档项目、管理迭代、查看效能报表、管理工作项状态。',  50, true, '📋', 3),
+    ('po',       '产品经理',      '需求侧负责人：创建/编辑需求、设置优先级与验收标准、管理产品路线图。',             50, true, '🎯', 4),
+    ('techlead', '技术经理',      '技术侧负责人：管理 Sprint 排期、自动化规则、Webhook、效能度量与代码集成。',       50, true, '🛠️', 5),
+    ('qalead',   '测试经理',      '质量侧负责人：创建/编辑缺陷、管理缺陷分类与严重度、查看缺陷分析报表。',           50, true, '🔍', 6),
+    ('dev',      '开发',          '执行者：创建/编辑分配给自己的工作项、更新状态、记录工时、参与迭代。',              30, true, '💻', 7),
+    ('guest',    '访客',          '只读协作者：浏览指定项目、添加评论，无任何编辑与管理权限。',                     10, true, '👁️', 8)
+ON CONFLICT (slug) DO UPDATE SET
+    name        = EXCLUDED.name,
+    description = EXCLUDED.description,
+    level       = EXCLUDED.level,
+    icon        = EXCLUDED.icon,
+    sort_order  = EXCLUDED.sort_order,
+    updated_at  = now();
+
+-- owner = 空间级全部权限
+INSERT INTO public.role_permissions (role_slug, permission_code) VALUES
+    ('owner','workspace:read'),            ('owner','workspace:update'),           ('owner','workspace:delete'),
+    ('owner','workspace:transfer'),        ('owner','project:read'),               ('owner','project:create'),
+    ('owner','project:update'),            ('owner','project:delete'),             ('owner','issue:read'),
+    ('owner','issue:create'),              ('owner','issue:edit_own'),             ('owner','issue:edit_all'),
+    ('owner','issue:delete'),              ('owner','issue:transition'),           ('owner','issue:reassign'),
+    ('owner','issue:change_priority'),     ('owner','issue:manage_sprint'),        ('owner','member:invite'),
+    ('owner','member:remove'),             ('owner','member:change_role'),         ('owner','sprint:read'),
+    ('owner','sprint:create'),             ('owner','sprint:update'),              ('owner','sprint:delete'),
+    ('owner','sprint:lifecycle'),          ('owner','sprint:plan'),                ('owner','version:read'),
+    ('owner','version:create'),            ('owner','version:update'),             ('owner','version:release'),
+    ('owner','version:delete'),            ('owner','defect:create'),              ('owner','qa:report'),
+    ('owner','analytics:read'),            ('owner','analytics:export'),           ('owner','automation:manage'),
+    ('owner','deploy:report'),             ('owner','audit:read'),                 ('owner','webhook:manage'),
+    ('owner','intake:manage'),             ('owner','pages:manage'),               ('owner','comment:moderate'),
+    ('owner','relation:manage'),           ('owner','field:edit_severity'),        ('owner','field:edit_effort'),
+    ('owner','field:edit_deadline'),       ('owner','menu:settings'),              ('owner','menu:audit')
+ON CONFLICT (role_slug, permission_code) DO NOTHING;
+
+-- admin = owner 全部权限 + 系统级权限
+INSERT INTO public.role_permissions (role_slug, permission_code) VALUES
+    ('admin','system:config'),             ('admin','system:user:read'),           ('admin','system:user:manage'),
+    ('admin','system:workspace:list'),     ('admin','system:workspace:manage'),    ('admin','system:audit:read'),
+    ('admin','workspace:read'),            ('admin','workspace:update'),           ('admin','workspace:delete'),
+    ('admin','workspace:transfer'),        ('admin','project:read'),               ('admin','project:create'),
+    ('admin','project:update'),            ('admin','project:delete'),             ('admin','issue:read'),
+    ('admin','issue:create'),              ('admin','issue:edit_own'),             ('admin','issue:edit_all'),
+    ('admin','issue:delete'),              ('admin','issue:transition'),           ('admin','issue:reassign'),
+    ('admin','issue:change_priority'),     ('admin','issue:manage_sprint'),        ('admin','member:invite'),
+    ('admin','member:remove'),             ('admin','member:change_role'),         ('admin','sprint:read'),
+    ('admin','sprint:create'),             ('admin','sprint:update'),              ('admin','sprint:delete'),
+    ('admin','sprint:lifecycle'),          ('admin','sprint:plan'),                ('admin','version:read'),
+    ('admin','version:create'),            ('admin','version:update'),             ('admin','version:release'),
+    ('admin','version:delete'),            ('admin','defect:create'),              ('admin','qa:report'),
+    ('admin','analytics:read'),            ('admin','analytics:export'),           ('admin','automation:manage'),
+    ('admin','deploy:report'),             ('admin','audit:read'),                 ('admin','webhook:manage'),
+    ('admin','intake:manage'),             ('admin','pages:manage'),               ('admin','comment:moderate'),
+    ('admin','relation:manage'),           ('admin','field:edit_severity'),        ('admin','field:edit_effort'),
+    ('admin','field:edit_deadline'),       ('admin','menu:settings'),              ('admin','menu:audit')
+ON CONFLICT (role_slug, permission_code) DO NOTHING;
+
+-- pm 项目经理
+INSERT INTO public.role_permissions (role_slug, permission_code) VALUES
+    ('pm','workspace:read'),
+    ('pm','project:read'),                 ('pm','project:create'),                ('pm','project:update'),
+    ('pm','project:delete'),               ('pm','issue:read'),                    ('pm','issue:create'),
+    ('pm','issue:edit_own'),               ('pm','issue:edit_all'),                ('pm','issue:delete'),
+    ('pm','issue:transition'),             ('pm','issue:reassign'),                ('pm','issue:change_priority'),
+    ('pm','issue:manage_sprint'),          ('pm','sprint:read'),                   ('pm','sprint:create'),
+    ('pm','sprint:update'),                ('pm','sprint:delete'),                 ('pm','sprint:lifecycle'),
+    ('pm','sprint:plan'),                  ('pm','version:read'),                  ('pm','version:create'),
+    ('pm','version:update'),               ('pm','version:release'),               ('pm','version:delete'),
+    ('pm','defect:create'),                ('pm','analytics:read'),                ('pm','analytics:export'),
+    ('pm','automation:manage'),            ('pm','intake:manage'),                 ('pm','pages:manage'),
+    ('pm','relation:manage'),              ('pm','field:edit_effort'),             ('pm','field:edit_deadline')
+ON CONFLICT (role_slug, permission_code) DO NOTHING;
+
+-- po 产品经理
+INSERT INTO public.role_permissions (role_slug, permission_code) VALUES
+    ('po','workspace:read'),
+    ('po','project:read'),                 ('po','issue:read'),                    ('po','issue:create'),
+    ('po','issue:edit_own'),               ('po','issue:edit_all'),
+    ('po','issue:transition'),             ('po','issue:reassign'),                ('po','issue:change_priority'),
+    ('po','version:read'),                 ('po','version:create'),                ('po','version:update'),
+    ('po','version:release'),
+    ('po','analytics:read'),               ('po','intake:manage'),                 ('po','pages:manage'),
+    ('po','relation:manage'),              ('po','field:edit_deadline')
+ON CONFLICT (role_slug, permission_code) DO NOTHING;
+
+-- techlead 技术经理
+INSERT INTO public.role_permissions (role_slug, permission_code) VALUES
+    ('techlead','workspace:read'),
+    ('techlead','project:read'),           ('techlead','issue:read'),              ('techlead','issue:create'),
+    ('techlead','issue:edit_own'),         ('techlead','issue:edit_all'),          ('techlead','issue:delete'),
+    ('techlead','issue:transition'),       ('techlead','issue:reassign'),
+    ('techlead','issue:manage_sprint'),    ('techlead','sprint:read'),             ('techlead','sprint:create'),
+    ('techlead','sprint:update'),          ('techlead','sprint:lifecycle'),        ('techlead','sprint:plan'),
+    ('techlead','version:read'),           ('techlead','version:create'),          ('techlead','version:update'),
+    ('techlead','version:release'),        ('techlead','defect:create'),           ('techlead','qa:report'),
+    ('techlead','analytics:read'),         ('techlead','automation:manage'),       ('techlead','deploy:report'),
+    ('techlead','pages:manage'),           ('techlead','relation:manage'),
+    ('techlead','field:edit_severity'),    ('techlead','field:edit_effort')
+ON CONFLICT (role_slug, permission_code) DO NOTHING;
+
+-- qalead 测试经理
+INSERT INTO public.role_permissions (role_slug, permission_code) VALUES
+    ('qalead','workspace:read'),
+    ('qalead','project:read'),             ('qalead','issue:read'),                ('qalead','issue:create'),
+    ('qalead','issue:edit_own'),           ('qalead','issue:edit_all'),
+    ('qalead','issue:transition'),         ('qalead','issue:reassign'),
+    ('qalead','qa:report'),                ('qalead','analytics:read'),
+    ('qalead','relation:manage'),          ('qalead','field:edit_severity')
+ON CONFLICT (role_slug, permission_code) DO NOTHING;
+
+-- dev 开发
+INSERT INTO public.role_permissions (role_slug, permission_code) VALUES
+    ('dev','workspace:read'),
+    ('dev','project:read'),                ('dev','issue:read'),                   ('dev','issue:create'),
+    ('dev','issue:edit_own'),              ('dev','issue:transition'),
+    ('dev','sprint:read'),                 ('dev','version:read'),
+    ('dev','defect:create'),               ('dev','relation:manage'),
+    ('dev','field:edit_severity'),         ('dev','field:edit_effort')
+ON CONFLICT (role_slug, permission_code) DO NOTHING;
+
+-- guest 访客
+INSERT INTO public.role_permissions (role_slug, permission_code) VALUES
+    ('guest','workspace:read'),
+    ('guest','project:read'),              ('guest','issue:read'),
+    ('guest','sprint:read'),               ('guest','version:read')
+ON CONFLICT (role_slug, permission_code) DO NOTHING;
+
+
+-- ============================================================================
+-- [原 0024] 工作项分表拆分 —— task / requirement / defect
+-- ============================================================================
+
+-- 1. task 表
+CREATE TABLE IF NOT EXISTS task (
+    id              BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    public_id       UUID NOT NULL DEFAULT gen_random_uuid(),
+    workspace_id    BIGINT NOT NULL REFERENCES workspaces(id),
+    project_id      BIGINT NOT NULL REFERENCES projects(id),
+    sequence_id     BIGINT NOT NULL,
+    parent_id       BIGINT REFERENCES task(id),
+    depth           SMALLINT NOT NULL DEFAULT 1 CHECK (depth BETWEEN 1 AND 3),
+    name            TEXT NOT NULL,
+    description_json    JSONB,
+    description_html    TEXT,
+    description_stripped TEXT,
+    state_id        BIGINT NOT NULL REFERENCES states(id),
+    priority        TEXT NOT NULL DEFAULT 'none'
+                    CHECK (priority IN ('urgent','high','medium','low','none')),
+    category        TEXT CHECK (category IN ('frontend','backend','qa','doc','design','devops','other')),
+    actual_effort   NUMERIC(8,2),
+    remaining_effort NUMERIC(8,2),
+    delay_reason    TEXT CHECK (delay_reason IN ('requirement_change','resource','blocked','other')),
+    point           SMALLINT CHECK (point BETWEEN 0 AND 12),
+    estimate_point_id BIGINT REFERENCES estimate_points(id),
+    sprint_id       BIGINT REFERENCES sprints(id),
+    version_id      BIGINT REFERENCES versions(id),
+    progress        SMALLINT NOT NULL DEFAULT 0 CHECK (progress BETWEEN 0 AND 100),
+    start_date      DATE,
+    target_date     DATE,
+    completed_at    TIMESTAMPTZ,
+    is_draft        BOOLEAN NOT NULL DEFAULT FALSE,
+    sort_order      DOUBLE PRECISION NOT NULL DEFAULT 65535,
+    created_by      BIGINT NOT NULL REFERENCES users(id),
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deleted_at      TIMESTAMPTZ,
+    version         INT NOT NULL DEFAULT 1,
+    UNIQUE (project_id, sequence_id),
+    UNIQUE (public_id) WHERE deleted_at IS NULL
+);
+
+-- 2. requirement 表
+CREATE TABLE IF NOT EXISTS requirement (
+    id              BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    public_id       UUID NOT NULL DEFAULT gen_random_uuid(),
+    workspace_id    BIGINT NOT NULL REFERENCES workspaces(id),
+    project_id      BIGINT NOT NULL REFERENCES projects(id),
+    sequence_id     BIGINT NOT NULL,
+    parent_id       BIGINT REFERENCES requirement(id),
+    depth           SMALLINT NOT NULL DEFAULT 1 CHECK (depth BETWEEN 1 AND 3),
+    name            TEXT NOT NULL,
+    description_json    JSONB,
+    description_html    TEXT,
+    description_stripped TEXT,
+    state_id        BIGINT NOT NULL REFERENCES states(id),
+    priority        TEXT NOT NULL DEFAULT 'none'
+                    CHECK (priority IN ('urgent','high','medium','low','none')),
+    source          TEXT CHECK (source IN ('customer','internal','competitor','other')),
+    acceptance_criteria JSONB,
+    business_value  TEXT,
+    review_status   TEXT CHECK (review_status IN ('draft','reviewing','accepted','rejected','verified')),
+    point           SMALLINT CHECK (point BETWEEN 0 AND 12),
+    estimate_point_id BIGINT REFERENCES estimate_points(id),
+    sprint_id       BIGINT REFERENCES sprints(id),
+    version_id      BIGINT REFERENCES versions(id),
+    progress        SMALLINT NOT NULL DEFAULT 0 CHECK (progress BETWEEN 0 AND 100),
+    start_date      DATE,
+    target_date     DATE,
+    completed_at    TIMESTAMPTZ,
+    is_draft        BOOLEAN NOT NULL DEFAULT FALSE,
+    sort_order      DOUBLE PRECISION NOT NULL DEFAULT 65535,
+    created_by      BIGINT NOT NULL REFERENCES users(id),
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deleted_at      TIMESTAMPTZ,
+    version         INT NOT NULL DEFAULT 1,
+    UNIQUE (project_id, sequence_id),
+    UNIQUE (public_id) WHERE deleted_at IS NULL
+);
+
+-- 3. defect 表
+CREATE TABLE IF NOT EXISTS defect (
+    id              BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    public_id       UUID NOT NULL DEFAULT gen_random_uuid(),
+    workspace_id    BIGINT NOT NULL REFERENCES workspaces(id),
+    project_id      BIGINT NOT NULL REFERENCES projects(id),
+    sequence_id     BIGINT NOT NULL,
+    parent_id       BIGINT REFERENCES defect(id),
+    depth           SMALLINT NOT NULL DEFAULT 1 CHECK (depth BETWEEN 1 AND 3),
+    name            TEXT NOT NULL,
+    description_json    JSONB,
+    description_html    TEXT,
+    description_stripped TEXT,
+    state_id        BIGINT NOT NULL REFERENCES states(id),
+    priority        TEXT NOT NULL DEFAULT 'none'
+                    CHECK (priority IN ('urgent','high','medium','low','none')),
+    severity        SMALLINT NOT NULL CHECK (severity BETWEEN 1 AND 5),
+    found_phase     TEXT NOT NULL CHECK (found_phase IN ('unit','integration','uat','production','customer')),
+    found_version_id BIGINT REFERENCES versions(id),
+    fix_version_id   BIGINT REFERENCES versions(id),
+    root_cause_category TEXT CHECK (root_cause_category IN ('requirement','technical','environment','data')),
+    verifier_id     BIGINT REFERENCES users(id),
+    environment     JSONB,
+    reproduce_steps JSONB NOT NULL,
+    fix_steps       JSONB,
+    regression_risk TEXT CHECK (regression_risk IN ('low','medium','high')),
+    point           SMALLINT CHECK (point BETWEEN 0 AND 12),
+    estimate_point_id BIGINT REFERENCES estimate_points(id),
+    sprint_id       BIGINT REFERENCES sprints(id),
+    version_id      BIGINT REFERENCES versions(id),
+    progress        SMALLINT NOT NULL DEFAULT 0 CHECK (progress BETWEEN 0 AND 100),
+    start_date      DATE,
+    target_date     DATE,
+    completed_at    TIMESTAMPTZ,
+    is_draft        BOOLEAN NOT NULL DEFAULT FALSE,
+    sort_order      DOUBLE PRECISION NOT NULL DEFAULT 65535,
+    created_by      BIGINT NOT NULL REFERENCES users(id),
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deleted_at      TIMESTAMPTZ,
+    version         INT NOT NULL DEFAULT 1,
+    UNIQUE (project_id, sequence_id),
+    UNIQUE (public_id) WHERE deleted_at IS NULL
+);
+
+-- 4. task_ext 表
+CREATE TABLE IF NOT EXISTS task_ext (
+    id              BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    workspace_id    BIGINT NOT NULL REFERENCES workspaces(id),
+    project_id      BIGINT NOT NULL REFERENCES projects(id),
+    task_id         BIGINT NOT NULL REFERENCES task(id) ON DELETE CASCADE,
+    field_name      TEXT NOT NULL,
+    field_value     JSONB NOT NULL,
+    field_schema    JSONB NOT NULL,
+    created_by      BIGINT NOT NULL REFERENCES users(id),
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (task_id, field_name)
+);
+
+-- 5. requirement_ext 表
+CREATE TABLE IF NOT EXISTS requirement_ext (
+    id              BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    workspace_id    BIGINT NOT NULL REFERENCES workspaces(id),
+    project_id      BIGINT NOT NULL REFERENCES projects(id),
+    requirement_id  BIGINT NOT NULL REFERENCES requirement(id) ON DELETE CASCADE,
+    field_name      TEXT NOT NULL,
+    field_value     JSONB NOT NULL,
+    field_schema    JSONB NOT NULL,
+    created_by      BIGINT NOT NULL REFERENCES users(id),
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (requirement_id, field_name)
+);
+
+-- 6. defect_ext 表
+CREATE TABLE IF NOT EXISTS defect_ext (
+    id              BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    workspace_id    BIGINT NOT NULL REFERENCES workspaces(id),
+    project_id      BIGINT NOT NULL REFERENCES projects(id),
+    defect_id       BIGINT NOT NULL REFERENCES defect(id) ON DELETE CASCADE,
+    field_name      TEXT NOT NULL,
+    field_value     JSONB NOT NULL,
+    field_schema    JSONB NOT NULL,
+    created_by      BIGINT NOT NULL REFERENCES users(id),
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (defect_id, field_name)
+);
+
+-- 7. biz_entity_relation 表
+CREATE TABLE IF NOT EXISTS biz_entity_relation (
+    id              BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    workspace_id    BIGINT NOT NULL REFERENCES workspaces(id),
+    project_id      BIGINT NOT NULL REFERENCES projects(id),
+    source_type     TEXT NOT NULL CHECK (source_type IN ('task','requirement','defect')),
+    source_id       BIGINT NOT NULL,
+    target_type     TEXT NOT NULL CHECK (target_type IN ('task','requirement','defect')),
+    target_id       BIGINT NOT NULL,
+    relation_type   TEXT NOT NULL CHECK (relation_type IN ('implemented_by','relates_to','duplicate','blocked_by','parent_child','found_in','fixed_in','verified_in')),
+    created_by      BIGINT NOT NULL REFERENCES users(id),
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (source_type, source_id, target_type, target_id, relation_type)
+);
+
+-- 8. states 表扩展
+ALTER TABLE states ADD COLUMN IF NOT EXISTS applicable_types TEXT[] NOT NULL DEFAULT '{"all"}';
+
+-- 9. state_transitions 表扩展
+ALTER TABLE state_transitions ALTER COLUMN type_code DROP DEFAULT;
+UPDATE state_transitions SET type_code = 'all' WHERE type_code = '';
+
+
+-- ============================================================================
+-- [原 0025] 工作项归档支持（原 0025_work_item_archive）
+-- ============================================================================
+
+-- 给 task/requirement/defect 表添加归档时间戳和索引
+ALTER TABLE task ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ NULL;
+ALTER TABLE requirement ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ NULL;
+ALTER TABLE defect ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ NULL;
+
+CREATE INDEX IF NOT EXISTS idx_task_archived       ON task(archived_at)       WHERE archived_at IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_requirement_archived ON requirement(archived_at) WHERE archived_at IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_defect_archived      ON defect(archived_at)      WHERE archived_at IS NOT NULL;
+
+
+-- ============================================================================
+-- [原 0026] 工作项数据迁移（issues → task/requirement/defect）
+-- 一次性数据同步，旧库数据拆分到新分表；全新空库执行无影响（ON CONFLICT DO NOTHING）。
+-- ============================================================================
+
+-- 1. task 类型工作项
+INSERT INTO task (
+    public_id, workspace_id, project_id, sequence_id, parent_id, depth,
+    name, description_json, description_html, state_id, priority,
+    category, actual_effort, remaining_effort, delay_reason,
+    point, estimate_point_id, sprint_id, version_id, progress,
+    start_date, target_date, completed_at, is_draft, sort_order,
+    created_by, created_at, updated_at, deleted_at
+)
+SELECT
+    public_id, workspace_id, project_id, sequence_id, parent_id, depth,
+    name, description_json, description_html, state_id, priority,
+    category, actual_effort, remaining_effort, delay_reason,
+    point, estimate_point_id, sprint_id, version_id, progress,
+    start_date, target_date, completed_at, is_draft, sort_order,
+    created_by, created_at, updated_at, deleted_at
+FROM issues
+WHERE type_code = 'task'
+ON CONFLICT (project_id, sequence_id) DO NOTHING;
+
+-- 2. requirement 类型工作项
+INSERT INTO requirement (
+    public_id, workspace_id, project_id, sequence_id, parent_id, depth,
+    name, description_json, description_html, state_id, priority,
+    source, point, estimate_point_id, sprint_id, version_id, progress,
+    start_date, target_date, completed_at, is_draft, sort_order,
+    created_by, created_at, updated_at, deleted_at
+)
+SELECT
+    public_id, workspace_id, project_id, sequence_id, parent_id, depth,
+    name, description_json, description_html, state_id, priority,
+    source, point, estimate_point_id, sprint_id, version_id, progress,
+    start_date, target_date, completed_at, is_draft, sort_order,
+    created_by, created_at, updated_at, deleted_at
+FROM issues
+WHERE type_code = 'requirement'
+ON CONFLICT (project_id, sequence_id) DO NOTHING;
+
+-- 3. defect 类型工作项
+INSERT INTO defect (
+    public_id, workspace_id, project_id, sequence_id, parent_id, depth,
+    name, description_json, description_html, state_id, priority,
+    severity, found_phase, found_version_id, fix_version_id, root_cause_category,
+    verifier_id, environment, reproduce_steps,
+    point, estimate_point_id, sprint_id, version_id, progress,
+    start_date, target_date, completed_at, is_draft, sort_order,
+    created_by, created_at, updated_at, deleted_at
+)
+SELECT
+    public_id, workspace_id, project_id, sequence_id, parent_id, depth,
+    name, description_json, description_html, state_id, priority,
+    severity, found_phase, found_version_id, fix_version_id, root_cause_category,
+    verifier_id, environment, reproduce_steps,
+    point, estimate_point_id, sprint_id, version_id, progress,
+    start_date, target_date, completed_at, is_draft, sort_order,
+    created_by, created_at, updated_at, deleted_at
+FROM issues
+WHERE type_code = 'defect'
+ON CONFLICT (project_id, sequence_id) DO NOTHING;
+
+-- 4. 迁移关联关系数据
+INSERT INTO biz_entity_relation (
+    workspace_id, project_id, source_type, source_id, target_type, target_id,
+    relation_type, created_by, created_at
+)
+SELECT
+    ir.workspace_id, ir.project_id,
+    CASE WHEN i1.type_code = 'task' THEN 'task' WHEN i1.type_code = 'requirement' THEN 'requirement' ELSE 'defect' END,
+    ir.source_id,
+    CASE WHEN i2.type_code = 'task' THEN 'task' WHEN i2.type_code = 'requirement' THEN 'requirement' ELSE 'defect' END,
+    ir.target_id,
+    ir.relation_type, ir.created_by, ir.created_at
+FROM issue_relations ir
+JOIN issues i1 ON ir.source_id = i1.id
+JOIN issues i2 ON ir.target_id = i2.id
+ON CONFLICT (source_type, source_id, target_type, target_id, relation_type) DO NOTHING;
+
+
+-- ============================================================================
+-- [原 0025] Epic 类型 + Module 模块体系
+-- ============================================================================
+
+-- 1. issues.type_code 约束已含 epic（init 文件 4518 行已对齐），此处确保约束
+ALTER TABLE issues DROP CONSTRAINT IF EXISTS issues_type_code_check;
+ALTER TABLE issues ADD CONSTRAINT issues_type_code_check
+    CHECK (type_code = ANY (ARRAY['epic'::text, 'requirement'::text, 'task'::text, 'defect'::text]));
+
+COMMENT ON COLUMN issues.type_code IS '工作项类型: epic(史诗) / requirement(需求) / task(任务) / defect(缺陷)';
+
+-- 2. modules 表升级：补齐 public_id 列与缺失的约束/索引
+ALTER TABLE modules ADD COLUMN IF NOT EXISTS public_id UUID NOT NULL DEFAULT gen_random_uuid();
+ALTER TABLE modules DROP CONSTRAINT IF EXISTS modules_unique_project_name;
+ALTER TABLE modules ADD CONSTRAINT modules_unique_project_name UNIQUE (project_id, name) WHERE deleted_at IS NULL;
+ALTER TABLE modules DROP CONSTRAINT IF EXISTS modules_unique_public_id;
+ALTER TABLE modules ADD CONSTRAINT modules_unique_public_id UNIQUE (public_id) WHERE deleted_at IS NULL;
+-- 替换旧的 status check: cancelled → archived
+ALTER TABLE modules DROP CONSTRAINT IF EXISTS modules_status_check;
+ALTER TABLE modules ADD CONSTRAINT modules_status_check CHECK (status = ANY (ARRAY['active'::text, 'completed'::text, 'archived'::text]));
+
+-- 3. module_issues 关联表（工作项 × 模块 M:N）
+CREATE TABLE IF NOT EXISTS module_issues (
+    module_id       BIGINT NOT NULL REFERENCES modules(id) ON DELETE CASCADE,
+    issue_id        BIGINT NOT NULL,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (module_id, issue_id)
+);
+
+COMMENT ON TABLE module_issues IS '工作项-模块 M:N 关联表（一个工作项可属于多个模块，一个模块包含多个工作项）';
+
+
+-- ============================================================================
+-- 分表 / RLS / 索引（为新增表补全租户隔离与索引）
+-- ============================================================================
+
+-- task RLS
+ALTER TABLE task ENABLE ROW LEVEL SECURITY;
+ALTER TABLE task FORCE ROW LEVEL SECURITY;
+CREATE POLICY IF NOT EXISTS tenant_isolation ON task
+    USING (workspace_id = current_setting('app.workspace_id', true)::bigint)
+    WITH CHECK (workspace_id = current_setting('app.workspace_id', true)::bigint);
+
+-- requirement RLS
+ALTER TABLE requirement ENABLE ROW LEVEL SECURITY;
+ALTER TABLE requirement FORCE ROW LEVEL SECURITY;
+CREATE POLICY IF NOT EXISTS tenant_isolation ON requirement
+    USING (workspace_id = current_setting('app.workspace_id', true)::bigint)
+    WITH CHECK (workspace_id = current_setting('app.workspace_id', true)::bigint);
+
+-- defect RLS
+ALTER TABLE defect ENABLE ROW LEVEL SECURITY;
+ALTER TABLE defect FORCE ROW LEVEL SECURITY;
+CREATE POLICY IF NOT EXISTS tenant_isolation ON defect
+    USING (workspace_id = current_setting('app.workspace_id', true)::bigint)
+    WITH CHECK (workspace_id = current_setting('app.workspace_id', true)::bigint);
+
+-- task_ext / requirement_ext / defect_ext RLS
+ALTER TABLE task_ext ENABLE ROW LEVEL SECURITY;
+ALTER TABLE task_ext FORCE ROW LEVEL SECURITY;
+CREATE POLICY IF NOT EXISTS tenant_isolation ON task_ext
+    USING (workspace_id = current_setting('app.workspace_id', true)::bigint)
+    WITH CHECK (workspace_id = current_setting('app.workspace_id', true)::bigint);
+
+ALTER TABLE requirement_ext ENABLE ROW LEVEL SECURITY;
+ALTER TABLE requirement_ext FORCE ROW LEVEL SECURITY;
+CREATE POLICY IF NOT EXISTS tenant_isolation ON requirement_ext
+    USING (workspace_id = current_setting('app.workspace_id', true)::bigint)
+    WITH CHECK (workspace_id = current_setting('app.workspace_id', true)::bigint);
+
+ALTER TABLE defect_ext ENABLE ROW LEVEL SECURITY;
+ALTER TABLE defect_ext FORCE ROW LEVEL SECURITY;
+CREATE POLICY IF NOT EXISTS tenant_isolation ON defect_ext
+    USING (workspace_id = current_setting('app.workspace_id', true)::bigint)
+    WITH CHECK (workspace_id = current_setting('app.workspace_id', true)::bigint);
+
+-- biz_entity_relation RLS
+ALTER TABLE biz_entity_relation ENABLE ROW LEVEL SECURITY;
+ALTER TABLE biz_entity_relation FORCE ROW LEVEL SECURITY;
+CREATE POLICY IF NOT EXISTS tenant_isolation ON biz_entity_relation
+    USING (workspace_id = current_setting('app.workspace_id', true)::bigint)
+    WITH CHECK (workspace_id = current_setting('app.workspace_id', true)::bigint);
+
+-- modules RLS（升级后补 RLS + tenant_isolation 策略）
+ALTER TABLE modules ENABLE ROW LEVEL SECURITY;
+ALTER TABLE modules FORCE ROW LEVEL SECURITY;
+CREATE POLICY IF NOT EXISTS tenant_isolation ON modules
+    USING (workspace_id = current_setting('app.workspace_id', true)::bigint)
+    WITH CHECK (workspace_id = current_setting('app.workspace_id', true)::bigint);
+
+-- module_issues RLS（通过 modules 继承 workspace 隔离，无需独立 RLS；模块由 modules 管）
+
+
+-- ============================================================================
+-- 索引（新增表 + 升级表）
+-- ============================================================================
+
+-- task 索引
+CREATE INDEX IF NOT EXISTS idx_task_project_state   ON task(workspace_id, project_id, state_id)  WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_task_project_sprint  ON task(workspace_id, project_id, sprint_id) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_task_parent          ON task(parent_id) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_task_target_date     ON task(workspace_id, project_id, target_date) WHERE deleted_at IS NULL AND completed_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_task_updated         ON task(workspace_id, updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_task_fts             ON task USING gin(to_tsvector('simple', coalesce(name,'') || ' ' || coalesce(description_stripped,'')));
+CREATE INDEX IF NOT EXISTS idx_task_sort            ON task(project_id, state_id, sort_order);
+
+-- requirement 索引
+CREATE INDEX IF NOT EXISTS idx_requirement_project_state   ON requirement(workspace_id, project_id, state_id)  WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_requirement_project_sprint  ON requirement(workspace_id, project_id, sprint_id) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_requirement_parent          ON requirement(parent_id) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_requirement_target_date     ON requirement(workspace_id, project_id, target_date) WHERE deleted_at IS NULL AND completed_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_requirement_updated         ON requirement(workspace_id, updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_requirement_fts             ON requirement USING gin(to_tsvector('simple', coalesce(name,'') || ' ' || coalesce(description_stripped,'')));
+CREATE INDEX IF NOT EXISTS idx_requirement_sort            ON requirement(project_id, state_id, sort_order);
+
+-- defect 索引
+CREATE INDEX IF NOT EXISTS idx_defect_project_state   ON defect(workspace_id, project_id, state_id)  WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_defect_project_sprint  ON defect(workspace_id, project_id, sprint_id) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_defect_parent          ON defect(parent_id) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_defect_target_date     ON defect(workspace_id, project_id, target_date) WHERE deleted_at IS NULL AND completed_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_defect_updated         ON defect(workspace_id, updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_defect_fts             ON defect USING gin(to_tsvector('simple', coalesce(name,'') || ' ' || coalesce(description_stripped,'')));
+CREATE INDEX IF NOT EXISTS idx_defect_sort            ON defect(project_id, state_id, sort_order);
+CREATE INDEX IF NOT EXISTS idx_defect_severity        ON defect(workspace_id, project_id, severity) WHERE deleted_at IS NULL AND completed_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_defect_root_cause      ON defect(workspace_id, project_id, root_cause_category) WHERE deleted_at IS NULL;
+
+-- biz_entity_relation 索引
+CREATE INDEX IF NOT EXISTS idx_biz_entity_relation_source ON biz_entity_relation(workspace_id, source_type, source_id);
+CREATE INDEX IF NOT EXISTS idx_biz_entity_relation_target ON biz_entity_relation(workspace_id, target_type, target_id);
+
+-- states 索引
+CREATE INDEX IF NOT EXISTS idx_states_applicable_types ON states USING gin(applicable_types);
+
+-- state_transitions 索引
+CREATE INDEX IF NOT EXISTS idx_state_transitions_type ON state_transitions(project_id, type_code);
+
+-- module_issues 索引
+CREATE INDEX IF NOT EXISTS idx_module_issues_issue ON module_issues(issue_id);
+
+-- modules 升级索引
+CREATE INDEX IF NOT EXISTS idx_modules_project_sort ON modules(project_id, sort_order) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_modules_lead         ON modules(lead_id) WHERE deleted_at IS NULL;
+
+
+-- ============================================================================
+-- 触发器（modules updated_at 已在 init 中创建，此处用 CREATE OR REPLACE 保安全）
+-- ============================================================================
+
+CREATE OR REPLACE FUNCTION set_updated_at() RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = now();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- 确保分表有 updated_at 触发器（若已存在则跳过）
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'trg_task_updated_at') THEN
+        CREATE TRIGGER trg_task_updated_at BEFORE UPDATE ON task FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'trg_requirement_updated_at') THEN
+        CREATE TRIGGER trg_requirement_updated_at BEFORE UPDATE ON requirement FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'trg_defect_updated_at') THEN
+        CREATE TRIGGER trg_defect_updated_at BEFORE UPDATE ON defect FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+    END IF;
+    -- modules 触发器已在 init 中定义（trg_modules_updated_at），无需重复创建
+END $$;
+
+
+-- ============================================================================
+-- 迁移整合完毕。
+-- 至此 sql/ 目录下仅保留 ydsz-plane-init.sql 一个文件，
+-- migrate 程序将自动进入全量 dump 模式（运行 migrate up → 执行本文件）。
+-- 原增量迁移文件：
+--   0023_rbac_roles_and_permissions、0024_work_item_split、
+--   0025_work_item_archive、0025_epic_and_modules、0026_work_item_migration
+-- 已全部合并到本文件中。
+-- ============================================================================

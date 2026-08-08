@@ -437,7 +437,7 @@ onMounted(() => {
             </div>
             <div class="issue-card__meta">
               <span class="issue-card__type-badge" :class="`type-${iss.type_code}`">
-                {{ ({ requirement: "需求", task: "任务", defect: "缺陷" } as Record<string, string>)[iss.type_code] }}
+                {{ ({ epic: "史诗", requirement: "需求", task: "任务", defect: "缺陷" } as Record<string, string>)[iss.type_code] }}
               </span>
               <span v-if="iss.severity" class="issue-card__severity">S{{ iss.severity }}</span>
               <span v-if="iss.point != null" class="issue-card__point">{{ iss.point }}pt</span>

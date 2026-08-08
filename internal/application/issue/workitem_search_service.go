@@ -41,7 +41,7 @@ func (s *WorkitemSearchService) IndexWorkitem(ctx context.Context, wsID int64, e
 	indexName := s.getIndexName(entityType)
 	_, err := s.esClient.Index().
 		Index(indexName).
-		Id(fmt.Sprintf("%d_%d", wsID, getEntityID(entity)).
+		Id(fmt.Sprintf("%d_%d", wsID, getEntityID(entity))).
 		BodyJson(entity).
 		Do(ctx)
 	if err != nil {

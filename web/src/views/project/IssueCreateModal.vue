@@ -131,6 +131,7 @@ async function loadVersions() {
 }
 
 const typeOptions: { value: IssueType; label: string; desc: string }[] = [
+  { value: "epic", label: "史诗", desc: "顶层容器，包含多个需求/任务/缺陷，对标 Plane Epic" },
   { value: "requirement", label: "需求", desc: "产品需求或用户故事，可分解为子需求" },
   { value: "task", label: "任务", desc: "开发任务，可分解为子任务，支持工时记录" },
   { value: "defect", label: "缺陷", desc: "Bug 或质量问题，包含严重程度与复现步骤" },
@@ -251,7 +252,7 @@ function cancel() {
         <!-- 标题栏 -->
         <div class="modal__header">
           <h2 class="modal__title">
-            {{ currentStep === "type" ? "创建工作项" : "新建" + ({ requirement: "需求", task: "任务", defect: "缺陷" } as Record<string, string>)[selectedType] }}
+            {{ currentStep === "type" ? "创建工作项" : "新建" + ({ epic: "史诗", requirement: "需求", task: "任务", defect: "缺陷" } as Record<string, string>)[selectedType] }}
           </h2>
           <button class="modal__close" :disabled="submitting" @click="cancel">✕</button>
         </div>

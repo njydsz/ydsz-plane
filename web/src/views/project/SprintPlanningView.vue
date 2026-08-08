@@ -246,7 +246,7 @@ async function moveToBacklog(item: SprintIssueView) {
 /* 工具                                                                 */
 /* ------------------------------------------------------------------ */
 
-const typeLabel: Record<string, string> = { requirement: "需", task: "任", defect: "缺" };
+const typeLabel: Record<string, string> = { epic: "史", requirement: "需", task: "任", defect: "缺" };
 
 function openSprint(sp: Sprint) {
   router.push(`/${workspaceId.value}/projects/${projectId.value}/sprints/${sp.id}`);

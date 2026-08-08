@@ -136,6 +136,7 @@ function toggleExpand(id: number) {
 
 function typeLabel(tc: string): string {
   const m: Record<string, string> = {
+    epic: "史诗",
     requirement: "需求",
     task: "任务",
     defect: "缺陷",

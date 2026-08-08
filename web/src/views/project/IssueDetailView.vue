@@ -35,7 +35,7 @@ const currentUserId = computed(() => auth.user?.id ?? 0);
 const canEditIssue = computed(() => {
   if (!issue.value) return false;
   if (wsStore.hasPermission("issue:edit_all")) return true;
-  if (wsStore.hasPermission("issue:edit_own") && issue.value.assignee_ids.includes(currentUserId.value)) {
+  if (wsStore.hasPermission("issue:edit_own") && issue.value.assignees.includes(currentUserId.value)) {
     return true;
   }
   return false;
@@ -197,7 +197,7 @@ function stateColor(stateId: number): string {
 }
 
 function typeLabel(type: string): string {
-  return ({ requirement: "需求", task: "任务", defect: "缺陷" } as Record<string, string>)[type] ?? type;
+  return ({ epic: "史诗", requirement: "需求", task: "任务", defect: "缺陷" } as Record<string, string>)[type] ?? type;
 }
 
 const availableTransitions = computed(() => {
@@ -377,13 +377,13 @@ onMounted(() => {
       <button class="btn btn--ghost" @click="goBack">← 返回看板</button>
       <div class="issue-detail__actions">
         <button
-          v-if="issue && issue.type_code === 'requirement'"
+          v-if="issue && issue.type_code === 'requirement' && canEditIssue"
           class="btn btn--sm"
           @click="showDefectModal = true"
         >
           🐛 提缺陷
         </button>
-        <button class="btn btn--danger" @click="doDelete">归档</button>
+        <button v-if="canEditIssue" class="btn btn--danger" @click="doDelete">归档</button>
       </div>
     </header>
 
@@ -408,10 +408,15 @@ onMounted(() => {
           <button class="btn btn--sm" :disabled="editSaving" @click="cancelEdit">取消</button>
           <span v-if="editError" class="form-error">{{ editError }}</span>
         </div>
-        <h1 v-else class="issue-detail__name editable" @click="startEdit('name', issue.name)">
+        <h1
+          v-if="canEditIssue"
+          class="issue-detail__name editable"
+          @click="startEdit('name', issue.name)"
+        >
           {{ issue.name }}
           <span class="edit-hint">✎</span>
         </h1>
+        <h1 v-else class="issue-detail__name">{{ issue.name }}</h1>
 
         <div class="issue-detail__meta-row">
           <span class="badge" :class="`badge-${issue.type_code}`">{{ typeLabel(issue.type_code) }}</span>
@@ -431,9 +436,16 @@ onMounted(() => {
             </select>
             <button class="btn btn--sm" :disabled="editSaving" @click="cancelEdit">取消</button>
           </span>
-          <span v-else class="issue-detail__priority editable" @click="startEdit('priority', issue.priority)">
+          <span
+            v-else-if="canEditIssue"
+            class="issue-detail__priority editable"
+            @click="startEdit('priority', issue.priority)"
+          >
             优先级: {{ ({ urgent: "紧急", high: "高", medium: "中", low: "低", none: "无" } as Record<string, string>)[issue.priority] ?? issue.priority }}
             <span class="edit-hint">✎</span>
+          </span>
+          <span v-else class="issue-detail__priority">
+            优先级: {{ ({ urgent: "紧急", high: "高", medium: "中", low: "低", none: "无" } as Record<string, string>)[issue.priority] ?? issue.priority }}
           </span>
           <span v-if="issue.severity" class="issue-detail__field">严重度: S{{ issue.severity }}</span>
           <span v-if="issue.found_phase" class="issue-detail__field">发现阶段: {{ issue.found_phase }}</span>
@@ -459,7 +471,7 @@ onMounted(() => {
         <div class="issue-detail__section">
           <div class="section-head">
             <h3>描述</h3>
-            <div v-if="!editingDesc" class="section-head__actions">
+            <div v-if="!editingDesc && canEditIssue" class="section-head__actions">
               <button class="btn btn--sm btn--ghost" @click="startEditDesc">编辑</button>
             </div>
           </div>
@@ -525,8 +537,8 @@ onMounted(() => {
           :issue-id="props.issueId"
         />
 
-        <!-- 流转操作 -->
-        <div class="issue-detail__section">
+        <!-- 流转操作（仅拥有 issue:transition 权限的用户可见） -->
+        <div v-if="canTransition" class="issue-detail__section">
           <h3>状态流转</h3>
           <div v-if="transitionError" class="form-error">{{ transitionError }}</div>
           <div class="issue-detail__transitions">

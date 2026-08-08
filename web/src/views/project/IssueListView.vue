@@ -43,7 +43,7 @@ const batchDeleting = ref(false);
 
 // ---- 派生 ----
 const typeLabel = (t: IssueType) =>
-  ({ requirement: "需求", task: "任务", defect: "缺陷" } as Record<string, string>)[t] ?? t;
+  ({ epic: "史诗", requirement: "需求", task: "任务", defect: "缺陷" } as Record<string, string>)[t] ?? t;
 
 const priorityLabel = (p: string) =>
   ({ urgent: "紧急", high: "高", medium: "中", low: "低", none: "无" } as Record<string, string>)[p] ?? p;

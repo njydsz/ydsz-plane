@@ -198,7 +198,7 @@ async function saveEdit() {
 /* 工具                                                                 */
 /* ------------------------------------------------------------------ */
 
-const typeLabel: Record<string, string> = { requirement: "需", task: "任", defect: "缺" };
+const typeLabel: Record<string, string> = { epic: "史", requirement: "需", task: "任", defect: "缺" };
 
 function fmtDate(s?: string) {
   return s ? s.slice(0, 10) : "?";

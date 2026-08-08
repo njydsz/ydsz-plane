@@ -63,7 +63,7 @@ const stateInfo = computed(() =>
 
 const typeLabel = computed(() => {
   const t = issue.value?.type;
-  return ({ requirement: "需求", task: "任务", defect: "缺陷" } as Record<string, string>)[t] ?? t ?? "";
+  return ({ epic: "史诗", requirement: "需求", task: "任务", defect: "缺陷" } as Record<string, string>)[t] ?? t ?? "";
 });
 
 const priorityLabel = computed(() => {
