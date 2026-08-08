@@ -33,6 +33,7 @@ export interface SearchResultsGroup {
   issues: SearchResultItem[]
   sprints: SearchResultItem[]
   versions: SearchResultItem[]
+  projects: SearchResultItem[]
 }
 
 /** 一次搜索请求的响应（对齐后端 SearchResponse） */

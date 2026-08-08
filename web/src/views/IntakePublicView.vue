@@ -625,7 +625,7 @@ const pageTitle = computed(() =>
   font-size: 16px;
   font-weight: 600;
   color: var(--text-primary);
-  margin: 0 0 10px;
+  margin: 0 0 12px;
 }
 
 .track-result__meta {
@@ -633,10 +633,19 @@ const pageTitle = computed(() =>
   align-items: center;
   gap: 12px;
   margin-bottom: 10px;
+  flex-wrap: wrap;
 }
 
 .track-result__status {
   font-size: 13px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-3);
+}
+
+.track-result__priority {
+  font-size: 12px;
   font-weight: 600;
   padding: 2px 8px;
   border-radius: var(--radius-sm);
@@ -649,18 +658,107 @@ const pageTitle = computed(() =>
   color: var(--text-tertiary);
 }
 
+.track-result__desc {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin: 8px 0;
+  padding: 10px 12px;
+  background: var(--surface-1);
+  border-radius: var(--radius-sm);
+  border-left: 3px solid var(--brand-300);
+}
+
+.track-result__reason {
+  font-size: 13px;
+  color: var(--warning-700);
+  background: var(--warning-50);
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  margin: 8px 0;
+}
+
 .track-result__times {
   display: flex;
   flex-direction: column;
   gap: 4px;
   font-size: 12px;
   color: var(--text-tertiary);
-  margin-bottom: 8px;
+  margin: 8px 0;
 }
 
 .track-result__hint {
   font-size: 13px;
   color: var(--info-600);
-  margin: 0;
+  margin: 8px 0 0;
+}
+
+/* --- 状态时间线 --- */
+.timeline {
+  list-style: none;
+  display: flex;
+  justify-content: space-between;
+  margin: 0 0 16px;
+  padding: 0;
+  position: relative;
+}
+
+.timeline::before {
+  content: "";
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  right: 8px;
+  height: 2px;
+  background: var(--border-subtle);
+  z-index: 0;
+}
+
+.timeline__step {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+}
+
+.timeline__dot {
+  display: block;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--surface-3);
+  border: 3px solid var(--border-default);
+  transition: all 0.2s;
+}
+
+.timeline__step--active .timeline__dot {
+  border-color: var(--brand-500);
+  background: var(--brand-100);
+  box-shadow: 0 0 0 4px var(--brand-50);
+}
+
+.timeline__step--done .timeline__dot {
+  border-color: var(--brand-500);
+  background: var(--brand-500);
+}
+
+.timeline__label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+}
+
+.timeline__step--active .timeline__label,
+.timeline__step--done .timeline__label {
+  color: var(--text-primary);
+}
+
+.timeline__time {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
 }
 </style>

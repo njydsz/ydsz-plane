@@ -17,7 +17,7 @@
               ref="inputRef"
               v-model="query"
               class="cp-input"
-              :placeholder="mode === 'search' ? '搜索工作项、迭代、版本...' : '输入命令或搜索...'"
+              :placeholder="mode === 'search' ? '搜索工作项、迭代、版本、项目...' : '输入命令或搜索...'"
               @keydown.esc="close"
               @keydown.enter="handleEnter"
               @keydown.down.prevent="moveDown"
@@ -130,6 +130,24 @@
                   </div>
                 </div>
 
+                <!-- projects -->
+                <div v-if="store.results.results.projects?.length" class="cp-group">
+                  <div class="cp-group-title">项目</div>
+                  <div
+                    v-for="(item, idx) in store.results.results.projects"
+                    :key="'project-' + item.id"
+                    class="cp-item"
+                    :class="{ 'cp-item--selected': isSelected('search', offsetProject + idx, 'projects') }"
+                    @click="goTo('project', item)"
+                    @mousemove="selectItem('search', offsetProject + idx, 'projects')"
+                  >
+                    <span class="cp-item-icon" style="background: var(--extended-color-indigo-50, #eef2ff);">📁</span>
+                    <!-- eslint-disable-next-line vue/no-v-html -- highlight 由服务端 ts_headline 生成，内容已转义 -->
+                    <span class="cp-item-label" v-html="item.highlight || item.name" />
+                    <span class="cp-item-meta">{{ item.identifier ?? '项目' }}</span>
+                  </div>
+                </div>
+
                 <!-- 空结果 -->
                 <div v-if="isEmpty && !store.loading" class="cp-status">
                   <span class="cp-status-icon">🔍</span>
@@ -139,7 +157,7 @@
 
               <!-- 无搜索词提示 -->
               <div v-else-if="query.trim() && !store.loading && !store.results" class="cp-status">
-                输入关键字搜索工作项、迭代、版本...
+                输入关键字搜索工作项、迭代、版本、项目...
               </div>
             </template>
           </div>
@@ -315,6 +333,7 @@ const allCommandFlat = computed(() => {
 
 const offsetSprint = computed(() => store.results?.results.issues?.length ?? 0)
 const offsetVersion = computed(() => offsetSprint.value + (store.results?.results.sprints?.length ?? 0))
+const offsetProject = computed(() => offsetVersion.value + (store.results?.results.versions?.length ?? 0))
 
 function isSelected(group: Pick<CommandGroupDef, "title"> | string, idx: number, _entityType?: string) {
   const g = typeof group === "string" ? group : group.title
@@ -383,6 +402,7 @@ function getTotalFlatIdx(): number {
   if (selectedGroup.value === "search-issues") return selectedIdx.value
   if (selectedGroup.value === "search-sprints") return (store.results?.results.issues?.length ?? 0) + selectedIdx.value
   if (selectedGroup.value === "search-versions") return (store.results?.results.issues?.length ?? 0) + (store.results?.results.sprints?.length ?? 0) + selectedIdx.value
+  if (selectedGroup.value === "search-projects") return offsetProject.value + selectedIdx.value
   return selectedIdx.value
 }
 
@@ -393,6 +413,7 @@ function getAllSearchItems(): any[] {
     ...(r.results.issues || []).map(i => ({ ...i, _type: 'issue' })),
     ...(r.results.sprints || []).map(i => ({ ...i, _type: 'sprint' })),
     ...(r.results.versions || []).map(i => ({ ...i, _type: 'version' })),
+    ...(r.results.projects || []).map(i => ({ ...i, _type: 'project' })),
   ]
 }
 
@@ -447,6 +468,18 @@ function goTo(type: string, item: any) {
       workspaceId: wsId,
       href: `/${wsId}/projects/${item.project_id}/versions/${item.id}`,
       icon: "🚀",
+    })
+  }
+  else if (type === 'project') {
+    router.push(`/${wsId}/projects/${item.id}`)
+    recentStore.add({
+      id: item.id,
+      type: "project",
+      name: item.name,
+      projectName: item.name,
+      workspaceId: wsId,
+      href: `/${wsId}/projects/${item.id}`,
+      icon: "📁",
     })
   }
   close()

@@ -19,7 +19,7 @@ import { searchApi, type SearchResponse } from '@/api/services/search'
 const emptyResults: SearchResponse = {
   query: '',
   total: 0,
-  results: { issues: [], sprints: [], versions: [] },
+  results: { issues: [], sprints: [], versions: [], projects: [] },
   time_ms: 0,
   suggestions: [],
 }

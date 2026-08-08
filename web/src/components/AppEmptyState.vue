@@ -421,6 +421,12 @@ const illustrationPx = computed(() => sizeMap[props.illustrationSize])
 .app-empty--md { padding: 48px 24px; }
 .app-empty--lg { padding: 64px 32px; }
 
+/* ---- 紧凑模式（嵌套容器内） ---- */
+.app-empty--compact { padding: 20px 12px; }
+.app-empty--compact .app-empty__title { font-size: 14px; margin-bottom: 4px; }
+.app-empty--compact .app-empty__desc { font-size: 12px; margin-bottom: 10px; }
+.app-empty--compact .app-empty__illustration { margin-bottom: 8px; }
+
 /* ---- 入场动画 ---- */
 @keyframes emptyFadeIn {
   from { opacity: 0; transform: translateY(8px); }

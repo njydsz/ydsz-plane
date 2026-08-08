@@ -145,11 +145,16 @@ export interface SubmitResult {
   message: string;
 }
 
-/** 工单追踪结果（状态 + 提交时间 + 审核时间 + 转换项）。 */
+/** 工单追踪结果（状态 + 提交时间 + 审核时间 + 转换项 + 优先级/描述/原因）。 */
 export interface TrackResult {
   tracking_id: string;
   status: string;
   title: string;
+  description?: string;
+  status_text?: string;
+  status_reason?: string;
+  priority?: number;
+  issue_type?: string;
   submitted_at: string;
   reviewed_at?: string;
   converted_issue_id?: number;

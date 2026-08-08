@@ -752,12 +752,12 @@ CACHE 1
   "created_at" timestamptz(6) NOT NULL DEFAULT now()
 )
 ;
-COMMENT ON TABLE public.automation_templates IS '自动化内置模板表（7 条开箱即用模板；创建项目时可批量复制）';
+COMMENT ON TABLE public.automation_templates IS '自动化内置模板表（15 条开箱即用模板；创建项目时可批量复制）';
 COMMENT ON COLUMN public.automation_templates.id IS '主键 ID';
 COMMENT ON COLUMN public.automation_templates.name IS '内置模板名称（中文/英文双语文档链接）';
 COMMENT ON COLUMN public.automation_templates.description IS '模板功能说明（如"子项全完成 → 父项自动完成"）';
 COMMENT ON COLUMN public.automation_templates.category IS '模板分类: quality/issue_management/sprint/version/intake/assignment';
-COMMENT ON COLUMN public.automation_templates.template_json IS '模板 rule JSON（与 automation_rules 同结构；创建项目时批量复制）';
+COMMENT ON COLUMN public.automation_templates.dsl_template IS '模板 rule JSON（与 automation_rules 同结构；创建项目时批量复制）';
 COMMENT ON COLUMN public.automation_templates.sort_order IS '排序权重（预设模板安装时按顺序展示）';
 COMMENT ON COLUMN public.automation_templates.is_active IS '模板是否启用；false=不在可用列表';
 COMMENT ON COLUMN public.automation_templates.created_at IS '创建时间';
@@ -773,6 +773,14 @@ INSERT INTO "public"."automation_templates" OVERRIDING SYSTEM VALUE VALUES (4, '
 INSERT INTO "public"."automation_templates" OVERRIDING SYSTEM VALUE VALUES (5, '进入"进行中"时自动填写开始日期', 'auto-start-date', '工作项首次进入进行中状态时，自动记录开始时间', 'efficiency', '{"actions": [{"type": "update_field", "field": "started_at", "value": "${now}"}], "trigger": {"type": "issue.status_changed", "filter": {"to_group": "started"}}, "conditions": {"all": [{"op": "is_empty", "field": "started_at"}]}}', 'play', 5, 't', '2026-08-08 00:01:05.002175+08');
 INSERT INTO "public"."automation_templates" OVERRIDING SYSTEM VALUE VALUES (6, '最闲人自动指派', 'auto-assign-least-loaded', '新建工作项时自动分配给当前负载最轻的成员', 'efficiency', '{"actions": [{"role": "member", "type": "assign", "scope": "project", "strategy": "least_loaded"}], "trigger": {"type": "issue.created"}, "conditions": {"all": [{"op": "is_empty", "field": "assignees"}]}}', 'user-plus', 6, 'f', '2026-08-08 00:01:05.002175+08');
 INSERT INTO "public"."automation_templates" OVERRIDING SYSTEM VALUE VALUES (7, '新缺陷通知技术负责人', 'defect-notify-tech-lead', '项目里新建高优缺陷时，自动通知项目技术负责人', 'notification', '{"actions": [{"type": "notify", "target": "${project.tech_lead}", "channel": "in_app", "template": "🚨 新建紧急缺陷: [{{issue.identifier}}] {{issue.name}}"}], "trigger": {"type": "issue.created", "filter": {"priority": "urgent", "type_code": "defect"}}, "conditions": []}', 'alert-triangle', 7, 't', '2026-08-08 00:01:05.002175+08');
+INSERT INTO "public"."automation_templates" OVERRIDING SYSTEM VALUE VALUES (8, '缺陷修复后自动指派验证人', 'defect-assign-verifier', '缺陷修复后自动将验证任务指派给创建者', 'quality', '{"conditions": [], "trigger": {"type": "issue.status_changed", "filter": {"type_code": "defect", "to_group": "completed"}}, "actions": [{"type": "notify", "target": "${issue.created_by}", "channel": "in_app", "template": "缺陷 {{issue.identifier}} 已修复，请验证"}]}', 'check-circle', 8, 'f', '2026-08-08 00:01:05.002175+08');
+INSERT INTO "public"."automation_templates" OVERRIDING SYSTEM VALUE VALUES (9, '高优需求自动标记', 'auto-set-priority', '根据关键词自动设置工作项优先级', 'efficiency', '{"conditions": [{"op": "contains", "field": "issue.name", "value": "紧急"}], "trigger": {"type": "issue.created"}, "actions": [{"type": "update_field", "field": "priority", "value": "urgent"}]}', 'zap', 9, 'f', '2026-08-08 00:01:05.002175+08');
+INSERT INTO "public"."automation_templates" OVERRIDING SYSTEM VALUE VALUES (10, '状态变更通知关注人', 'status-change-notify-watchers', '工作项状态变更时通知所有关注人', 'notification', '{"conditions": [], "trigger": {"type": "issue.status_changed"}, "actions": [{"type": "notify", "target": "${issue.watchers}", "channel": "in_app", "template": "{{issue.identifier}} 状态变更为 {{issue.state_name}}"}]}', 'bell', 10, 'f', '2026-08-08 00:01:05.002175+08');
+INSERT INTO "public"."automation_templates" OVERRIDING SYSTEM VALUE VALUES (11, '迭代完成自动通知团队', 'sprint-complete-summary', '迭代完成时自动通知所有成员并发送总结', 'notification', '{"conditions": [], "trigger": {"type": "sprint.completed"}, "actions": [{"type": "notify", "target": "${project.members}", "channel": "in_app", "template": "迭代 {{sprint.name}} 已完成"}]}', 'flag', 11, 'f', '2026-08-08 00:01:05.002175+08');
+INSERT INTO "public"."automation_templates" OVERRIDING SYSTEM VALUE VALUES (12, '迭代启动后自动开始工作项', 'sprint-auto-start-issues', '迭代启动后，自动将所有待办工作项流转到进行中', 'management', '{"conditions": [{"op": "eq", "field": "state.group", "value": "todo"}], "trigger": {"type": "sprint.started"}, "actions": [{"type": "transition", "field": "state", "value": "started"}]}', 'play-circle', 12, 'f', '2026-08-08 00:01:05.002175+08');
+INSERT INTO "public"."automation_templates" OVERRIDING SYSTEM VALUE VALUES (13, '长期未更新工作项自动归档', 'auto-archive-old-issues', '超过 30 天未更新的已完成工作项自动归档', 'management', '{"conditions": [{"op": "eq", "field": "state.group", "value": "completed"}, {"op": "lt", "field": "issue.updated_at", "value": "now-30d"}], "trigger": {"type": "scheduled", "cron": "0 2 * * *"}, "actions": [{"type": "update_field", "field": "is_archived", "value": "true"}]}', 'archive', 13, 'f', '2026-08-08 00:01:05.002175+08');
+INSERT INTO "public"."automation_templates" OVERRIDING SYSTEM VALUE VALUES (14, '重复工作项提醒', 'duplicate-issue-check', '新建工作项时检测可能的重复项并提醒', 'management', '{"conditions": [], "trigger": {"type": "issue.created"}, "actions": [{"type": "notify", "target": "${issue.created_by}", "channel": "in_app", "template": "⚠️ 检测到可能的重复工作项请确认"}]}', 'copy', 14, 'f', '2026-08-08 00:01:05.002175+08');
+INSERT INTO "public"."automation_templates" OVERRIDING SYSTEM VALUE VALUES (15, '新成员加入通知', 'new-member-welcome', '工作空间有新成员加入时通知所有成员', 'management', '{"conditions": [], "trigger": {"type": "member.added"}, "actions": [{"type": "notify", "target": "${workspace.members}", "channel": "in_app", "template": "欢迎 {{actor.user_name}} 加入工作空间"}]}', 'user-plus', 15, 'f', '2026-08-08 00:01:05.002175+08');
 
 -- ----------------------------
 -- Table structure for dashboard_snapshots
