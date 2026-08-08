@@ -1,1 +1,0 @@
-function e(o){const r=typeof o=="string"?new Date(o):new Date(o),t=Date.now()-r.getTime();return t<0||t<6e4?"刚刚":t<36e5?`${Math.floor(t/6e4)} 分钟前`:t<864e5?`${Math.floor(t/36e5)} 小时前`:t<6048e5?`${Math.floor(t/864e5)} 天前`:t<2592e6?`${Math.floor(t/6048e5)} 周前`:t<31536e6?`${Math.floor(t/2592e6)} 个月前`:`${Math.floor(t/31536e6)} 年前`}export{e as f};

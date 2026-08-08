@@ -1,1 +1,0 @@
-import{k as o,C as n,E as t,B as a}from"./echarts-CYn5JnDI.js";const s={class:"automation-view"},m=o({__name:"AutomationView",setup(r){return(i,e)=>(a(),n("div",s,[...e[0]||(e[0]=[t("h2",null,"自动化",-1),t("p",null,"工作项自动化规则配置（即将推出）",-1)])]))}});export{m as default};

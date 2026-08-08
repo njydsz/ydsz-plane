@@ -1,1 +1,0 @@
-import{k as t,C as n,E as s,B as o}from"./echarts-CYn5JnDI.js";const r={class:"metrics-view"},l=t({__name:"MetricsView",setup(a){return(c,e)=>(o(),n("div",r,[...e[0]||(e[0]=[s("h2",null,"效能度量",-1),s("p",null,"项目效能指标与 DORA 度量（即将推出）",-1)])]))}});export{l as default};
