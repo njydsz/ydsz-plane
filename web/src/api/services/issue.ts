@@ -274,10 +274,18 @@ export interface ListIssuesParams {
   fix_version_id?: number;
 }
 
+/** 单条列映射：CSV 表头 -> Plane 字段名 */
+export interface ImportColumnMapping {
+  column_name: string; // 原始 CSV 表头（如 "名称"、"优先级"）
+  field: string;       // 目标工作项字段（name / priority / external_id / ...）
+}
+
 /** 批量导入结果 */
 export interface ImportResult {
   total: number;
   succeeded: number;
+  created: number;
+  updated: number;
   skipped: number;
   failed: number;
   errors: ImportError[];
@@ -289,6 +297,36 @@ export interface ImportError {
   field: string;
   message: string;
 }
+
+/* ------------------------------------------------------------------ */
+/* 导入字段白名单（后端同俗，前端用于下拉选项）                            */
+/* ------------------------------------------------------------------ */
+
+/** 字段 key -> 中文标签 */
+export const IMPORT_FIELD_LABELS: Record<string, string> = {
+  name: "名称 *",
+  description: "描述",
+  priority: "优先级 (urgent/high/medium/low/none)",
+  severity: "严重级别 (1-5)",
+  found_phase: "发现阶段",
+  root_cause_category: "根因分类",
+  category: "分类",
+  point: "点数",
+  state_name: "状态名 (如: 进行中)",
+  module_names: "模块名 (逗号分隔)",
+  label_names: "标签名 (逗号分隔)",
+  assignee_emails: "指派人口逗号分隔)",
+  external_id: "外部 ID (用于增量同步)",
+  source: "来源",
+  found_version: "发现版本 (名称)",
+  fix_version: "修复版本 (名称)",
+  parent_identifier: "父工作项编号 (如: YD-123)",
+};
+
+/** 字段下拉选项数组 */
+export const IMPORT_FIELD_OPTIONS = Object.entries(IMPORT_FIELD_LABELS).map(
+  ([id, label]) => ({ id, label }),
+);
 
 /* ------------------------------------------------------------------ */
 /* API calls                                                          */
@@ -359,10 +397,27 @@ export const issueApi = {
     return `/api/v1/workspaces/${wsId}/projects/${projectId}/issues/export${q ? "?" + q : ""}`;
   },
 
-  // --- 导入 CSV ---
-  importIssues: (wsId: number, projectId: number, file: File) => {
+  // --- 导入 CSV / XLSX ---
+  /**
+   * 导入工作项。
+   * @param mappings 字段映射数组（可选；为空则按 header 自动识别）
+   * @param incremental 增量导入（按 external_id 更新已有项）
+   */
+  importIssues: (
+    wsId: number,
+    projectId: number,
+    file: File,
+    mappings?: ImportColumnMapping[],
+    incremental?: boolean,
+  ) => {
     const form = new FormData();
     form.append("file", file);
+    if (mappings && mappings.length > 0) {
+      form.append("mappings", JSON.stringify(mappings));
+    }
+    if (incremental) {
+      form.append("incremental", "true");
+    }
     return wrap<ImportResult>(
       http.post(`/workspaces/${wsId}/projects/${projectId}/issues/import`, form, {
         headers: { "Content-Type": "multipart/form-data" },
