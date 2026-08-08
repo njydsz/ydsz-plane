@@ -176,9 +176,13 @@ func dumpUp(dbURL string) error {
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	// simple protocol 多语句执行整个 dump（dump 无顶层事务控制语句）。
-	if _, err := tx.Exec(ctx, string(content)); err != nil {
-		return fmt.Errorf("execute %s: %w", dumpFile, err)
+	// 按顶层 ';' 分语句执行 dump（与 psql -f 行为一致，正确处理 $$ 美元引用
+	// 与字符串字面量内的 ';'）。整文件单 Exec 在 simple query 协议下对 Navicat
+	// 风格大文件偶发解析异常，分语句逐条执行更健壮且仍在同一事务内保持原子性。
+	for _, stmt := range splitSQLStatements(string(content)) {
+		if _, err := tx.Exec(ctx, stmt); err != nil {
+			return fmt.Errorf("execute %s: %w", dumpFile, err)
+		}
 	}
 	if _, err := tx.Exec(ctx,
 		"INSERT INTO ydsz_dump_state (version) VALUES ($1)", dumpVersion); err != nil {
