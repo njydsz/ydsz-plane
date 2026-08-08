@@ -104,6 +104,9 @@ func (h *IssueHandler) Register(r *gin.RouterGroup, wsMiddleware []gin.HandlerFu
 		issue.POST("/comments", h.createComment)
 		issue.PATCH("/comments/:comment_id", h.updateComment)
 		issue.DELETE("/comments/:comment_id", h.deleteComment)
+		// 版本快照审计（历史回溯 / 字段 diff）
+		verHandler := NewVersionHandler(NewVersionService(h.d.IssueSvc.db))
+		verHandler.Register(issue)
 	}
 }
 

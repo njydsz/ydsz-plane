@@ -14,7 +14,9 @@ import (
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 
+	"github.com/njydsz/ydsz-plane/internal/application/apitoken"
 	"github.com/njydsz/ydsz-plane/internal/application/auth"
+	"github.com/njydsz/ydsz-plane/internal/config"
 	"github.com/njydsz/ydsz-plane/pkg/errs"
 )
 
@@ -258,3 +260,99 @@ func NoRoute() gin.HandlerFunc {
 		c.AbortWithStatus(http.StatusNotFound)
 	}
 }
+
+// ============================================================
+// 三层 API 路由鉴权中间件（P2-2）
+// 对标 Plane 的多路由层：Session / API Key / Public
+// ============================================================
+
+// SessionAuth 浏览器 SPA 专用鉴权：JWT（Bearer + Cookie），最严格 CORS。
+func SessionAuth(cfg *config.Config, authSvc *auth.Service, rdb *redis.Client) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		token := bearerToken(c)
+		if token == "" {
+			respondError(c, errs.ErrUnauthorized)
+			c.Abort()
+			return
+		}
+		if len(token) > 5 && token[:5] == "reks_" {
+			respondError(c, errs.ErrUnauthorized)
+			c.Abort()
+			return
+		}
+		uid, err := authSvc.ParseAccess(token)
+		if err != nil {
+			respondError(c, errs.ErrUnauthorized)
+			c.Abort()
+			return
+		}
+		c.Set(CtxUserID, uid)
+		c.Set(CtxAuthKind, string(auth.PrincipalJWT))
+		c.Next()
+	}
+}
+
+// APIKeyAuth 程序化访问专用鉴权：X-API-Key → API Token 服务查表校验。
+func APIKeyAuth(apiTokenSvc *apitoken.Service, authSvc *auth.Service, rdb *redis.Client) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		key := c.GetHeader("X-Api-Key")
+		if key == "" {
+			key = bearerToken(c)
+		}
+		if key == "" {
+			respondError(c, errs.ErrUnauthorized)
+			c.Abort()
+			return
+		}
+		if len(key) < 5 || key[:5] != "reks_" {
+			if uid, err := authSvc.ParseAccess(key); err == nil {
+				c.Set(CtxUserID, uid)
+				c.Set(CtxAuthKind, string(auth.PrincipalJWT))
+				c.Next()
+				return
+			}
+		}
+		p, err := apiTokenSvc.Validate(c.Request.Context(), key)
+		if err != nil {
+			respondError(c, errs.ErrUnauthorized)
+			c.Abort()
+			return
+		}
+		c.Set(CtxUserID, p.UserID)
+		c.Set(CtxAuthKind, string(auth.PrincipalAPIKey))
+		if len(p.Scopes) > 0 {
+			c.Set(CtxAuthScopes, p.Scopes)
+		}
+		c.Next()
+	}
+}
+
+// AnonymousSession Public 层入口：不鉴权，仅注入 auth_kind=anonymous。
+func AnonymousSession() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Set(CtxAuthKind, "anonymous")
+		c.Next()
+	}
+}
+
+// RequireAPIScope API Key 层专用权限中间件：校验 scope 白名单覆盖 required 权限。
+func RequireAPIScope(required string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		kind, _ := c.Get(CtxAuthKind)
+		if kind == string(auth.PrincipalJWT) {
+			c.Next()
+			return
+		}
+		rawScopes, _ := c.Get(CtxAuthScopes)
+		scopes, _ := rawScopes.([]string)
+		if !apitoken.ScopeCovers(scopes, required) {
+			respondError(c, errs.ErrForbidden)
+			c.Abort()
+			return
+		}
+		c.Next()
+	}
+}
+
+<longcat_arg_value>
+

@@ -539,6 +539,10 @@ func NewEngine(d *Deps) *gin.Engine {
 	}
 
 	r.NoRoute(middleware.NoRoute())
+
+	// 三层 API 路由（Session / API Key / Public）— 对标 Plane 多路由层
+	RegisterTieredRoutes(r, d)
+
 	return r
 }
 
