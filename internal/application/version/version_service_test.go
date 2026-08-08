@@ -302,6 +302,9 @@ func TestNormalizeChecklist(t *testing.T) {
 	}
 }
 
+// strptr 返回字符串指针，便于构造 *string 字段测试数据。
+func strptr(s string) *string { return &s }
+
 // ==========================================================================
 // P0-4: 模型 JSON 序列化 / 反序列化
 // ==========================================================================
@@ -317,12 +320,12 @@ func TestVersion_JSONRoundTrip(t *testing.T) {
 		ProjectID:   100,
 		Name:        "v1.0 正式版",
 		Semver:      "1.0.0",
-		Description: "首个正式版本",
+		Description: strptr("首个正式版本"),
 		Status:      VersionReleased,
 		Checklist: []ChecklistItem{
 			{ID: "chk-1", Label: "测试通过", Required: true, Checked: true},
 		},
-		ReleaseNotes: "## v1.0.0\n\n首版发布",
+		ReleaseNotes: strptr("## v1.0.0\n\n首版发布"),
 		DeliveredAt:  &delivered,
 		TargetDate:   &targetDate,
 		CreatedBy:    1,
@@ -752,7 +755,7 @@ func TestValidateCreateInput_DescriptionTooLong(t *testing.T) {
 // ==========================================================================
 
 func TestRenderReleaseNotes(t *testing.T) {
-	v := &Version{Name: "正式版", Semver: "1.0.0", Description: "首个发布"}
+	v := &Version{Name: "正式版", Semver: "1.0.0", Description: strptr("首个发布")}
 	src := &ReleaseNotesData{
 		VersionName: "正式版",
 		Semver:      "1.0.0",

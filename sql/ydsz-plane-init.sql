@@ -1521,6 +1521,7 @@ COMMENT ON COLUMN public.issues.remaining_effort IS '剩余预估工时 NUMERIC(
 COMMENT ON COLUMN public.issues.delay_reason IS '延期原因: requirement_change(需求变更) / resource(资源) / blocked(阻塞) / other(其他)';
 COMMENT ON COLUMN public.issues.source IS '需求来源: customer(客户) / internal(内部) / competitor(竞品) / other';
 COMMENT ON COLUMN public.issues.point IS '故事点估算 SMALLINT 0-12；斐波那契数列 0,1,2,3,5,8,13';
+COMMENT ON COLUMN public.issues.external_id IS '外部系统唯一标识（Jira/Excel 导入等），用于增量同步去重；NULL=本地创建';
 COMMENT ON COLUMN public.issues.sprint_id IS '归属迭代 FK（sprints.id），同一项目内一个活跃迭代（可配置）';
 COMMENT ON COLUMN public.issues.progress IS '完成百分比 0-100（冗余字段；子项 state.group=completed 时事件触发的回写）';
 COMMENT ON COLUMN public.issues.start_date IS '计划开始日期（用户指定；逾期触发 risk_rule 告警）';
@@ -4599,6 +4600,11 @@ CREATE INDEX "idx_issues_updated" ON "public"."issues" USING btree (
   "updated_at" "pg_catalog"."timestamptz_ops" DESC NULLS FIRST
 );
 COMMENT ON INDEX public.idx_issues_updated IS '按工作空间+更新时间倒序（最近活动/时间线查询）';
+CREATE UNIQUE INDEX "idx_issues_external_id" ON "public"."issues" USING btree (
+  "workspace_id" "pg_catalog"."int8_ops" ASC NULLS LAST,
+  "external_id" COLLATE "pg_catalog"."default" "pg_catalog"."text_ops" ASC NULLS LAST
+) WHERE deleted_at IS NULL AND external_id IS NOT NULL;
+COMMENT ON INDEX public.idx_issues_external_id IS '按工作空间+外部标识唯一；增量导入去重依据';
 CREATE INDEX "idx_issues_workspace_project" ON "public"."issues" USING btree (
   "workspace_id" "pg_catalog"."int8_ops" ASC NULLS LAST,
   "project_id" "pg_catalog"."int8_ops" ASC NULLS LAST
