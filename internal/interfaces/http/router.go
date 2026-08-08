@@ -365,6 +365,24 @@ func RegisterAutomationRoutes(r *gin.Engine, d *Deps) {
 	d.AutomationHandler.Register(projects)
 }
 
+// RegisterAIRoutes 注册 AI 智能辅助路由（项目级）。
+//
+// 提供智能指派推荐、重复工作项检测、自动分类、文字摘要生成。
+// 路由结构：/api/v1/workspaces/:wsId/projects/:projectId/ai/...
+func RegisterAIRoutes(r *gin.Engine, d *Deps) {
+	if d.AiHandler == nil {
+		return
+	}
+	projects := r.Group("/api/v1/workspaces/:workspace_id/projects/:project_id/ai")
+	projects.Use(
+		middleware.RequireAuth(d.principalParser()),
+		middleware.RequireWorkspaceParam(),
+		middleware.RequireProjectParam(),
+		middleware.RequirePermission(d.WorkspaceStore, auth.PermWorkspaceRead),
+	)
+	d.AiHandler.Register(projects)
+}
+
 // RegisterMetricsRoutes 注册效能度量路由（项目级，只读）。
 //
 // 暴露仪表盘卡片数据：速度趋势、前置时间、质量指标（逃逸率、缺陷密度）、

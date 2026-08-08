@@ -14,6 +14,7 @@ import (
 
 	"go.uber.org/zap"
 
+	"github.com/njydsz/ydsz-plane/internal/application/ai"
 	"github.com/njydsz/ydsz-plane/internal/application/apitoken"
 	"github.com/njydsz/ydsz-plane/internal/application/attachment"
 	"github.com/njydsz/ydsz-plane/internal/application/auth"
@@ -268,6 +269,16 @@ func run() error {
 	})
 	intakePublicHandler := intake.NewPublicHandler(intakeSvc)
 
+	// ---------- AI domain ----------
+	aiSvc := ai.NewService(pool.Pool, ai.Config{
+		Enabled:  cfg.AI.Enabled,
+		Provider: cfg.AI.Provider,
+		APIKey:   cfg.AI.APIKey,
+		Model:    cfg.AI.Model,
+		Endpoint: cfg.AI.Endpoint,
+	})
+	aiHandler := ai.NewHandler(&ai.HandlerDeps{AiSvc: aiSvc})
+
 	// ---------- HTTP Engine ----------
 	engine := httpapi.NewEngine(&httpapi.Deps{
 		Cfg:             cfg,
@@ -320,6 +331,8 @@ func run() error {
 		AutomationHandler: automationHandler,
 		// Metrics domain (S11)
 		MetricsHandler: metricsHandler,
+		// AI domain
+		AiHandler: aiHandler,
 	})
 
 	// 注册工作项路由（必须在 NewEngine 之后）
@@ -469,6 +482,14 @@ func run() error {
 		PrincipalParser: parsePrincipal,
 		WorkspaceStore:  wsStore,
 		MetricsHandler:  metricsHandler,
+	})
+
+	// 注册 AI 智能辅助路由（项目级）
+	httpapi.RegisterAIRoutes(engine, &httpapi.Deps{
+		Auth:            authSvc,
+		PrincipalParser: parsePrincipal,
+		WorkspaceStore:  wsStore,
+		AiHandler:       aiHandler,
 	})
 
 	errCh := make(chan error, 1)
