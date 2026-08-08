@@ -2550,6 +2550,11 @@ COMMENT ON COLUMN public.users.preferences IS '用户偏好 JSONB（主题/快�
 COMMENT ON COLUMN public.users.created_at IS '注册时间';
 COMMENT ON COLUMN public.users.updated_at IS '修改时间（触发器自动维护）';
 COMMENT ON COLUMN public.users.deleted_at IS '软删除时间戳';
+-- S13: 为 users 表添加 SSO 关联字段（OIDC/SAML 身份关联）
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS sso_provider TEXT;
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS sso_subject TEXT;
+CREATE INDEX IF NOT EXISTS idx_users_sso ON public.users (sso_provider, sso_subject) WHERE sso_provider IS NOT NULL;
+
 
 -- ----------------------------
 -- Records of users
@@ -2560,6 +2565,61 @@ INSERT INTO "public"."users" OVERRIDING SYSTEM VALUE VALUES (3, '96366e29-eaba-4
 INSERT INTO "public"."users" OVERRIDING SYSTEM VALUE VALUES (4, 'e202d5ab-db83-4aa3-ac97-8bf686eb5fdf', 'designer@ydsz.dev', '$2a$10$w9.G/KEkRbGKFJOpWNYqKuSL1YuUTjQ9wspxRpBia0jkEOWUjFLFC', '张设计', NULL, 't', 'Asia/Shanghai', '2026-08-08 00:01:22.071616+08', '2026-08-08 00:01:22.071616+08', NULL);
 INSERT INTO "public"."users" OVERRIDING SYSTEM VALUE VALUES (5, 'dd0a9ebd-a996-4545-b04f-7b31865d5170', 'viewer@ydsz.dev', '$2a$10$mdDoBEbopCVd6HFWAZGpTOfMoQNhzKNqx6o6ZSC9e.KDxG2BKA.wi', '访客小赵', NULL, 't', 'Asia/Shanghai', '2026-08-08 00:01:22.133897+08', '2026-08-08 00:01:22.133897+08', NULL);
 
+
+-- ----------------------------
+-- S13: SSO Providers (OIDC/SAML config per workspace)
+-- ----------------------------
+DROP TABLE IF EXISTS "public"."sso_providers";
+CREATE TABLE "public"."sso_providers" (
+  "id" int8 NOT NULL GENERATED ALWAYS AS IDENTITY (
+    INCREMENT 1 MINVALUE 1 MAXVALUE 9223372036854775807 START 1 CACHE 1
+  ),
+  "workspace_id" int8 NOT NULL,
+  "name" text NOT NULL,
+  "protocol" text NOT NULL DEFAULT 'oidc',
+  "issuer_url" text,
+  "client_id" text NOT NULL,
+  "client_secret" text NOT NULL,
+  "redirect_uri" text NOT NULL,
+  "auth_url" text,
+  "token_url" text,
+  "userinfo_url" text,
+  "jwks_url" text,
+  "scopes" text NOT NULL DEFAULT 'openid email profile',
+  "auto_create_user" bool NOT NULL DEFAULT true,
+  "default_role" text NOT NULL DEFAULT 'member',
+  "attribute_mapping" jsonb NOT NULL DEFAULT '{}'::jsonb,
+  "enabled" bool NOT NULL DEFAULT true,
+  "created_at" timestamptz(6) NOT NULL DEFAULT now(),
+  "updated_at" timestamptz(6) NOT NULL DEFAULT now(),
+  CONSTRAINT "sso_providers_pkey" PRIMARY KEY ("id"),
+  CONSTRAINT "sso_providers_workspace_id_fkey" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces" ("id") ON DELETE CASCADE
+);
+CREATE INDEX "idx_sso_providers_workspace" ON "public"."sso_providers" ("workspace_id", "enabled");
+COMMENT ON TABLE public.sso_providers IS 'S13: Workspace-level SSO/OIDC Provider configuration (multi-tenant isolation)';
+COMMENT ON COLUMN public.sso_providers.protocol IS 'Protocol: oidc | saml';
+COMMENT ON COLUMN public.sso_providers.auto_create_user IS 'Auto-create platform user on first SSO login';
+COMMENT ON COLUMN public.sso_providers.attribute_mapping IS 'OIDC claims to platform field mapping JSON';
+COMMENT ON TABLE public.sso_sessions IS 'S13: OIDC login session state with PKCE code_verifier';
+COMMENT ON COLUMN public.sso_sessions.status IS 'Session status: pending | completed | failed | expired';
+COMMENT ON TABLE public.sso_links IS 'S13: User-SSO identity binding (one provider+subject maps to one user)';
+
+CREATE TABLE "public"."sso_sessions" (
+  "id" int8 NOT NULL GENERATED ALWAYS AS IDENTITY (INCREMENT 1 MINVALUE 1 MAXVALUE 9223372036854775807 START 1 CACHE 1),
+  "state" text NOT NULL, "nonce" text NOT NULL, "code_verifier" text,
+  "provider_id" int8 NOT NULL, "redirect_to" text, "ip_address" inet,
+  "user_agent" text, "user_id" int8, "status" text NOT NULL DEFAULT 'pending',
+  "error_message" text, "expires_at" timestamptz(6) NOT NULL DEFAULT now() + interval '10 minutes',
+  "completed_at" timestamptz(6), "created_at" timestamptz(6) NOT NULL DEFAULT now(),
+  CONSTRAINT "sso_sessions_pkey" PRIMARY KEY ("id"),
+  CONSTRAINT "sso_sessions_provider_id_fkey" FOREIGN KEY ("provider_id") REFERENCES "public"."sso_providers" ("id") ON DELETE CASCADE,
+  CONSTRAINT "sso_sessions_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "public"."users" ("id") ON DELETE SET NULL
+);
+
+-- ----------------------------
+-- S13: SSO Links (User-SSO identity binding)
+-- ----------------------------
+DROP TABLE IF EXISTS "public"."sso_links";
 -- ----------------------------
 -- Table structure for version_delivery_snapshots
 -- ----------------------------

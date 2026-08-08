@@ -39,6 +39,13 @@ const router = createRouter({
       meta: { public: true },
     },
     {
+      // S13 OIDC SSO 回调页 — 后端 /api/v1/auth/oidc/callback 重定向至此
+      path: "/sso/callback",
+      name: "sso-callback",
+      component: () => import("@/views/auth/SSOCallbackView.vue"),
+      meta: { public: true },
+    },
+    {
       path: "/forgot-password",
       name: "forgot-password",
       component: () => import("@/views/auth/ForgotPasswordView.vue"),

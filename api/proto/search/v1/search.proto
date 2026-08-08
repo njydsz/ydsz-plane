@@ -1,0 +1,91 @@
+// Ydsz Plane Search Service gRPC API.
+//
+// 搜索服务是第二个独立部署的微服务（S14 Phase-3），
+// 独立扩缩容 ES 读写负载（高并发搜索与聚合统计）。
+syntax = "proto3";
+
+package ydszplane.search.v1;
+
+option go_package = "github.com/njydsz/ydsz-plane/api/proto/search/v1;searchv1";
+
+import "google/protobuf/timestamp.proto";
+
+// --- 领域消息 ---
+
+// SearchHit 单条搜索结果。
+message SearchHit {
+  string index      = 1; // "issues" | "pages" | "versions"
+  string id         = 2;
+  float  score      = 3;
+  map<string, string> fields = 4; // 命中的高亮片段
+}
+
+// SearchQuery 搜索参数。
+message SearchQuery {
+  int64  workspace_id  = 1;
+  int64  project_id    = 2; // 0 = 跨项目
+  string q             = 3; // 用户输入的查询字符串
+  repeated string index_filter = 4; // 限定索引
+  string jql           = 5; // JQL 结构化查询（可选）
+  string order_by      = 6; // 排序字段
+  bool   descending    = 7;
+  int32  limit         = 8;  // 默认 20，最大 100
+  int32  offset        = 9;
+}
+
+message SearchResult {
+  repeated SearchHit hits  = 1;
+  int64 total = 2;
+  int64 took_ms = 3;
+}
+
+// IndexRequest 索引一条文档。
+message IndexRequest {
+  string index = 1;
+  string id    = 2;
+  bytes  doc   = 3; // JSON 编码的文档内容
+}
+
+// BulkIndexRequest 批量索引。
+message BulkIndexRequest {
+  repeated IndexRequest items = 1;
+}
+
+message BulkIndexResp {
+  int64 indexed = 1;
+  int64 failed  = 2;
+}
+
+// DeleteFromIndexRequest 从索引中移除。
+message DeleteFromIndexRequest {
+  string index = 1;
+  string id    = 2;
+}
+
+// ReindexAllResp 全量重建统计。
+message ReindexAllResp {
+  int64 total_scanned = 1;
+  int64 total_indexed = 2;
+  int64 duration_ms   = 3;
+}
+
+// Empty 空响应。
+message Empty {}
+
+// SearchService 提供全文检索能力。
+service SearchService {
+  // Search 执行全文搜索（JQL 或自然语言）。
+  rpc Search(SearchQuery) returns (SearchResult);
+
+  // Index 索引单条文档（新增/更新）。
+  rpc Index(IndexRequest) returns (Empty);
+
+  // BulkIndex 批量索引（事件补偿/全量重建）。
+  rpc BulkIndex(BulkIndexRequest) returns (BulkIndexResp);
+
+  // DeleteFromIndex 从搜索索引中移除。
+  rpc DeleteFromIndex(DeleteFromIndexRequest) returns (Empty);
+
+  // ReindexAll 全量重建索引（运维触发）。
+  rpc ReindexAll(SearchQuery) returns (ReindexAllResp);
+}

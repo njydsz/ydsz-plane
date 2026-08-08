@@ -6,12 +6,14 @@
 //   - PKCE 强制: 所有 SPA 登录请求必须带 code_challenge (S256)
 //
 // 路由 (注册于 /api/v1/auth/oidc):
-//   GET  /providers            → 列出当前工作空间的 SSO Providers
-//   POST /:provider_id/login   → 发起登录 → 返回 IdP 重定向 URL
-//   GET  /callback             → OIDC 回调 → 重定向到前端 SSO 页（token 在 fragment 中）
+//
+//	GET  /providers            → 列出当前工作空间的 SSO Providers
+//	POST /:provider_id/login   → 发起登录 → 返回 IdP 重定向 URL
+//	GET  /callback             → OIDC 回调 → 设置 Cookie → 重定向到前端
 package httpapi
 
 import (
+	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -79,7 +81,7 @@ func initiateSSOLogin(d *Deps) gin.HandlerFunc {
 		providerID, err := strconv.ParseInt(c.Param("provider_id"), 10, 64)
 		if err != nil || providerID <= 0 {
 			middleware.AbortWithError(c, errs.ErrValidation.WithDetails(errs.FieldDetail{
-				Field:  "provider_id", Reason: "无效的 Provider ID",
+				Field: "provider_id", Reason: "无效的 Provider ID",
 			}))
 			return
 		}
@@ -97,9 +99,10 @@ func initiateSSOLogin(d *Deps) gin.HandlerFunc {
 	}
 }
 
-// handleSSOCallback OIDC 回调处理 → 重定向到前端 SSO 回调页。
+// handleSSOCallback OIDC 回调处理。
 //
-// 注意: 使用 #fragment 传递 token，避免 token 泄漏到 Access Log / Referer。
+// 验证 state/code → 签发 JWT → 设置 HTTP-only Cookie → 重定向到前端 SSO 页。
+// 使用 HttpOnly Secure Cookie（与密码登录一致），避免 token 泄漏到日志/Referer。
 func handleSSOCallback(d *Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if d.OIDCService == nil {
@@ -124,13 +127,27 @@ func handleSSOCallback(d *Deps) gin.HandlerFunc {
 			return
 		}
 
-		// 重定向到前端 SSO 回调页，token 使用 URL fragment 传递
+		// 设置认证 Cookie（与密码登录一致：HttpOnly + Secure + SameSite=Lax）
+		secure := !d.Cfg.IsDev()
+		http.SetCookie(c.Writer, &http.Cookie{
+			Name: "ydsz_access", Value: pair.AccessToken, Path: "/",
+			HttpOnly: true, Secure: secure, SameSite: http.SameSiteLaxMode,
+			MaxAge: int(d.Cfg.Auth.AccessTokenTTL.Seconds()),
+		})
+		http.SetCookie(c.Writer, &http.Cookie{
+			Name: "ydsz_refresh", Value: pair.RefreshToken, Path: "/api/v1/auth",
+			HttpOnly: true, Secure: secure, SameSite: http.SameSiteLaxMode,
+			MaxAge: int(d.Cfg.Auth.RefreshTokenTTL.Seconds()),
+		})
+		// SSO 建立会话后同步设置 CSRF 双提交令牌 Cookie
+		middleware.SetCSRFTokenCookie(c, d.Cfg, d.Cfg.Auth.JWTSecret, pair.AccessToken)
+
+		// 重定向到前端 SSO 回调页，前端仅验证 Cookie 是否生效
 		frontendURL := d.Cfg.Email.AppBaseURL
 		if frontendURL == "" {
 			frontendURL = "http://localhost:5173"
 		}
-		redirectURL := frontendURL + "/sso/callback#access=" + pair.AccessToken + "&refresh=" + pair.RefreshToken
-		c.Redirect(302, redirectURL)
+		c.Redirect(302, frontendURL+"/sso/callback")
 	}
 }
 

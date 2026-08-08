@@ -44,19 +44,19 @@ import (
 
 // OIDCProviderConfig 单个 OIDC Provider 的运行时配置。
 type OIDCProviderConfig struct {
-	ID             int64             `json:"id"`
-	Name           string            `json:"name"`
-	IssuerURL      string            `json:"issuer_url"`
-	ClientID       string            `json:"client_id"`
-	ClientSecret   string            `json:"client_secret"` // 解密后的明文
-	RedirectURI    string            `json:"redirect_uri"`
-	AuthURL        string            `json:"auth_url"`
-	TokenURL       string            `json:"token_url"`
-	UserInfoURL    string            `json:"userinfo_url"`
-	JWKSURL        string            `json:"jwks_url"`
-	Scopes         []string          `json:"scopes"`
-	AutoCreateUser bool              `json:"auto_create_user"`
-	DefaultRole    string            `json:"default_role"`
+	ID               int64             `json:"id"`
+	Name             string            `json:"name"`
+	IssuerURL        string            `json:"issuer_url"`
+	ClientID         string            `json:"client_id"`
+	ClientSecret     string            `json:"client_secret"` // 解密后的明文
+	RedirectURI      string            `json:"redirect_uri"`
+	AuthURL          string            `json:"auth_url"`
+	TokenURL         string            `json:"token_url"`
+	UserInfoURL      string            `json:"userinfo_url"`
+	JWKSURL          string            `json:"jwks_url"`
+	Scopes           []string          `json:"scopes"`
+	AutoCreateUser   bool              `json:"auto_create_user"`
+	DefaultRole      string            `json:"default_role"`
 	AttributeMapping map[string]string `json:"attribute_mapping"` // e.g. {"email":"email","display_name":"name"}
 }
 
@@ -270,11 +270,11 @@ func (s *OIDCService) exchangeCode(ctx context.Context, cfg *OIDCProviderConfig,
 
 type oidcClaims struct {
 	jwt.RegisteredClaims
-	Nonce         string `json:"nonce"`
-	Email         string `json:"email"`
-	EmailVerified bool   `json:"email_verified"`
-	Name          string `json:"name"`
-	Picture       string `json:"picture"`
+	Nonce             string `json:"nonce"`
+	Email             string `json:"email"`
+	EmailVerified     bool   `json:"email_verified"`
+	Name              string `json:"name"`
+	Picture           string `json:"picture"`
 	PreferredUsername string `json:"preferred_username"`
 }
 
@@ -466,13 +466,13 @@ func (s *OIDCService) findOrCreateUser(ctx context.Context, cfg *OIDCProviderCon
 // --- Session Management ---
 
 type ssoSession struct {
-	ID            int64
-	State         string
-	Nonce         string
-	ProviderID    int64
-	RedirectTo    string
-	CodeVerifier  string
-	Status        string
+	ID           int64
+	State        string
+	Nonce        string
+	ProviderID   int64
+	RedirectTo   string
+	CodeVerifier string
+	Status       string
 }
 
 func (s *OIDCService) validateState(ctx context.Context, state string) (*ssoSession, string, error) {

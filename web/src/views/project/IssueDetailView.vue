@@ -146,12 +146,14 @@ async function handleDescPasteImage(file: File) {
 // 一键提缺陷
 const showDefectModal = ref(false);
 
-// --- 子工作项 ---
+// --- 子工作项（WBS 树） ---
 const subIssues = ref<Issue[]>([]);
 const subIssuesLoading = ref(false);
 const showSubIssueModal = ref(false);
 const subIssueParentId = ref(0);
 const expandedSubIssues = ref<Set<number>>(new Set());
+const childrenMap = ref<Record<number, Issue[]>>({});
+const childrenLoadingSet = ref<Set<number>>(new Set());
 
 async function loadSubIssues() {
   if (!ws.value) return;
@@ -161,12 +163,30 @@ async function loadSubIssues() {
       parent_id: props.issueId,
     });
     subIssues.value = res.results;
-    // 初始展开第一层
+    // 初始展开第一层，孙级懒加载
     expandedSubIssues.value = new Set(subIssues.value.map((s) => s.id));
   } catch {
     // 非关键模块静默忽略
   } finally {
     subIssuesLoading.value = false;
+  }
+}
+
+/** 懒加载某节点下的子工作项，完成后自动展开该节点 */
+async function loadChildrenOf(id: number) {
+  if (!ws.value) return;
+  childrenLoadingSet.value.add(id);
+  try {
+    const res = await issueApi.listIssues(ws.value.id, props.projectId, { parent_id: id });
+    childrenMap.value = { ...childrenMap.value, [id]: res.results };
+  } catch {
+    childrenMap.value = { ...childrenMap.value, [id]: [] };
+  } finally {
+    childrenLoadingSet.value.delete(id);
+    // 加载完成后把该节点标记为已展开
+    const next = new Set(expandedSubIssues.value);
+    next.add(id);
+    expandedSubIssues.value = next;
   }
 }
 
@@ -199,9 +219,15 @@ function toggleSubIssue(id: number) {
   const next = new Set(expandedSubIssues.value);
   if (next.has(id)) {
     next.delete(id);
-  } else {
-    next.add(id);
+    expandedSubIssues.value = next;
+    return;
   }
+  // 第一次展开该节点？若尚未加载孙级，先懒加载再展开
+  if (childrenMap.value[id] === undefined) {
+    void loadChildrenOf(id);
+    return;
+  }
+  next.add(id);
   expandedSubIssues.value = next;
 }
 
@@ -953,6 +979,7 @@ onMounted(() => {
                   class="sub-issue-node__toggle"
                   :class="{ 'sub-issue-node__toggle--collapsed': !expandedSubIssues.has(child.id) }"
                   @click="toggleSubIssue(child.id)"
+                  :aria-expanded="expandedSubIssues.has(child.id)"
                 >
                   ▶
                 </button>
@@ -979,6 +1006,94 @@ onMounted(() => {
                 >
                   ＋ 子项
                 </button>
+              </div>
+
+              <!-- 孙级（第二层），懒加载渲染 -->
+              <div
+                v-if="expandedSubIssues.has(child.id)"
+                class="sub-issue-node__children"
+              >
+                <div v-if="childrenLoadingSet.has(child.id)" class="text-muted sub-issue-node__placeholder">
+                  加载中…
+                </div>
+                <div v-else-if="!childrenMap[child.id]?.length" class="text-muted sub-issue-node__placeholder">
+                  无子项
+                </div>
+                <div
+                  v-for="gc in childrenMap[child.id]"
+                  :key="gc.id"
+                  class="sub-issue-node sub-issue-node--nested"
+                >
+                  <div class="sub-issue-node__row">
+                    <button
+                      class="sub-issue-node__toggle"
+                      :class="{ 'sub-issue-node__toggle--collapsed': !expandedSubIssues.has(gc.id) }"
+                      @click="toggleSubIssue(gc.id)"
+                      :aria-expanded="expandedSubIssues.has(gc.id)"
+                    >
+                      ▶
+                    </button>
+                    <span
+                      class="sub-issue-node__identifier"
+                      @click="navigateToIssue(gc.id)"
+                    >{{ gc.identifier }}</span>
+                    <span class="sub-issue-node__type" :class="`sub-issue-node__type--${gc.type_code}`">
+                      {{ typeLabel(gc.type_code) }}
+                    </span>
+                    <span
+                      class="sub-issue-node__state"
+                      :style="{ backgroundColor: formatSubIssueColor(gc.state_id) }"
+                    >{{ formatSubIssueState(gc.state_id) }}</span>
+                  </div>
+                  <div class="sub-issue-node__title" @click="navigateToIssue(gc.id)">
+                    {{ gc.name }}
+                  </div>
+                  <div class="sub-issue-node__actions">
+                    <button
+                      v-if="canEditIssue"
+                      class="btn btn--sm btn--ghost"
+                      @click="openSubIssue(gc.id)"
+                    >
+                      ＋ 子项
+                    </button>
+                  </div>
+
+                  <!-- 曾孙级（第三层，叶子节点不再展开） -->
+                  <div
+                    v-if="expandedSubIssues.has(gc.id)"
+                    class="sub-issue-node__children"
+                  >
+                    <div v-if="childrenLoadingSet.has(gc.id)" class="text-muted sub-issue-node__placeholder">
+                      加载中…
+                    </div>
+                    <div v-else-if="!childrenMap[gc.id]?.length" class="text-muted sub-issue-node__placeholder">
+                      无子项
+                    </div>
+                    <div
+                      v-for="ggc in childrenMap[gc.id]"
+                      :key="ggc.id"
+                      class="sub-issue-node sub-issue-node--nested"
+                    >
+                      <div class="sub-issue-node__row">
+                        <span class="sub-issue-node__toggle sub-issue-node__toggle--leaf">•</span>
+                        <span
+                          class="sub-issue-node__identifier"
+                          @click="navigateToIssue(ggc.id)"
+                        >{{ ggc.identifier }}</span>
+                        <span class="sub-issue-node__type" :class="`sub-issue-node__type--${ggc.type_code}`">
+                          {{ typeLabel(ggc.type_code) }}
+                        </span>
+                        <span
+                          class="sub-issue-node__state"
+                          :style="{ backgroundColor: formatSubIssueColor(ggc.state_id) }"
+                        >{{ formatSubIssueState(ggc.state_id) }}</span>
+                      </div>
+                      <div class="sub-issue-node__title" @click="navigateToIssue(ggc.id)">
+                        {{ ggc.name }}
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -1517,6 +1632,34 @@ onMounted(() => {
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
   background: var(--surface-2);
+}
+
+/* 嵌套子树容器：左侧竖线引导 + 缩进 */
+.sub-issue-node__children {
+  margin-top: 6px;
+  margin-left: 14px;
+  padding-left: 10px;
+  border-left: 2px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sub-issue-node--nested {
+  padding: 6px 8px;
+  background: var(--surface-1);
+  border-style: dashed;
+}
+
+.sub-issue-node__placeholder {
+  font-size: 11px;
+  padding: 4px 0;
+  font-style: italic;
+}
+
+.sub-issue-node__toggle--leaf {
+  cursor: default;
+  color: var(--text-tertiary);
 }
 
 .sub-issue-node__row {

@@ -108,6 +108,9 @@ func run() error {
 		cfg.Features.RegistrationOpen)
 	resetSvc := auth.NewPasswordResetService(pool.Pool, nil, cfg.Email.AppBaseURL, cfg.Auth.BcryptCost)
 
+	// S13 OIDC / SSO 服务（单点登录）；仅在有 SSO Provider 配置时可用
+	oidcService := auth.NewOIDCService(pool.Pool, authSvc, cfg.Email.AppBaseURL)
+
 	wsStore := auth.NewWorkspaceMembershipStore(pool.Pool)
 	wsSvc := workspace.NewService(pool.Pool)
 	memberSvc := workspace.NewMemberService(pool.Pool)
@@ -311,25 +314,25 @@ func run() error {
 
 	// ---------- HTTP Engine ----------
 	engine := httpapi.NewEngine(&httpapi.Deps{
-		Cfg:             cfg,
-		Log:             log,
-		DB:              pool.Pool,
-		Redis:           rdb,
-		Auth:            authSvc,
-		ResetSvc:        resetSvc,
-		PrincipalParser: parsePrincipal,
-		ApiTokenSvc:     apiTokenSvc,
-		WorkspaceStore:  wsStore,
-		RBACStore:       rbacStore,
-		WorkspaceSvc:    wsSvc,
-		MemberSvc:       memberSvc,
-		InvitationSvc:   invitationSvc,
-		ProjectSvc:      projectSvc,
+		Cfg:              cfg,
+		Log:              log,
+		DB:               pool.Pool,
+		Redis:            rdb,
+		Auth:             authSvc,
+		ResetSvc:         resetSvc,
+		PrincipalParser:  parsePrincipal,
+		ApiTokenSvc:      apiTokenSvc,
+		WorkspaceStore:   wsStore,
+		RBACStore:        rbacStore,
+		WorkspaceSvc:     wsSvc,
+		MemberSvc:        memberSvc,
+		InvitationSvc:    invitationSvc,
+		ProjectSvc:       projectSvc,
 		ProjectMemberSvc: projectMemberSvc,
-		TemplateSvc:     templateSvc,
-		ProjectInitSvc:  projectInitSvc,
-		AuditSvc:        auditSvc,
-		Mail:            mailSvc,
+		TemplateSvc:      templateSvc,
+		ProjectInitSvc:   projectInitSvc,
+		AuditSvc:         auditSvc,
+		Mail:             mailSvc,
 		// Issue domain
 		IssueSvc:     issueSvc,
 		StateSvc:     stateSvc,
@@ -369,6 +372,8 @@ func run() error {
 		AiHandler: aiHandler,
 		// DLQ 域（死信队列管理）
 		DLQHandler: dlqHandler,
+		// S13 OIDC / SSO 域（单点登录）
+		OIDCService: oidcService,
 	})
 
 	// 注册工作项路由（必须在 NewEngine 之后）

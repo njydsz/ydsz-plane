@@ -1,0 +1,123 @@
+// Ydsz Plane Notification Service gRPC API.
+//
+// 版本策略：迭代式演进，遵循 Semantic Versioning for APIs
+// 兼容性：新增字段可选（proto3 默认），不删除现有字段，仅标记 deprecated
+//
+// 拆解自单体核心 ahistorical - 通知域是首个独立部署的微服务（S14 Phase-1）。
+syntax = "proto3";
+
+package ydszplane.notification.v1;
+
+option go_package = "github.com/njydsz/ydsz-plane/api/proto/notification/v1;notificationv1";
+
+import "google/protobuf/timestamp.proto";
+
+// --- 领域消息 ---
+
+// Notification 单条通知的完整视图。
+message Notification {
+  int64  id           = 1;
+  int64  workspace_id = 2;
+  int64  recipient_id = 3;
+  string event_type   = 4; // e.g. "issue.created"
+  string entity_type  = 5; // e.g. "issue"
+  int64  entity_id    = 6;
+  string title        = 7;
+  string body         = 8;
+  string action_url   = 9;
+  int64  actor_id     = 10;
+  string actor_name   = 11;
+  bool   is_read      = 12;
+  bool   is_archived   = 13;
+  google.protobuf.Timestamp read_at     = 14;
+  google.protobuf.Timestamp created_at  = 15;
+  string channel      = 16; // "in_app" | "email" | "webhook" | "im"
+  bytes  payload      = 17; // JSON-encoded extra data
+}
+
+// ListNotificationsReq通知列表查询参数。
+message ListNotificationsReq {
+  int64  workspace_id = 1;
+  int64  recipient_id = 2;
+  optional bool   is_read     = 3;
+  optional string event_type  = 4;
+  optional int64  since       = 5; // Unix ms，仅返回此时间之后的通知
+  int32  limit       = 6; // 默认 20，最大 100
+  int32  offset      = 7;
+}
+
+message ListNotificationsResp {
+  repeated Notification items = 1;
+  int64 total = 2;
+}
+
+// UnreadCountReq 查询未读计数。
+message UnreadCountReq {
+  int64 workspace_id = 1;
+  int64 recipient_id = 2;
+}
+
+message UnreadCountResp {
+  int64 count = 1;
+}
+
+// MarkReadReq 标记单条已读。
+message MarkReadReq {
+  int64 notification_id = 1;
+  int64 recipient_id    = 2; // 安全校验：必须为所有者
+}
+
+// MarkAllReadReq 标记全部已读。
+message MarkAllReadReq {
+  int64 workspace_id = 1;
+  int64 recipient_id = 2;
+  optional string event_type = 3; // 仅标记指定类型（可选）
+}
+
+// ArchiveReq 归档通知。
+message ArchiveReq {
+  int64 notification_id = 1;
+  int64 recipient_id    = 2;
+}
+
+// Empty 空响应。
+message Empty {}
+
+// Preferences 通知偏好（用户级）。
+message Preferences {
+  int64  user_id                  = 1;
+  int64  workspace_id             = 2;
+  bool   in_app_enabled            = 3;
+  bool   email_enabled             = 4;
+  bool   email_digest_enabled      = 5; // 邮件摘要模式
+  string email_digest_frequency    = 6; // "daily" | "weekly" | "never"
+  repeated string muted_event_types = 7; // 用户主动关闭的事件类型
+}
+
+// --- RPC ---
+
+// NotificationService 提供通知域的读/写/状态管理。
+//
+// 调用方：core-service（主服务的 HTTP handler 层）、automation-service（未来）
+service NotificationService {
+  // List 分页查询通知列表。
+  rpc List(ListNotificationsReq) returns (ListNotificationsResp);
+
+  // UnreadCount 获取当前未读数（驱动红点角标）。
+  rpc UnreadCount(UnreadCountReq) returns (UnreadCountResp);
+
+  // MarkRead 标记单条通知为已读。
+  rpc MarkRead(MarkReadReq) returns (Empty);
+
+  // MarkAllRead 批量标记已读（幂等）。
+  rpc MarkAllRead(MarkAllReadReq) returns (Empty);
+
+  // Archive 归档单条通知（用户不再看到但不删除）。
+  rpc Archive(ArchiveReq) returns (Empty);
+
+  // GetPreferences 读取当前用户的通知偏好。
+  rpc GetPreferences(UnreadCountReq) returns (Preferences);
+
+  // UpdatePreferences 修改通知偏好。
+  rpc UpdatePreferences(Preferences) returns (Preferences);
+}
