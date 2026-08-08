@@ -13,8 +13,20 @@ import { AppLoadingState, AppErrorState } from "@/components";
 import { useWorkspaceStore } from "@/stores/workspace";
 
 const route = useRoute();
+const router = useRouter();
 const workspaceId = Number(route.params.workspaceId);
 const projectId = Number(route.params.projectId);
+
+const wsStore = useWorkspaceStore();
+const myRole = computed(() => wsStore.currentRole);
+const canManage = computed(() => ["owner", "admin"].includes(myRole.value));
+const isOwner = computed(() => myRole.value === "owner");
+
+// 删除二次确认弹窗
+const showDeleteModal = ref(false);
+const deleteConfirmInput = ref("");
+const archiveLoading = ref(false);
+const deleteLoading = ref(false);
 
 const project = ref<Project | null>(null);
 const loading = ref(true);
@@ -112,6 +124,50 @@ async function save() {
     saveError.value = e instanceof ApiError ? e.message : "保存失败";
   } finally {
     saving.value = false;
+  }
+}
+
+// === Danger Zone: 归档 & 删除 ===
+async function archiveProject() {
+  if (!window.confirm(
+    "确定要归档该项目？\n\n" +
+    "项目归档后将从项目列表中隐藏，但成员仍可通过链接访问内容，且随时可恢复。"
+  )) return;
+  archiveLoading.value = true;
+  try {
+    const ws = await workspaceApi.get(workspaceId);
+    await workspaceApi.archiveProject(ws.id, projectId);
+    router.push(`/${workspaceId}`);
+  } catch (e: any) {
+    alert(`归档失败：${e.message ?? "未知错误"}`);
+  } finally {
+    archiveLoading.value = false;
+  }
+}
+
+function openDeleteModal() {
+  deleteConfirmInput.value = "";
+  showDeleteModal.value = true;
+}
+
+function closeDeleteModal() {
+  if (deleteLoading.value) return;
+  showDeleteModal.value = false;
+  deleteConfirmInput.value = "";
+}
+
+async function confirmDelete() {
+  if (deleteConfirmInput.value !== project.value?.name) return;
+  deleteLoading.value = true;
+  try {
+    const ws = await workspaceApi.get(workspaceId);
+    await workspaceApi.archiveProject(ws.id, projectId);
+    showDeleteModal.value = false;
+    router.push(`/${workspaceId}`);
+  } catch (e: any) {
+    alert(`删除失败：${e.message ?? "未知错误"}`);
+  } finally {
+    deleteLoading.value = false;
   }
 }
 
@@ -291,7 +347,91 @@ onMounted(loadProject);
         {{ saving ? "保存中..." : "保存所有变更" }}
       </button>
     </div>
+
+    <!-- ========== 危险操作 Danger Zone ========== -->
+    <section v-if="canManage" class="settings-section settings-section--danger">
+      <h3 class="settings-section__title">危险操作</h3>
+      <p class="settings-section__hint">以下操作影响整个项目，请谨慎操作。</p>
+
+      <div class="danger-row">
+        <div class="danger-row__info">
+          <strong>归档项目</strong>
+          <p>项目归档后将从列表中隐藏，但成员仍可通过链接访问。随时可恢复。</p>
+        </div>
+        <button
+          class="btn btn--danger"
+          :disabled="!canManage || archiveLoading"
+          @click="archiveProject"
+        >
+          {{ archiveLoading ? "归档中..." : "归档" }}
+        </button>
+      </div>
+
+      <div class="danger-row">
+        <div class="danger-row__info">
+          <strong>永久删除</strong>
+          <p>项目及其所有工作项、文档等将被永久删除，<strong>不可恢复</strong>。</p>
+        </div>
+        <button
+          class="btn btn--danger"
+          :disabled="!canManage || deleteLoading"
+          @click="openDeleteModal"
+        >
+          永久删除
+        </button>
+      </div>
+    </section>
   </div>
+  </div>
+
+  <!-- ========== 删除确认弹窗 ========== -->
+  <div
+    v-if="showDeleteModal"
+    class="modal-overlay"
+    role="presentation"
+    @click.self="closeDeleteModal"
+    @keydown.esc="closeDeleteModal"
+  >
+    <div
+      class="modal-dialog"
+      role="alertdialog"
+      aria-modal="true"
+      aria-labelledby="delete-modal-title"
+      aria-describedby="delete-modal-desc"
+    >
+      <h2 id="delete-modal-title" class="modal-dialog__title">永久删除项目</h2>
+      <div id="delete-modal-desc" class="modal-dialog__body">
+        <p class="modal-dialog__warn">
+          <strong>此操作不可恢复。</strong>
+          项目 <code>{{ project?.name }}</code> 及其所有工作项、文档、迭代等将被永久删除。
+        </p>
+        <p class="modal-dialog__hint">
+          请输入项目名称
+          <code class="modal-dialog__code">{{ project?.name }}</code>
+          以确认删除：
+        </p>
+        <input
+          v-model="deleteConfirmInput"
+          type="text"
+          class="modal-dialog__input"
+          :placeholder="project?.name"
+          :disabled="deleteLoading"
+          @keydown.enter="confirmDelete"
+        />
+      </div>
+      <div class="modal-dialog__footer">
+        <button class="btn" :disabled="deleteLoading" @click="closeDeleteModal">
+          取消
+        </button>
+        <button
+          class="btn btn--danger"
+          :disabled="deleteConfirmInput !== project?.name || deleteLoading"
+          @click="confirmDelete"
+        >
+          {{ deleteLoading ? "删除中..." : "确认永久删除" }}
+        </button>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -664,6 +804,181 @@ onMounted(loadProject);
 @media (max-width: 600px) {
   .form-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+/* ===== Danger Zone ===== */
+.settings-section--danger {
+  margin-top: 32px;
+  padding: 24px;
+  border: 1px solid var(--danger-200, rgba(220, 47, 47, 0.2));
+  border-radius: var(--radius-lg);
+  background: var(--danger-50, rgba(220, 47, 47, 0.03));
+}
+
+.settings-section__title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--danger-600, #dc2f2f);
+  margin: 0 0 4px;
+}
+
+.settings-section__hint {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin: 0 0 16px;
+}
+
+.danger-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 0;
+  border-top: 1px solid var(--danger-100, rgba(220, 47, 47, 0.1));
+}
+
+.danger-row:first-of-type {
+  border-top: none;
+}
+
+.danger-row__info {
+  flex: 1;
+}
+
+.danger-row__info strong {
+  display: block;
+  font-size: 13px;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.danger-row__info p {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin: 0;
+}
+
+.btn--danger {
+  background: var(--danger-500, #dc2f2f);
+  border-color: var(--danger-500, #dc2f2f);
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.btn--danger:hover:not(:disabled) {
+  background: var(--danger-600, #b91c1c);
+  border-color: var(--danger-600, #b91c1c);
+}
+
+.btn--danger:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ===== Delete Confirm Modal ===== */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(2px);
+}
+
+.modal-dialog {
+  width: 440px;
+  max-width: calc(100vw - 32px);
+  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
+  overflow: hidden;
+}
+
+.modal-dialog__title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--danger-600, #dc2f2f);
+  margin: 0;
+  padding: 18px 20px 12px;
+}
+
+.modal-dialog__body {
+  padding: 0 20px 16px;
+}
+
+.modal-dialog__warn {
+  font-size: 13px;
+  color: var(--text-primary);
+  margin: 0 0 12px;
+  line-height: 1.6;
+}
+
+.modal-dialog__warn code {
+  padding: 1px 5px;
+  background: var(--surface-3);
+  border-radius: 3px;
+  font-size: 12px;
+  font-family: var(--font-mono);
+}
+
+.modal-dialog__hint {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin: 0 0 10px;
+}
+
+.modal-dialog__code {
+  padding: 1px 5px;
+  background: var(--danger-50, rgba(220, 47, 47, 0.06));
+  border: 1px solid var(--danger-200, rgba(220, 47, 47, 0.15));
+  border-radius: 3px;
+  font-size: 12px;
+  font-family: var(--font-mono);
+  color: var(--danger-600, #dc2f2f);
+}
+
+.modal-dialog__input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  color: var(--text-primary);
+  background: var(--surface-1);
+  outline: none;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+
+.modal-dialog__input:focus {
+  border-color: var(--danger-500, #dc2f2f);
+  box-shadow: 0 0 0 3px var(--danger-50, rgba(220, 47, 47, 0.08));
+}
+
+.modal-dialog__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 14px 20px;
+  border-top: 1px solid var(--border-subtle);
+  background: var(--surface-2);
+}
+
+@media (max-width: 600px) {
+  .settings-section--danger {
+    padding: 16px;
+  }
+  .danger-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .btn--danger {
+    align-self: flex-end;
   }
 }
 </style>
