@@ -185,7 +185,7 @@ const illustrationPx = computed(() => sizeMap[props.illustrationSize])
 </script>
 
 <template>
-  <div class="app-empty" :class="[`app-empty--${illustrationSize}`]">
+  <div class="app-empty" :class="[`app-empty--${illustrationSize}`, { 'app-empty--compact': compact }]">
     <!-- 自定义 emoji 图标（优先级最高） -->
     <div v-if="icon" class="app-empty__emoji">{{ icon }}</div>
 
