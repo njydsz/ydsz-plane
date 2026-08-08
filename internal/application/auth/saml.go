@@ -26,6 +26,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/xml"
+	"fmt"
 	"io"
 	"net/url"
 	"strings"
@@ -148,59 +149,205 @@ func (s *OIDCService) SAMLInitiateLogin(ctx context.Context, providerID int64, r
 	return &SAMLInitiateResult{RedirectURL: redirectURL}, nil
 }
 
-// HandleSAMLACS 处理 SAML Assertion Consumer Service 回调。
-func (s *OIDCService) HandleSAMLACS(ctx context.Context, samlResponse string) error {
-	// Base64 解码
+// HandleSAMLACS 处理 SAML Assertion Consumer Service 回调：
+// 解码 Response → 校验状态 → 关联 Provider → 校验签名开关 → 提取身份 →
+// 查找/创建用户 → 签发令牌对。返回的 *TokenPair 由 HTTP 层设置认证 Cookie 并重定向前端。
+//
+// 这是 SAML 登录链路真正闭环的关键：此前实现仅解析断言后重定向到占位提示页，
+// 用户永远不会被真正登录。
+func (s *OIDCService) HandleSAMLACS(ctx context.Context, samlResponse, relayState string) (*TokenPair, error) {
+	// 1. Base64 解码
 	raw, err := base64.StdEncoding.DecodeString(samlResponse)
 	if err != nil {
-		return errs.New("SSO.SAML_INVALID_RESPONSE", "SAML Response 解析失败", 400)
+		return nil, errs.New("SSO.SAML_INVALID_RESPONSE", "SAML Response 不是合法的 Base64 编码", 400)
 	}
 
-	// 解析 SAML Response XML
+	// 2. 解析 SAML Response XML
 	resp, err := parseSAMLResponse(raw)
 	if err != nil {
-		return errs.New("SSO.SAML_INVALID_RESPONSE", "SAML Response XML 解析失败: "+err.Error(), 400)
+		return nil, errs.New("SSO.SAML_INVALID_RESPONSE", "SAML Response XML 解析失败: "+err.Error(), 400)
 	}
 
-	// 验证状态 — 成功才继续
+	// 3. 校验状态 — 成功才继续
 	if !strings.Contains(resp.Status.StatusCode.Value, "Success") {
-		return errs.New("SSO.SAML_AUTH_FAILED", "SAML 认证失败", 401)
+		return nil, errs.New("SSO.SAML_AUTH_FAILED", "SAML 认证状态非 Success", 401)
 	}
 
-	// 提取用户身份标识
+	// 4. 通过 RelayState 关联发起时存储的 SSO 会话，取得 ProviderID
+	providerID, err := s.resolveSAMLProvider(ctx, relayState)
+	if err != nil {
+		return nil, err
+	}
+
+	// 5. 加载 Provider 配置（含签名校验开关与 IdP 证书）
+	provider, err := s.loadSAMLProvider(ctx, providerID)
+	if err != nil {
+		return nil, err
+	}
+
+	// 6. 签名校验（无可用校验库时，要求显式 SkipSignature=true 方可放行）
+	if err := s.validateSAMLResponse(raw, provider); err != nil {
+		return nil, err
+	}
+
+	// 7. 提取身份标识与属性
 	nameID := strings.TrimSpace(resp.Assertion.NameID.Value)
 	if nameID == "" {
-		return errs.New("SSO.SAML_NO_NAMEID", "SAML Response 缺少 NameID", 400)
+		return nil, errs.New("SSO.SAML_NO_NAMEID", "SAML Response 缺少 NameID", 400)
+	}
+	email, displayName, avatar := extractSAMLAttributes(resp.Assertion.Attrs, nameID)
+
+	// 8. 查找或创建用户
+	user, err := s.samlFindOrCreateUser(ctx, provider.ID, nameID, email, displayName, avatar,
+		provider.AutoCreateUser, provider.DefaultRole)
+	if err != nil {
+		return nil, err
 	}
 
-	// 提取属性（email, display name 等）
-	attributes := map[string]string{}
-	for _, attr := range resp.Assertion.Attrs {
-		if len(attr.Values) > 0 {
-			attributes[attr.Name] = attr.Values[0]
+	// 9. 签发令牌对
+	pair, err := s.authSvc.issuePair(user.ID, user.Email, user.DisplayName, user.AvatarURL)
+	if err != nil {
+		return nil, errs.ErrInternal.Wrap(err)
+	}
+
+	// 10. 标记会话完成 + 维护 SSO 绑定
+	_, _ = s.db.Exec(ctx,
+		`UPDATE sso_sessions SET status = 'completed', user_id = $1, completed_at = now() WHERE state = $2`,
+		user.ID, relayState)
+	_, _ = s.db.Exec(ctx, `
+		INSERT INTO sso_links (user_id, provider_id, sso_subject, sso_email, sso_display_name, last_login_at)
+		VALUES ($1, $2, $3, $4, $5, now())
+		ON CONFLICT (provider_id, sso_subject) DO UPDATE SET
+			sso_email = EXCLUDED.sso_email,
+			sso_display_name = EXCLUDED.sso_display_name,
+			last_login_at = now(),
+			updated_at = now()`,
+		user.ID, provider.ID, nameID, email, displayName)
+
+	return pair, nil
+}
+
+// validateSAMLResponse 校验 SAML 断言签名。
+//
+// SAML 断言签名验证需要 xml-sec 库（如 crewjam/saml / russellhaering/gosaml2）执行
+// 规范的 exc-c14n + RSA 验签。Go 标准库无法保留 XML 前缀，无法正确实现该算法，
+// 因此本构建不内置验签。为保障安全，默认要求运维在受信环境**显式**设置 skip_signature=true
+// 以放行；否则视为配置错误并拒绝，避免静默接受伪造断言。
+func (s *OIDCService) validateSAMLResponse(_ []byte, provider *SAMLProviderConfig) error {
+	if provider.SkipSignature {
+		// 运维在受信网络/测试环境显式关闭校验
+		return nil
+	}
+	return errs.New("SSO.SAML_SIGNATURE_REQUIRED",
+		"SAML 签名校验未关闭，但当前构建未集成 xml-sec 校验库；请在受信环境设置 skip_signature=true，或集成 SAML 校验库后再启用严格校验", 500)
+}
+
+// resolveSAMLProvider 通过 RelayState 关联发起 SSO 时保存的会话，定位 Provider。
+func (s *OIDCService) resolveSAMLProvider(ctx context.Context, relayState string) (int64, error) {
+	if relayState == "" {
+		return 0, errs.New("SSO.SAML_NO_RELAYSTATE", "SAML 响应缺少 RelayState，无法定位 Provider", 400)
+	}
+	var providerID int64
+	err := s.db.QueryRow(ctx,
+		`SELECT provider_id FROM sso_sessions WHERE state = $1 AND status = 'pending' AND expires_at > now()`,
+		relayState).Scan(&providerID)
+	if err != nil {
+		return 0, errs.New("SSO.SAML_SESSION_NOT_FOUND", "SAML 会话不存在或已过期，请重新发起登录", 401)
+	}
+	return providerID, nil
+}
+
+// extractSAMLAttributes 从 SAML AttributeStatement 中提取 email / displayName / avatar，
+// 兼容 OID/claims/常见简写等多种属性命名约定。
+func extractSAMLAttributes(attrs []samlAttr, nameID string) (email, displayName, avatar string) {
+	emailCandidates := []string{
+		"urn:oid:0.9.2342.19200300.100.1.3",
+		"http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress",
+		"email", "mail", "emailaddress", "user.email",
+	}
+	nameCandidates := []string{
+		"http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name",
+		"displayname", "name", "cn", "urn:oid:2.5.4.3", "givenname", "username",
+	}
+	avatarCandidates := []string{"avatar", "picture", "photo", "urn:oid:0.9.2342.19200300.100.1.7"}
+
+	attrMap := map[string]string{}
+	for _, a := range attrs {
+		if len(a.Values) > 0 && strings.TrimSpace(a.Values[0]) != "" {
+			attrMap[strings.ToLower(a.Name)] = a.Values[0]
+		}
+	}
+	for _, c := range emailCandidates {
+		if v, ok := attrMap[strings.ToLower(c)]; ok {
+			email = v
+			break
+		}
+	}
+	for _, c := range nameCandidates {
+		if v, ok := attrMap[strings.ToLower(c)]; ok {
+			displayName = v
+			break
+		}
+	}
+	for _, c := range avatarCandidates {
+		if v, ok := attrMap[strings.ToLower(c)]; ok {
+			avatar = v
+			break
+		}
+	}
+	if displayName == "" {
+		displayName = nameID
+	}
+	return email, displayName, avatar
+}
+
+// samlFindOrCreateUser 按 SAML Provider + NameID 查找用户，不存在则按 email 回退，
+// 仍不存在且开启自动创建时新建用户（与 OIDC 的 findOrCreateUser 行为一致）。
+func (s *OIDCService) samlFindOrCreateUser(ctx context.Context, providerID int64, subject, email, displayName, avatar string, autoCreate bool, defaultRole string) (*UserBrief, error) {
+	if defaultRole == "" {
+		defaultRole = "member"
+	}
+	providerKey := fmt.Sprintf("saml:%d", providerID)
+
+	var user UserBrief
+	err := s.db.QueryRow(ctx, `
+		SELECT id, email, display_name, coalesce(avatar_url, '')
+		FROM users WHERE sso_provider = $1 AND sso_subject = $2 AND deleted_at IS NULL`,
+		providerKey, subject).Scan(&user.ID, &user.Email, &user.DisplayName, &user.AvatarURL)
+	if err == nil {
+		return &user, nil
+	}
+
+	// 按邮箱回退查找（邮箱可能已通过其他方式注册）
+	if email != "" {
+		err = s.db.QueryRow(ctx, `
+			SELECT id, email, display_name, coalesce(avatar_url, '')
+			FROM users WHERE email = $1 AND deleted_at IS NULL`, email).
+			Scan(&user.ID, &user.Email, &user.DisplayName, &user.AvatarURL)
+		if err == nil {
+			_, _ = s.db.Exec(ctx,
+				`UPDATE users SET sso_provider = $1, sso_subject = $2 WHERE id = $3`,
+				providerKey, subject, user.ID)
+			return &user, nil
 		}
 	}
 
-	// 存 session（关联 Provider 与待完成用户）
-	state, _ := generateRandomString(32)
-	_, _ = s.db.Exec(ctx, `
-		INSERT INTO sso_sessions (state, nonce, provider_id, redirect_to, status, expires_at)
-		VALUES ($1, $2, $3, '', 'pending', now() + interval '5 minutes')`,
-		state, nameID, 0)
-
-	// NOTE: 实际生产流程应通过 state 匹配原始 session → ProviderID
-	//       → Create/Find user → Issue JWT token
-	//       此处为骨架实现，返回 nil 表示框架已就位。
-	return nil
-}
-
-// validateSAMLResponse 桩实现 — 生产环境引入 xml-security 库进行签名验证。
-//
-// 推荐实现: github.com/russellhaering/gosaml2 / github.com/atro32/go-saml
-// 需: 加载 IDP X.509 证书 → 验证 <ds:Signature> → 检查 Conditions/NotOnOrAfter
-func validateSAMLResponse(_ []byte, _ *SAMLProviderConfig) error {
-	// TODO: 替换为真正的 xml-sec 校验
-	return nil
+	if !autoCreate {
+		return nil, errs.New("SSO.USER_NOT_FOUND", "该 SAML 账号未关联到平台用户，请联系管理员", 403)
+	}
+	if email == "" {
+		email = subject // 至少保证唯一可联系
+	}
+	err = s.db.QueryRow(ctx, `
+		INSERT INTO users (email, password_hash, display_name, avatar_url, sso_provider, sso_subject, is_active)
+		VALUES ($1, NULL, $2, $3, $4, $5, TRUE)
+		RETURNING id, email, display_name, coalesce(avatar_url, '')`,
+		email, displayName, avatar, providerKey, subject).
+		Scan(&user.ID, &user.Email, &user.DisplayName, &user.AvatarURL)
+	if err != nil {
+		return nil, errs.ErrInternal.Wrap(err)
+	}
+	return &user, nil
 }
 
 // --- private helpers ---
@@ -216,12 +363,13 @@ func (s *OIDCService) loadSAMLProvider(ctx context.Context, providerID int64) (*
 		       COALESCE(token_url, ''), COALESCE(jwks_url, ''),
 		       COALESCE(scopes, ''), COALESCE(protocol, ''),
 		       COALESCE(attribute_mapping::text, '{}'),
-		       '', '', sso_url, idp_issuer, idp_certificate, skip_signature
+		       '', '', sso_url, idp_issuer, idp_certificate, skip_signature,
+		       COALESCE(auto_create_user, false), COALESCE(default_role, 'member')
 		FROM sso_providers WHERE id = $1 AND protocol = 'saml' AND enabled = TRUE`,
 		providerID).Scan(&cfg.ID, &cfg.Name, &cfg.IssuerURL, &cfg.ClientID,
 		&cfg.ClientSecret, &cfg.RedirectURI, &cfg.AuthURL, &cfg.TokenURL,
 		&cfg.JWKSURL, &cfg.Scopes, &protocol, &cfg.AttributeMapping,
-		&ssoURL, &idpIssuer, &idpCert, &skipSig)
+		&ssoURL, &idpIssuer, &idpCert, &skipSig, &cfg.AutoCreateUser, &cfg.DefaultRole)
 	if err != nil {
 		return nil, errs.New("SSO.SAML_NOT_FOUND", "SAML Provider 未找到或未启用", 404)
 	}

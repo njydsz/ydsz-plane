@@ -98,6 +98,22 @@ export interface LayoutWidget {
   y: number;
 }
 
+/** 周度趋势数据点 */
+export interface WeeklyTrend {
+  week: string;
+  count: number;
+  points: number;
+}
+
+/** 个人效率报告 */
+export interface EfficiencyReport {
+  week_points: number;
+  week_issues: number;
+  week_hours: number;
+  overdue_count: number;
+  weekly_trend: WeeklyTrend[];
+}
+
 /* ------------------------------------------------------------------ */
 /* API calls                                                          */
 /* ------------------------------------------------------------------ */
@@ -134,4 +150,10 @@ export const workbenchApi = {
     item: { item_type: string; item_id: number; project_id: number; title: string; identifier?: string },
   ): Promise<void> =>
     apiClient.post(`/workspaces/${wsId}/workbench/recent`, item).then(() => {}),
+
+  /** 获取个人效率报告（工作空间级） */
+  getEfficiency: (wsId: number | string) =>
+    wrap<EfficiencyReport>(
+      apiClient.get(`/workspaces/${wsId}/workbench/efficiency`),
+    ),
 };
