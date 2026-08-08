@@ -31,6 +31,16 @@ func (h *Handler) Register(r *gin.RouterGroup) {
 		pages.GET("/:page_id", h.getPage)
 		pages.PATCH("/:page_id", h.updatePage)
 		pages.DELETE("/:page_id", h.deletePage)
+
+		// 版本历史
+		pages.GET("/:page_id/versions", h.listVersions)
+		pages.GET("/:page_id/versions/:version_id", h.getVersion)
+		pages.POST("/:page_id/versions/:version_id/rollback", h.rollbackToVersion)
+
+		// 文档关联
+		pages.POST("/:page_id/links", h.createLink)
+		pages.GET("/:page_id/links", h.listLinks)
+		pages.DELETE("/:page_id/links/:link_id", h.deleteLink)
 	}
 }
 
@@ -174,6 +184,167 @@ func pageIDParam(c *gin.Context) (int64, error) {
 		return 0, errs.ErrValidation.WithDetails(errs.FieldDetail{Field: "page_id", Reason: "无效的页面 ID"})
 	}
 	return id, nil
+}
+
+// versionIDParam 解析路径参数 :version_id（版本号 int32）。
+func versionIDParam(c *gin.Context) (int32, error) {
+	v, err := strconv.ParseInt(c.Param("version_id"), 10, 32)
+	if err != nil {
+		return 0, errs.ErrValidation.WithDetails(errs.FieldDetail{Field: "version_id", Reason: "无效的版本号"})
+	}
+	return int32(v), nil
+}
+
+// linkIDParam 解析路径参数 :link_id。
+func linkIDParam(c *gin.Context) (int64, error) {
+	id, err := strconv.ParseInt(c.Param("link_id"), 10, 64)
+	if err != nil {
+		return 0, errs.ErrValidation.WithDetails(errs.FieldDetail{Field: "link_id", Reason: "无效的关联 ID"})
+	}
+	return id, nil
+}
+
+// --- 版本历史 handlers ---
+
+// listVersions 获取页面所有版本历史。
+func (h *Handler) listVersions(c *gin.Context) {
+	pageID, err := pageIDParam(c)
+	if err != nil {
+		writeErr(c, err)
+		return
+	}
+
+	list, err := h.svc.ListVersions(c.Request.Context(), pageID)
+	if err != nil {
+		writeErr(c, err)
+		return
+	}
+	if list == nil {
+		list = []DocumentVersion{}
+	}
+	c.JSON(http.StatusOK, gin.H{"results": list})
+}
+
+// getVersion 获取指定版本快照。
+func (h *Handler) getVersion(c *gin.Context) {
+	pageID, err := pageIDParam(c)
+	if err != nil {
+		writeErr(c, err)
+		return
+	}
+	versionNumber, err := versionIDParam(c)
+	if err != nil {
+		writeErr(c, err)
+		return
+	}
+
+	dv, err := h.svc.GetVersion(c.Request.Context(), pageID, versionNumber)
+	if err != nil {
+		writeErr(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, dv)
+}
+
+// rollbackToVersion 回滚页面到指定版本。
+func (h *Handler) rollbackToVersion(c *gin.Context) {
+	wsID := c.GetInt64(middleware.CtxWorkspaceID)
+	projectID := c.GetInt64(middleware.CtxProjectID)
+	userID := c.GetInt64(middleware.CtxUserID)
+
+	pageID, err := pageIDParam(c)
+	if err != nil {
+		writeErr(c, err)
+		return
+	}
+	versionNumber, err := versionIDParam(c)
+	if err != nil {
+		writeErr(c, err)
+		return
+	}
+
+	page, err := h.svc.RollbackToVersion(c.Request.Context(), wsID, projectID, pageID, userID, versionNumber)
+	if err != nil {
+		writeErr(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, page)
+}
+
+// --- 文档关联 handlers ---
+
+// createLink 创建文档与外部实体的关联。
+func (h *Handler) createLink(c *gin.Context) {
+	userID := c.GetInt64(middleware.CtxUserID)
+
+	pageID, err := pageIDParam(c)
+	if err != nil {
+		writeErr(c, err)
+		return
+	}
+
+	var req struct {
+		LinkableType string `json:"linkable_type"`
+		LinkableID   int64  `json:"linkable_id"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		writeErr(c, errs.ErrValidation.WithDetails(errs.FieldDetail{Field: "body", Reason: err.Error()}))
+		return
+	}
+	if req.LinkableType == "" {
+		writeErr(c, errs.ErrValidation.WithDetails(errs.FieldDetail{Field: "linkable_type", Reason: "关联类型不能为空"}))
+		return
+	}
+	if req.LinkableID <= 0 {
+		writeErr(c, errs.ErrValidation.WithDetails(errs.FieldDetail{Field: "linkable_id", Reason: "关联 ID 无效"}))
+		return
+	}
+
+	link, err := h.svc.CreateLink(c.Request.Context(), pageID, userID, req.LinkableType, req.LinkableID)
+	if err != nil {
+		writeErr(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, link)
+}
+
+// listLinks 获取页面所有关联。
+func (h *Handler) listLinks(c *gin.Context) {
+	pageID, err := pageIDParam(c)
+	if err != nil {
+		writeErr(c, err)
+		return
+	}
+
+	list, err := h.svc.ListLinks(c.Request.Context(), pageID)
+	if err != nil {
+		writeErr(c, err)
+		return
+	}
+	if list == nil {
+		list = []DocumentLink{}
+	}
+	c.JSON(http.StatusOK, gin.H{"results": list})
+}
+
+// deleteLink 删除文档关联。
+func (h *Handler) deleteLink(c *gin.Context) {
+	pageID, err := pageIDParam(c)
+	if err != nil {
+		writeErr(c, err)
+		return
+	}
+	linkID, err := linkIDParam(c)
+	if err != nil {
+		writeErr(c, err)
+		return
+	}
+
+	if err := h.svc.DeleteLink(c.Request.Context(), pageID, linkID); err != nil {
+		writeErr(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
 // writeErr 统一错误响应（同 preference 模块）。

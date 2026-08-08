@@ -62,7 +62,7 @@ async function loadProject() {
     project.value = await workspaceApi.getProject(ws.id, projectId);
     form.name = project.value.name;
     form.description = project.value.description ?? "";
-    form.network = project.value.network ?? "open";
+    form.network = project.value.network ?? "public";
     form.color = project.value.color ?? "#3f63f1";
     if (project.value.modules) {
       moduleToggles.intake = project.value.modules.intake;
@@ -202,7 +202,6 @@ onMounted(loadProject);
         </div>
       </div>
 
-      </div>
     </section>
 
     <!-- 功能模块开关 -->
@@ -318,15 +317,15 @@ onMounted(loadProject);
 .panel__title {
   font-size: 15px;
   color: var(--text-primary);
-  margin: 0 0 20px;
+  margin: 0 0 8px;
   padding-bottom: 12px;
   border-bottom: 1px solid var(--border-subtle);
 }
 
 .panel__desc {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--text-tertiary);
-  margin: -12px 0 16px;
+  margin: 0 0 16px;
 }
 
 .form-grid {

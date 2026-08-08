@@ -101,6 +101,52 @@ type DefectAnalyticsService struct {
 	db *pgxpool.Pool
 }
 
+// ---------- 缺陷龄分析 ----------
+
+// DefectAgeStat 单状态缺陷龄统计。
+type DefectAgeStat struct {
+	StateName  string  `json:"state_name"`
+	StateGroup string  `json:"state_group"`
+	Count      int64   `json:"count"`
+	MinDays    float64 `json:"min_days"`
+	MaxDays    float64 `json:"max_days"`
+	AvgDays    float64 `json:"avg_days"`
+	MedianDays float64 `json:"median_days"`
+}
+
+// DefectAgeItem 超阈值缺陷明细行。
+type DefectAgeItem struct {
+	ID            int64   `json:"id"`
+	Identifier    string  `json:"identifier"`
+	Name          string  `json:"name"`
+	Severity      *int    `json:"severity,omitempty"`
+	SeverityLabel string  `json:"severity_label"`
+	StateName     string  `json:"state_name"`
+	AgeDays       float64 `json:"age_days"`
+}
+
+// DefectAgeAnalysis 缺陷龄分析聚合结果。
+type DefectAgeAnalysis struct {
+	StateStats   []DefectAgeStat `json:"state_stats"`
+	OverdueCount int64           `json:"overdue_count"`
+	OverdueItems []DefectAgeItem `json:"overdue_items"`
+}
+
+// ---------- 根因分布 ----------
+
+// RootCauseStat 单个根因分类统计。
+type RootCauseStat struct {
+	RootCause  string  `json:"root_cause"`
+	Count      int64   `json:"count"`
+	Percentage float64 `json:"percentage"`
+}
+
+// RootCauseAnalysis 根因分布分析结果。
+type RootCauseAnalysis struct {
+	Items      []RootCauseStat `json:"items"`
+	TotalCount int64           `json:"total_count"`
+}
+
 // NewDefectAnalyticsService 创建分析服务。
 func NewDefectAnalyticsService(db *pgxpool.Pool) *DefectAnalyticsService {
 	return &DefectAnalyticsService{db: db}
@@ -468,4 +514,143 @@ func (s *DefectAnalyticsService) trendFallback(ctx context.Context, where string
 		result[i], result[j] = result[j], result[i]
 	}
 	return result, rows.Err()
+}
+
+// GetDefectAge 按状态统计未完成缺陷的滞留时长分布，并返回超阈值（7天以上且未关闭）的缺陷列表。
+func (s *DefectAnalyticsService) GetDefectAge(ctx context.Context, q AnalyticsQuery) (*DefectAgeAnalysis, error) {
+	baseWhere, args := s.buildBaseWhere(q)
+
+	// 只统计未关闭（未完成）的缺陷
+	baseWhere += ` AND i.completed_at IS NULL`
+
+	// 1. 按状态分组统计缺陷龄
+	rows, err := s.db.Query(ctx, `
+		SELECT
+			COALESCE(st.name, '未分配')          AS state_name,
+			COALESCE(st.group_name, 'unknown')   AS state_group,
+			COUNT(*)                              AS cnt,
+			ROUND(MIN(EXTRACT(EPOCH FROM (now() - i.created_at)) / 86400)::numeric, 1) AS min_days,
+			ROUND(MAX(EXTRACT(EPOCH FROM (now() - i.created_at)) / 86400)::numeric, 1) AS max_days,
+			ROUND(AVG(EXTRACT(EPOCH FROM (now() - i.created_at)) / 86400)::numeric, 1) AS avg_days
+		FROM issues i
+		LEFT JOIN states st ON st.id = i.state_id
+		`+baseWhere+`
+		GROUP BY st.name, st.group_name
+		ORDER BY cnt DESC`, args...)
+	if err != nil {
+		return nil, errs.ErrInternal.Wrap(err)
+	}
+	defer rows.Close()
+
+	result := &DefectAgeAnalysis{}
+	for rows.Next() {
+		var stat DefectAgeStat
+		if err := rows.Scan(&stat.StateName, &stat.StateGroup, &stat.Count, &stat.MinDays, &stat.MaxDays, &stat.AvgDays); err != nil {
+			return nil, errs.ErrInternal.Wrap(err)
+		}
+		result.StateStats = append(result.StateStats, stat)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, errs.ErrInternal.Wrap(err)
+	}
+
+	// 2. 对各状态分别取中位数
+	for i := range result.StateStats {
+		stat := &result.StateStats[i]
+		medianWhere := baseWhere + ` AND COALESCE((SELECT st2.name FROM states st2 WHERE st2.id = i.state_id), '未分配') = $` + strconv.Itoa(len(args)+1)
+		medianArgs := append(append([]interface{}{}, args...), stat.StateName)
+		var medianDays *float64
+		_ = s.db.QueryRow(ctx, `
+			SELECT PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM (now() - i.created_at)) / 86400)
+			FROM issues i
+			LEFT JOIN states st ON st.id = i.state_id
+			`+medianWhere, medianArgs...).Scan(&medianDays)
+		if medianDays != nil {
+			stat.MedianDays = float64(int(*medianDays*10)) / 10
+		}
+	}
+
+	// 3. 查询超阈值缺陷（7天以上且未关闭，Top 50）
+	overdueWhere := baseWhere + ` AND EXTRACT(EPOCH FROM (now() - i.created_at)) / 86400 > 7`
+	overdueArgs := append(append([]interface{}{}, args...), 50)
+	overdueRows, err := s.db.Query(ctx, `
+		SELECT
+			i.id, i.identifier, i.name, i.severity,
+			COALESCE(st.name, '未分配') AS state_name,
+			ROUND((EXTRACT(EPOCH FROM (now() - i.created_at)) / 86400)::numeric, 1) AS age_days
+		FROM issues i
+		LEFT JOIN states st ON st.id = i.state_id
+		`+overdueWhere+`
+		ORDER BY age_days DESC
+		LIMIT $`+strconv.Itoa(len(overdueArgs)), overdueArgs...)
+	if err != nil {
+		return nil, errs.ErrInternal.Wrap(err)
+	}
+	defer overdueRows.Close()
+
+	for overdueRows.Next() {
+		var item DefectAgeItem
+		var sev *int
+		if err := overdueRows.Scan(&item.ID, &item.Identifier, &item.Name, &sev, &item.StateName, &item.AgeDays); err != nil {
+			return nil, errs.ErrInternal.Wrap(err)
+		}
+		item.Severity = sev
+		if sev != nil {
+			if l, ok := severityLabels[*sev]; ok {
+				item.SeverityLabel = l
+			} else {
+				item.SeverityLabel = "未知"
+			}
+		} else {
+			item.SeverityLabel = "—"
+		}
+		result.OverdueItems = append(result.OverdueItems, item)
+	}
+	if err := overdueRows.Err(); err != nil {
+		return nil, errs.ErrInternal.Wrap(err)
+	}
+
+	// 超阈值总数
+	_ = s.db.QueryRow(ctx, `SELECT COUNT(*) FROM issues i `+baseWhere+`
+		AND EXTRACT(EPOCH FROM (now() - i.created_at)) / 86400 > 7`, args...).Scan(&result.OverdueCount)
+
+	return result, nil
+}
+
+// GetRootCause 按根因分类统计缺陷数量与占比。
+func (s *DefectAnalyticsService) GetRootCause(ctx context.Context, q AnalyticsQuery) (*RootCauseAnalysis, error) {
+	baseWhere, args := s.buildBaseWhere(q)
+
+	rows, err := s.db.Query(ctx, `
+		SELECT rc, COUNT(*) AS cnt
+		FROM (
+			SELECT COALESCE(NULLIF(i.root_cause_category, ''), 'unfilled') AS rc
+			FROM issues i `+baseWhere+`
+		) sub
+		GROUP BY rc ORDER BY cnt DESC`, args...)
+	if err != nil {
+		return nil, errs.ErrInternal.Wrap(err)
+	}
+	defer rows.Close()
+
+	result := &RootCauseAnalysis{}
+	for rows.Next() {
+		var stat RootCauseStat
+		if err := rows.Scan(&stat.RootCause, &stat.Count); err != nil {
+			return nil, errs.ErrInternal.Wrap(err)
+		}
+		result.TotalCount += stat.Count
+		result.Items = append(result.Items, stat)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, errs.ErrInternal.Wrap(err)
+	}
+
+	if result.TotalCount > 0 {
+		for i := range result.Items {
+			result.Items[i].Percentage = float64(int(float64(result.Items[i].Count)/float64(result.TotalCount)*10000)) / 100
+		}
+	}
+
+	return result, nil
 }

@@ -5,9 +5,11 @@ package httpapi
 
 import (
 	"context"
+	"encoding/csv"
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -484,5 +486,92 @@ func listAuditLogs(d *Deps) gin.HandlerFunc {
 			return
 		}
 		c.JSON(http.StatusOK, rows)
+	}
+}
+
+// ==================================================================
+// 成员 CSV 批量导入
+// ==================================================================
+
+// importMembers 从上传的 CSV 文件批量导入成员。
+func importMembers(d *Deps) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		wsID := c.GetInt64(middleware.CtxWorkspaceID)
+		inviterID := c.GetInt64(middleware.CtxUserID)
+
+		file, _, err := c.Request.FormFile("file")
+		if err != nil {
+			writeError(c, errs.ErrValidation.WithDetails(errs.FieldDetail{Field: "file", Reason: "请上传 CSV 文件"}))
+			return
+		}
+		defer file.Close()
+
+		reader := csv.NewReader(file)
+		reader.LazyQuotes = true
+		records, err := reader.ReadAll()
+		if err != nil {
+			writeError(c, errs.ErrValidation.WithDetails(errs.FieldDetail{Field: "file", Reason: "CSV 文件解析失败: " + err.Error()}))
+			return
+		}
+
+		if len(records) < 2 {
+			writeError(c, errs.ErrValidation.WithDetails(errs.FieldDetail{Field: "file", Reason: "CSV 格式错误：至少需要标题行+数据行"}))
+			return
+		}
+
+		// 解析标题行，查找 email 和 name 列
+		headers := records[0]
+		emailIdx, nameIdx := -1, -1
+		for i, h := range headers {
+			switch strings.ToLower(strings.TrimSpace(h)) {
+			case "email", "e-mail", "邮箱":
+				emailIdx = i
+			case "name", "姓名", "名称":
+				nameIdx = i
+			}
+		}
+		if emailIdx < 0 {
+			writeError(c, errs.ErrValidation.WithDetails(errs.FieldDetail{Field: "file", Reason: "CSV 缺少 email 列"}))
+			return
+		}
+
+		type result struct {
+			Email  string `json:"email"`
+			Name   string `json:"name,omitempty"`
+			Status string `json:"status"` // ok / exists / fail
+			Reason string `json:"reason,omitempty"`
+		}
+
+		var results []result
+
+		for i := 1; i < len(records); i++ {
+			row := records[i]
+			email := strings.TrimSpace(row[emailIdx])
+			if email == "" {
+				continue
+			}
+			name := ""
+			if nameIdx >= 0 && nameIdx < len(row) {
+				name = strings.TrimSpace(row[nameIdx])
+			}
+
+			// 发送邀请（使用默认 member 角色）
+			_, invErr := d.InvitationSvc.Invite(c.Request.Context(), workspace.InviteInput{
+				WorkspaceID: wsID,
+				InviterID:   inviterID,
+				Email:       email,
+				Role:        "member",
+			})
+			if invErr != nil {
+				results = append(results, result{Email: email, Name: name, Status: "fail", Reason: invErr.Error()})
+			} else {
+				results = append(results, result{Email: email, Name: name, Status: "ok"})
+			}
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"results": results,
+			"total":   len(results),
+		})
 	}
 }

@@ -21,9 +21,31 @@ type Page struct {
 	DescriptionStripped string          `json:"description_stripped,omitempty"`
 	ParentID            *int64          `json:"parent_id,omitempty"`
 	SortOrder           float64         `json:"sort_order"`
+	Category            string          `json:"category,omitempty"`
 	CreatedBy           int64           `json:"created_by"`
 	CreatedAt           time.Time       `json:"created_at"`
 	UpdatedAt           time.Time       `json:"updated_at"`
 	DeletedAt           *time.Time      `json:"deleted_at,omitempty"`
 	Version             int32           `json:"version"`
+}
+
+// DocumentVersion 文档版本快照模型。
+type DocumentVersion struct {
+	ID            int64     `json:"id"`
+	PageID        int64     `json:"page_id"`
+	VersionNumber int32     `json:"version_number"`
+	ContentMD     string    `json:"content_md,omitempty"`
+	ContentHTML   string    `json:"content_html,omitempty"`
+	CreatedBy     int64     `json:"created_by"`
+	CreatedAt     time.Time `json:"created_at"`
+}
+
+// DocumentLink 文档关联模型（关联 Issue / Sprint / Version 等）。
+type DocumentLink struct {
+	ID           int64     `json:"id"`
+	PageID       int64     `json:"page_id"`
+	LinkableType string    `json:"linkable_type"`
+	LinkableID   int64     `json:"linkable_id"`
+	CreatedBy    int64     `json:"created_by"`
+	CreatedAt    time.Time `json:"created_at"`
 }

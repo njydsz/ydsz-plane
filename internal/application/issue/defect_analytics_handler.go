@@ -31,6 +31,8 @@ func (h *DefectAnalyticsHandler) Register(r *gin.RouterGroup) {
 	{
 		analytics.GET("/defects", h.getDefectAnalytics)
 		analytics.GET("/defects/export", h.exportDefectAnalytics)
+		analytics.GET("/defect-age", h.getDefectAge)
+		analytics.GET("/root-cause", h.getRootCause)
 	}
 }
 
@@ -192,4 +194,52 @@ func atoi64(s string) (int64, error) {
 		out = out*10 + int64(ch-'0')
 	}
 	return out, nil
+}
+
+// getDefectAge 缺陷龄分析 — 按状态分组统计未关闭缺陷的滞留时长。
+//
+//	@Summary		缺陷龄分析
+//	@Description	输出按状态分组的缺陷龄统计（min/max/avg/median），及超7天滞留的缺陷明细
+//	@Tags			analytics
+//	@Accept			json
+//	@Produce		json
+//	@Param			workspace_id	path		int		true	"工作空间 ID"
+//	@Param			project_id		path		int		true	"项目 ID"
+//	@Param			date_from		query		string	false	"起始日期"
+//	@Param			date_to			query		string	false	"结束日期"
+//	@Param			severity_from	query		int		false	"最低严重程度"
+//	@Param			severity_to		query		int		false	"最高严重程度"
+//	@Success		200				{object}	DefectAgeAnalysis
+//	@Router			/analytics/defect-age [get]
+func (h *DefectAnalyticsHandler) getDefectAge(c *gin.Context) {
+	q := analyticsQuery(c)
+	data, err := h.svc.GetDefectAge(c.Request.Context(), q)
+	if err != nil {
+		writeErr(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, data)
+}
+
+// getRootCause 根因分布统计 — 按 root_cause_category 分组统计缺陷数量和占比。
+//
+//	@Summary		根因分布统计
+//	@Description	输出按根因分类分组的缺陷数量、占比及总计
+//	@Tags			analytics
+//	@Accept			json
+//	@Produce		json
+//	@Param			workspace_id	path		int		true	"工作空间 ID"
+//	@Param			project_id		path		int		true	"项目 ID"
+//	@Param			date_from		query		string	false	"起始日期"
+//	@Param			date_to			query		string	false	"结束日期"
+//	@Success		200				{object}	RootCauseAnalysis
+//	@Router			/analytics/root-cause [get]
+func (h *DefectAnalyticsHandler) getRootCause(c *gin.Context) {
+	q := analyticsQuery(c)
+	data, err := h.svc.GetRootCause(c.Request.Context(), q)
+	if err != nil {
+		writeErr(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, data)
 }

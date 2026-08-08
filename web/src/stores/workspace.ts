@@ -3,7 +3,7 @@
  */
 import { defineStore } from "pinia";
 
-import { workspaceApi, type Workspace, type MyRoleResponse, type RoleDefinition } from "@/api/services/workspace";
+import { workspaceApi, type Workspace, type MyRoleResponse, type RoleDefinition, type ProjectModuleToggles } from "@/api/services/workspace";
 
 /** 工作空间 store 状态。显式声明 state 类型，规避 Pinia 对 Set 字段的推断歧义。 */
 interface WorkspaceState {
@@ -15,6 +15,8 @@ interface WorkspaceState {
   permissions: Set<string>;
   /** 当前用户在该工作空间的角色详情 */
   roleDetail: RoleDefinition | null;
+  /** 当前项目的功能模块开关（null 表示未加载） */
+  projectModules: ProjectModuleToggles | null;
 }
 
 /** 工作空间 store */

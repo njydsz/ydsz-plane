@@ -531,6 +531,7 @@ func NewEngine(d *Deps) *gin.Engine {
 				// 兼容前端 RolesPermissionsView / rbac.ts 的更新约定）
 				ws.PUT("/members/:user_id/role", requireWsPermission(d, auth.PermMemberChangeRole), changeMemberRole(d))
 				ws.DELETE("/members/:user_id", requireWsPermission(d, auth.PermMemberRemove), removeMember(d))
+				ws.POST("/members/import", requireWsPermission(d, auth.PermMemberInvite), importMembers(d))
 
 				// 邀请
 				ws.POST("/invitations", requireWsPermission(d, auth.PermMemberInvite), sendInvitation(d))
