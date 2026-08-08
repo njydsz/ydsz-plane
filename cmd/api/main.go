@@ -178,6 +178,7 @@ func run() error {
 		RelationSvc:     relationSvc,
 		CommentSvc:      commentSvc,
 		SocialSvc:       socialSvc,
+		ImportSvc:       issue.NewImportService(issueSvc),
 		WorkspaceStore:  wsStore,
 		NotificationSvc: notifSvc,
 		WSHub:           wsHub,

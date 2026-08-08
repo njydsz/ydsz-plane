@@ -7,6 +7,7 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -738,16 +739,28 @@ func (h *IssueHandler) exportIssues(c *gin.Context) {
 	w.Flush()
 }
 
-// importIssues 从 CSV 文件批量导入工作项。
+// importIssues 从 CSV / XLSX 文件批量导入工作项（支持列映射 / 增量同步）。
+//
+// multipart/form-data:
+//   - file: CSV 或 XLSX 文件（必填）
+//   - mappings: JSON 数组字符串（可选），格式 [{ "column_name": "名称", "field": "name" }, ...]
+//   - incremental: "true"/"false"（可选，默认 false），按 external_id 增量更新
+//
+// 目标字段白名单: name, description, priority, severity, found_phase,
+// root_cause_category, category, point, state_name, module_names,
+// label_names, assignee_emails, external_id, source, found_version,
+// fix_version, parent_identifier。
 //
 //	@Summary		导入工作项
-//	@Description	上传 CSV 文件批量创建需求/任务/缺陷
+//	@Description	上传 CSV/XLSX 文件批量创建或增量更新工作项（支持列映射）
 //	@Tags			issue
 //	@Accept			multipart/form-data
 //	@Produce		json
-//	@Param			file	formData	file	true	"CSV 文件"
-//	@Success		200		{object}	ImportResult
-//	@Failure		422		{object}	errs.AppError
+//	@Param			file			formData	file	true	"CSV 或 XLSX 文件"
+//	@Param			mappings		formData	string	false	"字段映射 JSON（可选）"
+//	@Param			incremental		formData	string	false	"增量导入 (true/false)"
+//	@Success		200				{object}	ImportResult
+//	@Failure		422				{object}	errs.AppError
 //	@Router			/issues/import [post]
 func (h *IssueHandler) importIssues(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
@@ -761,19 +774,20 @@ func (h *IssueHandler) importIssues(c *gin.Context) {
 		return
 	}
 
-	// 接收上传文件
 	file, err := c.FormFile("file")
 	if err != nil {
 		writeErr(c, errs.ErrValidation.WithDetails(
-			errs.FieldDetail{Field: "file", Reason: "请上传 CSV 文件"},
+			errs.FieldDetail{Field: "file", Reason: "请上传 CSV 或 XLSX 文件"},
 		))
 		return
 	}
 
-	// 仅支持 CSV
-	if !strings.HasSuffix(strings.ToLower(file.Filename), ".csv") {
+	filename := strings.ToLower(file.Filename)
+	isCSV := strings.HasSuffix(filename, ".csv")
+	isXLSX := strings.HasSuffix(filename, ".xlsx")
+	if !isCSV && !isXLSX {
 		writeErr(c, errs.ErrValidation.WithDetails(
-			errs.FieldDetail{Field: "file", Reason: "仅支持 CSV 格式（.csv 文件）"},
+			errs.FieldDetail{Field: "file", Reason: "仅支持 CSV (.csv) 或 Excel (.xlsx) 格式"},
 		))
 		return
 	}
@@ -785,7 +799,34 @@ func (h *IssueHandler) importIssues(c *gin.Context) {
 	}
 	defer f.Close()
 
-	result := h.d.ImportSvc.Import(c.Request.Context(), wsID, projectID, userID, f)
+	// 解析字段映射
+	opts := ImportOptions{}
+	if mappingStr := c.PostForm("mappings"); mappingStr != "" {
+		var mappings []ImportColumnMapping
+		if err := json.Unmarshal([]byte(mappingStr), &mappings); err != nil {
+			writeErr(c, errs.ErrValidation.WithDetails(
+				errs.FieldDetail{Field: "mappings", Reason: "字段映射 JSON 解析失败: " + err.Error()},
+			))
+			return
+		}
+		opts.Mappings = mappings
+	}
+	if incStr := c.PostForm("incremental"); strings.EqualFold(incStr, "true") || incStr == "1" {
+		opts.Incremental = true
+	}
+
+	// 文件读取：CSV 直接读；XLSX 走 xlsxReader stub
+	var reader io.Reader = f
+	if isXLSX {
+		csvReader, xerr := xlsxToCSVReader(f)
+		if xerr != nil {
+			writeErr(c, xerr)
+			return
+		}
+		reader = csvReader
+	}
+
+	result := h.d.ImportSvc.Import(c.Request.Context(), wsID, projectID, userID, reader, opts)
 	c.JSON(http.StatusOK, result)
 }
 
@@ -1480,6 +1521,31 @@ func (h *IssueHandler) removeVote(c *gin.Context) {
 		return
 	}
 	c.Status(http.StatusNoContent)
+}
+
+// ============================================================
+// XLSX 支持 stub
+// ============================================================
+
+// xlsxToCSVReader 将上传的 .xlsx 文件转换为 CSV reader 供 Import 解析。
+//
+// 当前 go.mod 尚未引入 github.com/xuri/excelize/v2，因此这是一个显式 TODO：
+// 1. 执行 go get github.com/xuri/excelize/v2 添加依赖
+// 2. 替换下方 if-err 块为：
+//
+//    	f, err := excelize.OpenReader(src)
+//    	if err != nil { return nil, errs.ErrValidation.Wrap(err) }
+//    	rows, err := f.GetRows(f.GetSheetName(0))
+//    	if err != nil { return nil, errs.ErrValidation.Wrap(err) }
+//    	var buf bytes.Buffer
+//    	w := csv.NewWriter(&buf)
+//    	_ = w.WriteAll(rows)
+//    	w.Flush()
+//    	return &buf, nil
+func xlsxToCSVReader(src io.Reader) (io.Reader, error) {
+	return nil, errs.ErrNotImplemented.WithDetails(
+		errs.FieldDetail{Field: "xlsx", Reason: "「XLSX 导入」需要添加依赖 github.com/xuri/excelize/v2，请先执行 go get"},
+	)
 }
 
 func (h *IssueHandler) watchIssue(c *gin.Context) {
