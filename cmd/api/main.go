@@ -271,6 +271,7 @@ func run() error {
 	// ---------- Pages (文档页面) ----------
 	pagesSvc := pages.NewService(pool.Pool)
 	pagesHandler := pages.NewHandler(pagesSvc)
+	pagesPublicHandler := pages.NewPublicShareHandler(pagesSvc)
 
 	// ---------- Webhook (S10) ----------
 	webhookSvc := webhook.NewService(pool.Pool)
@@ -358,6 +359,8 @@ func run() error {
 		// Intake domain (S10)
 		IntakeHandler:       intakeHandler,
 		IntakePublicHandler: intakePublicHandler,
+		// Pages 公开分享域
+		PagesPublicHandler: pagesPublicHandler,
 		// Automation domain (S11)
 		AutomationHandler: automationHandler,
 		// Metrics domain (S11)
@@ -493,6 +496,11 @@ func run() error {
 	// 注册 Intake 公开路由（免登录）
 	httpapi.RegisterIntakePublicRoutes(engine, &httpapi.Deps{
 		IntakePublicHandler: intakePublicHandler,
+	})
+
+	// 注册文档公开分享路由（免登录）
+	httpapi.RegisterPagesPublicRoutes(engine, &httpapi.Deps{
+		PagesPublicHandler: pagesPublicHandler,
 	})
 
 	srv := &http.Server{

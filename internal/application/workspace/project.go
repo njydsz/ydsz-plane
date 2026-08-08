@@ -58,22 +58,23 @@ func ProjectModuleAllEnabled() ProjectModuleToggles {
 
 // Project 项目 DTO。
 type Project struct {
-	ID          int64                  `json:"id"`
-	WorkspaceID int64                  `json:"workspace_id"`
-	Name        string                 `json:"name"`
-	Slug        string                 `json:"slug"`
-	Identifier  string                 `json:"identifier"`
-	Description string                 `json:"description,omitempty"`
-	Network     string                 `json:"network"`
-	Icon        string                 `json:"icon,omitempty"`
-	Color       string                 `json:"color,omitempty"`
-	Template    string                 `json:"template"`
-	Status      string                 `json:"status"`
-	SortOrder   float64                `json:"sort_order"`
-	Modules     ProjectModuleToggles   `json:"modules"`
-	CreatedBy   int64                  `json:"created_by"`
-	CreatedAt   time.Time              `json:"created_at"`
-	UpdatedAt   time.Time              `json:"updated_at"`
+	ID             int64                  `json:"id"`
+	WorkspaceID    int64                  `json:"workspace_id"`
+	Name           string                 `json:"name"`
+	Slug           string                 `json:"slug"`
+	Identifier     string                 `json:"identifier"`
+	Description    string                 `json:"description,omitempty"`
+	Network        string                 `json:"network"`
+	Icon           string                 `json:"icon,omitempty"`
+	Color          string                 `json:"color,omitempty"`
+	CoverImageUrl  *string                `json:"cover_image_url,omitempty"`
+	Template       string                 `json:"template"`
+	Status         string                 `json:"status"`
+	SortOrder      float64                `json:"sort_order"`
+	Modules        ProjectModuleToggles   `json:"modules"`
+	CreatedBy      int64                  `json:"created_by"`
+	CreatedAt      time.Time              `json:"created_at"`
+	UpdatedAt      time.Time              `json:"updated_at"`
 }
 
 // ProjectCreateInput 入参。
@@ -91,17 +92,20 @@ type ProjectCreateInput struct {
 	Template string
 	// Modules 功能模块开关集合；nil 表示全部启用。
 	Modules *ProjectModuleToggles
+	// CoverImageUrl 封面图片 URL；可选。
+	CoverImageUrl *string
 }
 
 // ProjectUpdateInput 入参。
 type ProjectUpdateInput struct {
-	Name        *string
-	Slug        *string
-	Description *string
-	Network     *string
-	Icon        *string
-	Color       *string
-	Modules     *ProjectModuleToggles
+	Name          *string
+	Slug          *string
+	Description   *string
+	Network       *string
+	Icon          *string
+	Color         *string
+	Modules       *ProjectModuleToggles
+	CoverImageUrl *string
 }
 
 // ProjectService 项目应用服务。
@@ -136,12 +140,12 @@ func (s *ProjectService) Create(ctx context.Context, in ProjectCreateInput) (*Pr
 	var p Project
 	err := pgx.BeginTxFunc(ctx, s.db, pgx.TxOptions{}, func(tx pgx.Tx) error {
 		if err := tx.QueryRow(ctx, `
-			INSERT INTO projects (workspace_id, name, slug, identifier, description, network, icon, color, template, modules, created_by)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-			RETURNING id, workspace_id, name, slug, identifier, description, network, icon, color, template, status, sort_order, modules, created_by, created_at, updated_at`,
-			in.WorkspaceID, in.Name, slug, identifier, in.Description, in.Network, in.Icon, in.Color, in.Template, sModules, in.CreatedBy).
+			INSERT INTO projects (workspace_id, name, slug, identifier, description, network, icon, color, cover_image_url, template, modules, created_by)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+			RETURNING id, workspace_id, name, slug, identifier, description, network, icon, color, cover_image_url, template, status, sort_order, modules, created_by, created_at, updated_at`,
+			in.WorkspaceID, in.Name, slug, identifier, in.Description, in.Network, in.Icon, in.Color, in.CoverImageUrl, in.Template, sModules, in.CreatedBy).
 			Scan(&p.ID, &p.WorkspaceID, &p.Name, &p.Slug, &p.Identifier, &p.Description,
-				&p.Network, &p.Icon, &p.Color, &p.Template, &p.Status, &p.SortOrder, &p.Modules, &p.CreatedBy, &p.CreatedAt, &p.UpdatedAt); err != nil {
+				&p.Network, &p.Icon, &p.Color, &p.CoverImageUrl, &p.Template, &p.Status, &p.SortOrder, &p.Modules, &p.CreatedBy, &p.CreatedAt, &p.UpdatedAt); err != nil {
 			if strings.Contains(err.Error(), "projects_workspace_id_slug") ||
 				strings.Contains(err.Error(), "projects_workspace_id_identifier") {
 				return errs.New("PROJECT.DUPLICATE", "项目链接标识或前缀已存在", 409)
@@ -171,11 +175,11 @@ func (s *ProjectService) Create(ctx context.Context, in ProjectCreateInput) (*Pr
 func (s *ProjectService) Get(ctx context.Context, wsID, projectID int64) (*Project, error) {
 	var p Project
 	err := s.db.QueryRow(ctx, `
-		SELECT id, workspace_id, name, slug, identifier, description, network, icon, color, template, status, sort_order, modules, created_by, created_at, updated_at
+		SELECT id, workspace_id, name, slug, identifier, description, network, icon, color, cover_image_url, template, status, sort_order, modules, created_by, created_at, updated_at
 		FROM projects WHERE id = $1 AND workspace_id = $2 AND deleted_at IS NULL`,
 		projectID, wsID).
 		Scan(&p.ID, &p.WorkspaceID, &p.Name, &p.Slug, &p.Identifier, &p.Description,
-			&p.Network, &p.Icon, &p.Color, &p.Template, &p.Status, &p.SortOrder, &p.Modules, &p.CreatedBy, &p.CreatedAt, &p.UpdatedAt)
+			&p.Network, &p.Icon, &p.Color, &p.CoverImageUrl, &p.Template, &p.Status, &p.SortOrder, &p.Modules, &p.CreatedBy, &p.CreatedAt, &p.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, errs.ErrNotFound
@@ -188,7 +192,7 @@ func (s *ProjectService) Get(ctx context.Context, wsID, projectID int64) (*Proje
 // ListByWorkspace 列出工作空间下的全部项目。
 func (s *ProjectService) ListByWorkspace(ctx context.Context, wsID int64) ([]Project, error) {
 	rows, err := s.db.Query(ctx, `
-		SELECT id, workspace_id, name, slug, identifier, description, network, icon, color, template, status, sort_order, modules, created_by, created_at, updated_at
+		SELECT id, workspace_id, name, slug, identifier, description, network, icon, color, cover_image_url, template, status, sort_order, modules, created_by, created_at, updated_at
 		FROM projects WHERE workspace_id = $1 AND deleted_at IS NULL
 		ORDER BY sort_order, created_at ASC`, wsID)
 	if err != nil {
@@ -200,7 +204,7 @@ func (s *ProjectService) ListByWorkspace(ctx context.Context, wsID int64) ([]Pro
 	for rows.Next() {
 		var p Project
 		if err := rows.Scan(&p.ID, &p.WorkspaceID, &p.Name, &p.Slug, &p.Identifier, &p.Description,
-			&p.Network, &p.Icon, &p.Color, &p.Template, &p.Status, &p.SortOrder, &p.Modules, &p.CreatedBy, &p.CreatedAt, &p.UpdatedAt); err != nil {
+			&p.Network, &p.Icon, &p.Color, &p.CoverImageUrl, &p.Template, &p.Status, &p.SortOrder, &p.Modules, &p.CreatedBy, &p.CreatedAt, &p.UpdatedAt); err != nil {
 			return nil, errs.ErrInternal.Wrap(err)
 		}
 		out = append(out, p)
@@ -255,19 +259,25 @@ func (s *ProjectService) Update(ctx context.Context, wsID, projectID int64, in P
 		args = append(args, *in.Modules)
 		arg++
 	}
+	if in.CoverImageUrl != nil {
+		sets = append(sets, "cover_image_url = $"+strconv.Itoa(arg))
+		args = append(args, *in.CoverImageUrl)
+		arg++
+	}
 
 	if len(sets) == 0 {
 		return s.Get(ctx, wsID, projectID)
 	}
 	sets = append(sets, "updated_at = now()")
 	query := "UPDATE projects SET " + strings.Join(sets, ", ") +
-		" WHERE id = $" + strconv.Itoa(arg) + " AND workspace_id = $" + strconv.Itoa(arg+1) + " AND deleted_at IS NULL"
+		" WHERE id = $" + strconv.Itoa(arg) + " AND workspace_id = $" + strconv.Itoa(arg+1) + " AND deleted_at IS NULL " +
+		"RETURNING id, workspace_id, name, slug, identifier, description, network, icon, color, cover_image_url, template, status, sort_order, modules, created_by, created_at, updated_at"
 	args = append(args, projectID, wsID)
 
 	var p Project
 	err := s.db.QueryRow(ctx, query, args...).
 		Scan(&p.ID, &p.WorkspaceID, &p.Name, &p.Slug, &p.Identifier, &p.Description,
-			&p.Network, &p.Icon, &p.Color, &p.Status, &p.SortOrder, &p.Modules, &p.CreatedBy, &p.CreatedAt, &p.UpdatedAt)
+			&p.Network, &p.Icon, &p.Color, &p.CoverImageUrl, &p.Template, &p.Status, &p.SortOrder, &p.Modules, &p.CreatedBy, &p.CreatedAt, &p.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, errs.ErrNotFound

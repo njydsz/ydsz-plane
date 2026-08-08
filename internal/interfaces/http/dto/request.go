@@ -96,6 +96,8 @@ type CreateProjectRequest struct {
 	Color string `json:"color" binding:"omitempty,hexcolor,len=7"`
 	// Template 项目模板代码：agile（敏捷） / waterfall（瀑布） / generic（通用看板），默认 generic。
 	Template string `json:"template" binding:"omitempty,oneof=agile waterfall generic"`
+	// CoverImageUrl 封面图片 URL（可选）；传空字符串表示清除。
+	CoverImageUrl string `json:"cover_image_url" binding:"omitempty,url,max=500"`
 	// Modules 功能模块开关；null 表示全部启用。
 	Modules *struct {
 		Intake   *bool `json:"intake,omitempty"`
@@ -119,6 +121,8 @@ type UpdateProjectRequest struct {
 	Icon *string `json:"icon,omitempty"`
 	// Color 新主题色；nil 表示不更新。
 	Color *string `json:"color,omitempty" binding:"omitempty,hexcolor,len=7"`
+	// CoverImageUrl 新封面图片 URL；nil 表示不更新；传空字符串表示清除。
+	CoverImageUrl *string `json:"cover_image_url,omitempty" binding:"omitempty,url,max=500"`
 	// Modules 功能模块开关；null 表示不更新（非 nil 则整体替换）。
 	Modules *struct {
 		Intake   *bool `json:"intake,omitempty"`

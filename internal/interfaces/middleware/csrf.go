@@ -20,18 +20,18 @@
 // ------------
 // 为避免服务端持久化令牌，我们采用 HMAC-SHA256(AccessToken, JWTSecret)
 // 派生 CSRF 令牌。这样做的安全收益：
-//  - 每个会话的 CSRF 令牌唯一且不可预测（依赖 JWT Secret 保密）。
-//  - 令牌与当前 Access Token 强绑定：Access Token 轮换（刷新）时 CSRF
-//    令牌同步变更，旧令牌立即失效，杜绝令牌复用窗口。
-//  - 零服务端状态：无需引入 Redis/DB 存储，不影响水平扩展。
+//   - 每个会话的 CSRF 令牌唯一且不可预测（依赖 JWT Secret 保密）。
+//   - 令牌与当前 Access Token 强绑定：Access Token 轮换（刷新）时 CSRF
+//     令牌同步变更，旧令牌立即失效，杜绝令牌复用窗口。
+//   - 零服务端状态：无需引入 Redis/DB 存储，不影响水平扩展。
 //
 // 作用域
 // ------
 // 仅对「使用会话 Cookie 认证的浏览器 SPA」生效：
-//  - 状态变更方法（POST/PUT/PATCH/DELETE）+ 存在 ydsz_access Cookie → 强制校验。
-//  - 安全方法（GET/HEAD/OPTIONS）→ 跳过校验（仅确保 CSRF Cookie 存在）。
-//  - 无会话 Cookie（X-Api-Key / Bearer API 客户端）→ 完全不受影响。
-//  - WebSocket 升级请求 → 跳过（握手阶段依赖 origin 校验，见 ws.Hub）。
+//   - 状态变更方法（POST/PUT/PATCH/DELETE）+ 存在 ydsz_access Cookie → 强制校验。
+//   - 安全方法（GET/HEAD/OPTIONS）→ 跳过校验（仅确保 CSRF Cookie 存在）。
+//   - 无会话 Cookie（X-Api-Key / Bearer API 客户端）→ 完全不受影响。
+//   - WebSocket 升级请求 → 跳过（握手阶段依赖 origin 校验，见 ws.Hub）。
 //
 // 实现纯标准库：crypto/hmac、crypto/sha256、crypto/subtle、encoding/hex。
 // 参考：OWASP CSRF Prevention Cheat Sheet（Double Submit Cookie 节）。

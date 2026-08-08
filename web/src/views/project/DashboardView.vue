@@ -29,6 +29,115 @@ const error = ref("");
 const dashboardData = ref<DashboardData | null>(null);
 const isFullscreen = ref(false);
 
+// --- 拖拽重排 ---
+const draggingWidgetId = ref<number | null>(null);
+const dragOverWidgetId = ref<number | null>(null);
+let saveTimer: ReturnType<typeof setTimeout> | null = null;
+const savingIds = ref<Set<number>>(new Set());
+
+function onDragStart(e: DragEvent, widgetId: number) {
+  draggingWidgetId.value = widgetId;
+  // 需要一个 data 才能触发 drag/drop 在部分浏览器上
+  e.dataTransfer?.setData("text/plain", String(widgetId));
+  e.dataTransfer!.effectAllowed = "move";
+}
+
+function onDragOver(e: DragEvent, widgetId: number) {
+  e.preventDefault(); // 允许 drop
+  if (draggingWidgetId.value === null || draggingWidgetId.value === widgetId) return;
+  dragOverWidgetId.value = widgetId;
+  e.dataTransfer!.dropEffect = "move";
+}
+
+function onDragLeave(_e: DragEvent, widgetId: number) {
+  if (dragOverWidgetId.value === widgetId) {
+    dragOverWidgetId.value = null;
+  }
+}
+
+function onDrop(e: DragEvent, targetId: number) {
+  e.preventDefault();
+  const sourceId = draggingWidgetId.value;
+  draggingWidgetId.value = null;
+  dragOverWidgetId.value = null;
+
+  if (sourceId === null || sourceId === targetId) return;
+
+  const widgets = dashboardData.value?.widgets;
+  if (!widgets) return;
+
+  const source = widgets.find((w) => w.id === sourceId);
+  const target = widgets.find((w) => w.id === targetId);
+  if (!source || !target) return;
+
+  // 根据拖拽释放位置（相对 target 左/右半区）决定插入到 target 左侧或右侧
+  const targetEl = (e.currentTarget as HTMLElement);
+  const rect = targetEl.getBoundingClientRect();
+  const isLeftHalf = (e.clientX - rect.left) < rect.width / 2;
+
+  // 计算目标 grid 坐标
+  let newX: number;
+  let newY: number;
+  if (isLeftHalf) {
+    // 放置到 target 左侧
+    newX = Math.max(0, target.grid_x - source.grid_w);
+    newY = target.grid_y;
+    // 如果左侧空间不足，尝试贴到 target 左边缘并下移一行
+    if (target.grid_x - source.grid_w < 0) {
+      newX = 0;
+      newY = target.grid_y + target.grid_h;
+    }
+  } else {
+    // 放置到 target 右侧
+    newX = target.grid_x + target.grid_w;
+    newY = target.grid_y;
+    // 如果超出 12 列，换行
+    if (newX + source.grid_w > 12) {
+      newX = 0;
+      newY = target.grid_y + target.grid_h;
+    }
+  }
+
+  // 本地更新
+  source.grid_x = newX;
+  source.grid_y = newY;
+
+  // 触发响应式更新
+  dashboardData.value = { ...dashboardData.value };
+
+  // 防抖保存到后端
+  scheduleSave(sourceId, { grid_x: newX, grid_y: newY, grid_w: source.grid_w, grid_h: source.grid_h });
+}
+
+function onDragEnd() {
+  draggingWidgetId.value = null;
+  dragOverWidgetId.value = null;
+}
+
+/** 防抖保存：300ms 内多次操作只发一次请求 */
+function scheduleSave(widgetId: number, payload: { grid_x: number; grid_y: number; grid_w: number; grid_h: number }) {
+  if (saveTimer) clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    void doSave(widgetId, payload);
+  }, 300);
+}
+
+async function doSave(widgetId: number, payload: { grid_x: number; grid_y: number; grid_w: number; grid_h: number }) {
+  if (!wsId.value) return;
+  savingIds.value.add(widgetId);
+  savingIds.value = new Set(savingIds.value); // 触发响应式
+  try {
+    await dashboardApi.updateWidget(wsId.value, projectId.value, widgetId, payload);
+  } catch (e: unknown) {
+    toast.error(e instanceof Error ? e.message : "布局保存失败");
+    // 失败时回滚：重新加载
+    await load();
+  } finally {
+    savingIds.value.delete(widgetId);
+    savingIds.value = new Set(savingIds.value);
+  }
+}
+
 // --- 全屏模式 ---
 function toggleFullscreen() {
   isFullscreen.value = !isFullscreen.value;
@@ -221,15 +330,37 @@ onMounted(load);
       @retry="load"
     />
 
+    <!-- ===== 保存状态指示器 ===== -->
+    <transition name="fade">
+      <span v-if="savingIds.size > 0" class="dashboard__save-indicator">
+        保存中…
+      </span>
+    </transition>
+
     <!-- ===== Widget 网格 ===== -->
-    <div v-else-if="hasWidgets" class="dashboard__grid">
+    <div
+      v-else-if="hasWidgets"
+      class="dashboard__grid"
+      :class="{ 'dashboard__grid--dragging': draggingWidgetId !== null }"
+    >
       <div
         v-for="w in visibleWidgets"
         :key="w.id"
         class="grid-cell"
+        :class="{
+          'grid-cell--dragging': draggingWidgetId === w.id,
+          'grid-cell--drag-over': dragOverWidgetId === w.id,
+          'grid-cell--saving': savingIds.has(w.id),
+        }"
         :style="gridStyle(w)"
+        draggable="true"
+        @dragstart="onDragStart($event, w.id)"
+        @dragover="onDragOver($event, w.id)"
+        @dragleave="onDragLeave($event, w.id)"
+        @drop="onDrop($event, w.id)"
+        @dragend="onDragEnd"
       >
-        <DashWidgetCard :title="w.title" @remove="handleRemove(w.id)">
+        <DashWidgetCard :title="w.title" :is-saving="savingIds.has(w.id)" @remove="handleRemove(w.id)">
           <component
             :is="getWidgetComponent(w.widget_type)"
             v-if="getWidgetComponent(w.widget_type)"
@@ -438,16 +569,94 @@ onMounted(load);
   cursor: not-allowed;
 }
 
+/* ===== 保存状态指示器 ===== */
+.dashboard__save-indicator {
+  position: absolute;
+  top: 8px;
+  right: 24px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--brand-500, #3f63f1);
+  background: var(--surface-1, #fff);
+  border: 1px solid var(--border-subtle, #e5e7eb);
+  border-radius: var(--radius-sm, 6px);
+  padding: 5px 12px;
+  z-index: 60;
+  box-shadow: var(--shadow-popover, 0 2px 8px rgba(0, 0, 0, 0.08));
+}
+
+.dashboard__save-indicator::before {
+  content: "";
+  width: 10px;
+  height: 10px;
+  border: 2px solid var(--brand-500, #3f63f1);
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: dashboard-spin 0.7s linear infinite;
+}
+
+@keyframes dashboard-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.2s;
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
 /* ===== Grid ===== */
 .dashboard__grid {
   display: grid;
   grid-template-columns: repeat(12, 1fr);
   gap: 12px;
   align-items: stretch;
+  position: relative;
+}
+
+.dashboard__grid--dragging {
+  /* 拖拽期间给网格区域加一个淡色背景作为可放置区域提示 */
+  background-image: linear-gradient(
+    to right,
+    transparent calc(100% / 12 - 1px),
+    var(--border-subtle, #e5e7eb) calc(100% / 12 - 1px),
+    var(--border-subtle, #e5e7eb) calc(100% / 12),
+    transparent calc(100% / 12)
+  );
+  background-size: calc(100% + 12px) 100%;
+  background-position: -6px 0;
 }
 
 .grid-cell {
   min-height: 120px;
+  transition: transform 0.15s, box-shadow 0.15s, opacity 0.15s, outline-offset 0.15s;
+  outline-offset: 0;
+}
+
+.grid-cell--dragging {
+  opacity: 0.4;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  transform: scale(0.97);
+  cursor: grabbing;
+}
+
+.grid-cell--drag-over {
+  outline: 2px dashed var(--brand-500, #3f63f1);
+  outline-offset: -2px;
+  background-color: color-mix(in srgb, var(--brand-500, #3f63f1) 6%, transparent);
+  border-radius: var(--radius-md, 8px);
+}
+
+.grid-cell--saving {
+  opacity: 0.7;
 }
 
 /* ===== Empty state ===== */

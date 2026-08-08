@@ -200,6 +200,15 @@ export interface CreateWidgetInput {
   config?: Record<string, any>;
 }
 
+/** 更新 Widget 入参 — 仅网格位置、尺寸与配置可编辑。 */
+export interface UpdateWidgetInput {
+  grid_x?: number;
+  grid_y?: number;
+  grid_w?: number;
+  grid_h?: number;
+  config?: Record<string, any>;
+}
+
 /* ------------------------------------------------------------------ */
 /* API calls                                                          */
 /* ------------------------------------------------------------------ */
@@ -230,6 +239,12 @@ export const dashboardApi = {
   deleteWidget: (wsId: number | string, projectId: number, widgetId: number) =>
     wrap<void>(
       apiClient.delete(`/workspaces/${wsId}/projects/${projectId}/dashboard/widgets/${widgetId}`),
+    ),
+
+  /** 更新 widget 网格位置 / 尺寸 / 配置 */
+  updateWidget: (wsId: number | string, projectId: number, widgetId: number, input: UpdateWidgetInput) =>
+    wrap<DashboardWidget>(
+      apiClient.patch(`/workspaces/${wsId}/projects/${projectId}/dashboard/widgets/${widgetId}`, input),
     ),
 
   /** 列出项目告警 */

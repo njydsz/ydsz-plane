@@ -41,6 +41,21 @@ func (h *Handler) Register(r *gin.RouterGroup) {
 		pages.POST("/:page_id/links", h.createLink)
 		pages.GET("/:page_id/links", h.listLinks)
 		pages.DELETE("/:page_id/links/:link_id", h.deleteLink)
+
+		// 文档公开分享
+		pages.POST("/:page_id/shares", h.createShare)
+		pages.GET("/:page_id/shares", h.listShares)
+		pages.PATCH("/:page_id/shares/:share_id", h.updateShare)
+		pages.DELETE("/:page_id/shares/:share_id", h.revokeShare)
+	}
+
+	// 文档模板（同级路由组：/templates）
+	templates := r.Group("/templates")
+	{
+		templates.GET("", h.listTemplates)
+		templates.POST("", h.createTemplate)
+		templates.PATCH("/:template_id", h.updateTemplate)
+		templates.DELETE("/:template_id", h.deleteTemplate)
 	}
 }
 
@@ -347,6 +362,211 @@ func (h *Handler) deleteLink(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
+// --- 文档模板 handlers ---
+
+// listTemplates 列出项目可用模板（工作空间级 + 项目级 + 全局内置）。
+func (h *Handler) listTemplates(c *gin.Context) {
+	wsID := c.GetInt64(middleware.CtxWorkspaceID)
+	projectID := c.GetInt64(middleware.CtxProjectID)
+
+	list, err := h.svc.ListTemplates(c.Request.Context(), wsID, projectID)
+	if err != nil {
+		writeErr(c, err)
+		return
+	}
+	if list == nil {
+		list = []PageTemplate{}
+	}
+	c.JSON(http.StatusOK, gin.H{"results": list})
+}
+
+// createTemplate 创建文档模板。
+func (h *Handler) createTemplate(c *gin.Context) {
+	wsID := c.GetInt64(middleware.CtxWorkspaceID)
+	projectID := c.GetInt64(middleware.CtxProjectID)
+	userID := c.GetInt64(middleware.CtxUserID)
+
+	var req CreateTemplateInput
+	if err := c.ShouldBindJSON(&req); err != nil {
+		writeErr(c, errs.ErrValidation.WithDetails(errs.FieldDetail{Field: "body", Reason: err.Error()}))
+		return
+	}
+
+	tmpl, err := h.svc.CreateTemplate(c.Request.Context(), wsID, projectID, userID, req)
+	if err != nil {
+		writeErr(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, tmpl)
+}
+
+// updateTemplate 更新文档模板。
+func (h *Handler) updateTemplate(c *gin.Context) {
+	wsID := c.GetInt64(middleware.CtxWorkspaceID)
+
+	templateID, err := templateIDParam(c)
+	if err != nil {
+		writeErr(c, err)
+		return
+	}
+
+	var req UpdateTemplateInput
+	if err := c.ShouldBindJSON(&req); err != nil {
+		writeErr(c, errs.ErrValidation.WithDetails(errs.FieldDetail{Field: "body", Reason: err.Error()}))
+		return
+	}
+
+	tmpl, err := h.svc.UpdateTemplate(c.Request.Context(), wsID, templateID, req)
+	if err != nil {
+		writeErr(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, tmpl)
+}
+
+// deleteTemplate 删除文档模板。
+func (h *Handler) deleteTemplate(c *gin.Context) {
+	wsID := c.GetInt64(middleware.CtxWorkspaceID)
+
+	templateID, err := templateIDParam(c)
+	if err != nil {
+		writeErr(c, err)
+		return
+	}
+
+	if err := h.svc.DeleteTemplate(c.Request.Context(), wsID, templateID); err != nil {
+		writeErr(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
+// --- 文档公开分享 handlers ---
+
+// createShare 为文档创建公开分享链接。
+func (h *Handler) createShare(c *gin.Context) {
+	wsID := c.GetInt64(middleware.CtxWorkspaceID)
+	projectID := c.GetInt64(middleware.CtxProjectID)
+	userID := c.GetInt64(middleware.CtxUserID)
+
+	pageID, err := pageIDParam(c)
+	if err != nil {
+		writeErr(c, err)
+		return
+	}
+
+	var req CreateShareInput
+	if err := c.ShouldBindJSON(&req); err != nil {
+		writeErr(c, errs.ErrValidation.WithDetails(errs.FieldDetail{Field: "body", Reason: err.Error()}))
+		return
+	}
+
+	share, err := h.svc.CreateShare(c.Request.Context(), wsID, projectID, pageID, userID, req)
+	if err != nil {
+		writeErr(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, share)
+}
+
+// listShares 列出文档所有分享链接。
+func (h *Handler) listShares(c *gin.Context) {
+	wsID := c.GetInt64(middleware.CtxWorkspaceID)
+
+	pageID, err := pageIDParam(c)
+	if err != nil {
+		writeErr(c, err)
+		return
+	}
+
+	list, err := h.svc.ListShares(c.Request.Context(), wsID, pageID)
+	if err != nil {
+		writeErr(c, err)
+		return
+	}
+	if list == nil {
+		list = []PageShare{}
+	}
+	c.JSON(http.StatusOK, gin.H{"results": list})
+}
+
+// updateShare 更新分享链接（状态 / 密码 / 过期时间）。
+func (h *Handler) updateShare(c *gin.Context) {
+	wsID := c.GetInt64(middleware.CtxWorkspaceID)
+
+	shareID, err := shareIDParam(c)
+	if err != nil {
+		writeErr(c, err)
+		return
+	}
+
+	var req UpdateShareInput
+	if err := c.ShouldBindJSON(&req); err != nil {
+		writeErr(c, errs.ErrValidation.WithDetails(errs.FieldDetail{Field: "body", Reason: err.Error()}))
+		return
+	}
+
+	share, err := h.svc.UpdateShare(c.Request.Context(), wsID, shareID, req)
+	if err != nil {
+		writeErr(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, share)
+}
+
+// revokeShare 吊销分享链接。
+func (h *Handler) revokeShare(c *gin.Context) {
+	wsID := c.GetInt64(middleware.CtxWorkspaceID)
+
+	shareID, err := shareIDParam(c)
+	if err != nil {
+		writeErr(c, err)
+		return
+	}
+
+	if err := h.svc.RevokeShare(c.Request.Context(), wsID, shareID); err != nil {
+		writeErr(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
+// --- 公开分享访问 handler（免登录） ---
+
+// PublicShareHandler 公开分享处理器（与认证路由分开注册）。
+type PublicShareHandler struct {
+	svc *Service
+}
+
+// NewPublicShareHandler 构造公开分享 handler。
+func NewPublicShareHandler(svc *Service) *PublicShareHandler {
+	return &PublicShareHandler{svc: svc}
+}
+
+// GetSharedPage 获取公开分享页面内容。
+// 查询参数：?password=xxx （可选，当分享设置了密码时需提供）。
+func (h *PublicShareHandler) GetSharedPage(c *gin.Context) {
+	token := c.Param("token")
+	password := c.Query("password")
+
+	view, _, err := h.svc.GetSharedPageView(c.Request.Context(), token, password)
+	if err != nil {
+		var appErr *errs.AppError
+		if errs.As(err, &appErr) {
+			// 特殊标记：需要密码时返回 401 + 提示
+			if appErr.Code == "PAGES.SHARE_PASSWORD_REQUIRED" {
+				c.JSON(http.StatusUnauthorized, gin.H{"error": appErr, "require_password": true})
+				return
+			}
+			c.JSON(appErr.HTTP, gin.H{"error": appErr})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": errs.ErrInternal})
+		return
+	}
+	c.JSON(http.StatusOK, view)
+}
+
 // writeErr 统一错误响应（同 preference 模块）。
 func writeErr(c *gin.Context, err error) {
 	var appErr *errs.AppError
@@ -355,4 +575,22 @@ func writeErr(c *gin.Context, err error) {
 		return
 	}
 	middleware.AbortWithError(c, errs.ErrInternal)
+}
+
+// templateIDParam 解析路径参数 :template_id。
+func templateIDParam(c *gin.Context) (int64, error) {
+	id, err := strconv.ParseInt(c.Param("template_id"), 10, 64)
+	if err != nil {
+		return 0, errs.ErrValidation.WithDetails(errs.FieldDetail{Field: "template_id", Reason: "无效的模板 ID"})
+	}
+	return id, nil
+}
+
+// shareIDParam 解析路径参数 :share_id。
+func shareIDParam(c *gin.Context) (int64, error) {
+	id, err := strconv.ParseInt(c.Param("share_id"), 10, 64)
+	if err != nil {
+		return 0, errs.ErrValidation.WithDetails(errs.FieldDetail{Field: "share_id", Reason: "无效的分享 ID"})
+	}
+	return id, nil
 }

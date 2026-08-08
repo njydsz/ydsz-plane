@@ -1913,6 +1913,7 @@ CACHE 1
   "network" text COLLATE "pg_catalog"."default" NOT NULL DEFAULT 'public'::text,
   "icon" text COLLATE "pg_catalog"."default",
   "color" text COLLATE "pg_catalog"."default",
+  "cover_image_url" text COLLATE "pg_catalog"."default",
   "status" text COLLATE "pg_catalog"."default" NOT NULL DEFAULT 'active'::text,
   "sort_order" float8 NOT NULL DEFAULT 65535,
   "created_by" int8 NOT NULL,
@@ -1942,6 +1943,12 @@ COMMENT ON COLUMN public.projects.version IS '乐观锁版本号（默认 1）';
 COMMENT ON COLUMN public.projects.is_default IS '是否工作空间默认项目: true=默认（用于项目选择器/快捷入口）';
 COMMENT ON COLUMN public.projects.icon IS '项目图标（Emoji / Lucide 图标名）';
 COMMENT ON COLUMN public.projects.modules IS '功能模块开关 JSON: {intake, sprint, version, estimate}';
+COMMENT ON COLUMN public.projects.cover_image_url IS '项目封面图片 URL（可选）';
+
+-- ----------------------------
+-- Migrations: add cover_image_url to existing projects table (idempotent)
+-- ----------------------------
+ALTER TABLE "public"."projects" ADD COLUMN IF NOT EXISTS "cover_image_url" text;
 
 -- ----------------------------
 -- Records of projects

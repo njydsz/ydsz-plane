@@ -116,6 +116,11 @@ onMounted(load);
     </AppEmptyState>
     <div v-else class="project-grid">
       <div v-for="p in projects" :key="p.id" class="project-card" :style="{ borderTopColor: p.color || 'var(--brand-500)' }">
+        <div
+          v-if="p.cover_image_url"
+          class="project-card__cover"
+          :style="{ backgroundImage: `url(${p.cover_image_url})` }"
+        />
         <div v-if="p.icon" class="project-card__icon">{{ p.icon }}</div>
         <div class="project-card__body">
           <div class="project-card__name">{{ p.name }}</div>
@@ -208,11 +213,23 @@ onMounted(load);
   border-top: 3px solid var(--brand-500);
   border-radius: var(--radius-md);
   background: var(--surface-1);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.project-card__cover {
+  margin: -16px -16px 0;
+  height: 100px;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-color: var(--surface-2);
 }
 
 .project-card__icon {
   font-size: 24px;
-  margin-bottom: 8px;
 }
 
 .project-card__name {

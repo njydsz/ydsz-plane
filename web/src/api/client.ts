@@ -123,6 +123,13 @@ http.interceptors.request.use((config) => {
     config.headers.set("X-Request-ID", rid);
     (config as RequestMeta).__requestId = rid;
   }
+  // CSRF 防护：读取服务端写入的非 HttpOnly Cookie，回写到请求头
+  if (typeof document !== "undefined") {
+    const csrf = document.cookie.match(/(?:^|;\s*)X-CSRF-TOKEN=([^;]+)/)?.[1];
+    if (csrf) {
+      config.headers.set("X-CSRF-Token", decodeURIComponent(csrf));
+    }
+  }
   return config;
 });
 

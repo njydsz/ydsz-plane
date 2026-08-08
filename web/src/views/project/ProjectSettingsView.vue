@@ -24,6 +24,7 @@ const form = reactive({
   description: "",
   network: "public",
   color: "#3f63f1",
+  coverImageUrl: "",
   modules: {
     intake: true,
     sprint: true,
@@ -41,6 +42,7 @@ const moduleToggles = reactive({
 const saving = ref(false);
 const saveError = ref("");
 const saveSuccess = ref("");
+const coverImgError = ref(false);
 
 const networkOptions = [
   { value: "public", label: "公开 — 空间内所有成员可见" },
@@ -64,6 +66,7 @@ async function loadProject() {
     form.description = project.value.description ?? "";
     form.network = project.value.network ?? "public";
     form.color = project.value.color ?? "#3f63f1";
+    form.coverImageUrl = project.value.cover_image_url ?? "";
     if (project.value.modules) {
       moduleToggles.intake = project.value.modules.intake;
       moduleToggles.sprint = project.value.modules.sprint;
@@ -93,6 +96,7 @@ async function save() {
       description: form.description.trim() || undefined,
       network: form.network,
       color: form.color,
+      cover_image_url: form.coverImageUrl.trim() || undefined,
       modules: {
         intake: moduleToggles.intake,
         sprint: moduleToggles.sprint,
@@ -207,6 +211,39 @@ onMounted(loadProject);
         </div>
       </div>
 
+    </section>
+
+    <!-- 封面图 -->
+    <section class="panel" style="margin-top: 24px">
+      <h2 class="panel__title">封面图</h2>
+      <p class="panel__desc">设置项目封面图片 URL，将在项目卡片和项目仪表盘顶部展示。</p>
+      <div class="cover-form">
+        <label class="form-item form-item--full">
+          <span class="form-item__label">封面图片 URL</span>
+          <input
+            v-model="form.coverImageUrl"
+            type="text"
+            placeholder="https://example.com/cover.jpg"
+            maxlength="500"
+          />
+        </label>
+        <div class="cover-preview">
+          <div v-if="form.coverImageUrl.trim()" class="cover-preview__img-wrap">
+            <img
+              :src="form.coverImageUrl.trim()"
+              alt="封面预览"
+              class="cover-preview__img"
+              @error="coverImgError = true"
+              @load="coverImgError = false"
+            />
+            <span v-if="coverImgError" class="cover-preview__error">图片加载失败，请检查 URL 是否正确</span>
+          </div>
+          <div v-else class="cover-preview__placeholder">暂无封面图</div>
+        </div>
+        <div class="cover-actions">
+          <button class="btn btn--secondary" type="button" @click="form.coverImageUrl = ''">清除封面</button>
+        </div>
+      </div>
     </section>
 
     <!-- 功能模块开关 -->
@@ -558,6 +595,69 @@ onMounted(loadProject);
 
 .toggle-switch:checked::before {
   transform: translateX(20px);
+}
+
+/* ===== Cover image ===== */
+.cover-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cover-preview {
+  width: 100%;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--surface-2);
+}
+
+.cover-preview__img-wrap {
+  position: relative;
+  width: 100%;
+  height: 160px;
+}
+
+.cover-preview__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.cover-preview__error {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 8px 12px;
+  background: var(--danger-500);
+  color: var(--text-on-brand);
+  font-size: 12px;
+}
+
+.cover-preview__placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100px;
+  color: var(--text-tertiary);
+  font-size: 13px;
+}
+
+.cover-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn--secondary {
+  background: var(--surface-2);
+  border-color: var(--border-default);
+  color: var(--text-secondary);
+}
+
+.btn--secondary:hover {
+  background: var(--surface-3);
 }
 
 @media (max-width: 600px) {

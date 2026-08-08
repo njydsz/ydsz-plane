@@ -90,6 +90,8 @@ type Deps struct {
 	// Intake 域（S10）
 	IntakeHandler       *intake.Handler
 	IntakePublicHandler *intake.PublicHandler
+	// Pages 公开分享域
+	PagesPublicHandler *pages.PublicShareHandler
 	// Automation 域（S11）
 	AutomationHandler *automation.Handler
 	// Metrics 域（S11）——接口类型，支持普通与带 Redis 缓存的两种实现
@@ -374,6 +376,18 @@ func RegisterIntakePublicRoutes(r *gin.Engine, d *Deps) {
 	}
 }
 
+// RegisterPagesPublicRoutes 注册文档公开分享路由（免登录）。
+// 路由模式：/api/v1/public/pages/:token
+func RegisterPagesPublicRoutes(r *gin.Engine, d *Deps) {
+	if d.PagesPublicHandler == nil {
+		return
+	}
+	public := r.Group("/api/v1/public/pages")
+	{
+		public.GET("/:token", d.PagesPublicHandler.GetSharedPage)
+	}
+}
+
 // RegisterAutomationRoutes 注册自动化规则路由（项目级）。
 func RegisterAutomationRoutes(r *gin.Engine, d *Deps) {
 	if d.AutomationHandler == nil {
@@ -484,6 +498,10 @@ func NewEngine(d *Deps) *gin.Engine {
 		middleware.RequestID(),
 		middleware.Recovery(d.Log),
 		middleware.CORS(origins),
+		// CSRF 防护：仅对携带会话 Cookie 的状态变更请求生效。
+		// 位于 CORS 之后，可前置拦截跨站伪造请求；纯 API 客户端（无会话 Cookie）
+		// 不受影响 —— 见 internal/middleware/csrf.go 的设计说明。
+		middleware.CSRF(d.Cfg, d.Cfg.Auth.JWTSecret),
 		middleware.AccessLog(d.Log),
 		telemetry.MetricsMiddleware(),
 	)
@@ -857,6 +875,9 @@ func setAuthCookies(c *gin.Context, d *Deps, pair *auth.TokenPair) {
 		HttpOnly: true, Secure: secure, SameSite: http.SameSiteLaxMode,
 		MaxAge: int(d.Cfg.Auth.RefreshTokenTTL.Seconds()),
 	})
+	// 会话建立时同步设置 CSRF 双提交令牌 Cookie，确保握手三方
+	// （access / refresh / csrf）原子生效，前后端令牌一致。
+	middleware.SetCSRFTokenCookie(c, d.Cfg, d.Cfg.Auth.JWTSecret, pair.AccessToken)
 }
 
 func writeError(c *gin.Context, err error) {

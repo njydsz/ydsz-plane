@@ -350,6 +350,14 @@ watch(
               <span v-if="!collapsed">日历</span>
             </router-link>
             <router-link
+              :to="`/${wsStore.currentId}/projects/${currentProjectId}/timeline`"
+              class="nav-item nav-item--sub"
+              active-class="is-active"
+            >
+              <span class="nav-icon">📊</span>
+              <span v-if="!collapsed">时间线</span>
+            </router-link>
+            <router-link
               :to="`/${wsStore.currentId}/projects/${currentProjectId}/automation`"
               class="nav-item nav-item--sub"
               active-class="is-active"

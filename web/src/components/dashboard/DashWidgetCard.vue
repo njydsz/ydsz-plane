@@ -1,16 +1,29 @@
 <script setup lang="ts">
 /**
  * DashWidgetCard — 仪表盘 Widget 通用外壳。
- * 标题栏 + 右上角删除按钮（×），slot 渲染具体内容。
+ * 标题栏（含拖拽手柄）+ 右上角删除按钮（×），slot 渲染具体内容。
+ *
+ * 拖拽由父级 (.grid-cell) 上的 draggable="true" 驱动；本组件仅
+ * 在标题区提供视觉手柄，并拦截其上的点击事件以免触发 widget 内容交互。
  */
-defineProps<{ title: string }>();
+defineProps<{
+  title: string;
+  isSaving?: boolean;
+}>();
 
 const emit = defineEmits<{ remove: [] }>();
 </script>
 
 <template>
-  <div class="dash-card">
+  <div class="dash-card" :class="{ 'dash-card--saving': isSaving }">
     <div class="dash-card__header">
+      <span
+        class="dash-card__handle"
+        aria-label="拖拽手柄"
+        title="拖拽以重新排列"
+      >
+        <span class="dash-card__handle-grip"></span>
+      </span>
       <span class="dash-card__title">{{ title }}</span>
       <button
         class="dash-card__remove"
@@ -37,15 +50,52 @@ const emit = defineEmits<{ remove: [] }>();
   border: 1px solid var(--border-subtle, #e5e7eb);
   border-radius: var(--radius-md, 8px);
   overflow: hidden;
+  transition: opacity 0.15s, box-shadow 0.15s;
+}
+
+.dash-card--saving {
+  opacity: 0.75;
 }
 
 .dash-card__header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 8px;
   padding: 10px 14px;
   border-bottom: 1px solid var(--border-subtle, #e5e7eb);
   flex-shrink: 0;
+}
+
+/* ---- 拖拽手柄 ---- */
+.dash-card__handle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm, 4px);
+  cursor: grab;
+  color: var(--text-tertiary, #9ca3af);
+  transition: color 0.15s, background 0.15s;
+}
+
+.dash-card__handle:hover {
+  color: var(--text-secondary, #4b5563);
+  background: var(--surface-2, #f7f8f9);
+}
+
+.dash-card__handle:active {
+  cursor: grabbing;
+}
+
+.dash-card__handle-grip {
+  width: 10px;
+  height: 10px;
+  background-image: radial-gradient(circle, currentColor 1.2px, transparent 1.2px);
+  background-size: 4px 4px;
+  background-repeat: repeat;
+  opacity: 0.7;
 }
 
 .dash-card__title {
@@ -55,6 +105,7 @@ const emit = defineEmits<{ remove: [] }>();
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  flex: 1;
 }
 
 .dash-card__remove {

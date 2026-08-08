@@ -64,6 +64,14 @@ const router = createRouter({
       meta: { public: true },
       props: { mode: "track" as const },
     },
+    // 文档公开分享只读视图（免登录）
+    {
+      path: "/public/page/:token",
+      name: "public-page",
+      component: () => import("@/views/project/PublicPageView.vue"),
+      meta: { public: true },
+      props: (route) => ({ token: String(route.params.token) }),
+    },
     {
       path: "/settings/api-tokens",
       name: "api-tokens",
@@ -259,6 +267,16 @@ const router = createRouter({
           path: ":workspaceId(\\d+)/projects/:projectId/list",
           name: "project-list",
           component: () => import("@/views/project/IssueListView.vue"),
+          props: (route) => ({
+            workspaceId: Number(route.params.workspaceId),
+            projectId: Number(route.params.projectId),
+          }),
+        },
+        // 时间线视图（ECharts Gantt）
+        {
+          path: ":workspaceId(\\d+)/projects/:projectId/timeline",
+          name: "project-timeline",
+          component: () => import("@/views/project/TimelineView.vue"),
           props: (route) => ({
             workspaceId: Number(route.params.workspaceId),
             projectId: Number(route.params.projectId),

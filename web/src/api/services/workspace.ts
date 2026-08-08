@@ -82,6 +82,7 @@ export interface Project {
   network: string;
   icon?: string;
   color?: string;
+  cover_image_url?: string;
   status: string;
   sort_order: number;
   created_by: number;
@@ -146,9 +147,9 @@ export const workspaceApi = {
   listProjects: (wsId: number) => wrap<Project[]>(http.get(`/workspaces/${wsId}/projects`)),
   getProject: (wsId: number, projectId: number) =>
     wrap<Project>(http.get(`/workspaces/${wsId}/projects/${projectId}`)),
-  createProject: (wsId: number, input: { name: string; slug?: string; identifier?: string; description?: string; network?: string; icon?: string; color?: string; template?: string; modules?: ProjectModuleToggles }) =>
+  createProject: (wsId: number, input: { name: string; slug?: string; identifier?: string; description?: string; network?: string; icon?: string; color?: string; cover_image_url?: string; template?: string; modules?: ProjectModuleToggles }) =>
     wrap<Project>(http.post(`/workspaces/${wsId}/projects`, input)),
-  updateProject: (wsId: number, projectId: number, input: { name?: string; slug?: string; description?: string; network?: string; icon?: string; color?: string; modules?: ProjectModuleToggles }) =>
+  updateProject: (wsId: number, projectId: number, input: { name?: string; slug?: string; description?: string; network?: string; icon?: string; color?: string; cover_image_url?: string; modules?: ProjectModuleToggles }) =>
     wrap<Project>(http.patch(`/workspaces/${wsId}/projects/${projectId}`, input)),
   archiveProject: (wsId: number, projectId: number) =>
     wrap<void>(http.delete(`/workspaces/${wsId}/projects/${projectId}`)),

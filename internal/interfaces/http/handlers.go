@@ -369,18 +369,23 @@ func createProject(d *Deps) gin.HandlerFunc {
 			middleware.AbortWithError(c, errs.ErrValidation.WithDetails(fieldDetails(err)...))
 			return
 		}
+		var coverImagePtr *string
+		if req.CoverImageUrl != "" {
+			coverImagePtr = &req.CoverImageUrl
+		}
 		p, err := d.ProjectSvc.Create(c.Request.Context(), workspace.ProjectCreateInput{
-			WorkspaceID: wsID,
-			Name:        req.Name,
-			Slug:        req.Slug,
-			Identifier:  req.Identifier,
-			Description: req.Description,
-			Network:     req.Network,
-			Icon:        req.Icon,
-			Color:       req.Color,
-			Template:    req.Template,
-			CreatedBy:   c.GetInt64(middleware.CtxUserID),
-			Modules:     modulesDTOToDomain(req.Modules),
+			WorkspaceID:  wsID,
+			Name:         req.Name,
+			Slug:         req.Slug,
+			Identifier:   req.Identifier,
+			Description:  req.Description,
+			Network:      req.Network,
+			Icon:         req.Icon,
+			Color:        req.Color,
+			Template:     req.Template,
+			CreatedBy:    c.GetInt64(middleware.CtxUserID),
+			Modules:      modulesDTOToDomain(req.Modules),
+			CoverImageUrl: coverImagePtr,
 		})
 		if err != nil {
 			writeError(c, err)
@@ -437,13 +442,14 @@ func updateProject(d *Deps) gin.HandlerFunc {
 			return
 		}
 		p, err := d.ProjectSvc.Update(c.Request.Context(), wsID, projectID, workspace.ProjectUpdateInput{
-			Name:    req.Name,
-			Slug:    req.Slug,
-			Description: req.Description,
-			Network: req.Network,
-			Icon:    req.Icon,
-			Color:   req.Color,
-			Modules: modulesDTOToUpdateDomain(req.Modules),
+			Name:          req.Name,
+			Slug:          req.Slug,
+			Description:   req.Description,
+			Network:       req.Network,
+			Icon:          req.Icon,
+			Color:         req.Color,
+			Modules:       modulesDTOToUpdateDomain(req.Modules),
+			CoverImageUrl: req.CoverImageUrl,
 		})
 		if err != nil {
 			writeError(c, err)

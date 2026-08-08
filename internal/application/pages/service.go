@@ -11,9 +11,11 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"golang.org/x/crypto/bcrypt"
 
 	"github.com/njydsz/ydsz-plane/pkg/errs"
 )
@@ -455,4 +457,384 @@ func (s *Service) DeleteLink(ctx context.Context, pageID, linkID int64) error {
 		return errs.ErrNotFound
 	}
 	return nil
+}
+
+// --- 文档模板 ---
+
+const templateColumns = `id, workspace_id, project_id, name, description, content_html, category, created_by, created_at, updated_at`
+
+// scanTemplate 从 pgx 行读取一条 PageTemplate。
+func scanTemplate(row pgx.Row, t *PageTemplate) error {
+	var description sql.NullString
+	var contentHTML sql.NullString
+	var category sql.NullString
+	err := row.Scan(
+		&t.ID, &t.WorkspaceID, &t.ProjectID, &t.Name,
+		&description, &contentHTML, &category, &t.CreatedBy, &t.CreatedAt, &t.UpdatedAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return errs.ErrNotFound
+		}
+		return errs.ErrInternal.Wrap(err)
+	}
+	if description.Valid {
+		t.Description = description.String
+	}
+	if contentHTML.Valid {
+		t.ContentHTML = contentHTML.String
+	}
+	if category.Valid {
+		t.Category = category.String
+	}
+	return nil
+}
+
+// ListTemplates 列出工作空间级（project_id=0）+ 项目级模板，按 category、name 排序。
+func (s *Service) ListTemplates(ctx context.Context, wsID, projectID int64) ([]PageTemplate, error) {
+	rows, err := s.db.Query(ctx, `
+		SELECT `+templateColumns+`
+		FROM page_templates
+		WHERE workspace_id = $1 AND (project_id = 0 OR project_id = $2)
+		ORDER BY category ASC, name ASC`, wsID, projectID)
+	if err != nil {
+		return nil, errs.ErrInternal.Wrap(fmt.Errorf("pages.ListTemplates: %w", err))
+	}
+	defer rows.Close()
+
+	var items []PageTemplate
+	for rows.Next() {
+		var t PageTemplate
+		if err := scanTemplate(rows, &t); err != nil {
+			return nil, err
+		}
+		items = append(items, t)
+	}
+	return items, rows.Err()
+}
+
+// GetTemplate 获取单个模板。
+func (s *Service) GetTemplate(ctx context.Context, wsID, templateID int64) (*PageTemplate, error) {
+	var t PageTemplate
+	var description sql.NullString
+	var contentHTML sql.NullString
+	var category sql.NullString
+	err := s.db.QueryRow(ctx, `
+		SELECT `+templateColumns+`
+		FROM page_templates WHERE id = $1 AND workspace_id = $2`,
+		templateID, wsID).Scan(
+		&t.ID, &t.WorkspaceID, &t.ProjectID, &t.Name,
+		&description, &contentHTML, &category, &t.CreatedBy, &t.CreatedAt, &t.UpdatedAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, errs.ErrNotFound
+		}
+		return nil, errs.ErrInternal.Wrap(err)
+	}
+	if description.Valid {
+		t.Description = description.String
+	}
+	if contentHTML.Valid {
+		t.ContentHTML = contentHTML.String
+	}
+	if category.Valid {
+		t.Category = category.String
+	}
+	return &t, nil
+}
+
+// CreateTemplate 创建文档模板。
+func (s *Service) CreateTemplate(ctx context.Context, wsID, projectID, userID int64, input CreateTemplateInput) (*PageTemplate, error) {
+	name := strings.TrimSpace(input.Name)
+	if name == "" {
+		return nil, errs.ErrValidation.WithDetails(errs.FieldDetail{Field: "name", Reason: "模板名称不能为空"})
+	}
+
+	var t PageTemplate
+	err := s.db.QueryRow(ctx, `
+		INSERT INTO page_templates (workspace_id, project_id, name, description, content_html, category, created_by)
+		VALUES ($1,$2,$3,$4,$5,$6,$7)
+		RETURNING `+templateColumns,
+		wsID, projectID, name, nullableStr(input.Description), nullableStr(input.ContentHTML),
+		nullableStr(input.Category), userID).Scan(
+		&t.ID, &t.WorkspaceID, &t.ProjectID, &t.Name,
+		&t.Description, &t.ContentHTML, &t.Category, &t.CreatedBy, &t.CreatedAt, &t.UpdatedAt)
+	if err != nil {
+		return nil, errs.ErrInternal.Wrap(fmt.Errorf("pages.CreateTemplate: %w", err))
+	}
+	return &t, nil
+}
+
+// UpdateTemplate 更新文档模板（动态 SET）。
+func (s *Service) UpdateTemplate(ctx context.Context, wsID, templateID int64, input UpdateTemplateInput) (*PageTemplate, error) {
+	var sets []string
+	var args []interface{}
+	arg := 1
+
+	if input.Name != nil {
+		name := strings.TrimSpace(*input.Name)
+		if name == "" {
+			return nil, errs.ErrValidation.WithDetails(errs.FieldDetail{Field: "name", Reason: "模板名称不能为空"})
+		}
+		sets = append(sets, fmt.Sprintf("name = $%d", arg))
+		args = append(args, name)
+		arg++
+	}
+	if input.Description != nil {
+		sets = append(sets, fmt.Sprintf("description = $%d", arg))
+		args = append(args, *input.Description)
+		arg++
+	}
+	if input.ContentHTML != nil {
+		sets = append(sets, fmt.Sprintf("content_html = $%d", arg))
+		args = append(args, *input.ContentHTML)
+		arg++
+	}
+	if input.Category != nil {
+		sets = append(sets, fmt.Sprintf("category = $%d", arg))
+		args = append(args, *input.Category)
+		arg++
+	}
+
+	if len(sets) == 0 {
+		return s.GetTemplate(ctx, wsID, templateID)
+	}
+	sets = append(sets, "updated_at = now()")
+	args = append(args, templateID, wsID)
+
+	query := fmt.Sprintf(`UPDATE page_templates SET %s WHERE id = $%d AND workspace_id = $%d`,
+		strings.Join(sets, ", "), arg, arg+1)
+	tag, err := s.db.Exec(ctx, query, args...)
+	if err != nil {
+		return nil, errs.ErrInternal.Wrap(fmt.Errorf("pages.UpdateTemplate: %w", err))
+	}
+	if tag.RowsAffected() == 0 {
+		return nil, errs.ErrNotFound
+	}
+	return s.GetTemplate(ctx, wsID, templateID)
+}
+
+// DeleteTemplate 删除文档模板。
+func (s *Service) DeleteTemplate(ctx context.Context, wsID, templateID int64) error {
+	tag, err := s.db.Exec(ctx, `
+		DELETE FROM page_templates WHERE id = $1 AND workspace_id = $2`,
+		templateID, wsID)
+	if err != nil {
+		return errs.ErrInternal.Wrap(fmt.Errorf("pages.DeleteTemplate: %w", err))
+	}
+	if tag.RowsAffected() == 0 {
+		return errs.ErrNotFound
+	}
+	return nil
+}
+
+// --- 文档公开分享 ---
+
+// CreateShare 为指定页面创建公开分享链接。
+func (s *Service) CreateShare(ctx context.Context, wsID, projectID, pageID, userID int64, input CreateShareInput) (*PageShare, error) {
+	// 可选：哈希密码
+	var passwordHash interface{}
+	if strings.TrimSpace(input.Password) != "" {
+		hash, err := bcrypt.GenerateFromPassword([]byte(strings.TrimSpace(input.Password)), bcrypt.DefaultCost)
+		if err != nil {
+			return nil, errs.ErrInternal.Wrap(fmt.Errorf("pages.CreateShare: bcrypt: %w", err))
+		}
+		passwordHash = string(hash)
+	}
+
+	var share PageShare
+	err := s.db.QueryRow(ctx, `
+		INSERT INTO page_shares (page_id, workspace_id, project_id, is_active, password_hash, expires_at, created_by)
+		VALUES ($1,$2,$3,$4,$5,$6,$7)
+		RETURNING id, page_id, workspace_id, project_id, token, is_active, password_hash, expires_at, created_by, created_at`,
+		pageID, wsID, projectID, true, passwordHash, input.ExpiresAt, userID).Scan(
+		&share.ID, &share.PageID, &share.WorkspaceID, &share.ProjectID, &share.Token,
+		&share.IsActive, &share.PasswordHash, &share.ExpiresAt, &share.CreatedBy, &share.CreatedAt)
+	if err != nil {
+		return nil, errs.ErrInternal.Wrap(fmt.Errorf("pages.CreateShare: %w", err))
+	}
+	return &share, nil
+}
+
+// ListShares 列出页面的所有分享链接。
+func (s *Service) ListShares(ctx context.Context, wsID, pageID int64) ([]PageShare, error) {
+	rows, err := s.db.Query(ctx, `
+		SELECT id, page_id, workspace_id, project_id, token, is_active, password_hash, expires_at, created_by, created_at
+		FROM page_shares WHERE page_id = $1 AND workspace_id = $2
+		ORDER BY created_at DESC`, pageID, wsID)
+	if err != nil {
+		return nil, errs.ErrInternal.Wrap(fmt.Errorf("pages.ListShares: %w", err))
+	}
+	defer rows.Close()
+
+	var items []PageShare
+	for rows.Next() {
+		var sh PageShare
+		var expiresAt sql.NullTime
+		var passwordHash sql.NullString
+		if err := rows.Scan(
+			&sh.ID, &sh.PageID, &sh.WorkspaceID, &sh.ProjectID, &sh.Token,
+			&sh.IsActive, &passwordHash, &expiresAt, &sh.CreatedBy, &sh.CreatedAt); err != nil {
+			return nil, errs.ErrInternal.Wrap(err)
+		}
+		if expiresAt.Valid {
+			t := expiresAt.Time
+			sh.ExpiresAt = &t
+		}
+		if passwordHash.Valid {
+			sh.PasswordHash = passwordHash.String
+		}
+		items = append(items, sh)
+	}
+	return items, rows.Err()
+}
+
+// UpdateShare 更新分享链接（激活状态、密码、过期时间）。
+func (s *Service) UpdateShare(ctx context.Context, wsID, shareID int64, input UpdateShareInput) (*PageShare, error) {
+	var sets []string
+	var args []interface{}
+	arg := 1
+
+	if input.IsActive != nil {
+		sets = append(sets, fmt.Sprintf("is_active = $%d", arg))
+		args = append(args, *input.IsActive)
+		arg++
+	}
+	if input.ExpiresAt != nil {
+		sets = append(sets, fmt.Sprintf("expires_at = $%d", arg))
+		args = append(args, *input.ExpiresAt)
+		arg++
+	}
+	if input.Password != nil {
+		if strings.TrimSpace(*input.Password) == "" {
+			// 空字符串表示清除密码
+			sets = append(sets, fmt.Sprintf("password_hash = NULL"))
+		} else {
+			hash, err := bcrypt.GenerateFromPassword([]byte(strings.TrimSpace(*input.Password)), bcrypt.DefaultCost)
+			if err != nil {
+				return nil, errs.ErrInternal.Wrap(fmt.Errorf("pages.UpdateShare: bcrypt: %w", err))
+			}
+			sets = append(sets, fmt.Sprintf("password_hash = $%d", arg))
+			args = append(args, string(hash))
+			arg++
+		}
+	}
+
+	if len(sets) == 0 {
+		// 获取当前分享
+		return s.getShareByID(ctx, wsID, shareID)
+	}
+
+	args = append(args, shareID, wsID)
+	query := fmt.Sprintf(`UPDATE page_shares SET %s WHERE id = $%d AND workspace_id = $%d`,
+		strings.Join(sets, ", "), arg, arg+1)
+	tag, err := s.db.Exec(ctx, query, args...)
+	if err != nil {
+		return nil, errs.ErrInternal.Wrap(fmt.Errorf("pages.UpdateShare: %w", err))
+	}
+	if tag.RowsAffected() == 0 {
+		return nil, errs.ErrNotFound
+	}
+	return s.getShareByID(ctx, wsID, shareID)
+}
+
+// RevokeShare 吊销分享链接（物理删除）。
+func (s *Service) RevokeShare(ctx context.Context, wsID, shareID int64) error {
+	tag, err := s.db.Exec(ctx, `
+		DELETE FROM page_shares WHERE id = $1 AND workspace_id = $2`,
+		shareID, wsID)
+	if err != nil {
+		return errs.ErrInternal.Wrap(fmt.Errorf("pages.RevokeShare: %w", err))
+	}
+	if tag.RowsAffected() == 0 {
+		return errs.ErrNotFound
+	}
+	return nil
+}
+
+// getShareByID 根据 ID 和 workspace_id 获取分享链接。
+func (s *Service) getShareByID(ctx context.Context, wsID, shareID int64) (*PageShare, error) {
+	var sh PageShare
+	var expiresAt sql.NullTime
+	var passwordHash sql.NullString
+	err := s.db.QueryRow(ctx, `
+		SELECT id, page_id, workspace_id, project_id, token, is_active, password_hash, expires_at, created_by, created_at
+		FROM page_shares WHERE id = $1 AND workspace_id = $2`, shareID, wsID).Scan(
+		&sh.ID, &sh.PageID, &sh.WorkspaceID, &sh.ProjectID, &sh.Token,
+		&sh.IsActive, &passwordHash, &expiresAt, &sh.CreatedBy, &sh.CreatedAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, errs.ErrNotFound
+		}
+		return nil, errs.ErrInternal.Wrap(err)
+	}
+	if expiresAt.Valid {
+		t := expiresAt.Time
+		sh.ExpiresAt = &t
+	}
+	if passwordHash.Valid {
+		sh.PasswordHash = passwordHash.String
+	}
+	return &sh, nil
+}
+
+// GetSharedPageView 根据 token 获取公开分享页面视图。
+// 校验：is_active、过期时间、密码（如有）。
+func (s *Service) GetSharedPageView(ctx context.Context, token string, password string) (*PublicSharePageView, string, error) {
+	var sh PageShare
+	var expiresAt sql.NullTime
+	var passwordHash sql.NullString
+	err := s.db.QueryRow(ctx, `
+		SELECT id, page_id, workspace_id, project_id, token, is_active, password_hash, expires_at, created_by, created_at
+		FROM page_shares WHERE token = $1`, token).Scan(
+		&sh.ID, &sh.PageID, &sh.WorkspaceID, &sh.ProjectID, &sh.Token,
+		&sh.IsActive, &passwordHash, &expiresAt, &sh.CreatedBy, &sh.CreatedAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, "", errs.ErrNotFound
+		}
+		return nil, "", errs.ErrInternal.Wrap(fmt.Errorf("pages.GetSharedPageView: %w", err))
+	}
+	if expiresAt.Valid {
+		t := expiresAt.Time
+		sh.ExpiresAt = &t
+	}
+	if passwordHash.Valid {
+		sh.PasswordHash = passwordHash.String
+	}
+
+	// 校验激活状态
+	if !sh.IsActive {
+		return nil, "", errs.ErrForbidden
+	}
+	// 校验过期时间
+	if sh.ExpiresAt != nil && time.Now().After(*sh.ExpiresAt) {
+		return nil, "", errs.ErrForbidden
+	}
+	// 校验密码
+	if sh.PasswordHash != "" {
+		if password == "" {
+			// 需要密码但未提供 → 返回特殊标记
+			return nil, sh.Token, errs.Validation("PAGES.SHARE_PASSWORD_REQUIRED", "该分享链接需要访问密码")
+		}
+		if err := bcrypt.CompareHashAndPassword([]byte(sh.PasswordHash), []byte(password)); err != nil {
+			return nil, "", errs.ErrForbidden
+		}
+	}
+
+	// 获取页面内容（复用 Get 方法）
+	page, err := s.Get(ctx, sh.WorkspaceID, sh.ProjectID, sh.PageID)
+	if err != nil {
+		return nil, "", err
+	}
+	view := PublicSharePageView{
+		PageID:          page.ID,
+		WorkspaceID:     page.WorkspaceID,
+		ProjectID:       page.ProjectID,
+		Name:            page.Name,
+		DescriptionHTML: page.DescriptionHTML,
+		DescriptionJSON: page.DescriptionJSON,
+		CreatedAt:       page.CreatedAt,
+		UpdatedAt:       page.UpdatedAt,
+	}
+	return &view, "", nil
 }
