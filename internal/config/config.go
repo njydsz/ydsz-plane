@@ -44,6 +44,7 @@ type Config struct {
 	Email      EmailConfig      // 事务邮件的外发 SMTP 配置。
 	Storage    StorageConfig    // 对象存储 (MinIO/S3) 配置。
 	Attachment AttachmentConfig // 附件上传限制（大小 / MIME 白名单）。
+	AI         AIConfig         // AI 智能功能配置（智能指派、重复检测、摘要等）
 }
 
 // ServerConfig 控制 HTTP 监听器。
@@ -250,6 +251,13 @@ func Load() (*Config, error) {
 	v.SetDefault("log.format", "console")
 	v.SetDefault("features.registration_open", true)
 
+	// AI 默认值：默认禁用（fallback 模式可开启）
+	v.SetDefault("ai.enabled", false)
+	v.SetDefault("ai.provider", "fallback")
+	v.SetDefault("ai.model", "gpt-4o-mini")
+	v.SetDefault("ai.endpoint", "https://api.openai.com/v1")
+	v.SetDefault("ai.api_key", "")
+
 	v.SetDefault("email.enabled", false)
 	v.SetDefault("email.smtp_host", "127.0.0.1")
 	v.SetDefault("email.smtp_port", 1025) // mailpit 默认端口
@@ -374,6 +382,28 @@ func (c *Config) validate() error {
 // IsDev 报告服务是否运行在开发模式。调用方可据此启用调试端点
 // （pprof、expvar）或宽松 CORS 策略，但绝不可用它绕过认证或授权。
 func (c *Config) IsDev() bool { return c.Server.Env == "development" }
+
+// AIConfig 控制 AI 智能功能的运行时行为。
+type AIConfig struct {
+	// Enabled 整体开关 AI 功能。关闭时所有 /ai/* 端点返回 501。
+	// 默认：false。
+	Enabled bool `mapstructure:"enabled"`
+
+	// Provider 选择 LLM 后端。合法值："fallback"（纯规则引擎） | "openai" | "local"。
+	// 默认："fallback"。
+	Provider string `mapstructure:"provider"`
+
+	// APIKey 是 LLM Provider 的 API 密钥（openai 模式必填）。
+	APIKey string `mapstructure:"api_key"`
+
+	// Model 是 LLM 模型名称（openai 模式有效）。
+	// 默认："gpt-4o-mini"。
+	Model string `mapstructure:"model"`
+
+	// Endpoint 是 LLM API 端点（openai 模式有效）。
+	// 默认："https://api.openai.com/v1"。
+	Endpoint string `mapstructure:"endpoint"`
+}
 
 // EmailConfig 保存发送事务邮件（欢迎、密码重置、验证）的 SMTP 参数。
 // 所有字段通过 YDSZ_EMAIL_ 前缀的环境变量控制。

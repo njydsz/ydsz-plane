@@ -335,7 +335,7 @@ func (h *IssueHandler) updateIssue(c *gin.Context) {
 		return
 	}
 	// 广播 + 通知关注者
-	h.broadcastIssueUpdated(c.Request.Context(), wsID, iss.ProjectID, iss.ID)
+	h.broadcastIssueUpdated(c.Request.Context(), wsID, projectID, iss.ID)
 	if h.d.SocialSvc != nil {
 		h.notifyIssueWatchers(c.Request.Context(), wsID, iss.ID, userID, h.actorName(c, userID), iss.Name, "")
 	}
@@ -1129,6 +1129,9 @@ func (h *IssueHandler) createComment(c *gin.Context) {
 	// 通知被 @ 提及的用户 + 广播评论事件
 	h.notifyCommentCreated(c.Request.Context(), wsID, issueID, req.Mentions, userID,
 		comment.CreatorName, h.issueTitle(c, wsID, issueID))
+	// 通知关注者（有人评论了我关注的工作项）
+	h.notifyIssueWatchers(c.Request.Context(), wsID, issueID, userID,
+		comment.CreatorName, h.issueTitle(c, wsID, issueID), "你关注的工作项有新评论")
 	h.broadcastIssueUpdated(c.Request.Context(), wsID, projectID, issueID)
 
 	c.JSON(http.StatusCreated, comment)
