@@ -102,40 +102,6 @@ func listSSOProviders(d *Deps) gin.HandlerFunc {
 	}
 }
 
-// ssoLoginRequest SSO 登录请求。
-type ssoLoginRequest struct {
-	RedirectTo string `json:"redirect_to"`
-}
-
-// initiateSSOLogin 发起 OIDC 登录 → 返回 IdP 重定向 URL。
-func initiateSSOLogin(d *Deps) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		if d.OIDCService == nil {
-			middleware.AbortWithError(c, errs.New("SSO.NOT_CONFIGURED", "SSO 未配置", 503))
-			return
-		}
-
-		providerID, err := strconv.ParseInt(c.Param("provider_id"), 10, 64)
-		if err != nil || providerID <= 0 {
-			middleware.AbortWithError(c, errs.ErrValidation.WithDetails(errs.FieldDetail{
-				Field: "provider_id", Reason: "无效的 Provider ID",
-			}))
-			return
-		}
-
-		var req ssoLoginRequest
-		_ = c.ShouldBindJSON(&req)
-
-		result, err := d.OIDCService.InitiateLogin(
-			c.Request.Context(), providerID, req.RedirectTo, c.ClientIP(), c.Request.UserAgent())
-		if err != nil {
-			writeError(c, err)
-			return
-		}
-		c.JSON(200, result)
-	}
-}
-
 // handleSSOCallback OIDC 回调处理。
 //
 // 验证 state/code → 签发 JWT → 设置 HTTP-only Cookie → 重定向到前端 SSO 页。
