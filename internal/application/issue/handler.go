@@ -28,6 +28,7 @@ type HandlerDeps struct {
 	TimeLogSvc     *TimeLogService
 	RelationSvc    *RelationService
 	CommentSvc     *CommentService
+	SocialSvc      *SocialService
 	ProjectInit    *ProjectInitService
 	WorkspaceStore *auth.WorkspaceMembershipStore
 	// 通知与实时推送（可为 nil，未配置时静默跳过）
@@ -79,6 +80,16 @@ func (h *IssueHandler) Register(r *gin.RouterGroup, wsMiddleware []gin.HandlerFu
 		issue.GET("/dependencies", h.listDependencies)
 		issue.POST("/dependencies", h.createDependency)
 		issue.DELETE("/dependencies/:dep_id", h.deleteDependency)
+		// 社交反馈：表情反应 + 投票
+		issue.GET("/reactions", h.listReactions)
+		issue.POST("/reactions", h.addReaction)
+		issue.DELETE("/reactions/:reaction_type", h.removeReaction)
+		issue.GET("/vote", h.voteSummary)
+		issue.POST("/vote", h.voteIssue)
+		issue.DELETE("/vote", h.removeVote)
+		// 关注（watchers 订阅）
+		issue.POST("/watch", h.watchIssue)
+		issue.DELETE("/watch", h.unwatchIssue)
 		// 看板排序（预留，S4 完善）
 		issue.PATCH("/reorder", h.reorderIssue)
 		// 评论
@@ -1151,6 +1162,138 @@ func (h *IssueHandler) deleteComment(c *gin.Context) {
 	userID := c.GetInt64(middleware.CtxUserID)
 
 	if err := h.d.CommentSvc.Delete(c.Request.Context(), commentID, userID); err != nil {
+		writeErr(c, err)
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
+
+// --- Social handlers (Reaction / Vote / Watch) ---
+
+func (h *IssueHandler) listReactions(c *gin.Context) {
+	wsID := c.GetInt64(middleware.CtxWorkspaceID)
+	issueID := int64Param(c, "issue_id")
+	userID := c.GetInt64(middleware.CtxUserID)
+
+	if h.d.SocialSvc == nil {
+		middleware.AbortWithError(c, errs.ErrInternal.WithDetails(errs.FieldDetail{Field: "service", Reason: "社交服务未启用"}))
+		return
+	}
+	reactions, err := h.d.SocialSvc.ListReactions(c.Request.Context(), wsID, issueID, userID)
+	if err != nil {
+		writeErr(c, err)
+		return
+	}
+	if reactions == nil {
+		reactions = []ReactionSummary{}
+	}
+	c.JSON(http.StatusOK, gin.H{"results": reactions})
+}
+
+func (h *IssueHandler) addReaction(c *gin.Context) {
+	wsID := c.GetInt64(middleware.CtxWorkspaceID)
+	projectID := c.GetInt64(middleware.CtxProjectID)
+	issueID := int64Param(c, "issue_id")
+	userID := c.GetInt64(middleware.CtxUserID)
+
+	var req struct {
+		ReactionType string `json:"reaction_type" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		middleware.AbortWithError(c, errs.ErrValidation.WithDetails(fieldDetail(err)))
+		return
+	}
+
+	reaction, created, err := h.d.SocialSvc.AddReaction(c.Request.Context(), wsID, projectID, issueID, userID, req.ReactionType)
+	if err != nil {
+		writeErr(c, err)
+		return
+	}
+	status := http.StatusCreated
+	if !created {
+		status = http.StatusOK
+	}
+	c.JSON(status, reaction)
+}
+
+func (h *IssueHandler) removeReaction(c *gin.Context) {
+	wsID := c.GetInt64(middleware.CtxWorkspaceID)
+	issueID := int64Param(c, "issue_id")
+	userID := c.GetInt64(middleware.CtxUserID)
+	reactionType := c.Param("reaction_type")
+
+	if err := h.d.SocialSvc.RemoveReaction(c.Request.Context(), wsID, issueID, userID, reactionType); err != nil {
+		writeErr(c, err)
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
+
+func (h *IssueHandler) voteSummary(c *gin.Context) {
+	wsID := c.GetInt64(middleware.CtxWorkspaceID)
+	issueID := int64Param(c, "issue_id")
+	userID := c.GetInt64(middleware.CtxUserID)
+
+	summary, err := h.d.SocialSvc.VoteSummary(c.Request.Context(), wsID, issueID, userID)
+	if err != nil {
+		writeErr(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, summary)
+}
+
+func (h *IssueHandler) voteIssue(c *gin.Context) {
+	wsID := c.GetInt64(middleware.CtxWorkspaceID)
+	projectID := c.GetInt64(middleware.CtxProjectID)
+	issueID := int64Param(c, "issue_id")
+	userID := c.GetInt64(middleware.CtxUserID)
+
+	var req struct {
+		Vote int `json:"vote" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		middleware.AbortWithError(c, errs.ErrValidation.WithDetails(fieldDetail(err)))
+		return
+	}
+
+	vote, err := h.d.SocialSvc.VoteIssue(c.Request.Context(), wsID, projectID, issueID, userID, req.Vote)
+	if err != nil {
+		writeErr(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, vote)
+}
+
+func (h *IssueHandler) removeVote(c *gin.Context) {
+	wsID := c.GetInt64(middleware.CtxWorkspaceID)
+	issueID := int64Param(c, "issue_id")
+	userID := c.GetInt64(middleware.CtxUserID)
+
+	if err := h.d.SocialSvc.RemoveVote(c.Request.Context(), wsID, issueID, userID); err != nil {
+		writeErr(c, err)
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
+
+func (h *IssueHandler) watchIssue(c *gin.Context) {
+	wsID := c.GetInt64(middleware.CtxWorkspaceID)
+	issueID := int64Param(c, "issue_id")
+	userID := c.GetInt64(middleware.CtxUserID)
+
+	if err := h.d.IssueSvc.Watch(c.Request.Context(), wsID, issueID, userID); err != nil {
+		writeErr(c, err)
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
+
+func (h *IssueHandler) unwatchIssue(c *gin.Context) {
+	wsID := c.GetInt64(middleware.CtxWorkspaceID)
+	issueID := int64Param(c, "issue_id")
+	userID := c.GetInt64(middleware.CtxUserID)
+
+	if err := h.d.IssueSvc.Unwatch(c.Request.Context(), wsID, issueID, userID); err != nil {
 		writeErr(c, err)
 		return
 	}

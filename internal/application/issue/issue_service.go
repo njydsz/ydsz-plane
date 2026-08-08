@@ -270,6 +270,7 @@ func (s *Service) GetByID(ctx context.Context, wsID, issueID int64) (*Issue, err
 	iss.Assignees, _ = s.loadAssignees(ctx, iss.ID)
 	iss.Labels, _ = s.loadLabels(ctx, iss.ID)
 	iss.Modules, _ = s.loadModules(ctx, iss.ID)
+	iss.Watchers, _ = s.loadWatchers(ctx, iss.ID)
 
 	return &iss, nil
 }
@@ -921,6 +922,44 @@ func (s *Service) loadLabels(ctx context.Context, issueID int64) ([]int64, error
 
 func (s *Service) loadModules(ctx context.Context, issueID int64) ([]int64, error) {
 	return loadIntArray(ctx, s.db, `SELECT module_id FROM issue_modules WHERE issue_id = $1`, issueID)
+}
+
+// --- Watchers（关注订阅）---
+
+// Watch 订阅关注工作项（幂等）。
+func (s *Service) Watch(ctx context.Context, wsID, issueID, userID int64) error {
+	// 校验工作项存在
+	var exists bool
+	if err := s.db.QueryRow(ctx,
+		`SELECT EXISTS(SELECT 1 FROM issues WHERE id = $1 AND workspace_id = $2 AND deleted_at IS NULL)`,
+		issueID, wsID).Scan(&exists); err != nil {
+		return errs.ErrInternal.Wrap(err)
+	}
+	if !exists {
+		return errs.ErrNotFound
+	}
+
+	if _, err := s.db.Exec(ctx,
+		`INSERT INTO issue_watchers (issue_id, user_id) VALUES ($1,$2) ON CONFLICT DO NOTHING`,
+		issueID, userID); err != nil {
+		return errs.ErrInternal.Wrap(err)
+	}
+	return nil
+}
+
+// Unwatch 取消关注（幂等）。
+func (s *Service) Unwatch(ctx context.Context, wsID, issueID, userID int64) error {
+	if _, err := s.db.Exec(ctx,
+		`DELETE FROM issue_watchers WHERE issue_id = $1 AND user_id = $2 AND issue_id IN (
+			SELECT id FROM issues WHERE workspace_id = $3
+		)`, issueID, userID, wsID); err != nil {
+		return errs.ErrInternal.Wrap(err)
+	}
+	return nil
+}
+
+func (s *Service) loadWatchers(ctx context.Context, issueID int64) ([]int64, error) {
+	return loadIntArray(ctx, s.db, `SELECT user_id FROM issue_watchers WHERE issue_id = $1`, issueID)
 }
 
 func (s *Service) getByIDTx(ctx context.Context, tx pgx.Tx, issueID, wsID int64) (*Issue, error) {

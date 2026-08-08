@@ -363,12 +363,15 @@ function moveDown() {
     // Recalculate selectedGroup based on position
     const issueCount = store.results?.results.issues?.length ?? 0
     const sprintCount = store.results?.results.sprints?.length ?? 0
+    const versionCount = store.results?.results.versions?.length ?? 0
     if (selectedIdx.value < issueCount) {
       selectedGroup.value = "search-issues"
     } else if (selectedIdx.value < issueCount + sprintCount) {
       selectedGroup.value = "search-sprints"
-    } else {
+    } else if (selectedIdx.value < issueCount + sprintCount + versionCount) {
       selectedGroup.value = "search-versions"
+    } else {
+      selectedGroup.value = "search-projects"
     }
   }
 }
@@ -388,12 +391,15 @@ function moveUp() {
     // Recalculate selectedGroup
     const issueCount = store.results?.results.issues?.length ?? 0
     const sprintCount = store.results?.results.sprints?.length ?? 0
+    const versionCount = store.results?.results.versions?.length ?? 0
     if (selectedIdx.value < issueCount) {
       selectedGroup.value = "search-issues"
     } else if (selectedIdx.value < issueCount + sprintCount) {
       selectedGroup.value = "search-sprints"
-    } else {
+    } else if (selectedIdx.value < issueCount + sprintCount + versionCount) {
       selectedGroup.value = "search-versions"
+    } else {
+      selectedGroup.value = "search-projects"
     }
   }
 }

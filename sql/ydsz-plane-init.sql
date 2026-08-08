@@ -1366,6 +1366,74 @@ COMMENT ON COLUMN public.issue_watchers.created_at IS '关注时间';
 -- ----------------------------
 
 -- ----------------------------
+-- Table structure for issue_reactions
+-- ----------------------------
+DROP TABLE IF EXISTS "public"."issue_reactions";
+CREATE TABLE "public"."issue_reactions" (
+  "id" int8 NOT NULL GENERATED ALWAYS AS IDENTITY (
+INCREMENT 1
+MINVALUE  1
+MAXVALUE 9223372036854775807
+START 1
+CACHE 1
+),
+  "workspace_id" int8 NOT NULL,
+  "project_id" int8 NOT NULL,
+  "issue_id" int8 NOT NULL,
+  "user_id" int8 NOT NULL,
+  "reaction_type" text COLLATE "pg_catalog"."default" NOT NULL,
+  "created_at" timestamptz(6) NOT NULL DEFAULT now()
+)
+;
+COMMENT ON TABLE public.issue_reactions IS '工作项表情反应表（emoji 轻量反馈，参考 Linear/Plane Reaction）';
+COMMENT ON COLUMN public.issue_reactions.id IS '主键 ID';
+COMMENT ON COLUMN public.issue_reactions.workspace_id IS '工作空间 FK';
+COMMENT ON COLUMN public.issue_reactions.project_id IS '项目 FK';
+COMMENT ON COLUMN public.issue_reactions.issue_id IS '工作项 FK';
+COMMENT ON COLUMN public.issue_reactions.user_id IS '反应用户 FK';
+COMMENT ON COLUMN public.issue_reactions.reaction_type IS '表情类型（emoji 字符串，如 👍 👀 🎉 ❤️ 😄）';
+COMMENT ON COLUMN public.issue_reactions.created_at IS '反应时间（唯一约束: 同人同工作项同表情仅一条）';
+
+-- ----------------------------
+-- Records of issue_reactions
+-- ----------------------------
+
+-- ----------------------------
+-- Table structure for issue_votes
+-- ----------------------------
+DROP TABLE IF EXISTS "public"."issue_votes";
+CREATE TABLE "public"."issue_votes" (
+  "id" int8 NOT NULL GENERATED ALWAYS AS IDENTITY (
+INCREMENT 1
+MINVALUE  1
+MAXVALUE 9223372036854775807
+START 1
+CACHE 1
+),
+  "workspace_id" int8 NOT NULL,
+  "project_id" int8 NOT NULL,
+  "issue_id" int8 NOT NULL,
+  "user_id" int8 NOT NULL,
+  "vote" int2 NOT NULL DEFAULT 1,
+  "created_at" timestamptz(6) NOT NULL DEFAULT now(),
+  "updated_at" timestamptz(6) NOT NULL DEFAULT now()
+)
+;
+COMMENT ON TABLE public.issue_votes IS '工作项投票表（支持赞成/反对，同人同工作项仅一票）';
+COMMENT ON COLUMN public.issue_votes.id IS '主键 ID';
+COMMENT ON COLUMN public.issue_votes.workspace_id IS '工作空间 FK';
+COMMENT ON COLUMN public.issue_votes.project_id IS '项目 FK';
+COMMENT ON COLUMN public.issue_votes.issue_id IS '工作项 FK';
+COMMENT ON COLUMN public.issue_votes.user_id IS '投票用户 FK';
+COMMENT ON COLUMN public.issue_votes.vote IS '投票值: 1=赞成(upvote) / -1=反对(downvote)；0 表示撤销';
+COMMENT ON COLUMN public.issue_votes.created_at IS '首次投票时间';
+COMMENT ON COLUMN public.issue_votes.updated_at IS '最近更新（改票时刷新）';
+
+-- ----------------------------
+-- Records of issue_votes
+-- ----------------------------
+
+-- ----------------------------
 -- Table structure for issues
 -- ----------------------------
 DROP TABLE IF EXISTS "public"."issues";
@@ -4277,6 +4345,46 @@ COMMENT ON INDEX public.idx_issue_watchers_user IS '按 user_id 查关注的工�
 -- Primary Key structure for table issue_watchers
 -- ----------------------------
 ALTER TABLE "public"."issue_watchers" ADD CONSTRAINT "issue_watchers_pkey" PRIMARY KEY ("issue_id", "user_id");
+
+-- ----------------------------
+-- Indexes structure for table issue_reactions
+-- ----------------------------
+CREATE INDEX "idx_issue_reactions_issue" ON "public"."issue_reactions" USING btree (
+  "issue_id" "pg_catalog"."int8_ops" ASC NULLS LAST
+);
+COMMENT ON INDEX public.idx_issue_reactions_issue IS '按工作项查所有反应（详情页聚合）';
+CREATE INDEX "idx_issue_reactions_user" ON "public"."issue_reactions" USING btree (
+  "user_id" "pg_catalog"."int8_ops" ASC NULLS LAST
+);
+COMMENT ON INDEX public.idx_issue_reactions_user IS '按用户查其发出的反应';
+
+-- ----------------------------
+-- Uniques structure for table issue_reactions
+-- ----------------------------
+ALTER TABLE "public"."issue_reactions" ADD CONSTRAINT "issue_reactions_issue_user_type_key" UNIQUE ("issue_id", "user_id", "reaction_type");
+
+-- ----------------------------
+-- Primary Key structure for table issue_reactions
+-- ----------------------------
+ALTER TABLE "public"."issue_reactions" ADD CONSTRAINT "issue_reactions_pkey" PRIMARY KEY ("id");
+
+-- ----------------------------
+-- Indexes structure for table issue_votes
+-- ----------------------------
+CREATE INDEX "idx_issue_votes_issue" ON "public"."issue_votes" USING btree (
+  "issue_id" "pg_catalog"."int8_ops" ASC NULLS LAST
+);
+COMMENT ON INDEX public.idx_issue_votes_issue IS '按工作项查投票聚合（赞成/反对计数）';
+
+-- ----------------------------
+-- Uniques structure for table issue_votes
+-- ----------------------------
+ALTER TABLE "public"."issue_votes" ADD CONSTRAINT "issue_votes_issue_user_key" UNIQUE ("issue_id", "user_id");
+
+-- ----------------------------
+-- Primary Key structure for table issue_votes
+-- ----------------------------
+ALTER TABLE "public"."issue_votes" ADD CONSTRAINT "issue_votes_pkey" PRIMARY KEY ("id");
 
 -- ----------------------------
 -- Auto increment value for issues
