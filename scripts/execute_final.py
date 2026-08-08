@@ -354,6 +354,28 @@ def verify():
             all_good = False
         print(f"  {status}: {t}")
 
+    print("\n[知识库模块 - 必须 EXISTS]")
+    for t in ['knowledge_spaces', 'knowledge_pages', 'knowledge_page_versions', 'knowledge_page_relations']:
+        cur.execute(
+            "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public' AND table_name=%s",
+            (t,))
+        exists = cur.fetchone()[0]
+        status = "OK" if exists else "MISSING!"
+        if not exists:
+            all_good = False
+        print(f"  {status}: {t}")
+
+    print("\n[通知模块 - 必须 EXISTS]")
+    for t in ['notifications', 'notification_deliveries', 'notification_digests', 'notification_preferences']:
+        cur.execute(
+            "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public' AND table_name=%s",
+            (t,))
+        exists = cur.fetchone()[0]
+        status = "OK" if exists else "MISSING!"
+        if not exists:
+            all_good = False
+        print(f"  {status}: {t}")
+
     print("\n[视图 - 必须 EXISTS]")
     for v in ['task_view', 'requirement_view', 'defect_view']:
         cur.execute(
@@ -391,6 +413,16 @@ def verify():
 
     print("\n[新序列]")
     for s in ['task_id_seq', 'requirement_id_seq', 'defect_id_seq']:
+        cur.execute("SELECT COUNT(*) FROM pg_sequences WHERE schemaname='public' AND sequencename=%s", (s,))
+        print(f"  {s}: {'EXISTS' if cur.fetchone()[0] else 'MISSING'}")
+
+    print("\n[知识库序列]")
+    for s in ['knowledge_spaces_id_seq', 'knowledge_pages_id_seq', 'knowledge_page_versions_id_seq', 'knowledge_page_relations_id_seq']:
+        cur.execute("SELECT COUNT(*) FROM pg_sequences WHERE schemaname='public' AND sequencename=%s", (s,))
+        print(f"  {s}: {'EXISTS' if cur.fetchone()[0] else 'MISSING'}")
+
+    print("\n[通知序列]")
+    for s in ['notifications_id_seq', 'notification_deliveries_id_seq', 'notification_digests_id_seq', 'notification_preferences_id_seq']:
         cur.execute("SELECT COUNT(*) FROM pg_sequences WHERE schemaname='public' AND sequencename=%s", (s,))
         print(f"  {s}: {'EXISTS' if cur.fetchone()[0] else 'MISSING'}")
 

@@ -335,6 +335,35 @@ func RegisterNotificationRoutes(r *gin.Engine, d *Deps) {
 	d.NotificationHandler.RegisterPreferenceRoutes(ws)
 }
 
+// RegisterSSOProviderRoutes 注册工作空间 SSO Provider 管理路由（S13）。
+// 路由前缀: /api/v1/workspaces/:workspace_id/sso/providers
+// 写操作要求 workspace:update 权限（workspace 管理员配置 SSO）。
+func RegisterSSOProviderRoutes(r *gin.Engine, d *Deps) {
+	if d.OIDCService == nil {
+		return
+	}
+	// 读 — workspace:read 即可
+	wsRead := r.Group("/api/v1/workspaces/:workspace_id/sso/providers")
+	wsRead.Use(
+		middleware.RequireAuth(d.principalParser()),
+		middleware.RequireWorkspaceParam(),
+		middleware.RequirePermissionFromDB(d.RBACStore, auth.PermWorkspaceRead),
+	)
+	wsRead.GET("", listSSOProvidersMgmt(d))
+	wsRead.GET("/:id", getSSOProvider(d))
+
+	// 写 — 需要 workspace:update（管理员配置 SSO 集成）
+	wsWrite := r.Group("/api/v1/workspaces/:workspace_id/sso/providers")
+	wsWrite.Use(
+		middleware.RequireAuth(d.principalParser()),
+		middleware.RequireWorkspaceParam(),
+		middleware.RequirePermissionFromDB(d.RBACStore, auth.PermWorkspaceUpdate),
+	)
+	wsWrite.POST("", createSSOProvider(d))
+	wsWrite.PATCH("/:id", updateSSOProvider(d))
+	wsWrite.DELETE("/:id", deleteSSOProvider(d))
+}
+
 // RegisterAttachmentRoutes 注册附件路由（项目级）。
 func RegisterAttachmentRoutes(r *gin.Engine, d *Deps) {
 	if d.AttachmentHandler == nil {
@@ -563,10 +592,16 @@ func NewEngine(d *Deps) *gin.Engine {
 
 			// S13 OIDC / SSO callback（IdP 重定向 → 前端 SSO 页）
 			authGroup.GET("/oidc/callback", rl, handleSSOCallback(d))
+			// S13 SSO GET login — workspace-scoped browser redirect to IdP (OIDC/SAML)
+			authGroup.GET("/sso/:workspace_id/providers/:provider_id/login", rl, handleSSORedirect(d))
+			// S13 SAML ACS — IdP POST-back endpoint (公开：外部 IdP 调用)
+			authGroup.POST("/saml/acs", rl, handleSAMLACS(d))
+			// S13 SAML SP Metadata (公开：供 IdP 管理员导入)
+			authGroup.GET("/saml/metadata", handleSAMLMetadata(d))
 		}
-
-		// 已认证路由（需要有效 access token + 用户级限流）
-		authed := v1.Group("")
+		
+			// 已认证路由（需要有效 access token + 用户级限流）
+			authed := v1.Group("")
 		authed.Use(middleware.RequireAuth(d.principalParser()))
 		authed.Use(middleware.RateLimit(d.Redis, 100, func(c *gin.Context) string {
 			return "user:" + userKey(c)

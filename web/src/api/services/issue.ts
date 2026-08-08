@@ -157,6 +157,21 @@ export interface UpdateCommentInput {
   mentions?: number[];
 }
 
+/**
+ * 依赖类型（后端校验 oneof=FS SS FF SF，必须大写）。
+ * FS = Finish→Start（完成→开始），SS = Start→Start，
+ * FF = Finish→Finish，SF = Start→Finish。
+ */
+export type DependencyType = "FS" | "SS" | "FF" | "SF";
+
+/** 依赖类型中文标签 */
+export const DEPENDENCY_TYPE_LABELS: Record<DependencyType, string> = {
+  FS: "完成→开始 (FS)",
+  SS: "开始→开始 (SS)",
+  FF: "完成→完成 (FF)",
+  SF: "开始→完成 (SF)",
+};
+
 /** 工作项依赖关系（前置/后继 + 滞后天数） */
 export interface IssueDependency {
   id: number;
@@ -164,7 +179,7 @@ export interface IssueDependency {
   project_id: number;
   predecessor_id: number;
   successor_id: number;
-  dependency_type: string;
+  dependency_type: DependencyType;
   lag_days: number;
   created_by: number;
   created_at: string;
@@ -422,7 +437,7 @@ export const issueApi = {
     wsId: number,
     projectId: number,
     issueId: number,
-    input: { predecessor_id: number; successor_id: number; dependency_type: string; lag_days?: number },
+    input: { predecessor_id: number; successor_id: number; dependency_type: DependencyType; lag_days?: number },
   ) =>
     wrap<IssueDependency>(http.post(`/workspaces/${wsId}/projects/${projectId}/issues/${issueId}/dependencies`, input)),
   deleteDependency: (wsId: number, projectId: number, issueId: number, depId: number) =>

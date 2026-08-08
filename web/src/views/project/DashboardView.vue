@@ -441,7 +441,7 @@ onMounted(load);
 
     <!-- ===== Widget 网格 ===== -->
     <div
-      v-else-if="hasWidgets"
+      v-if="!loading && !error && hasWidgets"
       ref="gridEl"
       class="dashboard__grid"
       :class="{
@@ -490,7 +490,7 @@ onMounted(load);
     </div>
 
     <!-- ===== 空态 ===== -->
-    <EmptyStateWidget v-else class="dashboard__empty" @add="showAddModal = true" />
+    <EmptyStateWidget v-if="!loading && !error && !hasWidgets" class="dashboard__empty" @add="showAddModal = true" />
 
     <!-- ===== 浮动操作按钮 ===== -->
     <button class="fab" title="快速添加 Widget" @click="showAddModal = true">

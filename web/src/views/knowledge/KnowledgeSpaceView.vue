@@ -206,7 +206,8 @@ async function createPage(parentId?: number | null) {
   }
 }
 
-async function renamePage(node: KnowledgePageNode, title: string) {
+async function renamePage(node: KnowledgePage | null, title: string) {
+  if (!node) return;
   const name = title.trim();
   if (!name || name === node.title) return;
   try {
@@ -409,7 +410,9 @@ onMounted(load);
           <router-link
             :to="`/${workspaceId}/knowledge`"
             class="knowledge-space__back"
-          >← {{ $t("knowledge.backToSpace") }}</router-link>
+          >
+← {{ $t("knowledge.backToSpace") }}
+</router-link>
           <h1>{{ space?.name ?? "..." }}</h1>
           <p v-if="space?.description" class="hint">{{ space.description }}</p>
           <p v-else class="hint">/{{ space?.slug ?? "" }} · {{ space?.default_permission ?? "" }}</p>
@@ -494,12 +497,16 @@ onMounted(load);
                   class="mode-switch__btn"
                   :class="{ 'mode-switch__btn--active': editorMode === 'edit' }"
                   @click="editorMode = 'edit'"
-                >{{ $t("knowledge.edit") }}</button>
+                >
+                  {{ $t("knowledge.edit") }}
+                </button>
                 <button
                   class="mode-switch__btn"
                   :class="{ 'mode-switch__btn--active': editorMode === 'preview' }"
                   @click="editorMode = 'preview'"
-                >{{ $t("knowledge.preview") }}</button>
+                >
+                  {{ $t("knowledge.preview") }}
+                </button>
               </div>
               <div class="doc__toolbar-right">
                 <input
@@ -512,14 +519,18 @@ onMounted(load);
                   class="btn btn--primary btn--sm"
                   :disabled="saving || !!viewingVersion"
                   @click="savePage"
-                >{{ saving ? $t("knowledge.saving") : $t("knowledge.save") }}</button>
+                >
+                  {{ saving ? $t("knowledge.saving") : $t("knowledge.save") }}
+                </button>
                 <button
                   v-for="act in statusActions"
                   :key="act.status"
                   class="btn btn--sm"
                   :disabled="!!viewingVersion"
                   @click="changeStatus(act.status)"
-                >{{ act.icon }} {{ act.label }}</button>
+                >
+                  {{ act.icon }} {{ act.label }}
+                </button>
               </div>
             </div>
 
@@ -531,7 +542,9 @@ onMounted(load);
                 class="doc__textarea"
                 placeholder="使用 Markdown 撰写文档...（## 标题、**粗体**、`代码`、```代码块```）"
                 spellcheck="false"
+                @input="dirty = true"
               />
+              <!-- eslint-disable-next-line vue/no-v-html -- renderMarkdown 先对原始文本做 HTML 转义，再处理行内语法，无 XSS 风险 -->
               <div v-else class="doc__preview" v-html="renderMarkdown(viewingVersion?.content_md ?? editorMarkdown)" />
             </div>
 
@@ -556,7 +569,9 @@ onMounted(load);
                     class="btn btn--sm btn--ghost"
                     :disabled="v.version === currentPage.version"
                     @click="revertToVersion(v)"
-                  >{{ $t("knowledge.revert") }}</button>
+                  >
+                    {{ $t("knowledge.revert") }}
+                  </button>
                 </div>
               </div>
             </div>

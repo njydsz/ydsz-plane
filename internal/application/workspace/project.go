@@ -8,6 +8,7 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -63,10 +64,10 @@ type Project struct {
 	Name           string                 `json:"name"`
 	Slug           string                 `json:"slug"`
 	Identifier     string                 `json:"identifier"`
-	Description    string                 `json:"description,omitempty"`
+	Description    *string                `json:"description,omitempty"`
 	Network        string                 `json:"network"`
-	Icon           string                 `json:"icon,omitempty"`
-	Color          string                 `json:"color,omitempty"`
+	Icon           *string                `json:"icon,omitempty"`
+	Color          *string                `json:"color,omitempty"`
 	CoverImageUrl  *string                `json:"cover_image_url,omitempty"`
 	Template       string                 `json:"template"`
 	Status         string                 `json:"status"`
@@ -205,9 +206,14 @@ func (s *ProjectService) ListByWorkspace(ctx context.Context, wsID int64) ([]Pro
 		var p Project
 		if err := rows.Scan(&p.ID, &p.WorkspaceID, &p.Name, &p.Slug, &p.Identifier, &p.Description,
 			&p.Network, &p.Icon, &p.Color, &p.CoverImageUrl, &p.Template, &p.Status, &p.SortOrder, &p.Modules, &p.CreatedBy, &p.CreatedAt, &p.UpdatedAt); err != nil {
-			return nil, errs.ErrInternal.Wrap(err)
+			fmt.Printf("DEBUG_PROJECT_SCAN_ERROR: %v\n", err)
+			return nil, errs.ErrInternal.Wrap(fmt.Errorf("scan project row: %w", err))
 		}
 		out = append(out, p)
+	}
+	if err := rows.Err(); err != nil {
+		fmt.Printf("DEBUG_PROJECT_ROWS_ERROR: %v\n", err)
+		return nil, errs.ErrInternal.Wrap(fmt.Errorf("rows iteration: %w", err))
 	}
 	return out, nil
 }

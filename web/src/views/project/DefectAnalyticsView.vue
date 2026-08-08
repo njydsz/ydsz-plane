@@ -11,7 +11,7 @@ import { useRoute } from "vue-router";
 import type { EChartsCoreOption } from "echarts";
 
 import { defectAnalyticsApi, SEVERITY_LABELS, PHASE_LABELS } from "@/api/services/defectAnalytics";
-import type { DefectAnalytics, SeverityCount, PhaseCount, ModuleCount, RootCauseCount, AgeBucket, TrendPoint, DefectAgeAnalysis, DefectAgeStat, DefectAgeItem, RootCauseAnalysis, RootCauseStat } from "@/api/services/defectAnalytics";
+import type { DefectAnalytics, SeverityCount, PhaseCount, ModuleCount, RootCauseCount, AgeBucket, TrendPoint, DefectAgeAnalysis, DefectAgeStat, RootCauseAnalysis, RootCauseStat } from "@/api/services/defectAnalytics";
 import { useWorkspaceStore } from "@/stores/workspace";
 import { AppLoadingState, AppErrorState, AppEmptyState } from "@/components";
 import ChartWidget from "@/components/dashboard/ChartWidget.vue";

@@ -21,6 +21,8 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -230,6 +232,12 @@ func Load() (*Config, error) {
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	v.AutomaticEnv()
 
+	// 加载 .env 文件（仅当存在时），使环境变量在开发期间持久化。
+	// 如果 .env 不存在则静默跳过，生产环境通过实际环境变量注入。
+	if err := loadDotEnv(); err != nil {
+		return nil, fmt.Errorf("config: load .env: %w", err)
+	}
+
 	// ----- 第 1 步：本地开发默认值 -----
 	// 这些值假设标准 Docker Compose 本地环境。
 	v.SetDefault("server.env", "development")
@@ -338,6 +346,45 @@ func generateDevSecret() string {
 	var b [32]byte
 	_, _ = rand.Read(b[:])
 	return "dev-" + hex.EncodeToString(b[:])
+}
+
+// loadDotEnv 从当前工作目录（或二进制所在目录）加载 .env 文件，
+// 并将其 Key=Value 写入进程环境变量。这是 Viper AutomaticEnv() 的补充：
+// Viper 不自动解析 .env 文件，只读已存在于 os.Environ() 的变量。
+// 仅处理简单 KEY=VALUE 格式，跳过注释行与空行。
+func loadDotEnv() error {
+	// 优先尝试当前工作目录
+	paths := []string{".env"}
+	// 也尝试二进制所在目录（避免执行目录不同导致找不到）
+	if exe, err := os.Executable(); err == nil {
+		exeDir := filepath.Dir(exe)
+		paths = append(paths, filepath.Join(exeDir, ".env"))
+	}
+
+	for _, p := range paths {
+		data, err := os.ReadFile(p)
+		if err != nil {
+			continue // 文件不存在 → 跳过
+		}
+		lines := strings.Split(string(data), "\n")
+		for _, line := range lines {
+			line = strings.TrimSpace(line)
+			if line == "" || strings.HasPrefix(line, "#") {
+				continue // 跳过空行与注释
+			}
+			idx := strings.IndexByte(line, '=')
+			if idx <= 0 {
+				continue
+			}
+			key := strings.TrimSpace(line[:idx])
+			val := strings.TrimSpace(line[idx+1:])
+			// 去除首尾双引号 / 单引号（常见 .env 转义）
+			val = strings.Trim(val, "\"'")
+			os.Setenv(key, val)
+		}
+		return nil
+	}
+	return nil
 }
 
 // validate 执行无法用 Viper 默认值或 struct tag 表达的跨字段业务规则。

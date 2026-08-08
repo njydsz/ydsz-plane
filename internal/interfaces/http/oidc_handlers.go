@@ -5,11 +5,10 @@
 //   - Google / Okta / Auth0 SPA OIDC 集成最佳实践
 //   - PKCE 强制: 所有 SPA 登录请求必须带 code_challenge (S256)
 //
-// 路由 (注册于 /api/v1/auth/oidc):
-//
-//	GET  /providers            → 列出当前工作空间的 SSO Providers
-//	POST /:provider_id/login   → 发起登录 → 返回 IdP 重定向 URL
-//	GET  /callback             → OIDC 回调 → 设置 Cookie → 重定向到前端
+// 路由:
+//   POST  /api/v1/auth/oidc/:provider_id/login   → 返回 IdP redirect URL（JSON）
+//   GET   /api/v1/auth/sso/:wid/providers/:pid/login → 浏览器重定向到 IdP
+//   GET   /api/v1/auth/oidc/callback              → IdP 回调 → Cookie → 重定向前端
 package httpapi
 
 import (
@@ -22,6 +21,30 @@ import (
 	"github.com/njydsz/ydsz-plane/internal/interfaces/middleware"
 	"github.com/njydsz/ydsz-plane/pkg/errs"
 )
+
+// handleSSORedirect GET-based SSO 登录入口（浏览器直跳场景）。
+// 前端 window.location.href → 此端点 → 302 重定向到 IdP 授权端点。
+func handleSSORedirect(d *Deps) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if d.OIDCService == nil {
+			c.Redirect(302, "/login?error=sso_not_configured")
+			return
+		}
+		providerID, err := strconv.ParseInt(c.Param("provider_id"), 10, 64)
+		if err != nil || providerID <= 0 {
+			c.Redirect(302, "/login?error=sso_invalid_provider")
+			return
+		}
+		redirectTo := c.Query("redirect_to")
+		result, err := d.OIDCService.InitiateLogin(
+			c.Request.Context(), providerID, redirectTo, c.ClientIP(), c.Request.UserAgent())
+		if err != nil {
+			c.Redirect(302, "/login?error=sso_initiate_failed")
+			return
+		}
+		c.Redirect(302, result.RedirectURL)
+	}
+}
 
 // ssoProviderItem 暴露给前端的 SSO Provider 概要（不含 secret）。
 type ssoProviderItem struct {

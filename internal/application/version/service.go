@@ -137,11 +137,15 @@ func normalizeChecklist(in []ChecklistItem) ([]ChecklistItem, error) {
 
 // Create 创建版本。
 func (s *Service) Create(ctx context.Context, in CreateVersionInput) (*Version, error) {
+	fmt.Printf("DEBUG Version.Create input: ws=%d, proj=%d, name=%s, semver=%s\n",
+		in.WorkspaceID, in.ProjectID, in.Name, in.Semver)
 	if err := validateCreateInput(in); err != nil {
+		fmt.Printf("DEBUG validateCreateInput error: %v\n", err)
 		return nil, err
 	}
 	// semver 校验
 	if semErr, _ := ParseSemVer(in.Semver); semErr != nil {
+		fmt.Printf("DEBUG ParseSemVer error: %v\n", semErr)
 		return nil, errs.ErrVersionSemverInvalid.WithDetails(errs.FieldDetail{Field: "semver", Reason: semErr.Error()})
 	}
 	checklist, err := normalizeChecklist(in.Checklist)
@@ -188,7 +192,8 @@ func (s *Service) Create(ctx context.Context, in CreateVersionInput) (*Version, 
 			&v.StartDate, &v.EndDate, &v.TargetDate,
 			&v.ArchivedAt, &v.CreatedBy, &v.CreatedAt, &v.UpdatedAt)
 		if err != nil {
-			return errs.ErrInternal.Wrap(err)
+			fmt.Printf("DEBUG_VERSION_CREATE_ERROR: %v\n", err)
+			return errs.ErrInternal.Wrap(fmt.Errorf("insert+scan version: %w", err))
 		}
 		v.Checklist = checklist
 		return nil

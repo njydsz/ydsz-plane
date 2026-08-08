@@ -169,4 +169,11 @@ const hasChildren = computed(() => props.node.children.length > 0);
 
 .tree-action:hover {
   background: var(--surface-3);
-  
+  color: var(--text-primary);
+}
+
+.tree-action--danger:hover {
+  background: var(--danger-50);
+  color: var(--danger-500);
+}
+</style>

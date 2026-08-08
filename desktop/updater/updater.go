@@ -213,7 +213,7 @@ func (m *Manager) fetchLatest(ctx context.Context) (*UpdateInfo, error) {
 }
 
 // downloadAndVerify 下载更新包 + Ed25519 签名校验。
-func (m *Manager) downloadAndVerify(ctx context.Context, *UpdateInfo) error {
+func (m *Manager) downloadAndVerify(ctx context.Context, info *UpdateInfo) error {
 	// 1. HTTP GET info.URL → 下载到临时文件
 	// 2. ReadAll → []byte
 	// 3. VerifySignature: ed25519.Verify(m.publicKey, payload, sig)

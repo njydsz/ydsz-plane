@@ -201,6 +201,89 @@
   .chart-wrap{padding:16px;}
   .legend{display:flex; gap:16px; font-size:12px; color:var(--text-3); margin-top:8px;}
   .legend i{display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:4px; vertical-align:middle;}
+
+  /* ===== Module-specific (F08–F18) ===== */
+  /* Defect severity */
+  .pill-sev-s1{background:#F4D9D6;color:var(--pri-urgent);}
+  .pill-sev-s2{background:#FBEBD9;color:var(--pri-high);}
+  .pill-sev-s3{background:#FBEED6;color:#9A7B12;}
+  .pill-sev-s4{background:#E1E7F8;color:var(--pri-low);}
+
+  /* Docs tree + list */
+  .docs-layout{display:grid; grid-template-columns:240px 1fr; gap:16px;}
+  .doc-tree{background:var(--surface); border:1px solid var(--border); border-radius:var(--r-lg); padding:8px;}
+  .tree-node{padding:6px 8px; border-radius:var(--r-sm); font-size:13px; color:var(--text-2); cursor:pointer; display:flex; align-items:center; gap:8px;}
+  .tree-node:hover{background:var(--hover);}
+  .tree-node.active{background:var(--brand-soft); color:var(--brand); font-weight:600;}
+  .tree-children{margin-left:12px; border-left:1px solid var(--border); padding-left:6px;}
+
+  /* Knowledge base */
+  .kb-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:16px;}
+  .kb-card{padding:16px; display:flex; flex-direction:column; gap:10px;}
+  .kb-icon{width:36px; height:36px; border-radius:8px; background:var(--brand-soft); color:var(--brand); display:flex; align-items:center; justify-content:center; font-size:16px; font-weight:600;}
+  .kb-title{font-size:15px; font-weight:600; color:var(--text-1);}
+  .kb-count{font-size:12px; color:var(--text-3);}
+  .tag-row{display:flex; flex-wrap:wrap; gap:6px;}
+  .tag{font-size:11px; padding:2px 8px; border-radius:10px; background:var(--hover); color:var(--text-2);}
+
+  /* Inbox / Notifications feed */
+  .feed{display:flex; flex-direction:column;}
+  .feed-item{display:flex; gap:12px; padding:14px 16px; border-bottom:1px solid var(--border);}
+  .feed-item:last-child{border-bottom:none;}
+  .feed-item.unread{background:#F7F9FE;}
+  .feed-av{width:36px; height:36px; border-radius:18px; flex:0 0 36px; display:flex; align-items:center; justify-content:center; color:#fff; font-weight:600; font-size:13px;}
+  .feed-body{flex:1; min-width:0;}
+  .feed-text{font-size:13px; color:var(--text-2);}
+  .feed-text b{color:var(--text-1);}
+  .feed-time{font-size:11px; color:var(--text-3); margin-top:3px;}
+  .dot-unread{width:8px; height:8px; border-radius:4px; background:var(--brand); flex:0 0 8px;}
+
+  /* Workbench */
+  .wb-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:16px;}
+  .wb-stat{padding:16px; display:flex; flex-direction:column; gap:6px;}
+  .wb-stat .label{font-size:12px; color:var(--text-3);}
+  .wb-stat .val{font-size:24px; font-weight:700; color:var(--text-1);}
+
+  /* Search */
+  .search-box{display:flex; align-items:center; gap:10px; padding:10px 14px; border:1px solid var(--border); border-radius:var(--r-md); background:var(--surface);}
+  .search-box input{flex:1; border:none; outline:none; font-family:var(--font); font-size:14px; color:var(--text-1); background:transparent;}
+  .search-tabs{display:flex; gap:4px; margin:4px 0;}
+  .search-tab{padding:6px 12px; border-radius:var(--r-sm); font-size:13px; color:var(--text-2); cursor:pointer;}
+  .search-tab.active{background:var(--brand-soft); color:var(--brand); font-weight:600;}
+
+  /* Views list */
+  .view-row{display:flex; align-items:center; justify-content:space-between; padding:12px 16px; border-bottom:1px solid var(--border);}
+  .view-row:last-child{border-bottom:none;}
+  .view-row .vname{font-size:14px; font-weight:600; color:var(--text-1);}
+  .view-row .vmeta{font-size:12px; color:var(--text-3);}
+
+  /* Webhook & Automation rows */
+  .rule-row{display:flex; align-items:center; justify-content:space-between; padding:14px 16px; border-bottom:1px solid var(--border); gap:12px;}
+  .rule-row:last-child{border-bottom:none;}
+  .rule-main{display:flex; flex-direction:column; gap:4px; flex:1; min-width:0;}
+  .rule-title{font-size:14px; font-weight:600; color:var(--text-1);}
+  .rule-desc{font-size:12px; color:var(--text-3);}
+  .switch{width:38px; height:22px; border-radius:11px; background:var(--border-3); position:relative; flex:0 0 38px; cursor:pointer; transition:background .2s;}
+  .switch.on{background:var(--success);}
+  .switch::after{content:""; position:absolute; width:18px; height:18px; border-radius:9px; background:#fff; top:2px; left:2px; transition:left .2s;}
+  .switch.on::after{left:18px;}
+  .url-mono{font-family:var(--mono); font-size:12px; color:var(--text-2); word-break:break-all;}
+
+  /* Metrics charts */
+  .metric-grid{display:grid; grid-template-columns:1.4fr 1fr; gap:16px;}
+  .bar-chart{display:flex; align-items:flex-end; gap:14px; height:180px; padding:8px 4px 0;}
+  .bar-col{flex:1; display:flex; flex-direction:column; align-items:center; gap:6px; height:100%; justify-content:flex-end;}
+  .bar{width:100%; border-radius:6px 6px 0 0; background:var(--brand);}
+  .bar.alt{background:#7C3AED;}
+  .bar-label{font-size:11px; color:var(--text-3);}
+  .bar-val{font-size:11px; color:var(--text-2); font-weight:600;}
+  .rank-row{display:flex; align-items:center; justify-content:space-between; padding:10px 0; border-bottom:1px solid var(--border); font-size:13px;}
+  .rank-row:last-child{border-bottom:none;}
+  .mini-prog{height:6px; border-radius:3px; background:var(--hover); overflow:hidden; flex:1; margin:0 12px;}
+  .mini-prog > div{height:100%; background:var(--brand);}
+
+  /* sidebar scroll */
+  .sidebar{overflow-y:auto;}
 </style>
 </head>
 <body>
@@ -225,6 +308,22 @@
       <div class="nav-item" data-screen="f02">
         <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7h18M3 12h18M3 17h18"/></svg></span>工作空间
       </div>
+      <div class="nav-item" data-screen="f12">
+        <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="8" height="8"/><rect x="13" y="3" width="8" height="5"/><rect x="13" y="11" width="8" height="10"/><rect x="3" y="14" width="8" height="7"/></svg></span>工作台
+      </div>
+      <div class="nav-item" data-screen="f11">
+        <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7l9 6 9-6"/><rect x="3" y="5" width="18" height="14" rx="2"/></svg></span>收件箱
+      </div>
+      <div class="nav-item" data-screen="f13">
+        <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></span>通知
+      </div>
+      <div class="nav-item" data-screen="f14">
+        <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg></span>搜索
+      </div>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-label">项目</div>
       <div class="nav-item" data-screen="f03">
         <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 12l9 4 9-4M3 17l9 4 9-4"/></svg></span>项目
       </div>
@@ -234,27 +333,32 @@
       <div class="nav-item" data-screen="f05">
         <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h10"/></svg></span>迭代
       </div>
-    </div>
-
-    <div class="nav-group">
-      <div class="nav-label">项目</div>
       <div class="nav-item" data-screen="f06">
         <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5h16v14H4z"/><path d="M8 9h8M8 13h8"/></svg></span>工作项
       </div>
       <div class="nav-item" data-screen="f07">
         <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5h11M9 12h11M9 19h11"/><circle cx="4" cy="5" r="1.5"/><circle cx="4" cy="12" r="1.5"/><circle cx="4" cy="19" r="1.5"/></svg></span>任务
       </div>
-      <div class="nav-item" data-screen="soon">
+      <div class="nav-item" data-screen="f08">
+        <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="8" y="8" width="8" height="10" rx="4"/><path d="M12 8V4M9 6l-2-2M15 6l2-2M8 12H4M8 16H4M16 12h4M16 16h4"/></svg></span>缺陷
+      </div>
+      <div class="nav-item" data-screen="f09">
         <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5h16v14H4z"/><path d="M8 9h8M8 13h5"/></svg></span>文档
       </div>
-      <div class="nav-item" data-screen="soon">
-        <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5h16v14H4z"/><path d="M12 8v8M8 12h8"/></svg></span>知识库
+      <div class="nav-item" data-screen="f10">
+        <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5a2 2 0 0 1 2-2h5v16H6a2 2 0 0 0-2 2zM20 5a2 2 0 0 0-2-2h-5v16h5a2 2 0 0 1 2 2z"/></svg></span>知识库
       </div>
-      <div class="nav-item" data-screen="soon">
-        <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7l9 6 9-6"/><rect x="3" y="5" width="18" height="14" rx="2"/></svg></span>收件箱
+      <div class="nav-item" data-screen="f15">
+        <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg></span>视图
       </div>
-      <div class="nav-item" data-screen="soon">
-        <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg></span>工作台
+      <div class="nav-item" data-screen="f17">
+        <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg></span>自动化
+      </div>
+      <div class="nav-item" data-screen="f16">
+        <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="12" cy="18" r="2.5"/><path d="M8 7l3 9M16 7l-3 9"/></svg></span>Webhook
+      </div>
+      <div class="nav-item" data-screen="f18">
+        <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18"/><rect x="5" y="11" width="3" height="10"/><rect x="11" y="6" width="3" height="15"/><rect x="17" y="14" width="3" height="7"/></svg></span>效能度量
       </div>
       <div class="nav-item" data-screen="soon">
         <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg></span>设置
@@ -592,9 +696,375 @@
         </div>
       </section>
 
-      <!-- ========== 设计中占位 ========== -->
+      <!-- ========== F08 缺陷 Defect ========== -->
+      <section class="screen" id="f08">
+        <div class="page-head">
+          <div class="page-titles">
+            <div class="page-title">缺陷管理</div>
+            <div class="page-sub">Defect · 项目：核心平台重构</div>
+          </div>
+          <button class="btn-primary">新建缺陷</button>
+        </div>
+        <div class="toolbar">
+          <div class="toolbar-filters">
+            <span class="filter-chip">全部状态 ▾</span>
+            <span class="filter-chip">全部严重程度 ▾</span>
+            <span class="filter-chip">全部优先级 ▾</span>
+          </div>
+          <span class="toolbar-count">共 42 个缺陷</span>
+        </div>
+        <div class="card">
+          <table class="table">
+            <thead><tr>
+              <th>缺陷 ID</th><th class="col-fill">标题</th><th>严重程度</th><th>优先级</th><th>状态</th><th>指派</th><th>模块</th>
+            </tr></thead>
+            <tbody>
+              <tr><td class="mono">YDSZ-2041</td><td>登录页在 Safari 下验证码不显示</td><td><span class="pill pill-sev-s1">S1</span></td><td><span class="pill pill-urgent">紧急</span></td><td><span class="pill pill-triage">待验</span></td><td>李雷</td><td>用户模块</td></tr>
+              <tr><td class="mono">YDSZ-2038</td><td>导出报表时偶发 500 错误</td><td><span class="pill pill-sev-s2">S2</span></td><td><span class="pill pill-high">高</span></td><td><span class="pill pill-inprogress">处理中</span></td><td>韩梅梅</td><td>报表模块</td></tr>
+              <tr><td class="mono">YDSZ-2035</td><td>移动端列表滚动卡顿</td><td><span class="pill pill-sev-s3">S3</span></td><td><span class="pill pill-mid">中</span></td><td><span class="pill pill-todo">已确认</span></td><td>王强</td><td>移动端</td></tr>
+              <tr><td class="mono">YDSZ-2029</td><td>权限树节点缺失导致越权</td><td><span class="pill pill-sev-s1">S1</span></td><td><span class="pill pill-urgent">紧急</span></td><td><span class="pill pill-cancelled">重新打开</span></td><td>李雷</td><td>权限模块</td></tr>
+              <tr><td class="mono">YDSZ-2017</td><td>文档搜索结果高亮错位</td><td><span class="pill pill-sev-s4">S4</span></td><td><span class="pill pill-low">低</span></td><td><span class="pill pill-done">已关闭</span></td><td>赵敏</td><td>文档模块</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ========== F09 文档 Docs ========== -->
+      <section class="screen" id="f09">
+        <div class="page-head">
+          <div class="page-titles">
+            <div class="page-title">文档</div>
+            <div class="page-sub">Docs · 核心平台工作区</div>
+          </div>
+          <button class="btn-primary">新建文档</button>
+        </div>
+        <div class="docs-layout">
+          <div class="doc-tree">
+            <div class="tree-node active">📁 核心平台</div>
+            <div class="tree-children">
+              <div class="tree-node active">📂 产品文档</div>
+              <div class="tree-children">
+                <div class="tree-node">📄 需求规格 v2.3</div>
+                <div class="tree-node">📄 设计稿索引</div>
+                <div class="tree-node">📄 接口文档</div>
+              </div>
+              <div class="tree-node">📂 工程文档</div>
+              <div class="tree-children">
+                <div class="tree-node">📄 部署手册</div>
+                <div class="tree-node">📄 运维排障</div>
+              </div>
+              <div class="tree-node">📄 会议纪要</div>
+            </div>
+          </div>
+          <div>
+            <div class="toolbar" style="margin-bottom:12px;">
+              <div class="toolbar-filters">
+                <span class="filter-chip">全部类型 ▾</span>
+                <span class="filter-chip">最近编辑 ▾</span>
+              </div>
+              <span class="toolbar-count">共 6 篇文档</span>
+            </div>
+            <div class="card">
+              <table class="table">
+                <thead><tr><th>名称</th><th class="col-fill">最后编辑</th><th>编辑者</th><th>状态</th></tr></thead>
+                <tbody>
+                  <tr><td>需求规格 v2.3</td><td>2 小时前</td><td>李雷</td><td><span class="pill pill-done">已发布</span></td></tr>
+                  <tr><td>接口文档</td><td>昨天</td><td>韩梅梅</td><td><span class="pill pill-inprogress">草稿</span></td></tr>
+                  <tr><td>部署手册</td><td>3 天前</td><td>王强</td><td><span class="pill pill-done">已发布</span></td></tr>
+                  <tr><td>运维排障</td><td>5 小时前</td><td>赵敏</td><td><span class="pill pill-todo">待评审</span></td></tr>
+                  <tr><td>设计稿索引</td><td>1 周前</td><td>孙琳</td><td><span class="pill pill-done">已发布</span></td></tr>
+                  <tr><td>会议纪要</td><td>2 天前</td><td>周婷</td><td><span class="pill pill-done">已发布</span></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========== F10 知识库 Knowledge ========== -->
+      <section class="screen" id="f10">
+        <div class="page-head">
+          <div class="page-titles">
+            <div class="page-title">知识库</div>
+            <div class="page-sub">Knowledge · 团队沉淀与检索</div>
+          </div>
+          <button class="btn-primary">新建文章</button>
+        </div>
+        <div class="kb-grid">
+          <div class="card kb-card"><div class="kb-icon">⚙</div><div class="kb-title">工程实践</div><div class="kb-count">38 篇文章</div></div>
+          <div class="card kb-card"><div class="kb-icon">🔥</div><div class="kb-title">故障复盘</div><div class="kb-count">21 篇文章</div></div>
+          <div class="card kb-card"><div class="kb-icon">📘</div><div class="kb-title">产品百科</div><div class="kb-count">15 篇文章</div></div>
+          <div class="card kb-card"><div class="kb-icon">🌱</div><div class="kb-title">新人手册</div><div class="kb-count">9 篇文章</div></div>
+          <div class="card kb-card"><div class="kb-icon">🔒</div><div class="kb-title">安全合规</div><div class="kb-count">12 篇文章</div></div>
+          <div class="card kb-card"><div class="kb-icon">💡</div><div class="kb-title">FAQ</div><div class="kb-count">27 篇文章</div></div>
+        </div>
+        <div class="card card-pad">
+          <div class="section-title">最近更新</div>
+          <div class="subtask"><span style="flex:1;color:var(--text-1);font-size:13px;">Safari 跨域验证码排查手册</span><span class="tag">故障复盘</span><span class="toolbar-count">浏览 142</span></div>
+          <div class="subtask"><span style="flex:1;color:var(--text-1);font-size:13px;">权限树缓存设计说明</span><span class="tag">工程实践</span><span class="toolbar-count">浏览 98</span></div>
+          <div class="subtask"><span style="flex:1;color:var(--text-1);font-size:13px;">报表导出性能优化总结</span><span class="tag">工程实践</span><span class="toolbar-count">浏览 76</span></div>
+          <div class="subtask"><span style="flex:1;color:var(--text-1);font-size:13px;">新人环境搭建 10 分钟指南</span><span class="tag">新人手册</span><span class="toolbar-count">浏览 210</span></div>
+        </div>
+      </section>
+
+      <!-- ========== F11 收件箱 Inbox ========== -->
+      <section class="screen" id="f11">
+        <div class="page-head">
+          <div class="page-titles">
+            <div class="page-title">收件箱</div>
+            <div class="page-sub">Inbox · 2 条未读</div>
+          </div>
+          <button class="btn-primary">全部标为已读</button>
+        </div>
+        <div class="card">
+          <div class="feed">
+            <div class="feed-item unread">
+              <span class="feed-av av-orange">李</span>
+              <div class="feed-body"><div class="feed-text"><b>李雷</b> 在 <b>YDSZ-2041</b> 中 @ 了你，希望你确认 CORS 修复方案</div><div class="feed-time">12 分钟前</div></div>
+              <span class="dot-unread"></span>
+            </div>
+            <div class="feed-item unread">
+              <span class="feed-av av-green">韩</span>
+              <div class="feed-body"><div class="feed-text"><b>韩梅梅</b> 将工作项 <b>YDSZ-2038</b> 指派给你进行联调</div><div class="feed-time">1 小时前</div></div>
+              <span class="dot-unread"></span>
+            </div>
+            <div class="feed-item">
+              <span class="feed-av av-blue">系</span>
+              <div class="feed-body"><div class="feed-text"><b>系统</b> 提醒：迭代 <b>Sprint 24</b> 将于 8 月 14 日结束</div><div class="feed-time">3 小时前</div></div>
+            </div>
+            <div class="feed-item">
+              <span class="feed-av av-purple">王</span>
+              <div class="feed-body"><div class="feed-text"><b>王强</b> 评论了你负责的文档《接口文档》</div><div class="feed-time">昨天</div></div>
+            </div>
+            <div class="feed-item">
+              <span class="feed-av av-gray">赵</span>
+              <div class="feed-body"><div class="feed-text"><b>赵敏</b> 关注了你负责的 2 个工作项</div><div class="feed-time">2 天前</div></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========== F12 工作台 Workbench ========== -->
+      <section class="screen" id="f12">
+        <div class="page-head">
+          <div class="page-titles">
+            <div class="page-title">工作台</div>
+            <div class="page-sub">Workbench · Marvin 的今日概览</div>
+          </div>
+        </div>
+        <div class="wb-grid">
+          <div class="card wb-stat"><div class="label">我负责的</div><div class="val">23</div></div>
+          <div class="card wb-stat"><div class="label">待我处理</div><div class="val">8</div></div>
+          <div class="card wb-stat"><div class="label">今日截止</div><div class="val">3</div></div>
+          <div class="card wb-stat"><div class="label">关注中</div><div class="val">12</div></div>
+        </div>
+        <div class="grid-2">
+          <div class="card card-pad">
+            <div class="section-title">我的待办</div>
+            <div class="subtask"><span class="checkbox checked"></span><span style="flex:1;color:var(--text-1);font-size:13px;">重构权限树节点缓存逻辑</span><span class="pill pill-high">高</span></div>
+            <div class="subtask"><span class="checkbox"></span><span style="flex:1;color:var(--text-1);font-size:13px;">联调登录验证码服务</span><span class="pill pill-urgent">紧急</span></div>
+            <div class="subtask"><span class="checkbox"></span><span style="flex:1;color:var(--text-1);font-size:13px;">报表导出单测补全</span><span class="pill pill-mid">中</span></div>
+            <div class="subtask"><span class="checkbox"></span><span style="flex:1;color:var(--text-1);font-size:13px;">接口文档补充</span><span class="pill pill-low">低</span></div>
+          </div>
+          <div class="card card-pad">
+            <div class="section-title">最近截止</div>
+            <div class="subtask"><span style="flex:1;color:var(--text-1);font-size:13px;">联调登录验证码服务</span><span class="pill pill-urgent">08/08</span></div>
+            <div class="subtask"><span style="flex:1;color:var(--text-1);font-size:13px;">权限树缓存重构</span><span class="pill pill-high">08/09</span></div>
+            <div class="subtask"><span style="flex:1;color:var(--text-1);font-size:13px;">报表导出单测</span><span class="pill pill-mid">08/12</span></div>
+            <div class="subtask"><span style="flex:1;color:var(--text-1);font-size:13px;">移动端 profiling</span><span class="pill pill-low">08/15</span></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========== F13 通知 Notifications ========== -->
+      <section class="screen" id="f13">
+        <div class="page-head">
+          <div class="page-titles">
+            <div class="page-title">通知中心</div>
+            <div class="page-sub">Notifications · 全部 5 条</div>
+          </div>
+        </div>
+        <div class="search-tabs" style="padding:0 4px;">
+          <span class="search-tab active">全部</span>
+          <span class="search-tab">未读 (2)</span>
+          <span class="search-tab">@ 我</span>
+          <span class="search-tab">系统</span>
+        </div>
+        <div class="card">
+          <div class="feed">
+            <div class="feed-item unread">
+              <span class="feed-av av-orange">李</span>
+              <div class="feed-body"><div class="feed-text"><b>李雷</b> 提到了你：验证码 CORS 方案已提交，请评审</div><div class="feed-time">12 分钟前 · @ 我</div></div>
+              <span class="dot-unread"></span>
+            </div>
+            <div class="feed-item unread">
+              <span class="feed-av av-green">韩</span>
+              <div class="feed-body"><div class="feed-text"><b>韩梅梅</b> 指派 <b>YDSZ-2038</b> 给你</div><div class="feed-time">1 小时前 · 指派</div></div>
+              <span class="dot-unread"></span>
+            </div>
+            <div class="feed-item">
+              <span class="feed-av av-blue">系</span>
+              <div class="feed-body"><div class="feed-text"><b>系统</b> 迭代 Sprint 24 即将结束</div><div class="feed-time">3 小时前 · 系统</div></div>
+            </div>
+            <div class="feed-item">
+              <span class="feed-av av-purple">王</span>
+              <div class="feed-body"><div class="feed-text"><b>王强</b> 关注了你</div><div class="feed-time">昨天 · 关注</div></div>
+            </div>
+            <div class="feed-item">
+              <span class="feed-av av-gray">赵</span>
+              <div class="feed-body"><div class="feed-text"><b>赵敏</b> 将 YDSZ-2029 状态改为「重新打开」</div><div class="feed-time">2 天前 · 项目</div></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========== F14 搜索 Search ========== -->
+      <section class="screen" id="f14">
+        <div class="page-head">
+          <div class="page-titles">
+            <div class="page-title">搜索</div>
+            <div class="page-sub">Search · 全局检索</div>
+          </div>
+        </div>
+        <div class="search-box">
+          <span class="icon-btn" style="width:18px;height:18px;color:var(--text-3);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg></span>
+          <input placeholder="搜索工作项、文档、人员、项目…" value="验证码" />
+          <span class="cmdk">Enter</span>
+        </div>
+        <div class="search-tabs">
+          <span class="search-tab active">工作项 (4)</span>
+          <span class="search-tab">文档 (2)</span>
+          <span class="search-tab">人员 (1)</span>
+          <span class="search-tab">项目 (1)</span>
+        </div>
+        <div class="card">
+          <table class="table">
+            <thead><tr><th>ID</th><th class="col-fill">标题</th><th>类型</th><th>状态</th><th>负责人</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">YDSZ-2041</td><td>登录页在 Safari 下验证码不显示</td><td>缺陷</td><td><span class="pill pill-triage">待验</span></td><td>李雷</td></tr>
+              <tr><td class="mono">YDSZ-2038</td><td>导出报表时偶发 500 错误</td><td>缺陷</td><td><span class="pill pill-inprogress">处理中</span></td><td>韩梅梅</td></tr>
+              <tr><td class="mono">TSK-302</td><td>联调登录验证码服务</td><td>任务</td><td><span class="pill pill-inprogress">进行中</span></td><td>韩梅梅</td></tr>
+              <tr><td class="mono">YDSZ-2017</td><td>文档搜索结果高亮错位</td><td>缺陷</td><td><span class="pill pill-done">已关闭</span></td><td>赵敏</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ========== F15 视图 Views ========== -->
+      <section class="screen" id="f15">
+        <div class="page-head">
+          <div class="page-titles">
+            <div class="page-title">视图</div>
+            <div class="page-sub">Views · 已保存的筛选与布局</div>
+          </div>
+          <button class="btn-primary">新建视图</button>
+        </div>
+        <div class="card">
+          <div class="view-row"><div><div class="vname">我的待办</div><div class="vmeta">过滤：负责人 = 我，状态 = 待办 / 进行中</div></div><span class="pill pill-inprogress">看板</span></div>
+          <div class="view-row"><div><div class="vname">紧急缺陷</div><div class="vmeta">过滤：类型 = 缺陷，优先级 = 紧急</div></div><span class="pill pill-urgent">列表</span></div>
+          <div class="view-row"><div><div class="vname">本周发布</div><div class="vmeta">过滤：状态 = 已发布，更新时间 ∈ 本周</div></div><span class="pill pill-done">列表</span></div>
+          <div class="view-row"><div><div class="vname">迭代燃尽</div><div class="vmeta">分组：按迭代，布局 = 甘特图</div></div><span class="pill pill-low">甘特</span></div>
+          <div class="view-row"><div><div class="vname">待评审文档</div><div class="vmeta">过滤：状态 = 待评审，模块 = 文档</div></div><span class="pill pill-todo">列表</span></div>
+        </div>
+      </section>
+
+      <!-- ========== F16 Webhook ========== -->
+      <section class="screen" id="f16">
+        <div class="page-head">
+          <div class="page-titles">
+            <div class="page-title">Webhook</div>
+            <div class="page-sub">Webhook · 事件回调配置</div>
+          </div>
+          <button class="btn-primary">新建 Webhook</button>
+        </div>
+        <div class="card">
+          <div class="rule-row">
+            <div class="rule-main"><div class="rule-title">工作项创建</div><div class="url-mono">https://hooks.ydsz.io/core/issue-created</div></div>
+            <span class="switch on"></span>
+          </div>
+          <div class="rule-row">
+            <div class="rule-main"><div class="rule-title">状态变更</div><div class="url-mono">https://hooks.ydsz.io/core/status-changed</div></div>
+            <span class="switch on"></span>
+          </div>
+          <div class="rule-row">
+            <div class="rule-main"><div class="rule-title">评论新增</div><div class="url-mono">https://hooks.ydsz.io/core/comment</div></div>
+            <span class="switch"></span>
+          </div>
+          <div class="rule-row">
+            <div class="rule-main"><div class="rule-title">缺陷新建</div><div class="url-mono">https://hooks.ydsz.io/core/defect</div></div>
+            <span class="switch on"></span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========== F17 自动化 Automation ========== -->
+      <section class="screen" id="f17">
+        <div class="page-head">
+          <div class="page-titles">
+            <div class="page-title">自动化</div>
+            <div class="page-sub">Automation · 规则引擎</div>
+          </div>
+          <button class="btn-primary">新建规则</button>
+        </div>
+        <div class="card">
+          <div class="rule-row">
+            <div class="rule-main"><div class="rule-title">当缺陷新建且严重程度 = S1</div><div class="rule-desc">则 指派给值班工程师，并通知 #故障应急 频道</div></div>
+            <span class="switch on"></span>
+          </div>
+          <div class="rule-row">
+            <div class="rule-main"><div class="rule-title">当工作项移动到「已发布」</div><div class="rule-desc">则 在版本日动态发布一条记录</div></div>
+            <span class="switch on"></span>
+          </div>
+          <div class="rule-row">
+            <div class="rule-main"><div class="rule-title">当任务逾期</div><div class="rule-desc">则 向负责人发送提醒，并升级给上级</div></div>
+            <span class="switch on"></span>
+          </div>
+          <div class="rule-row">
+            <div class="rule-main"><div class="rule-title">当文档评论含 @ 提及</div><div class="rule-desc">则 通知被提及人</div></div>
+            <span class="switch"></span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========== F18 效能度量 Metrics ========== -->
+      <section class="screen" id="f18">
+        <div class="page-head">
+          <div class="page-titles">
+            <div class="page-title">效能度量</div>
+            <div class="page-sub">Metrics · Sprint 20 – Sprint 24</div>
+          </div>
+          <button class="btn-primary">导出报表</button>
+        </div>
+        <div class="kpi-row">
+          <div class="card kpi-card"><div class="kpi-label">平均吞吐量</div><div class="kpi-value">31</div><div class="kpi-trend">▲ 工作项 / 迭代</div></div>
+          <div class="card kpi-card"><div class="kpi-label">平均周期时间</div><div class="kpi-value">4.2</div><div class="kpi-trend down">▼ 天</div></div>
+          <div class="card kpi-card"><div class="kpi-label">缺陷密度</div><div class="kpi-value">0.18</div><div class="kpi-trend">/ 千行</div></div>
+        </div>
+        <div class="metric-grid">
+          <div class="card chart-wrap">
+            <div class="section-title">各迭代完成工作项数</div>
+            <div class="bar-chart">
+              <div class="bar-col"><div class="bar-val">24</div><div class="bar" style="height:55%;"></div><div class="bar-label">S20</div></div>
+              <div class="bar-col"><div class="bar-val">28</div><div class="bar" style="height:64%;"></div><div class="bar-label">S21</div></div>
+              <div class="bar-col"><div class="bar-val">26</div><div class="bar" style="height:60%;"></div><div class="bar-label">S22</div></div>
+              <div class="bar-col"><div class="bar-val">35</div><div class="bar alt" style="height:80%;"></div><div class="bar-label">S23</div></div>
+              <div class="bar-col"><div class="bar-val">42</div><div class="bar" style="height:96%;"></div><div class="bar-label">S24</div></div>
+            </div>
+          </div>
+          <div class="card card-pad">
+            <div class="section-title">成员交付排行</div>
+            <div class="rank-row"><span>李雷</span><div class="mini-prog"><div style="width:100%;"></div></div><span>38</span></div>
+            <div class="rank-row"><span>韩梅梅</span><div class="mini-prog"><div style="width:82%;"></div></div><span>31</span></div>
+            <div class="rank-row"><span>王强</span><div class="mini-prog"><div style="width:68%;"></div></div><span>26</span></div>
+            <div class="rank-row"><span>赵敏</span><div class="mini-prog"><div style="width:55%;"></div></div><span>21</span></div>
+            <div class="rank-row"><span>孙琳</span><div class="mini-prog"><div style="width:42%;"></div></div><span>16</span></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========== 设置占位 ========== -->
       <section class="screen" id="soon">
-        <div class="card"><div class="placeholder">该模块设计稿正在画布中制作中（F08–F18），敬请期待。</div></div>
+        <div class="card"><div class="placeholder">设置模块设计稿待补充。</div></div>
       </section>
 
     </div>
@@ -604,7 +1074,9 @@
 <script>
   const crumbMap = {
     f01:'工作区', f02:'工作空间', f03:'项目', f04:'版本日', f05:'迭代',
-    f06:'工作项', f07:'任务', soon:'设计稿制作中'
+    f06:'工作项', f07:'任务', f08:'缺陷', f09:'文档', f10:'知识库',
+    f11:'收件箱', f12:'工作台', f13:'通知', f14:'搜索', f15:'视图',
+    f16:'Webhook', f17:'自动化', f18:'效能度量', soon:'设置'
   };
   const items = document.querySelectorAll('.nav-item');
   const screens = document.querySelectorAll('.screen');

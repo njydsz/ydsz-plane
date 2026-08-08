@@ -4,6 +4,8 @@ package knowledge
 import (
 	"fmt"
 	"net/http"
+	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 
@@ -47,6 +49,9 @@ func (h *Handler) RegisterRead(r *gin.RouterGroup) {
 			}
 		}
 	}
+
+	// 全文检索（跨空间，workspace_id 均来自 RequireWorkspaceParam）
+	r.GET("/search", h.search)
 }
 
 // RegisterWrite 注册写入路由（POST/PATCH/DELETE，需 knowledge:manage 权限）。
@@ -504,6 +509,28 @@ func itoa(v int64) string {
 
 func strPtr(s string) *string {
 	return &s
+}
+
+// search 全文检索（PostgreSQL tsvector）。
+// GET /api/v1/workspaces/:workspace_id/knowledge/search?q=keyword&space_id=optional
+// workspace_id 由 RequireWorkspaceParam 中间件注入。
+func (h *Handler) search(c *gin.Context) {
+	wsID := c.GetInt64(middleware.CtxWorkspaceID)
+	keyword := c.Query("q")
+	if strings.TrimSpace(keyword) == "" {
+		c.JSON(200, gin.H{"results": []KnowledgePage{}})
+		return
+	}
+	var sid *int64
+	if v, err := strconv.ParseInt(c.Query("space_id"), 10, 64); err == nil {
+		sid = &v
+	}
+	items, err := h.svc.Search(c.Request.Context(), wsID, keyword, sid, 20)
+	if err != nil {
+		writeErr(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"results": items, "total": len(items)})
 }
 
 func writeErr(c *gin.Context, err error) {

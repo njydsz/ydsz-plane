@@ -10,7 +10,7 @@
 import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
-import { knowledgeApi, type KnowledgeSpace, type SpacePermission } from "@/api/services/knowledge";
+import { knowledgeApi, type KnowledgePage, type KnowledgeSpace, type SpacePermission } from "@/api/services/knowledge";
 import { toast } from "@/lib/toast";
 import { AppEmptyState, AppErrorState, AppModal } from "@/components";
 
@@ -22,6 +22,12 @@ const workspaceId = computed(() => Number(route.params.workspaceId ?? 0));
 const loading = ref(true);
 const error = ref("");
 const spaces = ref<KnowledgeSpace[]>([]);
+
+/* ===== 全文检索 ===== */
+const searchKeyword = ref("");
+const searching = ref(false);
+const searchResults = ref<KnowledgePage[]>([]);
+const searchDone = ref(false);
 
 /* ===== 新建空间弹窗 ===== */
 const showCreate = ref(false);
@@ -140,6 +146,32 @@ function fmtTime(iso: string): string {
   ).padStart(2, "0")}`;
 }
 
+async function runSearch() {
+	const kw = searchKeyword.value.trim();
+	if (!kw) {
+		searchResults.value = [];
+		searchDone.value = false;
+		return;
+	}
+	searching.value = true;
+	searchDone.value = false;
+	try {
+		searchResults.value = await knowledgeApi.search(workspaceId.value, kw);
+	} catch (e: unknown) {
+		toast.error(e instanceof Error ? e.message : "搜索失败");
+		searchResults.value = [];
+	} finally {
+		searching.value = false;
+		searchDone.value = true;
+	}
+}
+
+function clearSearch() {
+	searchKeyword.value = "";
+	searchResults.value = [];
+	searchDone.value = false;
+}
+
 onMounted(load);
 </script>
 
@@ -154,6 +186,41 @@ onMounted(load);
         <button class="btn btn--primary" @click="openCreate">＋ {{ $t("knowledge.newSpace") }}</button>
       </div>
     </header>
+
+    <!-- 全文检索 -->
+    <div class="kb-search">
+      <input
+        v-model="searchKeyword"
+        class="kb-search__input"
+        :placeholder="$t('knowledge.searchPlaceholder')"
+        @keydown.enter="runSearch"
+      />
+      <button class="btn btn--primary" :disabled="searching" @click="runSearch">
+        {{ searching ? $t("common.loading") : $t("knowledge.search") }}
+      </button>
+      <button v-if="searchKeyword" class="btn" @click="clearSearch">{{ $t("common.clear") }}</button>
+    </div>
+
+    <!-- 搜索结果 -->
+    <div v-if="searchDone && searchKeyword.trim()" class="kb-search__results">
+      <div class="kb-search__head">
+        <span>{{ $t("knowledge.searchResults") }}: {{ searchResults.length }}</span>
+      </div>
+      <div v-if="searchResults.length === 0" class="kb-search__empty">
+        {{ $t("knowledge.searchEmpty") }}
+      </div>
+      <div v-else class="kb-search__list">
+        <div
+          v-for="p in searchResults"
+          :key="p.id"
+          class="kb-search__item"
+          @click="router.push(`/${workspaceId}/knowledge/${p.space_id}/pages/${p.id}`)"
+        >
+          <span class="kb-search__item-title">{{ p.title }}</span>
+          <span class="kb-search__item-path">{{ p.path }}</span>
+        </div>
+      </div>
+    </div>
 
     <AppErrorState v-if="error" :message="error" @retry="load" />
 
@@ -194,7 +261,9 @@ onMounted(load);
             class="space-card__delete"
             title="删除空间"
             @click.stop="deleteSpace(sp)"
-          >删除</button>
+          >
+删除
+</button>
         </div>
       </div>
     </div>
@@ -514,5 +583,87 @@ onMounted(load);
 .btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+/* ---- 全文检索 ---- */
+.kb-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.kb-search__input {
+  flex: 1;
+  padding: 8px 10px;
+  font-size: 13px;
+  font-family: inherit;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--surface-1);
+  color: var(--text-primary);
+  outline: none;
+}
+
+.kb-search__input:focus {
+  border-color: var(--brand-500);
+  box-shadow: 0 0 0 2px var(--brand-50);
+}
+
+.kb-search__results {
+  margin-bottom: 16px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.kb-search__head {
+  padding: 10px 16px;
+  background: var(--surface-2);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.kb-search__empty {
+  padding: 16px;
+  font-size: 13px;
+  color: var(--text-tertiary);
+}
+
+.kb-search__list {
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.kb-search__item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border-subtle);
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.kb-search__item:last-child {
+  border-bottom: none;
+}
+
+.kb-search__item:hover {
+  background: var(--brand-50);
+}
+
+.kb-search__item-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.kb-search__item-path {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-tertiary);
 }
 </style>

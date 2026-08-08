@@ -585,6 +585,15 @@ func run() error {
 		DLQHandler:      dlqHandler,
 	})
 
+	// 注册 S13 SSO Provider 管理路由（工作空间级，workspace 管理员配置 SSO 集成）
+	httpapi.RegisterSSOProviderRoutes(engine, &httpapi.Deps{
+		Auth:            authSvc,
+		PrincipalParser: parsePrincipal,
+		WorkspaceStore:  wsStore,
+		RBACStore:       rbacStore,
+		OIDCService:     oidcService,
+	})
+
 	errCh := make(chan error, 1)
 	go func() {
 		log.Info("api listening", zap.Int("port", cfg.Server.Port), zap.String("env", cfg.Server.Env))

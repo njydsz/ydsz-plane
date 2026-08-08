@@ -518,6 +518,49 @@ func (s *Service) createVersionSnapshotTx(ctx context.Context, pageID int64, tit
 }
 
 // ==========================================================================
+// 全文检索（PostgreSQL tsvector + GIN）
+// ==========================================================================
+
+// Search 全文检索（PostgreSQL 内置 tsvector）。
+// 依赖：knowledge_pages_tsv_trigger（见 knowledge-migrations.sql）已把 title/content_md 同步到 tsv 列。
+// 当 spaceID 为 nil 时不限定空间（搜索整个工作空间）。
+func (s *Service) Search(ctx context.Context, wsID int64, keyword string, spaceID *int64, limit int) ([]KnowledgePage, error) {
+	if limit <= 0 || limit > 50 {
+		limit = 20
+	}
+	args := []any{wsID, keyword, limit}
+	spaceFilter := ""
+	if spaceID != nil {
+		spaceFilter = " AND space_id = $4"
+		args = append(args, *spaceID)
+	}
+	var q = `SELECT ` + pageColumns + `
+			   FROM knowledge_pages
+			   WHERE workspace_id = $1 AND deleted_at IS NULL
+			     AND tsv @@ websearch_to_tsquery('simple', $2)
+			   ` + spaceFilter + `
+			   ORDER BY ts_rank(tsv, websearch_to_tsquery('simple', $2)) DESC, updated_at DESC
+			   LIMIT $3`
+	rows, err := s.db.Query(ctx, q, args...)
+	if err != nil {
+		return nil, errs.ErrInternal.Wrap(fmt.Errorf("knowledge.Search: %w", err))
+	}
+	defer rows.Close()
+	var out []KnowledgePage
+	for rows.Next() {
+		var p KnowledgePage
+		if err := scanPage(rows, &p); err != nil {
+			return nil, err
+		}
+		out = append(out, p)
+	}
+	if out == nil {
+		out = []KnowledgePage{}
+	}
+	return out, rows.Err()
+}
+
+// ==========================================================================
 // 文档关联工作项
 // ==========================================================================
 

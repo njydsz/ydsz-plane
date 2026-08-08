@@ -13,6 +13,9 @@ import { workspaceApi, type Member } from "@/api/services/workspace";
 import { AppErrorState, AppLoadingState, AppModal } from "@/components";
 import { toast } from "@/lib/toast";
 
+/** 模板中使用 setTimeout 时需显式暴露，避免组件实例类型上找不到该全局函数。 */
+const setTimeout = (fn: () => void, ms: number) => window.setTimeout(fn, ms);
+
 const route = useRoute();
 const workspaceId = Number(route.params.workspaceId);
 const projectId = Number(route.params.projectId);

@@ -6,7 +6,7 @@
  */
 import { onMounted, ref } from "vue";
 
-import { issueApi, type IssueRelation, type IssueDependency } from "@/api/services/issue";
+import { issueApi, type IssueRelation, type IssueDependency, type DependencyType, DEPENDENCY_TYPE_LABELS } from "@/api/services/issue";
 import { AppLoadingState, AppErrorState } from "@/components";
 
 const props = defineProps<{
@@ -41,17 +41,12 @@ const depsLoading = ref(false);
 const showDepForm = ref(false);
 const depPredecessorId = ref<number | null>(null);
 const depSuccessorId = ref<number | null>(null);
-const depType = ref("FS");
+const depType = ref<DependencyType>("FS");
 const depLagDays = ref(0);
 const depError = ref("");
 const depSubmitting = ref(false);
 
-const dependencyTypeLabels: Record<string, string> = {
-  FS: "完成→开始 (FS)",
-  SS: "开始→开始 (SS)",
-  FF: "完成→完成 (FF)",
-  SF: "开始→完成 (SF)",
-};
+const dependencyTypeLabels = DEPENDENCY_TYPE_LABELS;
 
 async function load() {
   loading.value = true;
@@ -251,7 +246,7 @@ onMounted(() => {
         <div class="dep-section-label">前置任务</div>
         <div v-for="dep in dependencies.predecessors" :key="'pre-' + dep.id" class="relation-item">
           <div class="relation-item__info">
-            <span class="relation-item__type">{{ dependencyTypeLabels[dep.dependency_type] ?? dep.dependency_type }}</span>
+            <span class="dep-type-badge" :title="dependencyTypeLabels[dep.dependency_type] ?? dep.dependency_type">{{ dep.dependency_type }}</span>
             <span class="relation-item__target">#{{ dep.predecessor_id }}</span>
             <span v-if="dep.lag_days > 0" class="dep-lag">+{{ dep.lag_days }}天</span>
           </div>
@@ -262,7 +257,7 @@ onMounted(() => {
         <div class="dep-section-label">后置任务</div>
         <div v-for="dep in dependencies.successors" :key="'suc-' + dep.id" class="relation-item">
           <div class="relation-item__info">
-            <span class="relation-item__type">{{ dependencyTypeLabels[dep.dependency_type] ?? dep.dependency_type }}</span>
+            <span class="dep-type-badge" :title="dependencyTypeLabels[dep.dependency_type] ?? dep.dependency_type">{{ dep.dependency_type }}</span>
             <span class="relation-item__target">#{{ dep.successor_id }}</span>
             <span v-if="dep.lag_days > 0" class="dep-lag">+{{ dep.lag_days }}天</span>
           </div>
@@ -431,6 +426,20 @@ h3 {
 
 .relation-item__remove:hover {
   color: var(--danger-500);
+}
+
+.dep-type-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  font-size: 10px;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  color: var(--brand-600);
+  background: var(--brand-50);
+  border: 1px solid var(--brand-200);
+  border-radius: 3px;
+  cursor: help;
+  letter-spacing: 0.5px;
 }
 
 .dep-section-label {

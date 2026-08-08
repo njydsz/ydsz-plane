@@ -1,12 +1,18 @@
 <script setup lang="ts">
 /**
- * 登录页 — 邮箱+密码登录，支持限流错误提示与 redirect 回跳。
+ * 登录页 — 邮箱+密码登录 + SSO/OIDC 企业认证入口。
+ *
+ * S13 SSO 流程：
+ *   1. 页面加载已认证后拉取当前工作空间的 SSO Providers
+ *   2. 用户点击 "使用 <Provider> 登录" → 浏览器重定向到后端 /sso/:wid/providers/:pid/login
+ *   3. 后端发起 state + code_challenge → 302 重定向到 IdP
+ *   4. IdP 回调 /api/v1/auth/oidc/callback → 设置 Cookie 302 → /sso/callback
  */
 
-import { reactive, ref } from "vue";
+import { onMounted, reactive, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
-import { ApiError } from "@/api/client";
+import { ApiError, apiClient } from "@/api/client";
 import { useAuthStore } from "@/stores/auth";
 
 const auth = useAuthStore();
@@ -16,6 +22,53 @@ const route = useRoute();
 const form = reactive({ email: "", password: "" });
 const loading = ref(false);
 const errorMsg = ref("");
+
+// S13: SSO Providers
+interface SSOProvider {
+  id: number;
+  name: string;
+  protocol: string;
+  client_id: string;
+}
+const ssoProviders = ref<SSOProvider[]>([]);
+const ssoLoading = ref(false);
+
+onMounted(async () => {
+  // 仅未登录时加载 SSO Providers
+  if (auth.isAuthenticated) return;
+  ssoLoading.value = true;
+  try {
+    const wsId = getWorkspaceId();
+    if (wsId > 0) {
+      const res = await apiClient.get<{ items: SSOProvider[] }>(
+        `/api/v1/workspaces/${wsId}/sso/providers`
+      );
+      ssoProviders.value = res.data?.items ?? [];
+    }
+  } catch {
+    // SSO 未配置时静默忽略
+  } finally {
+    ssoLoading.value = false;
+  }
+});
+
+function getWorkspaceId(): number {
+  const redirect = route.query.redirect as string;
+  if (redirect) {
+    const m = redirect.match(/\/workspaces\/(\d+)/);
+    if (m) return parseInt(m[1], 10);
+  }
+  return 0;
+}
+
+function onSSOLogin(provider: SSOProvider) {
+  if (provider.protocol !== "oidc") return;
+  const wsId = getWorkspaceId();
+  const redirect = (route.query.redirect as string) || "/";
+  window.location.href =
+    `/api/v1/auth/sso/${wsId}/providers/${provider.id}/login` +
+    `?redirect_to=${encodeURIComponent(redirect)}`;
+}
 
 async function onSubmit() {
   errorMsg.value = "";
@@ -60,6 +113,26 @@ async function onSubmit() {
       <div class="footer-links">
         <router-link to="/register">注册账号</router-link>
         <router-link to="/forgot-password">忘记密码？</router-link>
+      </div>
+
+      <!-- S13 SSO divider -->
+      <div v-if="ssoProviders.length > 0" class="sso-divider">
+        <span class="sso-divider__line"></span>
+        <span class="sso-divider__text">或使用企业账号登录</span>
+        <span class="sso-divider__line"></span>
+      </div>
+
+      <!-- S13 SSO Providers -->
+      <div v-if="ssoProviders.length > 0" class="sso-providers">
+        <button
+          v-for="p in ssoProviders"
+          :key="p.id"
+          class="sso-btn"
+          :disabled="ssoLoading"
+          @click="onSSOLogin(p)"
+        >
+          <span class="sso-btn__label">{{ p.name }}</span>
+        </button>
       </div>
     </form>
   </div>
@@ -177,5 +250,56 @@ async function onSubmit() {
 
 .footer-links a {
   color: var(--brand-500);
+}
+
+/* S13: SSO section */
+.sso-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 4px 0;
+}
+
+.sso-divider__line {
+  flex: 1;
+  height: 1px;
+  background: var(--border-subtle);
+}
+
+.sso-divider__text {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+
+.sso-providers {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sso-btn {
+  height: 40px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--surface-1);
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.sso-btn:hover:not(:disabled) {
+  background: var(--surface-2);
+  border-color: var(--border-hover);
+}
+
+.sso-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 </style>

@@ -84,7 +84,7 @@ func (s *SSOManager) Start(ctx context.Context) (callbackURL string, err error) 
 	})
 
 	s.srv = &http.Server{
-		Addr:              fmt.Sprintf("%s:%d", sCallbackHost, port),
+		Addr:              fmt.Sprintf("%s:%d", ssoCallbackHost, port),
 		Handler:           mux,
 		ReadHeaderTimeout: 5 * time.Second,
 		BaseContext:       func(_ net.Listener) context.Context { return ctx },
@@ -164,7 +164,7 @@ func generateState() string {
 }
 
 func pickFreePort() (int, error) {
-	l, err := net.Listen("tcp", sCallbackHost+":0")
+	l, err := net.Listen("tcp", ssoCallbackHost+":0")
 	if err != nil {
 		return 0, err
 	}

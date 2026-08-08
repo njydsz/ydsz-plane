@@ -2585,6 +2585,10 @@ CREATE TABLE "public"."sso_providers" (
   "token_url" text,
   "userinfo_url" text,
   "jwks_url" text,
+  "sso_url" text COLLATE "pg_catalog"."default",
+  "idp_issuer" text COLLATE "pg_catalog"."default",
+  "idp_certificate" text COLLATE "pg_catalog"."default",
+  "skip_signature" bool NOT NULL DEFAULT false,
   "scopes" text NOT NULL DEFAULT 'openid email profile',
   "auto_create_user" bool NOT NULL DEFAULT true,
   "default_role" text NOT NULL DEFAULT 'member',
@@ -8247,6 +8251,291 @@ CHECK (widget_type = ANY (ARRAY[
     'recent_activity', 'team_workload', 'version_burndown',
     'module_distribution', 'dora', 'project_compare'
 ]::text[]));
+
+
+-- ============================================================================
+-- 全部迁移脚本整合完毕。
+-- 至此 sql/ 目录下仅保留 ydsz-plane-init.sql 一个文件。
+-- ============================================================================
+
+
+-- ============================================================================
+-- 迁移脚本整合：knowledge-migrations.sql
+-- 知识库模块：spaces / pages / page_versions / page_relations
+-- ============================================================================
+
+-- ============================================================================
+-- knowledge_spaces — 知识库空间
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS public.knowledge_spaces (
+    id                   BIGSERIAL   PRIMARY KEY,
+    workspace_id         BIGINT      NOT NULL REFERENCES public.workspaces(id) ON DELETE CASCADE,
+    project_id           BIGINT      REFERENCES public.projects(id) ON DELETE SET NULL,
+    name                 VARCHAR(255) NOT NULL,
+    slug                 VARCHAR(128) NOT NULL UNIQUE,
+    description          TEXT        DEFAULT '',
+    owner_id             BIGINT      REFERENCES public.users(id) ON DELETE SET NULL,
+    default_permission   VARCHAR(32) NOT NULL DEFAULT 'viewer'
+                                  CHECK (default_permission IN ('viewer','editor','admin','owner')),
+    is_private           BOOLEAN     NOT NULL DEFAULT TRUE,
+    cover_image          VARCHAR(512) DEFAULT '',
+    created_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deleted_at           TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_ks_workspace ON public.knowledge_spaces(workspace_id);
+CREATE INDEX IF NOT EXISTS idx_ks_project   ON public.knowledge_spaces(project_id) WHERE project_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_ks_deleted   ON public.knowledge_spaces(deleted_at) WHERE deleted_at IS NULL;
+
+COMMENT ON TABLE  public.knowledge_spaces               IS '知识库空间：可挂在工作空间或项目下';
+COMMENT ON COLUMN public.knowledge_spaces.workspace_id IS '所属工作空间（RLS 租户隔离键）';
+COMMENT ON COLUMN public.knowledge_spaces.project_id   IS '所属项目（可空 = 工作空间级空间）';
+COMMENT ON COLUMN public.knowledge_spaces.slug         IS '空间标识（URL 友好）';
+COMMENT ON COLUMN public.knowledge_spaces.deleted_at   IS '软删除时间戳（NULL = 未删除）';
+
+-- ============================================================================
+-- knowledge_pages — 文档（自引用 parent_id 实现无限层级树）
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS public.knowledge_pages (
+    id                   BIGSERIAL   PRIMARY KEY,
+    workspace_id         BIGINT      NOT NULL REFERENCES public.workspaces(id) ON DELETE CASCADE,
+    space_id             BIGINT      NOT NULL REFERENCES public.knowledge_spaces(id) ON DELETE CASCADE,
+    parent_id            BIGINT      REFERENCES public.knowledge_pages(id) ON DELETE SET NULL,
+    lft                  BIGINT      NOT NULL DEFAULT 0,
+    rgt                  BIGINT      NOT NULL DEFAULT 0,
+    depth                INTEGER     NOT NULL DEFAULT 0,
+    title                VARCHAR(512) NOT NULL,
+    path                 VARCHAR(2048) DEFAULT '',
+    content_md           TEXT        DEFAULT '',
+    content_html         TEXT        DEFAULT '',
+    version              BIGINT      NOT NULL DEFAULT 1,
+    status               VARCHAR(32) NOT NULL DEFAULT 'draft'
+                                  CHECK (status IN ('draft','published','archived')),
+    sort_order           BIGINT      NOT NULL DEFAULT 0,
+    is_pinned            BOOLEAN     NOT NULL DEFAULT FALSE,
+    is_featured          BOOLEAN     NOT NULL DEFAULT FALSE,
+    view_count           BIGINT      NOT NULL DEFAULT 0,
+    created_by           BIGINT      REFERENCES public.users(id) ON DELETE SET NULL,
+    updated_by           BIGINT      REFERENCES public.users(id) ON DELETE SET NULL,
+    created_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deleted_at           TIMESTAMPTZ,
+    -- 全文检索向量（由 knowledge_pages_tsv_trigger 自动维护，此处只做占位列）
+    tsv                  tsvector,
+    CONSTRAINT fk_kp_parent FOREIGN KEY (parent_id)
+        REFERENCES public.knowledge_pages(id) ON DELETE SET NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_kp_ws_space  ON public.knowledge_pages(workspace_id, space_id);
+CREATE INDEX IF NOT EXISTS idx_kp_parent    ON public.knowledge_pages(parent_id) WHERE parent_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_kp_status    ON public.knowledge_pages(status);
+CREATE INDEX IF NOT EXISTS idx_kp_deleted   ON public.knowledge_pages(deleted_at) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_kp_created   ON public.knowledge_pages(created_at DESC);
+
+COMMENT ON TABLE  public.knowledge_pages               IS '知识库文档（无限层级树）';
+COMMENT ON COLUMN public.knowledge_pages.workspace_id IS '所属工作空间（RLS 租户隔离键）';
+COMMENT ON COLUMN public.knowledge_pages.space_id     IS '所属空间';
+COMMENT ON COLUMN public.knowledge_pages.parent_id    IS '父文档 ID（自引用）';
+COMMENT ON COLUMN public.knowledge_pages.lft          IS '嵌套集合左值';
+COMMENT ON COLUMN public.knowledge_pages.rgt          IS '嵌套集合右值';
+COMMENT ON COLUMN public.knowledge_pages.depth        IS '文档层级深度（0 = 根）';
+COMMENT ON COLUMN public.knowledge_pages.path         IS '完整路径（如 /features/login）';
+COMMENT ON COLUMN public.knowledge_pages.version      IS '乐观锁版本号（每次内容更新自动 +1）';
+COMMENT ON COLUMN public.knowledge_pages.deleted_at   IS '软删除时间戳';
+
+-- ============================================================================
+-- knowledge_page_versions — 版本快照（内容变更时自动记录）
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS public.knowledge_page_versions (
+    id                   BIGSERIAL   PRIMARY KEY,
+    page_id              BIGINT      NOT NULL REFERENCES public.knowledge_pages(id) ON DELETE CASCADE,
+    version              BIGINT      NOT NULL,
+    title                VARCHAR(512) NOT NULL,
+    content_md           TEXT        DEFAULT '',
+    content_html         TEXT        DEFAULT '',
+    change_summary       VARCHAR(256) DEFAULT '',
+    created_by           BIGINT      REFERENCES public.users(id) ON DELETE SET NULL,
+    created_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT uq_kpv_page_version UNIQUE (page_id, version)
+);
+
+CREATE INDEX IF NOT EXISTS idx_kpv_page     ON public.knowledge_page_versions(page_id);
+CREATE INDEX IF NOT EXISTS idx_kpv_version  ON public.knowledge_page_versions(page_id, version DESC);
+
+COMMENT ON TABLE  public.knowledge_page_versions               IS '文档版本快照（回滚历史）';
+COMMENT ON COLUMN public.knowledge_page_versions.page_id       IS '所属文档';
+COMMENT ON COLUMN public.knowledge_page_versions.version       IS '快照版本号';
+COMMENT ON COLUMN public.knowledge_page_versions.change_summary IS '变更摘要';
+
+-- ============================================================================
+-- knowledge_page_relations — 文档与工作项关联（issues 表已下线，由代码层维护关联完整性）
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS public.knowledge_page_relations (
+    id                   BIGSERIAL   PRIMARY KEY,
+    page_id              BIGINT      NOT NULL REFERENCES public.knowledge_pages(id) ON DELETE CASCADE,
+    issue_id             BIGINT      NOT NULL,
+    relation_type        VARCHAR(32) NOT NULL DEFAULT 'referenced'
+                                  CHECK (relation_type IN ('referenced','referencing')),
+    created_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT uq_kpr_page_issue_type UNIQUE (page_id, issue_id, relation_type)
+);
+
+CREATE INDEX IF NOT EXISTS idx_kpr_page  ON public.knowledge_page_relations(page_id);
+CREATE INDEX IF NOT EXISTS idx_kpr_issue ON public.knowledge_page_relations(issue_id);
+
+COMMENT ON TABLE  public.knowledge_page_relations            IS '文档与工作项关联表（关联 task/requirement/defect 通过 biz_entity_relations）';
+COMMENT ON COLUMN public.knowledge_page_relations.page_id    IS '文档 ID';
+COMMENT ON COLUMN public.knowledge_page_relations.issue_id   IS '关联工作项 ID（应用层维护完整性）';
+COMMENT ON COLUMN public.knowledge_page_relations.relation_type IS '关联类型（referenced=被引用 / referencing=引用方）';
+
+
+-- ============================================================================
+-- 迁移脚本整合：0027 notification_schema_v1.sql（通知服务独立 DB Schema 单体兼容版）
+-- ============================================================================
+
+CREATE SEQUENCE IF NOT EXISTS notifications_id_seq           START 1;
+CREATE SEQUENCE IF NOT EXISTS notification_deliveries_id_seq START 1;
+CREATE SEQUENCE IF NOT EXISTS notification_digests_id_seq    START 1;
+CREATE SEQUENCE IF NOT EXISTS notification_preferences_id_seq START 1;
+
+CREATE TABLE IF NOT EXISTS notifications (
+  id           int8 NOT NULL DEFAULT nextval('notifications_id_seq'::regclass),
+  workspace_id int8 NOT NULL,
+  recipient_id int8 NOT NULL,
+  event_type   varchar(64)   NOT NULL,
+  entity_type  varchar(32)   NOT NULL,
+  entity_id    int8          NOT NULL,
+  title        varchar(256)  NOT NULL,
+  body         text,
+  action_url   varchar(512),
+  actor_id     int8,
+  actor_name   varchar(128),
+  is_read      bool NOT NULL DEFAULT false,
+  is_archived  bool NOT NULL DEFAULT false,
+  read_at      timestamptz(6),
+  channel      varchar(32)  NOT NULL DEFAULT 'in_app',
+  payload      jsonb        DEFAULT '{}'::jsonb,
+  created_at   timestamptz(6) NOT NULL DEFAULT now(),
+  PRIMARY KEY (id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_notifications_recipient_workspace
+  ON notifications (recipient_id, workspace_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_notifications_workspace_unread
+  ON notifications (workspace_id, recipient_id, is_read)
+  WHERE is_read = false AND is_archived = false;
+
+CREATE TABLE IF NOT EXISTS notification_deliveries (
+  id             int8 NOT NULL DEFAULT nextval('notification_deliveries_id_seq'::regclass),
+  notification_id int8 NOT NULL,
+  channel         varchar(32) NOT NULL,
+  status          varchar(16) NOT NULL DEFAULT 'pending',
+  recipient       text        NOT NULL,
+  sent_at         timestamptz(6),
+  error_msg       text,
+  retry_count     int4 NOT NULL DEFAULT 0,
+  created_at      timestamptz(6) NOT NULL DEFAULT now(),
+  next_retry_at   timestamptz(6),
+  PRIMARY KEY (id),
+  CONSTRAINT notification_deliveries_notification_id_fkey
+    FOREIGN KEY (notification_id) REFERENCES notifications (id)
+    ON DELETE CASCADE ON UPDATE NO ACTION
+);
+
+CREATE INDEX IF NOT EXISTS idx_deliveries_notification
+  ON notification_deliveries (notification_id);
+CREATE INDEX IF NOT EXISTS idx_deliveries_status_retry
+  ON notification_deliveries (status, next_retry_at)
+  WHERE status IN ('pending', 'retrying');
+
+CREATE TABLE IF NOT EXISTS notification_digests (
+  id               int8 NOT NULL DEFAULT nextval('notification_digests_id_seq'::regclass),
+  user_id          int8 NOT NULL,
+  workspace_id     int8 NOT NULL,
+  digest_type      varchar(16) NOT NULL,
+  notification_ids int8[] NOT NULL,
+  status           varchar(16) NOT NULL DEFAULT 'pending',
+  scheduled_for    timestamptz(6) NOT NULL,
+  sent_at          timestamptz(6),
+  created_at       timestamptz(6) NOT NULL DEFAULT now(),
+  PRIMARY KEY (id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_digests_pending
+  ON notification_digests (status, scheduled_for)
+  WHERE status = 'pending';
+
+CREATE TABLE IF NOT EXISTS notification_preferences (
+  id          int8 NOT NULL DEFAULT nextval('notification_preferences_id_seq'::regclass),
+  user_id     int8 NOT NULL,
+  workspace_id int8 NOT NULL,
+  event_types jsonb NOT NULL DEFAULT '[]'::jsonb,
+  channels    jsonb NOT NULL DEFAULT '["in_app"]'::jsonb,
+  digest      varchar(16) NOT NULL DEFAULT 'realtime',
+  dnd_enabled bool NOT NULL DEFAULT false,
+  dnd_start   time(6) DEFAULT '22:00:00'::time,
+  dnd_end     time(6) DEFAULT '08:00:00'::time,
+  is_enabled  bool NOT NULL DEFAULT true,
+  created_at  timestamptz(6) NOT NULL DEFAULT now(),
+  updated_at  timestamptz(6) NOT NULL DEFAULT now(),
+  PRIMARY KEY (id),
+  CONSTRAINT notification_preferences_user_id_workspace_id_key
+    UNIQUE (user_id, workspace_id)
+);
+
+
+-- ============================================================================
+-- 迁移脚本整合：seed-test-data.sql（测试种子数据）
+-- ============================================================================
+
+INSERT INTO projects (workspace_id, name, slug, identifier, created_by, created_at, updated_at)
+VALUES
+  (3, 'E2E Test Project', 'e2e-test', 'E2E', 1, now(), now()),
+  (1, 'Core Platform', 'core', 'CORE', 1, now(), now()),
+  (2, 'Design System', 'design-system', 'DS', 1, now(), now())
+ON CONFLICT DO NOTHING;
+
+INSERT INTO project_members (workspace_id, project_id, user_id, role, joined_at, created_at, updated_at)
+SELECT p.ws_id, p.proj_id, u.id,
+  CASE WHEN u.email = 'admin@ydsz.dev' THEN 'admin' ELSE 'member' END,
+  now(), now(), now()
+FROM (
+  SELECT 3 AS ws_id, (SELECT id FROM projects WHERE workspace_id=3 LIMIT 1) AS proj_id
+  UNION ALL SELECT 1, (SELECT id FROM projects WHERE workspace_id=1 LIMIT 1)
+  UNION ALL SELECT 2, (SELECT id FROM projects WHERE workspace_id=2 LIMIT 1)
+) p
+CROSS JOIN users u
+WHERE u.email IN ('admin@ydsz.dev', 'pm@ydsz.dev', 'dev@ydsz.dev', 'designer@ydsz.dev', 'viewer@ydsz.dev')
+  AND p.proj_id IS NOT NULL
+ON CONFLICT DO NOTHING;
+
+INSERT INTO states (id, workspace_id, project_id, name, "group", color, sequence, created_at, updated_at)
+OVERRIDING SYSTEM VALUE
+SELECT
+  (p.ws_id * 1000 + s.seq) AS id,
+  p.ws_id,
+  p.proj_id,
+  s.name,
+  s.grp,
+  s.color,
+  s.seq,
+  now(),
+  now()
+FROM (
+  SELECT 3 AS ws_id, (SELECT id FROM projects WHERE workspace_id=3 LIMIT 1) AS proj_id
+  UNION ALL SELECT 1, (SELECT id FROM projects WHERE workspace_id=1 LIMIT 1)
+  UNION ALL SELECT 2, (SELECT id FROM projects WHERE workspace_id=2 LIMIT 1)
+) p
+CROSS JOIN (VALUES
+  (0, '待办',     'backlog',    '#6B7280'),
+  (1, '未开始',   'unstarted',  '#9CA3AF'),
+  (2, '进行中',   'started',    '#3B82F6'),
+  (3, '已完成',   'completed',  '#10B981'),
+  (4, '已取消',   'cancelled',  '#EF4444')
+) AS s(seq, name, grp, color)
+WHERE p.proj_id IS NOT NULL
+ON CONFLICT DO NOTHING;
 
 
 -- ============================================================================

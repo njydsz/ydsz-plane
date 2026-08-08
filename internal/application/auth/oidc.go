@@ -564,6 +564,148 @@ func (s *OIDCService) ListProviders(ctx context.Context, workspaceID int64) ([]O
 	return providers, nil
 }
 
+// --- SSO Provider 管理 API ---
+
+// ProviderModifyInput SSO Provider 创建/修改的输入参数。
+type ProviderModifyInput struct {
+	WorkspaceID      int64             `json:"workspace_id"`
+	Name             string            `json:"name"`
+	Protocol         string            `json:"protocol"` // oidc | saml
+	IssuerURL        string            `json:"issuer_url"`
+	ClientID         string            `json:"client_id"`
+	ClientSecret     string            `json:"client_secret"`
+	RedirectURI      string            `json:"redirect_uri"`
+	AuthURL          string            `json:"auth_url"`
+	TokenURL         string            `json:"token_url"`
+	UserInfoURL      string            `json:"userinfo_url"`
+	JWKSURL          string            `json:"jwks_url"`
+	Scopes           string            `json:"scopes"`
+	AutoCreateUser   bool              `json:"auto_create_user"`
+	DefaultRole      string            `json:"default_role"`
+	AttributeMapping map[string]string `json:"attribute_mapping"`
+}
+
+// CreateProvider 创建 SSO Provider。
+func (s *OIDCService) CreateProvider(ctx context.Context, in *ProviderModifyInput) (*OIDCProviderConfig, error) {
+	if in.Name == "" || in.ClientID == "" || in.RedirectURI == "" {
+		return nil, errs.ErrValidation.WithDetails(errs.FieldDetail{
+			Field:  "name|client_id|redirect_uri",
+			Reason: "SSO Provider 名称、ClientID 与回调地址不能为空",
+		})
+	}
+	// 默认值规整
+	if in.Protocol == "" {
+		in.Protocol = "oidc"
+	}
+	if in.Scopes == "" {
+		in.Scopes = "openid email profile"
+	}
+	if in.DefaultRole == "" {
+		in.DefaultRole = "member"
+	}
+	attrJSON, _ := json.Marshal(in.AttributeMapping)
+	if len(attrJSON) == 0 || string(attrJSON) == "null" {
+		attrJSON = []byte("{}")
+	}
+
+	var id int64
+	err := s.db.QueryRow(ctx, `
+		INSERT INTO sso_providers (workspace_id, name, protocol, issuer_url, client_id, client_secret,
+			redirect_uri, auth_url, token_url, userinfo_url, jwks_url, scopes,
+			auto_create_user, default_role, attribute_mapping, enabled)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15::jsonb, TRUE)
+		RETURNING id`,
+		in.WorkspaceID, in.Name, in.Protocol, in.IssuerURL, in.ClientID, in.ClientSecret,
+		in.RedirectURI, in.AuthURL, in.TokenURL, in.UserInfoURL, in.JWKSURL, in.Scopes,
+		in.AutoCreateUser, in.DefaultRole, attrJSON).Scan(&id)
+	if err != nil {
+		return nil, errs.ErrInternal.Wrap(err)
+	}
+	return s.GetProvider(ctx, id)
+}
+
+// UpdateProvider 更新 SSO.Provider 配置。
+func (s *OIDCService) UpdateProvider(ctx context.Context, id int64, in *ProviderModifyInput) (*OIDCProviderConfig, error) {
+	attrJSON, _ := json.Marshal(in.AttributeMapping)
+	if len(attrJSON) == 0 || string(attrJSON) == "null" {
+		attrJSON = []byte("{}")
+	}
+
+	tag, err := s.db.Exec(ctx, `
+		UPDATE sso_providers SET
+			name = COALESCE(NULLIF($2, ''), name),
+			issuer_url = COALESCE(NULLIF($3, ''), issuer_url),
+			client_id = COALESCE(NULLIF($4, ''), client_id),
+			client_secret = COALESCE(NULLIF($5, ''), client_secret),
+			redirect_uri = COALESCE(NULLIF($6, ''), redirect_uri),
+			auth_url = COALESCE(NULLIF($7, ''), auth_url),
+			token_url = COALESCE(NULLIF($8, ''), token_url),
+			userinfo_url = COALESCE(NULLIF($9, ''), userinfo_url),
+			jwks_url = COALESCE(NULLIF($10, ''), jwks_url),
+			scopes = COALESCE(NULLIF($11, ''), scopes),
+			auto_create_user = COALESCE($12, auto_create_user),
+			default_role = COALESCE(NULLIF($13, ''), default_role),
+			attribute_mapping = COALESCE($14::jsonb, attribute_mapping),
+			updated_at = now()
+		WHERE id = $1`,
+		id, in.Name, in.IssuerURL, in.ClientID, in.ClientSecret, in.RedirectURI,
+		in.AuthURL, in.TokenURL, in.UserInfoURL, in.JWKSURL, in.Scopes,
+		in.AutoCreateUser, in.DefaultRole, attrJSON)
+	if err != nil {
+		return nil, errs.ErrInternal.Wrap(err)
+	}
+	if tag.RowsAffected() == 0 {
+		return nil, errs.ErrNotFound.WithDetails(errs.FieldDetail{Field: "id", Reason: "SSO Provider 不存在"})
+	}
+	return s.GetProvider(ctx, id)
+}
+
+// DeleteProvider 删除 SSO Provider（同时级联删除 sessions/links）。
+func (s *OIDCService) DeleteProvider(ctx context.Context, id int64) error {
+	tag, err := s.db.Exec(ctx, `DELETE FROM sso_providers WHERE id = $1`, id)
+	if err != nil {
+		return errs.ErrInternal.Wrap(err)
+	}
+	if tag.RowsAffected() == 0 {
+		return errs.ErrNotFound.WithDetails(errs.FieldDetail{Field: "id", Reason: "SSO Provider 不存在"})
+	}
+	return nil
+}
+
+// GetProvider 获取单个 SSO Provider 详情。
+func (s *OIDCService) GetProvider(ctx context.Context, id int64) (*OIDCProviderConfig, error) {
+	rows, err := s.db.Query(ctx, `
+		SELECT id, workspace_id, name, protocol, issuer_url, client_id, client_secret,
+		       redirect_uri, auth_url, token_url, userinfo_url, jwks_url, scopes,
+		       auto_create_user, default_role, attribute_mapping::text, enabled,
+		       created_at, updated_at
+		FROM sso_providers WHERE id = $1`, id)
+	if err != nil {
+		return nil, errs.ErrInternal.Wrap(err)
+	}
+	defer rows.Close()
+
+	if !rows.Next() {
+		return nil, errs.ErrNotFound.WithDetails(errs.FieldDetail{Field: "id", Reason: "SSO Provider 不存在"})
+	}
+
+	var cfg OIDCProviderConfig
+	var wsID int64
+	var protocol, scopes, defaultRole string
+	var attrMapping []byte
+	var enabled bool
+	var createdAt, updatedAt time.Time
+	if err := rows.Scan(&cfg.ID, &wsID, &cfg.Name, &protocol, &cfg.IssuerURL, &cfg.ClientID,
+		&cfg.ClientSecret, &cfg.RedirectURI, &cfg.AuthURL, &cfg.TokenURL, &cfg.UserInfoURL,
+		&cfg.JWKSURL, &scopes, &cfg.AutoCreateUser, &defaultRole, &attrMapping, &enabled,
+		&createdAt, &updatedAt); err != nil {
+		return nil, errs.ErrInternal.Wrap(err)
+	}
+	cfg.Scopes = strings.Fields(scopes)
+	_ = json.Unmarshal(attrMapping, &cfg.AttributeMapping)
+	return &cfg, nil
+}
+
 // --- Helpers ---
 
 func generateRandomString(length int) (string, error) {

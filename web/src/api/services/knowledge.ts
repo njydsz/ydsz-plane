@@ -239,4 +239,16 @@ export const knowledgeApi = {
   /** 移除文档与工作项的关联 */
   removeRelation: (wsId: number, sid: number, pid: number, rid: number) =>
     wrap<void>(http.delete(`${pagePath(wsId, sid, pid)}/relations/${rid}`)),
+
+  /* ===== 全文检索 ===== */
+
+  /** 全文检索（simple tsvector）。可选 space_id 限定空间 */
+  search: async (wsId: number, q: string, spaceId?: number) => {
+    const params: Record<string, string | number> = { q };
+    if (spaceId != null) params.space_id = spaceId;
+    const data = await wrap<{ results?: KnowledgePage[]; total?: number }>(
+      http.get(`/workspaces/${wsId}/knowledge/search`, { params }),
+    );
+    return data?.results ?? [];
+  },
 };
