@@ -34,6 +34,23 @@ export interface MyRoleResponse {
   permissions: string[]
 }
 
+/* ------------------------------------------------------------------ */
+/*  工作项权限常量                                                      */
+/* ------------------------------------------------------------------ */
+
+/** 工作项操作权限，与后端 auth.PermIssueXxx 常量对齐 */
+export const IssuePermission = {
+  Read: 'issue:read',
+  Create: 'issue:create',
+  EditOwn: 'issue:edit_own',
+  EditAll: 'issue:edit_all',
+  Delete: 'issue:delete',
+  Transition: 'issue:transition',
+  Reassign: 'issue:reassign',
+  ChangePriority: 'issue:change_priority',
+  ManageSprint: 'issue:manage_sprint',
+} as const
+
 /** 角色级别常量 */
 export const ROLE_LEVEL = {
   admin: 100, // 系统管理员（平台级）

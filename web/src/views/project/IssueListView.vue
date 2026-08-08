@@ -219,6 +219,23 @@ async function inlineUpdate(iss: any, patch: Record<string, unknown>) {
   }
 }
 
+/**
+ * 处理工作项状态变更，调用专用状态流转接口，适配后端状态机规则
+ */
+async function handleStateChange(issueId: number, toStateId: number) {
+  try {
+    const updated = await issueApi.transition(wsId.value, projectId.value, issueId, toStateId);
+    // 更新列表中的工作项状态
+    const idx = issueStore.issues.findIndex((i) => i.id === issueId);
+    if (idx >= 0) issueStore.issues[idx] = updated;
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : "状态流转失败";
+    toast.error(msg);
+    // 流转失败时刷新列表，恢复正确状态
+    await issueStore.fetchIssues(wsId.value, projectId.value);
+  }
+}
+
 const priorityOptions: { value: IssuePriority; label: string; color: string; icon: string }[] = [
   { value: "urgent", label: "紧急", color: "var(--danger-500)", icon: "🔴" },
   { value: "high", label: "高", color: "var(--warning-500)", icon: "🟠" },
@@ -411,7 +428,7 @@ const showExportDropdown = ref(false);
                 :model-value="iss.state_id"
                 :options="issueStore.states.map((s) => ({ value: s.id, label: s.name, color: s.color }))"
                 placeholder="未设置状态"
-                @submit="(v) => inlineUpdate(iss, { state_id: Number(v) })"
+                @submit="(v) => handleStateChange(iss.id, Number(v))"
               >
                 <template #trigger>
                   <span
