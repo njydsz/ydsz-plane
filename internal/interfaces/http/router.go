@@ -100,6 +100,8 @@ type Deps struct {
 	DLQHandler *dlq.Handler
 	// AI 域（智能指派/重复检测/分类/摘要）
 	AiHandler *ai.Handler
+	// S13 OIDC / SSO 域（单点登录）
+	OIDCService *auth.OIDCService
 }
 
 // RegisterIssueRoutes 注册工作项路由（在 NewEngine 之后调用）。
@@ -527,6 +529,9 @@ func NewEngine(d *Deps) *gin.Engine {
 			authGroup.POST("/register", rl, register(d))
 			authGroup.POST("/forgot-password", rl, forgotPassword(d))
 			authGroup.POST("/reset-password", rl, resetPassword(d))
+
+			// S13 OIDC / SSO callback（IdP 重定向 → 前端 SSO 页）
+			authGroup.GET("/oidc/callback", rl, handleSSOCallback(d))
 		}
 
 		// 已认证路由（需要有效 access token + 用户级限流）

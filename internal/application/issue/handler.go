@@ -5,6 +5,7 @@ import (
 	"archive/zip"
 	"context"
 	"encoding/csv"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -340,6 +341,12 @@ func (h *IssueHandler) updateIssue(c *gin.Context) {
 	}
 	if req.ReleaseVersionID != nil {
 		in.ReleaseVersionID = req.ReleaseVersionID
+	}
+	if req.VerifierID != nil {
+		in.VerifierID = req.VerifierID
+	}
+	if req.ReproduceSteps != nil {
+		in.ReproduceSteps = req.ReproduceSteps
 	}
 	if req.TypeCode != nil {
 		tc := IssueTypeCode(*req.TypeCode)
@@ -1065,7 +1072,9 @@ type updateIssueRequest struct {
 	Version           int     `json:"version" binding:"required"`
 	FoundVersionID    *int64  `json:"found_version_id"`
 	FixVersionID      *int64  `json:"fix_version_id"`
-	ReleaseVersionID  *int64  `json:"release_version_id"`
+	ReleaseVersionID  *int64         `json:"release_version_id"`
+	VerifierID        *int64         `json:"verifier_id,omitempty"`
+	ReproduceSteps    json.RawMessage `json:"reproduce_steps,omitempty"`
 }
 
 type reorderIssueRequest struct {

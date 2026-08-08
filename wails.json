@@ -1,0 +1,38 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "ydsz-plane",
+  "outputfilename": "Ydsz Plane",
+  "frontend": "../web",
+  "frontend:dev": "npm run dev",
+  "frontend:build": "npm run build",
+  "frontend:dev:build": "npm run build",
+  "frontend:dev:watcher": "",
+  "wailsjsdir": "../web/src/wailsjs",
+  "platforms": "windows/amd64,darwin/universal,linux/amd64",
+  "ldflags": "-s -w",
+  "trimpath": true,
+  "windows": {
+    "icon": "build/appicon.png",
+    "manifest": "build/app.exe.manifest",
+    "info": {
+      "companyName": "Ydsz Plane Team",
+      "productName": "Ydsz Plane",
+      "copyright": "Copyright © 2026 ydsz-plane",
+      "productVersion": "0.1.0",
+      "fileDescription": "Ydsz Plane - 面向中国软件团队的开源项目管理平台"
+    }
+  },
+  "macos": {
+    "icon": "build/appicon.png",
+    "minimumVersion": "10.13",
+    "info": {
+      "companyName": "Ydsz Plane Team",
+      "productName": "Ydsz Plane",
+      "copyright": "Copyright © 2026 ydsz-plane",
+      "productVersion": "0.1.0"
+    }
+  },
+  "linux": {
+    "icon": "build/appicon.png"
+  }
+}

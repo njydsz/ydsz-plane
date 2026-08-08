@@ -22,11 +22,13 @@ package auth
 import (
 	"context"
 	"crypto/rand"
+	"crypto/rsa"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"math/big"
 	"net/http"
 	"net/url"
 	"strings"
@@ -108,19 +110,11 @@ func (s *OIDCService) InitiateLogin(ctx context.Context, providerID int64, redir
 	}
 	codeChallenge := s.computeS256Challenge(codeVerifier)
 
-	// 存储 SSO 会话
+	// 存储 SSO 会话（含 PKCE code_verifier 至独立列，避免污染 error_message）
 	_, err = s.db.Exec(ctx, `
-		INSERT INTO sso_sessions (state, nonce, provider_id, redirect_to, ip_address, user_agent, status, expires_at)
-		VALUES ($1, $2, $3, $4, $5, $6, 'pending', now() + interval '10 minutes')`,
-		state, nonce, providerID, redirectTo, ip, userAgent)
-	if err != nil {
-		return nil, errs.ErrInternal.Wrap(err)
-	}
-
-	// 同时存储 code_verifier（复用 state 作为 key）
-	_, err = s.db.Exec(ctx,
-		`UPDATE sso_sessions SET error_message = $2 WHERE state = $1`,
-		state, "code_verifier:"+codeVerifier)
+		INSERT INTO sso_sessions (state, nonce, provider_id, redirect_to, ip_address, user_agent, code_verifier, status, expires_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', now() + interval '10 minutes')`,
+		state, nonce, providerID, redirectTo, ip, userAgent, codeVerifier)
 	if err != nil {
 		return nil, errs.ErrInternal.Wrap(err)
 	}
@@ -472,36 +466,30 @@ func (s *OIDCService) findOrCreateUser(ctx context.Context, cfg *OIDCProviderCon
 // --- Session Management ---
 
 type ssoSession struct {
-	ID         int64
-	State      string
-	Nonce      string
-	ProviderID int64
-	RedirectTo string
-	Status     string
+	ID            int64
+	State         string
+	Nonce         string
+	ProviderID    int64
+	RedirectTo    string
+	CodeVerifier  string
+	Status        string
 }
 
 func (s *OIDCService) validateState(ctx context.Context, state string) (*ssoSession, string, error) {
 	var session ssoSession
-	var errorMsg *string
 	err := s.db.QueryRow(ctx, `
-		SELECT id, state, nonce, provider_id, coalesce(redirect_to, ''), status, error_message
+		SELECT id, state, nonce, provider_id, coalesce(redirect_to, ''), coalesce(code_verifier, ''), status
 		FROM sso_sessions
 		WHERE state = $1 AND status = 'pending' AND expires_at > now()`,
 		state).
 		Scan(&session.ID, &session.State, &session.Nonce, &session.ProviderID,
-			&session.RedirectTo, &session.Status, &errorMsg)
+			&session.RedirectTo, &session.CodeVerifier, &session.Status)
 
 	if err != nil {
 		return nil, "", errs.New("SSO.INVALID_STATE", "登录会话已过期或无效，请重新登录", 401)
 	}
 
-	// 提取 code_verifier
-	codeVerifier := ""
-	if errorMsg != nil && strings.HasPrefix(*errorMsg, "code_verifier:") {
-		codeVerifier = strings.TrimPrefix(*errorMsg, "code_verifier:")
-	}
-
-	return &session, codeVerifier, nil
+	return &session, session.CodeVerifier, nil
 }
 
 func (s *OIDCService) markSessionFailed(ctx context.Context, state, errMsg string) {
@@ -591,25 +579,32 @@ func (s *OIDCService) computeS256Challenge(verifier string) string {
 	return base64.RawURLEncoding.EncodeToString(h[:])
 }
 
+// parseRSAJWK 将 JWK 格式的 RSA 公钥（n, e）转换为标准 *rsa.PublicKey。
+// 直接返回 crypto/rsa.PublicKey 以兼容 golang-jwt 的密钥解析回调。
+//
+// 参考: RFC 7518 §6.3.1 (RSA Key Representation)
 func parseRSAJWK(nStr, eStr string) (any, error) {
-	// 解码 base64url 编码的 n 和 e
-	n, err := base64.RawURLEncoding.DecodeString(nStr)
+	nBytes, err := base64.RawURLEncoding.DecodeString(nStr)
 	if err != nil {
 		return nil, fmt.Errorf("invalid RSA JWK n: %w", err)
 	}
-	e, err := base64.RawURLEncoding.DecodeString(eStr)
+
+	eBytes, err := base64.RawURLEncoding.DecodeString(eStr)
 	if err != nil {
 		return nil, fmt.Errorf("invalid RSA JWK e: %w", err)
 	}
 
-	// 构造 RSA 公钥
-	pubKey := &rsaPublicKey{N: n, E: e}
-	return pubKey, nil
-}
+	// e 字段是大端序无符号整数，标准 JWK 中通常是 3 字节 (0x01, 0x00, 0x01 → 65537)
+	e := 0
+	for _, b := range eBytes {
+		e = e<<8 + int(b)
+	}
+	if e < 3 {
+		return nil, fmt.Errorf("invalid RSA exponent: %d", e)
+	}
 
-// rsaPublicKey 简化 RSA 公钥表示（用于 JWK 解析）。
-// 实际生产环境应使用 crypto/rsa.PublicKey 并通过 jwt 库的标准解析。
-type rsaPublicKey struct {
-	N []byte
-	E []byte
+	return &rsa.PublicKey{
+		N: new(big.Int).SetBytes(nBytes),
+		E: e,
+	}, nil
 }

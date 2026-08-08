@@ -2640,7 +2640,7 @@ COMMENT ON COLUMN public.versions.description IS '版本目标与范围说明';
 COMMENT ON COLUMN public.versions.status IS '版本状态: planning(规划中) / active(进行中) / released(已发布) / archived(已归档)';
 COMMENT ON COLUMN public.versions.start_date IS '计划开始时间（可选）';
 COMMENT ON COLUMN public.versions.end_date IS '计划结束时间（可选）';
-COMMENT ON COLUMN public.versions.target_date IS '计划发布日（版本日；触发风险预警: 到期未发布/剩余缺陷）';
+COMMENT ON COLUMN public.versions.target_date IS '版本日（版本的一个属性）：计划发布日，触发风险预警: 到期未发布/剩余缺陷';
 COMMENT ON COLUMN public.versions.checklist IS '发布检查清单 JSONB [{id,label,required,checked}]；全部勾选才可 release';
 COMMENT ON COLUMN public.versions.release_notes IS 'Release Notes（发布时按模板三段式生成: 需求/缺陷修复/已知问题；可编辑）';
 COMMENT ON COLUMN public.versions.delivered_at IS '实际发布 TIMESTAMPTZ（发布动作时写入）';

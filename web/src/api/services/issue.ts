@@ -228,6 +228,12 @@ export interface UpdateIssueInput {
   found_version_id?: number;
   fix_version_id?: number;
   release_version_id?: number;
+  verifier_id?: number;
+  reproduce_steps?: {
+    steps?: string;
+    expected?: string;
+    actual?: string;
+  };
 }
 // 注意：state_id不允许通过更新接口修改，所有状态变更必须调用transition接口
 

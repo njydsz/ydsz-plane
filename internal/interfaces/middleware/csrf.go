@@ -90,7 +90,16 @@ func CSRF(cfg *config.Config, secret string) gin.HandlerFunc {
 			return
 		}
 
-		// 3. 未携带会话 Cookie → 纯 API 客户端（X-Api-Key / Bearer），无 CSRF 风险。
+		// 3. 认证类路径豁免 CSRF：登录 / 注册 / 找回密码 / OAuth 回调等
+		//    用于在用户尚未建立有效会话前获取 Token。携带过期 Cookie
+		//    的旧会话也不应对鉴权入口产生 CSRF 拦截，否则会导致
+		//    "残留 Cookie → 403 → 无法登录 → 无法刷新会话"的死锁。
+		if strings.HasPrefix(c.Request.URL.Path, "/api/v1/auth/") {
+			c.Next()
+			return
+		}
+
+		// 4. 未携带会话 Cookie → 纯 API 客户端（X-Api-Key / Bearer），无 CSRF 风险。
 		access, err := c.Cookie(sessionCookie)
 		if err != nil || access == "" {
 			c.Next()

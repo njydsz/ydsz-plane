@@ -1,8 +1,8 @@
 /**
- * 版本日（Version）全生命周期 E2E 测试。
+ * 版本（Version）全生命周期 E2E 测试。
  *
  * 覆盖：创建版本 → 激活 → 关联迭代 → 进度查询 → 发布（含检查清单准出）→ 归档。
- * 回归 S6 版本日状态机 + S4 缺陷面板联动。
+ * 回归 S6 版本状态机 + S4 缺陷面板联动。
  *
  * 运行前提：后端 + 前端已启动，且已执行 make migrate && make seed。
  */
@@ -49,7 +49,7 @@ async function getFirstSprint(request: any, token: string, wsId: number, project
   return list[0]?.id || null;
 }
 
-test.describe("版本日全生命周期", () => {
+test.describe("版本全生命周期", () => {
   test("创建 → 激活 → 查进度 → 归档 状态机闭环", async ({ request }) => {
     const token = await login(request);
     const wsId = await getFirstWorkspace(request, token);

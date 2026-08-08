@@ -267,7 +267,7 @@ onMounted(loadProject);
         </label>
         <label class="toggle-item">
           <div class="toggle-info">
-            <span class="toggle-name">版本日 (Version)</span>
+            <span class="toggle-name">版本 (Version)</span>
             <span class="toggle-desc">发布里程碑与迭代聚合管理</span>
           </div>
           <input type="checkbox" v-model="moduleToggles.version" class="toggle-switch" />

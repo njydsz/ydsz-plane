@@ -6,7 +6,6 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/njydsz/ydsz-plane/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/njydsz/ydsz-plane/ci.yml?branch=main&label=CI&logo=github&style=flat-square" alt="CI Status"></a>
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square" alt="License: MIT"></a>
   <a href="https://go.dev"><img src="https://img.shields.io/badge/Go-1.26-00ADD8?style=flat-square&logo=go&logoColor=white" alt="Go 1.26"></a>
   <a href="https://vuejs.org"><img src="https://img.shields.io/badge/Vue-3.5-4FC08D?style=flat-square&logo=vue.js&logoColor=white" alt="Vue 3.5"></a>

@@ -7,7 +7,8 @@ import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 
 import { issueApi, type Issue, type IssueActivity, type State, type TimeLog } from "@/api/services/issue";
-import { workspaceApi, type Workspace } from "@/api/services/workspace";
+import { workspaceApi, type Workspace, type Member } from "@/api/services/workspace";
+import { versionApi, type Version } from "@/api/services/version";
 import { attachmentApi, type Attachment } from "@/api/services/attachment";
 import { toast } from "@/lib/toast";
 import { useAuthStore } from "@/stores/auth";
@@ -63,6 +64,12 @@ const newTimeDesc = ref("");
 const timeLogError = ref("");
 const timeLogSubmitting = ref(false);
 const timeLogsLoading = ref(false);
+
+// --- 版本 / 成员（缺陷行内编辑用） ---
+const versions = ref<Version[]>([]);
+const versionsLoading = ref(false);
+const members = ref<Member[]>([]);
+const membersLoading = ref(false);
 
 // --- 行内编辑 ---
 const editField = ref<string | null>(null);
@@ -163,6 +170,31 @@ async function loadSubIssues() {
   }
 }
 
+async function loadVersions() {
+  if (!ws.value || versionsLoading.value) return;
+  versionsLoading.value = true;
+  try {
+    const res = await versionApi.listVersions(ws.value.id, props.projectId);
+    versions.value = res.results ?? [];
+  } catch {
+    // 非关键模块静默失败
+  } finally {
+    versionsLoading.value = false;
+  }
+}
+
+async function loadMembers() {
+  if (!ws.value || membersLoading.value) return;
+  membersLoading.value = true;
+  try {
+    members.value = await workspaceApi.listMembers(ws.value.id);
+  } catch {
+    // 非关键模块静默失败
+  } finally {
+    membersLoading.value = false;
+  }
+}
+
 function toggleSubIssue(id: number) {
   const next = new Set(expandedSubIssues.value);
   if (next.has(id)) {
@@ -203,6 +235,11 @@ async function load() {
     issue.value = iss;
     states.value = st;
     activities.value = acts.results;
+    // 缺陷类型才需要版本 / 成员下拉数据
+    if (iss.type_code === "defect") {
+      loadVersions();
+      loadMembers();
+    }
   } catch (e: unknown) {
     error.value = e instanceof Error ? e.message : "加载失败";
   } finally {
@@ -402,6 +439,27 @@ async function saveEdit() {
       case "point":
         input.point = editValue.value ? Number(editValue.value) : null;
         break;
+      case "fix_version_id":
+        input.fix_version_id = editValue.value ? Number(editValue.value) : null;
+        break;
+      case "found_version_id":
+        input.found_version_id = editValue.value ? Number(editValue.value) : null;
+        break;
+      case "verifier_id":
+        input.verifier_id = editValue.value ? Number(editValue.value) : null;
+        break;
+      case "repr_expect":
+        input.reproduce_steps = {
+          ...((issue.value?.reproduce_steps as Record<string, unknown>) ?? {}),
+          expected: editValue.value,
+        };
+        break;
+      case "repr_actual":
+        input.reproduce_steps = {
+          ...((issue.value?.reproduce_steps as Record<string, unknown>) ?? {}),
+          actual: editValue.value,
+        };
+        break;
     }
 
     issue.value = await issueApi.updateIssue(
@@ -568,35 +626,203 @@ onMounted(() => {
         <div v-if="issue.type_code === 'defect'" class="issue-detail__section">
           <h3>缺陷信息</h3>
           <div class="issue-detail__fields">
-            <div v-if="issue.reproduce_steps" class="defect-info">
-              <div v-if="issue.reproduce_steps.steps" class="field-row">
-                <span class="field-label">复现步骤:</span>
-                <span class="field-value">{{ issue.reproduce_steps.steps }}</span>
-              </div>
-              <div v-if="issue.reproduce_steps.expected" class="field-row">
-                <span class="field-label">期望结果:</span>
-                <span class="field-value">{{ issue.reproduce_steps.expected }}</span>
-              </div>
-              <div v-if="issue.reproduce_steps.actual" class="field-row">
-                <span class="field-label">实际结果:</span>
-                <span class="field-value">{{ issue.reproduce_steps.actual }}</span>
+            <!-- 复现步骤 -->
+            <div v-if="issue.reproduce_steps && issue.reproduce_steps.steps" class="field-row">
+              <span class="field-label">复现步骤:</span>
+              <span class="field-value">{{ issue.reproduce_steps.steps }}</span>
+            </div>
+
+            <!-- 期望结果（行内 textarea） -->
+            <div class="field-row field-row--editable">
+              <span class="field-label">期望结果:</span>
+              <div class="field-value field-value--grow">
+                <div
+                  v-if="editField === 'repr_expect'"
+                  class="edit-row"
+                >
+                  <textarea
+                    v-model="editValue"
+                    class="edit-textarea"
+                    rows="3"
+                    placeholder="描述期望结果..."
+                    @keydown.escape="cancelEdit"
+                  ></textarea>
+                  <div class="edit-row__actions">
+                    <button class="btn btn--sm btn--primary" :disabled="editSaving" @click="saveEdit">{{ editSaving ? "保存中..." : "保存" }}</button>
+                    <button class="btn btn--sm" :disabled="editSaving" @click="cancelEdit">取消</button>
+                    <span v-if="editError" class="form-error">{{ editError }}</span>
+                  </div>
+                </div>
+                <div
+                  v-else-if="canEditIssue"
+                  class="editable editable--textarea"
+                  @click="startEdit('repr_expect', (issue.reproduce_steps as Record<string, unknown>)?.expected ?? '')"
+                >
+                  {{ (issue.reproduce_steps as Record<string, unknown>)?.expected || '点击设置...' }}
+                  <span class="edit-hint">✎</span>
+                </div>
+                <span v-else>{{ (issue.reproduce_steps as Record<string, unknown>)?.expected || '—' }}</span>
               </div>
             </div>
+
+            <!-- 实际结果（行内 textarea） -->
+            <div class="field-row field-row--editable">
+              <span class="field-label">实际结果:</span>
+              <div class="field-value field-value--grow">
+                <div
+                  v-if="editField === 'repr_actual'"
+                  class="edit-row"
+                >
+                  <textarea
+                    v-model="editValue"
+                    class="edit-textarea"
+                    rows="3"
+                    placeholder="描述实际结果..."
+                    @keydown.escape="cancelEdit"
+                  ></textarea>
+                  <div class="edit-row__actions">
+                    <button class="btn btn--sm btn--primary" :disabled="editSaving" @click="saveEdit">{{ editSaving ? "保存中..." : "保存" }}</button>
+                    <button class="btn btn--sm" :disabled="editSaving" @click="cancelEdit">取消</button>
+                    <span v-if="editError" class="form-error">{{ editError }}</span>
+                  </div>
+                </div>
+                <div
+                  v-else-if="canEditIssue"
+                  class="editable editable--textarea"
+                  @click="startEdit('repr_actual', (issue.reproduce_steps as Record<string, unknown>)?.actual ?? '')"
+                >
+                  {{ (issue.reproduce_steps as Record<string, unknown>)?.actual || '点击设置...' }}
+                  <span class="edit-hint">✎</span>
+                </div>
+                <span v-else>{{ (issue.reproduce_steps as Record<string, unknown>)?.actual || '—' }}</span>
+              </div>
+            </div>
+
+            <!-- 环境 -->
             <div v-if="issue.environment && issue.environment.value" class="field-row">
               <span class="field-label">环境:</span>
               <span class="field-value">{{ issue.environment.value }}</span>
             </div>
-            <div v-if="issue.root_cause_category" class="field-row">
+
+            <!-- 根因分类（行内下拉） -->
+            <div class="field-row field-row--editable">
               <span class="field-label">根因分类:</span>
-              <span class="field-value">{{ ({ requirement: "需求问题", technical: "技术问题", environment: "环境问题", data: "数据问题", other: "其他" } as Record<string, string>)[issue.root_cause_category] ?? issue.root_cause_category }}</span>
+              <div class="field-value field-value--grow">
+                <div v-if="editField === 'root_cause_category'" class="edit-row edit-row--inline">
+                  <select v-model="editValue" class="edit-select">
+                    <option value="code_defect">代码缺陷</option>
+                    <option value="design_defect">设计缺陷</option>
+                    <option value="environment">环境问题</option>
+                    <option value="data">数据问题</option>
+                    <option value="requirement">需求理解偏差</option>
+                    <option value="test_omission">测试遗漏</option>
+                    <option value="documentation">文档缺陷</option>
+                    <option value="other">其他</option>
+                    <option value="">未分类</option>
+                  </select>
+                  <button class="btn btn--sm btn--primary" :disabled="editSaving" @click="saveEdit">{{ editSaving ? "保存中..." : "保存" }}</button>
+                  <button class="btn btn--sm" :disabled="editSaving" @click="cancelEdit">取消</button>
+                </div>
+                <div
+                  v-else-if="canEditIssue"
+                  class="editable"
+                  @click="startEdit('root_cause_category', issue.root_cause_category ?? '')"
+                >
+                  <span v-if="issue.root_cause_category">
+                    {{ ({ code_defect: "代码缺陷", design_defect: "设计缺陷", environment: "环境问题", data: "数据问题", requirement: "需求理解偏差", test_omission: "测试遗漏", documentation: "文档缺陷", other: "其他" } as Record<string, string>)[issue.root_cause_category] ?? issue.root_cause_category }}
+                  </span>
+                  <span v-else class="add-btn" title="设置根因分类">＋</span>
+                  <span class="edit-hint">✎</span>
+                </div>
+                <span v-else>{{ issue.root_cause_category ? ({ code_defect: "代码缺陷", design_defect: "设计缺陷", environment: "环境问题", data: "数据问题", requirement: "需求理解偏差", test_omission: "测试遗漏", documentation: "文档缺陷", other: "其他" } as Record<string, string>)[issue.root_cause_category] ?? issue.root_cause_category : '—' }}</span>
+              </div>
             </div>
-            <div v-if="issue.fix_version_id" class="field-row">
+
+            <!-- 发现版本（行内下拉） -->
+            <div class="field-row field-row--editable">
+              <span class="field-label">发现版本:</span>
+              <div class="field-value field-value--grow">
+                <div v-if="editField === 'found_version_id'" class="edit-row edit-row--inline">
+                  <select v-model="editValue" class="edit-select">
+                    <option :value="''">— 未设置 —</option>
+                    <option v-for="v in versions" :key="v.id" :value="String(v.id)">
+                      {{ v.name }} ({{ v.semver }})
+                    </option>
+                  </select>
+                  <button class="btn btn--sm btn--primary" :disabled="editSaving" @click="saveEdit">{{ editSaving ? "保存中..." : "保存" }}</button>
+                  <button class="btn btn--sm" :disabled="editSaving" @click="cancelEdit">取消</button>
+                </div>
+                <div
+                  v-else-if="canEditIssue"
+                  class="editable"
+                  @click="startEdit('found_version_id', issue.found_version_id ?? '')"
+                >
+                  <template v-if="issue.found_version_id">
+                    {{ versions.find(v => v.id === issue.found_version_id)?.name ?? '—' }}
+                  </template>
+                  <span v-else class="add-btn" title="设置发现版本">＋</span>
+                  <span class="edit-hint">✎</span>
+                </div>
+                <span v-else>{{ issue.found_version_id ? versions.find(v => v.id === issue.found_version_id)?.name ?? `#${issue.found_version_id}` : '—' }}</span>
+              </div>
+            </div>
+
+            <!-- 修复版本（行内下拉） -->
+            <div class="field-row field-row--editable">
               <span class="field-label">修复版本:</span>
-              <span class="field-value">#{{ issue.fix_version_id }}</span>
+              <div class="field-value field-value--grow">
+                <div v-if="editField === 'fix_version_id'" class="edit-row edit-row--inline">
+                  <select v-model="editValue" class="edit-select">
+                    <option :value="''">— 未设置 —</option>
+                    <option v-for="v in versions" :key="v.id" :value="String(v.id)">
+                      {{ v.name }} ({{ v.semver }})
+                    </option>
+                  </select>
+                  <button class="btn btn--sm btn--primary" :disabled="editSaving" @click="saveEdit">{{ editSaving ? "保存中..." : "保存" }}</button>
+                  <button class="btn btn--sm" :disabled="editSaving" @click="cancelEdit">取消</button>
+                </div>
+                <div
+                  v-else-if="canEditIssue"
+                  class="editable"
+                  @click="startEdit('fix_version_id', issue.fix_version_id ?? '')"
+                >
+                  <template v-if="issue.fix_version_id">
+                    {{ versions.find(v => v.id === issue.fix_version_id)?.name ?? '—' }}
+                  </template>
+                  <span v-else class="add-btn" title="设置修复版本">＋</span>
+                  <span class="edit-hint">✎</span>
+                </div>
+                <span v-else>{{ issue.fix_version_id ? versions.find(v => v.id === issue.fix_version_id)?.name ?? `#${issue.fix_version_id}` : '—' }}</span>
+              </div>
             </div>
-            <div v-if="issue.verifier_id" class="field-row">
+
+            <!-- 验证人（行内下拉） -->
+            <div class="field-row field-row--editable">
               <span class="field-label">验证人:</span>
-              <span class="field-value">用户 #{{ issue.verifier_id }}</span>
+              <div class="field-value field-value--grow">
+                <div v-if="editField === 'verifier_id'" class="edit-row edit-row--inline">
+                  <select v-model="editValue" class="edit-select">
+                    <option :value="''">— 未设置 —</option>
+                    <option v-for="m in members" :key="m.id" :value="String(m.id)">
+                      {{ m.display_name ?? m.email }}
+                    </option>
+                  </select>
+                  <button class="btn btn--sm btn--primary" :disabled="editSaving" @click="saveEdit">{{ editSaving ? "保存中..." : "保存" }}</button>
+                  <button class="btn btn--sm" :disabled="editSaving" @click="cancelEdit">取消</button>
+                </div>
+                <div
+                  v-else-if="canEditIssue"
+                  class="editable"
+                  @click="startEdit('verifier_id', issue.verifier_id ?? '')"
+                >
+                  <template v-if="issue.verifier_id">
+                    {{ members.find(m => m.id === issue.verifier_id)?.display_name ?? members.find(m => m.id === issue.verifier_id)?.email ?? `用户 #${issue.verifier_id}` }}
+                  </template>
+                  <span v-else class="add-btn" title="设置验证人">＋</span>
+                  <span class="edit-hint">✎</span>
+                </div>
+                <span v-else>{{ issue.verifier_id ? members.find(m => m.id === issue.verifier_id)?.display_name ?? `用户 #${issue.verifier_id}` : '—' }}</span>
+              </div>
             </div>
           </div>
         </div>
@@ -961,6 +1187,40 @@ onMounted(() => {
 
 .field-value {
   color: var(--text-secondary);
+}
+
+.field-value--grow {
+  flex: 1;
+  min-width: 0;
+}
+
+.field-row--editable .field-value {
+  display: flex;
+  align-items: flex-start;
+}
+
+.editable--textarea {
+  white-space: pre-wrap;
+  min-height: 2.4em;
+}
+
+.add-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--danger-50);
+  color: var(--danger-500);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.add-btn:hover {
+  background: var(--danger-100);
 }
 
 .text-muted {

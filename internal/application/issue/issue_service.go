@@ -85,6 +85,8 @@ type UpdateIssueInput struct {
 	FoundVersionID    *int64
 	FixVersionID      *int64
 	ReleaseVersionID  *int64
+	VerifierID       *int64         `json:"verifier_id,omitempty"`
+	ReproduceSteps   json.RawMessage `json:"reproduce_steps,omitempty"`
 }
 
 // ListIssuesOptions 工作项列表查询选项。
@@ -1352,6 +1354,16 @@ func buildUpdateSet(in UpdateIssueInput, current *Issue) ([]string, []interface{
 	if in.FixVersionID != nil {
 		sets = append(sets, "fix_version_id = $"+strconv.Itoa(arg))
 		args = append(args, *in.FixVersionID)
+		arg++
+	}
+	if in.VerifierID != nil {
+		sets = append(sets, "verifier_id = $"+strconv.Itoa(arg))
+		args = append(args, *in.VerifierID)
+		arg++
+	}
+	if len(in.ReproduceSteps) > 0 {
+		sets = append(sets, "reproduce_steps = $"+strconv.Itoa(arg))
+		args = append(args, in.ReproduceSteps)
 		arg++
 	}
 	if in.ReleaseVersionID != nil {
