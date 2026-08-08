@@ -11,6 +11,7 @@ import { workspaceApi, type Workspace } from "@/api/services/workspace";
 import { attachmentApi, type Attachment } from "@/api/services/attachment";
 import { toast } from "@/lib/toast";
 import { useAuthStore } from "@/stores/auth";
+import { useWorkspaceStore } from "@/stores/workspace";
 import RichTextEditor from "@/components/RichTextEditor.vue";
 import CommentList from "@/components/CommentList.vue";
 import AttachmentUploader from "@/components/AttachmentUploader.vue";
@@ -27,7 +28,20 @@ const props = defineProps<{
 const router = useRouter();
 
 const auth = useAuthStore();
+const wsStore = useWorkspaceStore();
 const currentUserId = computed(() => auth.user?.id ?? 0);
+
+/** 是否允许编辑/删除：owner/admin 或分配给自己的工作项且拥有 edit_own 权限 */
+const canEditIssue = computed(() => {
+  if (!issue.value) return false;
+  if (wsStore.hasPermission("issue:edit_all")) return true;
+  if (wsStore.hasPermission("issue:edit_own") && issue.value.assignee_ids.includes(currentUserId.value)) {
+    return true;
+  }
+  return false;
+});
+
+const canTransition = computed(() => wsStore.hasPermission("issue:transition"));
 
 const ws = ref<Workspace | null>(null);
 const issue = ref<Issue | null>(null);
