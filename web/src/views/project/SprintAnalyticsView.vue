@@ -59,6 +59,17 @@ const scopeChange = computed(() => {
   return props.burndown[props.burndown.length - 1].total_points - props.burndown[0].total_points;
 });
 
+/** 中途加入故事点（速率影响） */
+const addedPoints = computed(() => props.sprint?.progress?.added_points ?? 0);
+const removedPoints = computed(() => props.sprint?.progress?.removed_points ?? 0);
+/** 承诺故事点 = 总点数 - 中途加入点数 */
+const committedPoints = computed(() => Math.max(totalPoints.value - addedPoints.value, 0));
+/** 承诺完成率（排除中途加入的影响） */
+const committedCompletionRate = computed(() => {
+  if (!committedPoints.value) return 0;
+  return Math.round((donePoints.value / committedPoints.value) * 100);
+});
+
 /** 燃起图数据 */
 const burnupPoints = computed(() => props.burndown.map((p) => ({
   date: p.date,
@@ -215,6 +226,11 @@ const pieOption = computed(() => {
         <span class="metric-value">{{ scopeChange >= 0 ? '+' : '' }}{{ scopeChange }}<small>pt</small></span>
         <span class="metric-detail">{{ scopeChange > 0 ? '范围扩大' : scopeChange < 0 ? '范围缩小' : '无变化' }}</span>
       </div>
+      <div v-if="addedPoints > 0" class="metric-card metric-card--midway">
+        <span class="metric-label">中途加入 <small>(速率影响)</small></span>
+        <span class="metric-value">+{{ addedPoints }}<small>pt</small></span>
+        <span class="metric-detail">承诺 {{ committedPoints }}pt · 承诺完成率 {{ committedCompletionRate }}%</span>
+      </div>
     </div>
 
     <!-- 燃尽/燃起图切换 -->
@@ -295,6 +311,9 @@ const pieOption = computed(() => {
 }
 
 .metric-card--warn .metric-value { color: var(--warning-500, #f59e0b); }
+.metric-card--midway { background: var(--warning-50, #fffbeb); border-color: var(--warning-200, #fde68a); }
+.metric-card--midway .metric-value { color: var(--warning-600, #d97706); }
+.metric-card--midway .metric-label small { font-weight: 400; opacity: 0.7; }
 
 .metric-label {
   font-size: 12px;
