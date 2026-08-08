@@ -475,9 +475,14 @@ section h2 { margin: 0 0 12px; font-size: 14px; font-weight: 600; }
   display: flex; align-items: center; gap: 8px; padding: 6px 8px;
   background: var(--surface-2); border-radius: var(--radius-sm); font-size: 12px;
 }
+.issue-row--midway { background: var(--warning-50, #fffbeb); border-left: 2px solid var(--warning-400, #fbbf24); }
 .issue-row .name { flex: 1; color: var(--text-primary); }
 .issue-row .state { color: var(--text-secondary); font-size: 11px; font-weight: 500; }
 .issue-row .point { font-family: var(--font-mono); color: var(--text-tertiary); font-size: 11px; }
+.midway-badge {
+  font-size: 9px; padding: 1px 5px; border-radius: 3px;
+  background: var(--warning-100, #fef3c7); color: var(--warning-700, #b45309); font-weight: 600;
+}
 
 .type-badge {
   font-size: 9px; padding: 1px 5px; border-radius: 3px;
