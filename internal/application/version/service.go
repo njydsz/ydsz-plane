@@ -137,15 +137,11 @@ func normalizeChecklist(in []ChecklistItem) ([]ChecklistItem, error) {
 
 // Create 创建版本。
 func (s *Service) Create(ctx context.Context, in CreateVersionInput) (*Version, error) {
-	fmt.Printf("DEBUG Version.Create input: ws=%d, proj=%d, name=%s, semver=%s\n",
-		in.WorkspaceID, in.ProjectID, in.Name, in.Semver)
 	if err := validateCreateInput(in); err != nil {
-		fmt.Printf("DEBUG validateCreateInput error: %v\n", err)
 		return nil, err
 	}
 	// semver 校验
 	if semErr, _ := ParseSemVer(in.Semver); semErr != nil {
-		fmt.Printf("DEBUG ParseSemVer error: %v\n", semErr)
 		return nil, errs.ErrVersionSemverInvalid.WithDetails(errs.FieldDetail{Field: "semver", Reason: semErr.Error()})
 	}
 	checklist, err := normalizeChecklist(in.Checklist)
@@ -192,7 +188,6 @@ func (s *Service) Create(ctx context.Context, in CreateVersionInput) (*Version, 
 			&v.StartDate, &v.EndDate, &v.TargetDate,
 			&v.ArchivedAt, &v.CreatedBy, &v.CreatedAt, &v.UpdatedAt)
 		if err != nil {
-			fmt.Printf("DEBUG_VERSION_CREATE_ERROR: %v\n", err)
 			return errs.ErrInternal.Wrap(fmt.Errorf("insert+scan version: %w", err))
 		}
 		v.Checklist = checklist
@@ -843,8 +838,8 @@ func renderReleaseNotes(v *Version, src *ReleaseNotesData) string {
 	var b strings.Builder
 	b.WriteString(fmt.Sprintf("# %s v%s\n\n", v.Name, v.Semver))
 	b.WriteString(fmt.Sprintf("> Released at: %s\n\n", time.Now().UTC().Format("2006-01-02")))
-	if v.Description != "" {
-		b.WriteString(v.Description + "\n\n")
+	if v.Description != nil && *v.Description != "" {
+		b.WriteString(*v.Description + "\n\n")
 	}
 
 	b.WriteString("## ✅ 已完成需求与任务\n")
@@ -1071,10 +1066,10 @@ func scanVersion(row pgx.Row) (*Version, error) {
 		return nil, errs.ErrInternal.Wrap(err)
 	}
 	if desc.Valid {
-		v.Description = desc.String
+		v.Description = &desc.String
 	}
 	if rn.Valid {
-		v.ReleaseNotes = rn.String
+		v.ReleaseNotes = &rn.String
 	}
 	if delAt.Valid {
 		v.DeliveredAt = &delAt.Time

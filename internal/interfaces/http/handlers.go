@@ -121,6 +121,72 @@ func updateWorkspace(d *Deps) gin.HandlerFunc {
 	}
 }
 
+// ==================================================================
+// 工作空间 Logo 上传
+// ==================================================================
+
+// LogoUploadResult 上传 Logo 的响应。
+type LogoUploadResult struct {
+	LogoURL string `json:"logo_url"`
+}
+
+// uploadLogo 处理工作空间 Logo 上传：
+// POST /api/v1/workspaces/:workspace_id/logo
+// Content-Type: multipart/form-data，字段名 "file"
+// 需要 workspace:update 权限。
+func uploadLogo(d *Deps) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if d.Storage == nil {
+			middleware.AbortWithError(c, errs.ErrInternal.WithDetails(errs.FieldDetail{
+				Field: "storage", Reason: "未配置对象存储",
+			}))
+			return
+		}
+
+		wsID := c.GetInt64(middleware.CtxWorkspaceID)
+		file, header, err := c.FormFile("file")
+		if err != nil {
+			middleware.AbortWithError(c, errs.ErrValidation.WithDetails(errs.FieldDetail{
+				Field: "file", Reason: "请上传文件（form 字段名 'file'）",
+			}))
+			return
+		}
+
+		f, err := file.Open()
+		if err != nil {
+			middleware.AbortWithError(c, errs.ErrInternal.Wrap(err))
+			return
+		}
+		defer f.Close()
+
+		logoSvc := workspace.NewLogoService(d.WorkspaceSvc, d.Storage)
+		logoURL, err := logoSvc.SaveLogo(c.Request.Context(), wsID, f, header.Size, header.Header.Get("Content-Type"))
+		if err != nil {
+			writeError(c, err)
+			return
+		}
+
+		d.AuditSvc.RecordFromGin(c, wsID, "workspace.logo_upload", "", nil)
+		c.JSON(http.StatusOK, LogoUploadResult{LogoURL: logoURL})
+	}
+}
+
+// removeLogo 清除工作空间 Logo：
+// DELETE /api/v1/workspaces/:workspace_id/logo
+// 需要 workspace:update 权限。
+func removeLogo(d *Deps) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		wsID := c.GetInt64(middleware.CtxWorkspaceID)
+		logoSvc := workspace.NewLogoService(d.WorkspaceSvc, d.Storage)
+		if err := logoSvc.RemoveLogo(c.Request.Context(), wsID); err != nil {
+			writeError(c, err)
+			return
+		}
+		d.AuditSvc.RecordFromGin(c, wsID, "workspace.logo_remove", "", nil)
+		c.Status(http.StatusNoContent)
+	}
+}
+
 // archiveWorkspace 归档指定工作空间（软删除），返回 204。
 func archiveWorkspace(d *Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {

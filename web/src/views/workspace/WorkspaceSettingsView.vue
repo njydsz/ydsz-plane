@@ -68,6 +68,12 @@ const editSaving = ref(false);
 const editError = ref("");
 const editSuccess = ref("");
 
+// Logo 上传状态
+const logoInput = ref<HTMLInputElement | null>(null);
+const logoUploading = ref(false);
+const logoError = ref("");
+const workspaceId = routeWsId;
+
 const timezoneOptions = [
   { value: "Asia/Shanghai", label: "中国标准时间 (UTC+8)" },
   { value: "Asia/Tokyo", label: "日本标准时间 (UTC+9)" },
@@ -239,6 +245,49 @@ function cancelEdit() {
   editError.value = "";
 }
 
+// === Logo 上传操作 ===
+
+async function onLogoChange(e: Event) {
+  const target = e.target as HTMLInputElement;
+  const file = target.files?.[0];
+  if (!file) return;
+  logoError.value = "";
+
+  if (file.size > 5 * 1024 * 1024) {
+    logoError.value = "图片不能超过 5MB";
+    return;
+  }
+  if (!file.type.startsWith("image/")) {
+    logoError.value = "仅支持图片文件";
+    return;
+  }
+
+  logoUploading.value = true;
+  try {
+    const fd = new FormData();
+    fd.append("file", file);
+    const resp = await workspaceApi.uploadLogo(workspaceId.value, fd);
+    if (ws.value) ws.value.logo_url = resp.logo_url;
+  } catch (e: any) {
+    logoError.value = e.message ?? "上传失败";
+  } finally {
+    logoUploading.value = false;
+    // 重置 input，使同一文件再次上传也能触发 @change
+    if (logoInput.value) logoInput.value.value = "";
+  }
+}
+
+async function handleRemoveLogo() {
+  if (!ws.value?.logo_url) return;
+  if (!confirm("确定要移除工作空间图标吗？")) return;
+  try {
+    await workspaceApi.removeLogo(workspaceId.value);
+    if (ws.value) ws.value.logo_url = "";
+  } catch (e: any) {
+    alert(`移除失败：${e.message}`);
+  }
+}
+
 async function saveEdit() {
   editError.value = "";
   editSuccess.value = "";
@@ -373,6 +422,38 @@ onMounted(loadAll);
       <!-- 只读模式 -->
       <template v-if="!editing">
         <div class="info-grid">
+          <!-- Logo 卡片 -->
+          <div class="info-item logo-widget">
+            <span class="info-label">工作空间图标</span>
+            <div class="logo-preview">
+              <img v-if="ws.logo_url" :src="ws.logo_url" alt="logo" class="logo-img" />
+              <div v-else class="logo-placeholder">{{ ws.name?.[0]?.toUpperCase() }} </div>
+            </div>
+            <input
+              type="file"
+              accept="image/*"
+              @change="onLogoChange"
+              ref="logoInput"
+              style="display: none"
+            />
+            <div class="logo-actions">
+              <button
+                v-if="canManageMembers"
+                class="btn btn--sm"
+                :disabled="logoUploading"
+                @click="logoInput?.click()"
+              >
+                {{ logoUploading ? "上传中..." : "上传图标" }}
+              </button>
+              <button
+                v-if="canManageMembers && ws.logo_url"
+                class="btn btn--sm btn--ghost"
+                @click="handleRemoveLogo"
+              >移除</button>
+            </div>
+            <p v-if="logoError" class="form-error">{{ logoError }}</p>
+          </div>
+
           <div class="info-item">
             <span class="info-label">名称</span>
             <span class="info-value">{{ ws.name }}</span>
@@ -1014,5 +1095,62 @@ select {
   display: flex;
   gap: 8px;
   margin-top: 20px;
+}
+
+/* === Logo 上传 === */
+.logo-widget {
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.logo-preview {
+  width: 56px;
+  height: 56px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--surface-3, #f3f4f6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.logo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.logo-placeholder {
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--brand-500);
+  line-height: 1;
+}
+
+.logo-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.btn--sm {
+  padding: 4px 10px;
+  font-size: 12px;
+}
+
+.btn--ghost {
+  background: none;
+  border: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 4px 0;
+  text-align: left;
+}
+
+.btn--ghost:hover {
+  color: var(--danger-500);
 }
 </style>

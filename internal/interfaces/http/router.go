@@ -37,6 +37,7 @@ import (
 	"github.com/njydsz/ydsz-plane/internal/application/workspace"
 	"github.com/njydsz/ydsz-plane/internal/config"
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/mail"
+	"github.com/njydsz/ydsz-plane/internal/infrastructure/storage"
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/telemetry"
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/ws"
 	"github.com/njydsz/ydsz-plane/internal/interfaces/middleware"
@@ -101,6 +102,8 @@ type Deps struct {
 	DLQHandler *dlq.Handler
 	// AI 域（智能指派/重复检测/分类/摘要）
 	AiHandler *ai.Handler
+	// Storage 对象存储客户端（Logo 上传等场景复用）
+	Storage *storage.Client
 	// S13 OIDC / SSO 域（单点登录）
 	OIDCService *auth.OIDCService
 	// 知识库域
@@ -670,6 +673,10 @@ func NewEngine(d *Deps) *gin.Engine {
 
 				// 所有角色定义列表（只读，供成员管理表单下拉）
 				ws.GET("/roles", requireWsPermission(d, auth.PermWorkspaceRead), listRoles(d))
+
+				// Logo 上传 / 移除（需要 workspace:update 权限）
+				ws.POST("/logo", requireWsPermission(d, auth.PermWorkspaceUpdate), uploadLogo(d))
+				ws.DELETE("/logo", requireWsPermission(d, auth.PermWorkspaceUpdate), removeLogo(d))
 			}
 		}
 	}

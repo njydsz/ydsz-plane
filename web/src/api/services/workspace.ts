@@ -112,6 +112,13 @@ export const workspaceApi = {
   update: (wsId: number, input: { name?: string; timezone?: string; language?: string; logo_url?: string }) =>
     wrap<Workspace>(http.patch(`/workspaces/${wsId}`, input)),
   archive: (wsId: number) => wrap<void>(http.delete(`/workspaces/${wsId}`)),
+  /** 上传工作空间 Logo（multipart/form-data，字段名 'file'），返回 { logo_url } */
+  uploadLogo: (wsId: number, formData: FormData) =>
+    wrap<{ logo_url: string }>(http.post(`/workspaces/${wsId}/logo`, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    })),
+  /** 移除工作空间 Logo */
+  removeLogo: (wsId: number) => wrap<void>(http.delete(`/workspaces/${wsId}/logo`)),
 
   // --- Members ---
   listMembers: (wsId: number) => wrap<Member[]>(http.get(`/workspaces/${wsId}/members`)),

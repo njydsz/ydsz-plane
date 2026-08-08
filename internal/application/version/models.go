@@ -34,14 +34,14 @@ type Version struct {
 	ProjectID      int64             `json:"project_id"`
 	Name           string            `json:"name"`
 	Semver         string            `json:"semver"`
-	Description    string            `json:"description,omitempty"`
+	Description    *string           `json:"description,omitempty"`
 	Status         VersionStatusCode `json:"status"`
 	Version        int               `json:"version"`
 	StartDate      *string           `json:"start_date,omitempty"`
 	EndDate        *string           `json:"end_date,omitempty"`
 	TargetDate     *string           `json:"target_date,omitempty"`
 	Checklist      []ChecklistItem   `json:"checklist,omitempty"`
-	ReleaseNotes   string            `json:"release_notes,omitempty"`
+	ReleaseNotes   *string           `json:"release_notes,omitempty"`
 	DeliveredAt    *time.Time        `json:"delivered_at,omitempty"`
 	ArchivedAt     *time.Time        `json:"archived_at,omitempty"`
 	CreatedBy      int64             `json:"created_by"`

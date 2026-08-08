@@ -23,6 +23,7 @@ import (
 )
 
 // handleSSORedirect GET-based SSO 登录入口（浏览器直跳场景）。
+// 支持协议分发：oidc → OIDC 授权码流；saml → SAML HTTP-Redirect Binding。
 // 前端 window.location.href → 此端点 → 302 重定向到 IdP 授权端点。
 func handleSSORedirect(d *Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -36,13 +37,26 @@ func handleSSORedirect(d *Deps) gin.HandlerFunc {
 			return
 		}
 		redirectTo := c.Query("redirect_to")
-		result, err := d.OIDCService.InitiateLogin(
-			c.Request.Context(), providerID, redirectTo, c.ClientIP(), c.Request.UserAgent())
-		if err != nil {
-			c.Redirect(302, "/login?error=sso_initiate_failed")
-			return
+
+		// 按 Provider 协议分发
+		protocol := c.Query("protocol")
+		switch protocol {
+		case "saml":
+			samlResult, err := d.OIDCService.SAMLInitiateLogin(c.Request.Context(), providerID, redirectTo)
+			if err != nil {
+				c.Redirect(302, "/login?error=sso_initiate_failed")
+				return
+			}
+			c.Redirect(302, samlResult.RedirectURL)
+		default:
+			result, err := d.OIDCService.InitiateLogin(
+				c.Request.Context(), providerID, redirectTo, c.ClientIP(), c.Request.UserAgent())
+			if err != nil {
+				c.Redirect(302, "/login?error=sso_initiate_failed")
+				return
+			}
+			c.Redirect(302, result.RedirectURL)
 		}
-		c.Redirect(302, result.RedirectURL)
 	}
 }
 

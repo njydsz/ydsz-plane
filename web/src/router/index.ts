@@ -313,6 +313,16 @@ const router = createRouter({
           name: "project-modules",
           component: () => import("@/views/project/ModuleSettingsView.vue"),
         },
+        // 模块管理独立页（路由名 project-modules-list 避免与 settings 子页 project-modules 冲突）
+        {
+          path: ":workspaceId(\\d+)/projects/:projectId/modules",
+          name: "project-modules-list",
+          component: () => import("@/views/project/ModulesView.vue"),
+          props: (route) => ({
+            workspaceId: Number(route.params.workspaceId),
+            projectId: Number(route.params.projectId),
+          }),
+        },
         // 成员管理（项目设置子页）
         {
           path: ":workspaceId(\\d+)/projects/:projectId/settings/members",

@@ -381,6 +381,8 @@ func run() error {
 		DLQHandler: dlqHandler,
 		// S13 OIDC / SSO 域（单点登录）
 		OIDCService: oidcService,
+		// Storage 客户端（Logo 上传等）
+		Storage: stClient,
 	})
 
 	// 注册工作项路由（必须在 NewEngine 之后）

@@ -20,7 +20,6 @@ const projectId = Number(route.params.projectId);
 const wsStore = useWorkspaceStore();
 const myRole = computed(() => wsStore.currentRole);
 const canManage = computed(() => ["owner", "admin"].includes(myRole.value));
-const isOwner = computed(() => myRole.value === "owner");
 
 // 删除二次确认弹窗
 const showDeleteModal = ref(false);

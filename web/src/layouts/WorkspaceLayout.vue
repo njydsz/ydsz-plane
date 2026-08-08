@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 /**
  * 工作空间布局组件 — 登录后应用的主框架。
  *
@@ -42,6 +42,26 @@ const showSwitcher = ref(false);
 const switcherFilter = ref("");
 /** 设置分组是否折叠 */
 const settingsGroupCollapsed = ref(true);
+
+// ===== S13 P1: 移动响应式 =====
+const MOBILE_BREAKPOINT = 768;
+const isMobile = ref(window.innerWidth < MOBILE_BREAKPOINT);
+const mobileSidebarOpen = ref(false);
+function handleResize() {
+  const wasMobile = isMobile.value;
+  isMobile.value = window.innerWidth < MOBILE_BREAKPOINT;
+  // 从移动端切换到桌面端时关闭抽屉
+  if (wasMobile && !isMobile.value) mobileSidebarOpen.value = false;
+}
+function toggleMobileSidebar() { mobileSidebarOpen.value = !mobileSidebarOpen.value; }
+function closeMobileSidebar() { mobileSidebarOpen.value = false; }
+
+// S13 P1: 移动侧栏打开时锁定 body 滚动，防止背景内容滚动
+watch(mobileSidebarOpen, (open) => {
+  if (isMobile.value) {
+    document.body.style.overflow = open ? "hidden" : "";
+  }
+});
 
 const workspaceId = computed(() => Number(route.params.workspaceId ?? 0));
 const workspaceList = computed(() => wsStore.list);
@@ -136,8 +156,13 @@ watch(
   { immediate: true },
 );
 
+// S13 P1: 监听窗口 resize → 自动切换到移动/桌面布局
+onMounted(() => {
+  window.addEventListener("resize", handleResize);
+});
 onUnmounted(() => {
   wsClient.disconnect();
+  window.removeEventListener("resize", handleResize);
 });
 
 /* ===== 空间切换器 ===== */
@@ -191,8 +216,28 @@ watch(
 </script>
 
 <template>
-  <div class="ws-layout">
-    <aside class="sidebar" :class="{ collapsed }">
+  <div class="ws-layout" :class="{ 'is-mobile': isMobile, 'mobile-sidebar-open': mobileSidebarOpen }">
+    <!-- S13 P1: 移动抽屉遮罩层 -->
+    <div
+      v-if="isMobile && mobileSidebarOpen"
+      class="mobile-overlay"
+      @click="closeMobileSidebar"
+    ></div>
+
+    <aside
+      class="sidebar"
+      :class="{ collapsed, 'mobile-drawer': isMobile, 'drawer-open': mobileSidebarOpen }"
+    >
+      <!-- S13 P1: 移动侧栏关闭按钮 -->
+      <button
+        v-if="isMobile"
+        class="mobile-close-btn"
+        aria-label="关闭菜单"
+        @click="closeMobileSidebar"
+      >
+        ✕
+      </button>
+
       <!-- ===== 工作空间切换器 ===== -->
       <div class="ws-switcher" @click="showSwitcher = !showSwitcher">
         <div class="ws-switcher__avatar">
@@ -365,6 +410,14 @@ watch(
               <span class="nav-icon">⚡</span>
               <span v-if="!collapsed">自动化</span>
             </router-link>
+            <router-link
+              :to="`/${wsStore.currentId}/projects/${currentProjectId}/modules`"
+              class="nav-item nav-item--sub"
+              active-class="is-active"
+            >
+              <span class="nav-icon">🧩</span>
+              <span v-if="!collapsed">模块</span>
+            </router-link>
           </div>
         </template>
 
@@ -477,6 +530,15 @@ watch(
 
     <div class="main">
       <header class="header">
+        <!-- S13 P1: 移动汉堡菜单按钮 -->
+        <button
+          v-if="isMobile"
+          class="hamburger-btn"
+          aria-label="打开菜单"
+          @click="toggleMobileSidebar"
+        >
+          <span class="hamburger-icon"><i></i><i></i><i></i></span>
+        </button>
         <div class="header__breadcrumb">
           <slot name="breadcrumb">
             <span v-if="currentWs" class="crumb">{{ currentWs.name }}</span>
@@ -914,4 +976,95 @@ watch(
   overflow: auto;
   padding: 24px;
 }
+
+/* ===== S13 P1: 移动响应式 ===== */
+
+/* 汉堡按钮 */
+.hamburger-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  margin-right: 12px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.hamburger-icon {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  width: 22px;
+  height: 16px;
+}
+.hamburger-icon i {
+  display: block;
+  height: 2px;
+  width: 100%;
+  background: var(--text-primary);
+  border-radius: 2px;
+}
+
+/* 移动遮罩 */
+.mobile-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 99;
+  background: rgba(0, 0, 0, 0.45);
+  animation: fadeIn 0.2s ease;
+}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+/* 移动侧栏抽屉 */
+.sidebar.mobile-drawer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 100;
+  height: 100%;
+  width: 280px !important;
+  transform: translateX(-100%);
+  transition: transform 0.25s ease;
+  box-shadow: var(--shadow-drawer, 4px 0 24px rgba(0, 0, 0, 0.25));
+}
+.sidebar.mobile-drawer.drawer-open {
+  transform: translateX(0);
+}
+
+/* 移动侧栏关闭按钮 */
+.mobile-close-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text-primary);
+  font-size: 16px;
+  cursor: pointer;
+}
+
+/* 移动主内容区域：避免底部内容被遮挡 */
+.is-mobile .main {
+  width: 100%;
+  overflow-x: hidden;
+}
+
+/* 触摸友好: 增大导航项触控面积 */
+.is-mobile .nav-item {
+  min-height: 44px;
+}
+.is-mobile .ws-switcher {
+  min-height: 48px;
+}
+
 </style>
