@@ -223,12 +223,6 @@ async function submit() {
     }
   }
 
-  // 使用默认状态（store 中已有的第一个默认状态）
-  const defaultState = issueStore.states.find((s) => s.is_default);
-  if (defaultState) {
-    input.state_id = defaultState.id;
-  }
-
   try {
     const iss = await issueStore.createIssue(props.workspaceId, props.projectId, input);
     emit("created", iss.id);

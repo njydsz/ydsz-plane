@@ -190,7 +190,6 @@ export interface CreateIssueInput {
   type: IssueType;
   name: string;
   description_html?: string;
-  state_id?: number;
   priority?: IssuePriority;
   parent_id?: number;
   severity?: number;
@@ -207,12 +206,12 @@ export interface CreateIssueInput {
   found_version_id?: number;
   fix_version_id?: number;
 }
+// 注意：创建时state_id不需要传，后端会默认使用项目的初始状态
 
 /** 更新工作项入参（可选字段 + 乐观锁 version） */
 export interface UpdateIssueInput {
   name?: string;
   description_html?: string;
-  state_id?: number;
   priority?: IssuePriority;
   parent_id?: number;
   severity?: number;
@@ -228,6 +227,7 @@ export interface UpdateIssueInput {
   fix_version_id?: number;
   release_version_id?: number;
 }
+// 注意：state_id不允许通过更新接口修改，所有状态变更必须调用transition接口
 
 /** 工作项列表查询参数（过滤/搜索/分页） */
 export interface ListIssuesParams {
