@@ -33,6 +33,11 @@ const isFullscreen = ref(false);
 const isEditMode = ref(false);
 const gridEl = ref<HTMLElement | null>(null);
 
+/** 退出编辑布局模式（由"完成布局"按钮触发） */
+function exitEditMode() {
+  isEditMode.value = false;
+}
+
 // --- 拖拽重排 ---
 const draggingWidgetId = ref<number | null>(null);
 const dragOverWidgetId = ref<number | null>(null);
@@ -129,8 +134,10 @@ function onDrop(e: DragEvent, targetId: number) {
   source.grid_x = newX;
   source.grid_y = newY;
 
-  // 触发响应式更新
-  dashboardData.value = { ...dashboardData.value };
+  // 触发响应式更新（保留原引用以维持类型完整性）
+  if (dashboardData.value) {
+    dashboardData.value = { ...dashboardData.value };
+  }
 
   // 防抖保存到后端
   scheduleSave(sourceId, { grid_x: newX, grid_y: newY, grid_w: source.grid_w, grid_h: source.grid_h });
@@ -185,7 +192,9 @@ function onResizeMove(e: PointerEvent) {
 
   widget.grid_w = newW;
   widget.grid_h = newH;
-  dashboardData.value = { ...dashboardData.value };
+  if (dashboardData.value) {
+    dashboardData.value = { ...dashboardData.value };
+  }
 
   scheduleSave(widgetId, { grid_x: widget.grid_x, grid_y: widget.grid_y, grid_w: newW, grid_h: newH });
 }

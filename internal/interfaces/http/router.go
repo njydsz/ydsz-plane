@@ -25,6 +25,7 @@ import (
 	"github.com/njydsz/ydsz-plane/internal/application/dlq"
 	"github.com/njydsz/ydsz-plane/internal/application/intake"
 	"github.com/njydsz/ydsz-plane/internal/application/issue"
+	"github.com/njydsz/ydsz-plane/internal/application/knowledge"
 	notif "github.com/njydsz/ydsz-plane/internal/application/notification"
 	"github.com/njydsz/ydsz-plane/internal/application/pages"
 	"github.com/njydsz/ydsz-plane/internal/application/preference"
@@ -102,6 +103,8 @@ type Deps struct {
 	AiHandler *ai.Handler
 	// S13 OIDC / SSO 域（单点登录）
 	OIDCService *auth.OIDCService
+	// 知识库域
+	KnowledgeHandler *knowledge.Handler
 }
 
 // RegisterIssueRoutes 注册工作项路由（在 NewEngine 之后调用）。
@@ -120,6 +123,34 @@ func RegisterIssueRoutes(r *gin.Engine, d *Deps) {
 	read := projects.Group("")
 	read.Use(middleware.RequirePermissionFromDB(d.RBACStore, auth.PermWorkspaceRead))
 	d.IssueHandler.Register(read, nil, nil)
+}
+
+// RegisterKnowledgeRoutes 注册知识库路由（工作空间级 + 可选项目级过滤）。
+//
+// 路由前缀：/api/v1/workspaces/:workspace_id/knowledge
+// 提供空间 CRUD、文档树、版本快照、工作项关联。
+//
+// 权限分层：
+//   - 读取类（GET）需 knowledge:read 权限
+//   - 写入类（POST/PATCH/DELETE）需 knowledge:manage 权限
+func RegisterKnowledgeRoutes(r *gin.Engine, d *Deps) {
+	if d.KnowledgeHandler == nil {
+		return
+	}
+	ws := r.Group("/api/v1/workspaces/:workspace_id/knowledge")
+	ws.Use(
+		middleware.RequireAuth(d.principalParser()),
+		middleware.RequireWorkspaceParam(),
+	)
+	// 读取类：knowledge:read
+	read := ws.Group("")
+	read.Use(middleware.RequirePermissionFromDB(d.RBACStore, auth.PermKnowledgeRead))
+	d.KnowledgeHandler.RegisterRead(read)
+
+	// 写入类：knowledge:manage
+	write := ws.Group("")
+	write.Use(middleware.RequirePermissionFromDB(d.RBACStore, auth.PermKnowledgeManage))
+	d.KnowledgeHandler.RegisterWrite(write)
 }
 
 // RegisterPreferenceRoutes 注册视图偏好路由（项目级）。

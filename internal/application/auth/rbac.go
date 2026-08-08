@@ -98,6 +98,10 @@ const (
 	PermIntakeManage  = "intake:manage"
 	PermPagesManage   = "pages:manage"
 
+	// 知识库
+	PermKnowledgeRead   = "knowledge:read"
+	PermKnowledgeManage = "knowledge:manage"
+
 	// 评论 / 关联
 	PermCommentModerate = "comment:moderate"
 	PermRelationManage  = "relation:manage"
