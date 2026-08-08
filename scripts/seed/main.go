@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/njydsz/ydsz-plane/internal/application/auth"
+	"github.com/njydsz/ydsz-plane/internal/application/automation"
 	"github.com/njydsz/ydsz-plane/internal/config"
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/persistence"
 )
@@ -133,7 +134,11 @@ func runDeterministic() error {
 	if err := seedAuditLogs(ctx, pool, emailsToIDs); err != nil {
 		return err
 	}
-	printSummary(emailsToIDs, wsSlugsToIDs)
+	templateCount, err := automation.SeedAutomationTemplates(ctx, pool.Pool)
+	if err != nil {
+		return err
+	}
+	printSummary(emailsToIDs, wsSlugsToIDs, templateCount)
 	return nil
 }
 
@@ -230,12 +235,13 @@ func seedAuditLogs(ctx context.Context, pool *persistence.Pool, userIDs map[stri
 }
 
 // printSummary 打印确定性种子执行结果。
-func printSummary(userIDs map[string]int64, wsIDs map[string]int64) {
+func printSummary(userIDs map[string]int64, wsIDs map[string]int64, templateCount int) {
 	fmt.Println("═══════════════════════════════════════")
 	fmt.Println("  Ydsz Plane Seed — OK")
 	fmt.Println("═══════════════════════════════════════")
 	fmt.Printf("  Users:      %d\n", len(deterministicUsers))
 	fmt.Printf("  Workspaces: %d\n", len(deterministicWorkspaces))
+	fmt.Printf("  Templates:  %d\n", templateCount)
 	fmt.Println("───────────────────────────────────────")
 	fmt.Println(" 用户 / 密码:")
 	for _, u := range deterministicUsers {

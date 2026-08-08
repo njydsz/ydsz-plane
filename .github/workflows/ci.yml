@@ -1,0 +1,187 @@
+# ============================================================================
+# Ydsz Plane — CI/CD 完整流水线
+# 对标: 字节跳动/美团 Go 项目 CI 标准
+# 触发: push/PR 到 main, 手动触发
+# ============================================================================
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  GO_VERSION: "1.23"
+  NODE_VERSION: "22"
+
+jobs:
+  # ------------------------------------------------------------------
+  # Job 1: Go 静态分析 + 编译校验
+  # ------------------------------------------------------------------
+  go-lint-build:
+    name: Go Lint & Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: go vet
+        run: go vet $(go list ./... | grep -v '/web/node_modules/')
+
+      - name: go build
+        run: go build $(go list ./... | grep -v '/web/node_modules/')
+
+      - name: go mod tidy check
+        run: |
+          go mod tidy -diff
+          if [ $? -ne 0 ]; then
+            echo "::error::go.mod 与 go.sum 不一致，请运行 go mod tidy 后提交"
+            exit 1
+          fi
+
+  # ------------------------------------------------------------------
+  # Job 2: Go 单元测试（race detector）
+  # ------------------------------------------------------------------
+  go-test:
+    name: Go Test (race)
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: ydsz_app
+          POSTGRES_PASSWORD: ydsz_test
+          POSTGRES_DB: ydsz_plane_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:8-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      YDSZ_DATABASE_URL: "postgres://ydsz_app:ydsz_test@localhost:5432/ydsz_plane_test?sslmode=disable"
+      YDSZ_REDIS_ADDR: "localhost:6379"
+      YDSZ_REDIS_PASSWORD: ""
+      YDSZ_SERVER_ENV: "development"
+      YDSZ_AUTH_JWT_SECRET: "ci-test-secret-key-at-least-32-bytes-long!!"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: init test schema
+        run: |
+          PGPASSWORD=ydsz_test psql -h localhost -U ydsz_app -d ydsz_plane_test \
+            -v ON_ERROR_STOP=1 \
+            -f sql/ydsz-plane-init.sql
+
+      - name: go test
+        run: |
+          PKGS=$(go list ./... | grep -v '/web/node_modules/' | grep -v '/scripts/')
+          go test -race -count=1 -timeout 300s $PKGS
+
+  # ------------------------------------------------------------------
+  # Job 3: Go 依赖安全扫描
+  # ------------------------------------------------------------------
+  go-security:
+    name: Go Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: govulncheck
+        run: |
+          go run golang.org/x/vuln/cmd/govulncheck@latest $(go list ./... | grep -v '/web/node_modules/')
+
+  # ------------------------------------------------------------------
+  # Job 4: Web 前端审计
+  # ------------------------------------------------------------------
+  web-audit:
+    name: Web Audit
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v3
+        with:
+          version: latest
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "pnpm"
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      - name: install deps
+        run: pnpm install --frozen-lockfile
+
+      - name: pnpm audit
+        run: pnpm audit --prod --audit-level=high
+
+      - name: type check
+        run: pnpm type-check 2>/dev/null || echo "::warning::type-check 未配置"
+
+      - name: lint
+        run: pnpm lint 2>/dev/null || echo "::warning::lint 未配置"
+
+  # ------------------------------------------------------------------
+  # Job 5: CodeQL 安全分析
+  # ------------------------------------------------------------------
+  codeql:
+    name: CodeQL Analysis
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        language: ["go", "javascript-typescript"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          queries: security-and-quality
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{ matrix.language }}"

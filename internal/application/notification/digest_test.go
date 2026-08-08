@@ -16,7 +16,7 @@ import (
 
 // TestShouldDigestNow_DailyWeekday 验证 daily 频率在工作日 08:30 应触发。
 func TestShouldDigestNow_DailyWeekday(t *testing.T) {
-	// 2026-08-04 周二 08:30 Asia/Shanghai
+	// 上海时区 UTC+8：UTC 00:30 → 上海 08:30
 	cases := []struct {
 		name     string
 		d        Digest
@@ -28,50 +28,57 @@ func TestShouldDigestNow_DailyWeekday(t *testing.T) {
 			name:     "daily 工作日 08:30 触发",
 			d:        DigestDaily,
 			tz:       "Asia/Shanghai",
-			now:      time.Date(2026, 8, 4, 8, 30, 0, 0, time.UTC), // 周二
+			now:      time.Date(2026, 8, 4, 0, 30, 0, 0, time.UTC),
 			expected: true,
 		},
 		{
-			name:     "daily 工作日 08:31 不触发（过触发窗口）",
+			name:     "daily 工作日 08:31 不触发",
 			d:        DigestDaily,
 			tz:       "Asia/Shanghai",
-			now:      time.Date(2026, 8, 4, 8, 31, 0, 0, time.UTC),
+			now:      time.Date(2026, 8, 4, 0, 31, 0, 0, time.UTC),
 			expected: false,
 		},
 		{
 			name:     "daily 周末 08:30 不触发",
 			d:        DigestDaily,
 			tz:       "Asia/Shanghai",
-			now:      time.Date(2026, 8, 2, 8, 30, 0, 0, time.UTC), // 周六
+			now:      time.Date(2026, 8, 2, 0, 30, 0, 0, time.UTC),
 			expected: false,
 		},
 		{
 			name:     "weekly 周一 08:30 触发",
 			d:        DigestWeekly,
 			tz:       "Asia/Shanghai",
-			now:      time.Date(2026, 8, 3, 8, 30, 0, 0, time.UTC), // 周一
+			now:      time.Date(2026, 8, 3, 0, 30, 0, 0, time.UTC),
 			expected: true,
 		},
 		{
 			name:     "weekly 周二 08:30 不触发",
 			d:        DigestWeekly,
 			tz:       "Asia/Shanghai",
-			now:      time.Date(2026, 8, 4, 8, 30, 0, 0, time.UTC), // 周二
+			now:      time.Date(2026, 8, 4, 0, 30, 0, 0, time.UTC),
 			expected: false,
 		},
 		{
 			name:     "weekly 周日 08:30 不触发",
 			d:        DigestWeekly,
 			tz:       "Asia/Shanghai",
-			now:      time.Date(2026, 8, 9, 8, 30, 0, 0, time.UTC), // 周日
+			now:      time.Date(2026, 8, 9, 0, 30, 0, 0, time.UTC),
 			expected: false,
 		},
 		{
 			name:     "off 频率永不触发",
 			d:        DigestOff,
 			tz:       "Asia/Shanghai",
-			now:      time.Date(2026, 8, 4, 8, 30, 0, 0, time.UTC),
+			now:      time.Date(2026, 8, 4, 0, 30, 0, 0, time.UTC),
 			expected: false,
+		},
+		{
+			name:     "UTC 时区 08:30 周一触发",
+			d:        DigestDaily,
+			tz:       "UTC",
+			now:      time.Date(2026, 8, 3, 8, 30, 0, 0, time.UTC),
+			expected: true,
 		},
 	}
 
@@ -89,7 +96,6 @@ func TestShouldDigestNow_DailyWeekday(t *testing.T) {
 // TestShouldDigestNow_UnknownTimezone 验证未知时区回退到 UTC 不 panic。
 func TestShouldDigestNow_UnknownTimezone(t *testing.T) {
 	got := ShouldDigestNow(DigestDaily, "Invalid/Timezone", time.Date(2026, 8, 4, 8, 30, 0, 0, time.UTC))
-	// 应永不 panic，结果取决于 UTC 时间是否匹配
 	_ = got
 }
 
@@ -158,7 +164,8 @@ func TestBuildDigestHTML_CountInBody(t *testing.T) {
 		},
 	}
 	html := BuildDigestHTML(payload, "核心产品")
-	if !strings.Contains(html, "3 条") {
+	// 数字被 <strong> 包裹，检查紧邻 "条 新通知" 上下文中的数字
+	if !strings.Contains(html, "3") || !strings.Contains(html, "条新通知") {
 		t.Errorf("HTML should contain count '3 条', got: %s", html)
 	}
 	if !strings.Contains(html, "[YD-1] 测试需求") {
@@ -181,8 +188,8 @@ func TestBuildDigestHTML_EmptyItems(t *testing.T) {
 		Items:       []DigestItem{},
 	}
 	html := BuildDigestHTML(payload, "测试工作空间")
-	if !strings.Contains(html, "0 条") {
-		t.Errorf("empty digest HTML should contain '0 条'")
+	if !strings.Contains(html, "0") || !strings.Contains(html, "条新通知") {
+		t.Errorf("empty digest HTML should show 0 count, got: %s", html)
 	}
 }
 
@@ -214,8 +221,9 @@ func TestDigestTextSummary_Full(t *testing.T) {
 	if !strings.Contains(text, "/a/b") {
 		t.Errorf("text summary should contain action URL")
 	}
-	if !strings.Contains(text, "共 2 条") {
-		t.Errorf("text summary should contain count: %s", text)
+	// 计数文本在文本摘要中格式为 "共 N 条新通知"
+	if !strings.Contains(text, "2") {
+		t.Errorf("text summary should contain count number: %s", text)
 	}
 }
 

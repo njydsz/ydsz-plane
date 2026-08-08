@@ -2,6 +2,8 @@
 /**
  * AppToast — 全局消息提示渲染器（挂在 App.vue 根部）。
  * 消费 lib/toast.ts 的消息队列，右上角堆叠展示。
+ *
+ * 支持 loading 状态（常驻不自动关闭，带 spinner 动画）。
  */
 import { toasts, dismiss, type ToastItem } from "@/lib/toast";
 
@@ -10,10 +12,18 @@ const icons: Record<ToastItem["type"], string> = {
   error: "✕",
   info: "ℹ",
   warning: "!",
+  loading: "",
 };
 
 function label(type: ToastItem["type"]): string {
-  return ({ success: "成功", error: "错误", info: "提示", warning: "警告" } as Record<string, string>)[type] ?? "";
+  const map: Record<ToastItem["type"], string> = {
+    success: "成功",
+    error: "错误",
+    info: "提示",
+    warning: "警告",
+    loading: "处理中",
+  };
+  return map[type] ?? "";
 }
 </script>
 
@@ -27,12 +37,25 @@ function label(type: ToastItem["type"]): string {
         :class="`toast--${t.type}`"
         role="status"
       >
-        <span class="toast__icon">{{ icons[t.type] }}</span>
+        <!-- loading 类型使用 spinner -->
+        <span v-if="t.type === 'loading'" class="toast__spinner" aria-hidden="true" />
+        <!-- 普通类型使用图标 -->
+        <span v-else class="toast__icon">{{ icons[t.type] }}</span>
+
         <div class="toast__body">
           <span class="toast__label">{{ label(t.type) }}</span>
           <span class="toast__message">{{ t.message }}</span>
         </div>
-        <button class="toast__close" aria-label="关闭" @click="dismiss(t.id)">×</button>
+
+        <!-- loading 类型不展示关闭按钮（常驻） -->
+        <button
+          v-if="t.type !== 'loading'"
+          class="toast__close"
+          aria-label="关闭"
+          @click="dismiss(t.id)"
+        >
+          ×
+        </button>
       </div>
     </TransitionGroup>
   </div>
@@ -68,6 +91,22 @@ function label(type: ToastItem["type"]): string {
 .toast--error   { border-left: 3px solid var(--danger-500, #ef4444); }
 .toast--info    { border-left: 3px solid var(--brand-500, #3b82f6); }
 .toast--warning { border-left: 3px solid var(--warning-500, #f59e0b); }
+.toast--loading { border-left: 3px solid var(--brand-default, #3b82f6); }
+
+.toast__spinner {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--border-subtle, #e5e7eb);
+  border-top-color: var(--brand-default, #3b82f6);
+  border-radius: 50%;
+  animation: toast-spin 0.65s linear infinite;
+  margin-top: 1px;
+}
+
+@keyframes toast-spin {
+  to { transform: rotate(360deg); }
+}
 
 .toast__icon {
   flex-shrink: 0;
@@ -92,6 +131,7 @@ function label(type: ToastItem["type"]): string {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  min-width: 0;
 }
 
 .toast__label {

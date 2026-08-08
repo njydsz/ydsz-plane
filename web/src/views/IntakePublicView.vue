@@ -119,7 +119,9 @@ const trackEmail = ref("");
 const tracking = ref(false);
 const trackError = ref("");
 const trackResult = ref<{
-  tracking_id: string; status: string; title: string;
+  tracking_id: string; status: string; title: string; description?: string;
+  status_text?: string; status_reason?: string;
+  priority?: number; issue_type?: string;
   submitted_at: string; reviewed_at?: string; converted_issue_id?: number;
 } | null>(null);
 

@@ -40,7 +40,7 @@ dev-worker:
 dev-web:
 	cd web && pnpm dev
 
-GOPKGS := ./cmd/... ./internal/... ./pkg/... ./scripts/...
+GOPKGS := $(shell go list ./... | grep -v '/web/node_modules/')
 
 lint:
 	golangci-lint run $(GOPKGS)
