@@ -43,6 +43,48 @@ const activeTab = ref<"all" | "issue" | "sprint" | "version">("all");
 
 // ---- Filter states ----
 const filterOpen = ref(true);
+const showJqlHelp = ref(false);
+const jqlHoveredField = ref<string | null>(null);
+
+/** JQL 语法定义（与后端 pkg/searchql 保持一致） */
+const jqlFields = [
+  { key: "project", label: "项目", example: "project:YD", desc: "按项目 key 过滤" },
+  { key: "type", label: "类型", example: "type:defect", desc: "requirement / task / defect" },
+  { key: "status", label: "状态", example: "status:todo", desc: "按状态名过滤" },
+  { key: "priority", label: "优先级", example: "priority:high", desc: "urgent / high / medium / low" },
+  { key: "severity", label: "严重程度", example: "severity>=3", desc: "数值比较 (1-5)" },
+  { key: "assignee", label: "指派给", example: "assignee:me()", desc: "me() / currentUser() / 用户名" },
+  { key: "reporter", label: "报告人", example: "reporter:me()", desc: "同 assignee" },
+  { key: "label", label: "标签", example: "label:前端", desc: "按标签名过滤" },
+  { key: "module", label: "模块", example: "module:支付", desc: "按模块名过滤" },
+  { key: "sprint", label: "迭代", example: "sprint:当前", desc: "迭代名或 ID" },
+  { key: "version", label: "版本", example: "version:v1.0", desc: "按版本名过滤" },
+  { key: "due", label: "截止日期", example: "due<now()", desc: "日期比较，支持 now(-7d)" },
+  { key: "created", label: "创建时间", example: "created>now(-30d)", desc: "日期范围" },
+  { key: "updated", label: "更新时间", example: "updated>now(-7d)", desc: "日期范围" },
+];
+
+const jqlOperators = [
+  { op: ":", label: "等于", example: "status:todo" },
+  { op: "=", label: "等于（同 :)", example: "type=defect" },
+  { op: "!=", label: "不等于", example: "status!=done" },
+  { op: ">", label: "大于", example: "severity>2" },
+  { op: ">=", label: "大于等于", example: "severity>=3" },
+  { op: "<", label: "小于", example: "due<now()" },
+  { op: "<=", label: "小于等于", example: "priority<=2" },
+  { op: "in", label: "包含于", example: "status in (todo, doing)" },
+];
+
+const jqlExamples = [
+  { q: "登录页 闪退", desc: "全文检索（关键词之间隐式 AND）" },
+  { q: "project:YD status:todo assignee:me()", desc: "结构化多条件组合" },
+  { q: "type:defect severity>=3 created>now(-7d)", desc: "严重缺陷 + 近 7 天" },
+  { q: "\"支付回调\" AND module:支付", desc: "短语 + 字段组合" },
+  { q: "type:task status in (todo, doing) -assignee:me()", desc: "排除已指派给我的" },
+];
+
+/** 检测输入是否包含 JQL field: 语法 */
+const hasJqlSyntax = computed(() => /\b[\w]+\s*[:=<>]/.test(query.value));
 
 // ---- History & Bookmarks ----
 const showHistory = ref(false);
