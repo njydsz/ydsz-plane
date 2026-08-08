@@ -10,12 +10,13 @@ import { issueApi, type Issue, type IssueActivity, type State, type TimeLog } fr
 import { workspaceApi, type Workspace } from "@/api/services/workspace";
 import { attachmentApi, type Attachment } from "@/api/services/attachment";
 import { toast } from "@/lib/toast";
+import { useAuthStore } from "@/stores/auth";
 import RichTextEditor from "@/components/RichTextEditor.vue";
 import CommentList from "@/components/CommentList.vue";
 import AttachmentUploader from "@/components/AttachmentUploader.vue";
 import RelationPanel from "./RelationPanel.vue";
 import IssueCreateModal from "./IssueCreateModal.vue";
-import { AppLoadingState, AppErrorState, AppEmptyState } from "@/components";
+import { AppLoadingState, AppErrorState, AppEmptyState, IssueSocialBar } from "@/components";
 
 const props = defineProps<{
   workspaceId: number;
@@ -24,6 +25,9 @@ const props = defineProps<{
 }>();
 
 const router = useRouter();
+
+const auth = useAuthStore();
+const currentUserId = computed(() => auth.user?.id ?? 0);
 
 const ws = ref<Workspace | null>(null);
 const issue = ref<Issue | null>(null);
@@ -428,6 +432,16 @@ onMounted(() => {
           </span>
         </div>
 
+        <!-- 社交反馈栏：投票 / 表情反应 / 关注 -->
+        <IssueSocialBar
+          v-if="ws && issue"
+          :workspace-id="ws.id"
+          :project-id="projectId"
+          :issue-id="issueId"
+          :initial-watching="issue.watchers.includes(currentUserId)"
+          class="issue-detail__social"
+        />
+
         <div class="issue-detail__section">
           <div class="section-head">
             <h3>描述</h3>
@@ -717,6 +731,11 @@ onMounted(() => {
   gap: 8px;
   flex-wrap: wrap;
   margin-bottom: 20px;
+}
+
+/* 社交反馈栏（投票 / 反应 / 关注） */
+.issue-detail__social {
+  margin-bottom: 16px;
 }
 
 .badge {

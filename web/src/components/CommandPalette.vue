@@ -195,12 +195,6 @@ const open = computed(() => store.open)
 // ---------------------------------------------------------------------------
 //  Context-aware: 当前是否在项目内
 // ---------------------------------------------------------------------------
-/** 当前路由的 projectId（如果在项目内） */
-const currentProjectId = computed(() => {
-  const pid = route.params.projectId
-  return pid ? Number(pid) : null
-})
-
 /** 当前工作空间内的最近访问 */
 const recentItemsInWs = computed(() =>
   wsStore.currentId ? recentStore.getByWorkspace(wsStore.currentId) : [],

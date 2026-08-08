@@ -26,6 +26,7 @@ import { wsClient } from "@/lib/ws-client";
 import NotificationBell from "@/components/NotificationBell.vue";
 import { IssuePeekOverview } from "@/components";
 import ThemeToggle from "@/components/ThemeToggle.vue";
+import SidebarUserMenu from "@/components/SidebarUserMenu.vue";
 
 const route = useRoute();
 const router = useRouter();
@@ -366,6 +367,12 @@ onMounted(bootstrap);
       <button class="sidebar__collapse" @click="collapsed = !collapsed">
         {{ collapsed ? "»" : "«" }}
       </button>
+
+      <!-- 侧栏底部用户菜单（collapsed 时仅显示头像）-->
+      <SidebarUserMenu v-if="!collapsed" class="sidebar__user" />
+      <span v-else class="sidebar__user sidebar__user--collapsed">
+        <span class="sidebar__user-avatar">{{ auth.user?.display_name?.charAt(0)?.toUpperCase() ?? "?" }}</span>
+      </span>
     </aside>
 
     <div class="main">
@@ -379,8 +386,6 @@ onMounted(bootstrap);
           <kbd class="cmdk-hint" title="搜索 (Ctrl+K)" @click="searchStore.toggle()">⌘ K</kbd>
           <ThemeToggle />
           <NotificationBell />
-          <span class="user">{{ auth.user?.display_name ?? "" }}</span>
-          <button class="logout" @click="auth.logout()">退出</button>
         </div>
       </header>
       <main class="content">
@@ -705,6 +710,31 @@ onMounted(bootstrap);
   background: var(--surface-1);
   color: var(--text-tertiary);
   cursor: pointer;
+}
+
+/* ===== Sidebar User (底部用户菜单) ===== */
+.sidebar__user {
+  flex-shrink: 0;
+}
+
+.sidebar__user--collapsed {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 0;
+}
+
+.sidebar__user-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--brand-500);
+  color: var(--text-on-brand);
+  font-weight: 700;
+  font-size: 12px;
 }
 
 .main {

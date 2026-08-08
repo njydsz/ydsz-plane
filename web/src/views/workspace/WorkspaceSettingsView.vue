@@ -4,7 +4,7 @@
  * 另含「访问令牌」tab：管理个人 API Token（用户级资源，用于脚本/集成）。
  */
 
-import { computed, onMounted, reactive, ref } from "vue";
+import { computed, onMounted, reactive, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 
 import { ApiError } from "@/api/client";
@@ -24,7 +24,31 @@ const route = useRoute();
 const auth = useAuthStore();
 
 const routeWsId = computed(() => Number(route.params.workspaceId));
-const activeTab = ref<"info" | "members" | "invitations" | "api-tokens">("info");
+
+/** 有效的 tab 标识符类型 */
+type SettingsTab = "info" | "members" | "invitations" | "api-tokens";
+
+/** 从路由 query 的 tab 参数初始化激活 Tab（支持外部如侧栏用户菜单跳转时指定） */
+function tabFromQuery(): SettingsTab {
+  const q = route.query.tab;
+  const valid: SettingsTab[] = ["info", "members", "invitations", "api-tokens"];
+  return q && typeof q === "string" && valid.includes(q as SettingsTab)
+    ? (q as SettingsTab)
+    : "info";
+}
+
+const activeTab = ref<SettingsTab>(tabFromQuery());
+
+// 监听路由 query 变化 → 同步更新 Tab（浏览器前进/后退场景）
+watch(
+  () => route.query.tab,
+  (t) => {
+    const valid: SettingsTab[] = ["info", "members", "invitations", "api-tokens"];
+    if (t && typeof t === "string" && valid.includes(t as SettingsTab)) {
+      activeTab.value = t as SettingsTab;
+    }
+  },
+);
 
 // workspace ID 直接从路由读取
 const ws = ref<Workspace | null>(null);

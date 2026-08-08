@@ -170,6 +170,21 @@ export interface IssueDependency {
   created_at: string;
 }
 
+/** 表情反应聚合（单种表情的计数 + 当前用户是否已反应） */
+export interface ReactionSummary {
+  reaction_type: string;
+  count: number;
+  reacted: boolean;
+}
+
+/** 投票聚合统计 */
+export interface VoteSummary {
+  upvotes: number;
+  downvotes: number;
+  score: number;
+  voted?: number | null; // 1=赞成 -1=反对 null=未投
+}
+
 /** 创建工作项入参 */
 export interface CreateIssueInput {
   type: IssueType;
@@ -372,4 +387,34 @@ export const issueApi = {
     wrap<IssueDependency>(http.post(`/workspaces/${wsId}/projects/${projectId}/issues/${issueId}/dependencies`, input)),
   deleteDependency: (wsId: number, projectId: number, issueId: number, depId: number) =>
     wrap<void>(http.delete(`/workspaces/${wsId}/projects/${projectId}/issues/${issueId}/dependencies/${depId}`)),
+
+  // --- 表情反应 ---
+  listReactions: (wsId: number, projectId: number, issueId: number) =>
+    wrap<{ results: ReactionSummary[] }>(
+      http.get(`/workspaces/${wsId}/projects/${projectId}/issues/${issueId}/reactions`),
+    ),
+  addReaction: (wsId: number, projectId: number, issueId: number, reactionType: string) =>
+    wrap<{ id: number; reaction_type: string }>(
+      http.post(`/workspaces/${wsId}/projects/${projectId}/issues/${issueId}/reactions`, {
+        reaction_type: reactionType,
+      }),
+    ),
+  removeReaction: (wsId: number, projectId: number, issueId: number, reactionType: string) =>
+    wrap<void>(http.delete(`/workspaces/${wsId}/projects/${projectId}/issues/${issueId}/reactions/${encodeURIComponent(reactionType)}`)),
+
+  // --- 投票 ---
+  voteSummary: (wsId: number, projectId: number, issueId: number) =>
+    wrap<VoteSummary>(http.get(`/workspaces/${wsId}/projects/${projectId}/issues/${issueId}/vote`)),
+  vote: (wsId: number, projectId: number, issueId: number, vote: 1 | -1) =>
+    wrap<{ id: number; vote: number }>(
+      http.post(`/workspaces/${wsId}/projects/${projectId}/issues/${issueId}/vote`, { vote }),
+    ),
+  removeVote: (wsId: number, projectId: number, issueId: number) =>
+    wrap<void>(http.delete(`/workspaces/${wsId}/projects/${projectId}/issues/${issueId}/vote`)),
+
+  // --- 关注（watchers）---
+  watch: (wsId: number, projectId: number, issueId: number) =>
+    wrap<void>(http.post(`/workspaces/${wsId}/projects/${projectId}/issues/${issueId}/watch`)),
+  unwatch: (wsId: number, projectId: number, issueId: number) =>
+    wrap<void>(http.delete(`/workspaces/${wsId}/projects/${projectId}/issues/${issueId}/watch`)),
 };

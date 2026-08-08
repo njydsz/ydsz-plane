@@ -28,6 +28,7 @@ export { default as CommandPalette } from "./CommandPalette.vue";
 export { default as InlineEdit } from "./InlineEdit.vue";
 export { default as InlineSelectEdit } from "./InlineSelectEdit.vue";
 export { default as IssuePeekOverview } from "./IssuePeekOverview.vue";
+export { default as IssueSocialBar } from "./IssueSocialBar.vue";
 export { default as MiniGantt } from "./MiniGantt.vue";
 export { default as NotificationBell } from "./NotificationBell.vue";
 export { default as ProgressBar } from "./ProgressBar.vue";

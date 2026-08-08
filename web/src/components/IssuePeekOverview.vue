@@ -354,7 +354,7 @@ onUnmounted(() => {
               <RichTextEditor
                 :content-html="issue.description_html ?? ''"
                 :editable="true"
-                :min-height="160"
+                :min-height="'160px'"
                 @update:content-html="onDescriptionSubmit"
               />
               <div class="peek__edit-actions">

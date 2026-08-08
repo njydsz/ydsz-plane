@@ -196,6 +196,12 @@ var (
 	// 用户文案考虑：文案统一为 "参数校验失败"，具体字段的错误原因由 Details 数组提供，前端绑定到对应表单控件。
 	ErrValidation = New("VALIDATION.FAILED", "参数校验失败", http.StatusUnprocessableEntity)
 
+	// ErrNotImplemented 功能尚未实现（HTTP 501 Not Implemented）。
+	//
+	// 触发场景：模块处于规划/占位阶段（如 AI 能力未接入时返回占位错误），
+	// 前端据此展示 "功能开发中" 状态而非笼统的 500。
+	ErrNotImplemented = New("NOT_IMPLEMENTED", "功能尚未实现", http.StatusNotImplemented)
+
 	// ErrUnauthorized 未认证或凭证已失效（HTTP 401 Unauthorized）。
 	//
 	// 触发场景：请求未携带 Token、Token 格式错误、Token 中间件反序列化失败。
