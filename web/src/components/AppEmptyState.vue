@@ -55,6 +55,12 @@ const props = withDefaults(
     illustrationSize?: IllustrationSize
     /** 自定义图标/emoji（优先级高于 scenario 内置插画） */
     icon?: string
+    /** 主 CTA 按钮文字（便捷属性，替代 slot cta） */
+    ctaText?: string
+    /** 次 CTA 按钮文字（便捷属性，替代 slot secondary） */
+    secondaryText?: string
+    /** 紧凑模式（减少内联边距，用于嵌套容器内） */
+    compact?: boolean
   }>(),
   {
     scenario: "default",
@@ -62,6 +68,9 @@ const props = withDefaults(
     description: "",
     illustrationSize: "md",
     icon: "",
+    ctaText: "",
+    secondaryText: "",
+    compact: false,
   },
 )
 
@@ -379,20 +388,20 @@ const illustrationPx = computed(() => sizeMap[props.illustrationSize])
     </div>
 
     <!-- CTA 按钮 -->
-    <div class="app-empty__actions">
+    <div v-if="$slots.cta || $slots.secondary || ctaText || secondaryText" class="app-empty__actions">
       <button
-        v-if="$slots.cta"
+        v-if="$slots.cta || ctaText"
         class="app-empty__cta"
         @click="emit('cta-click')"
       >
-        <slot name="cta" />
+        <slot name="cta">{{ ctaText }}</slot>
       </button>
       <button
-        v-if="$slots.secondary"
+        v-if="$slots.secondary || secondaryText"
         class="app-empty__cta app-empty__cta--secondary"
         @click="emit('secondary-click')"
       >
-        <slot name="secondary" />
+        <slot name="secondary">{{ secondaryText }}</slot>
       </button>
     </div>
   </div>

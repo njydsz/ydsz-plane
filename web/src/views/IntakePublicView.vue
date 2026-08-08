@@ -181,6 +181,43 @@ const statusColors: Record<string, string> = {
   archived: "var(--text-tertiary)",
 };
 
+const priorityLabels: Record<number, string> = {
+  5: "紧急", 4: "高", 3: "中", 2: "低", 1: "最低",
+};
+const priorityColors: Record<number, string> = {
+  5: "var(--danger-500)",
+  4: "var(--warning-600)",
+  3: "var(--info-500)",
+  2: "var(--text-tertiary)",
+  1: "var(--text-tertiary)",
+};
+
+/** 状态时间线：从提交到当前状态的关键节点 */
+interface TimelineStep {
+  label: string;
+  time?: string;
+  active: boolean;
+  done: boolean;
+}
+function buildTimeline(r: {
+  status: string; submitted_at: string; reviewed_at?: string;
+}): TimelineStep[] {
+  return [
+    { label: "已提交", time: r.submitted_at, active: true, done: true },
+    {
+      label: "处理中",
+      active: r.status !== "pending",
+      done: r.status === "reviewed" || r.status === "converted",
+    },
+    {
+      label: r.status === "rejected" ? "已拒绝" : "已处理",
+      time: r.reviewed_at,
+      active: !!r.reviewed_at,
+      done: r.status === "reviewed" || r.status === "converted",
+    },
+  ];
+}
+
 const pageTitle = computed(() =>
   props.mode === "submit"
     ? (channel.value?.name ?? "提交工单")
@@ -331,23 +368,63 @@ const pageTitle = computed(() =>
         <!-- 查询结果 -->
         <div v-if="trackResult" class="track-result">
           <h3 class="track-result__title">{{ trackResult.title }}</h3>
+
+          <!-- 状态时间线 -->
+          <ol class="timeline">
+            <li
+              v-for="(step, i) in buildTimeline(trackResult)"
+              :key="i"
+              class="timeline__step"
+              :class="{
+                'timeline__step--active': step.active,
+                'timeline__step--done': step.done,
+              }"
+            >
+              <span class="timeline__dot" />
+              <span class="timeline__label">{{ step.label }}</span>
+              <span v-if="step.time" class="timeline__time">{{ step.time }}</span>
+            </li>
+          </ol>
+
           <div class="track-result__meta">
             <span
               class="track-result__status"
               :style="{ color: statusColors[trackResult.status] }"
             >
-              {{ statusLabels[trackResult.status] ?? trackResult.status }}
+              {{ trackResult.status_text || statusLabels[trackResult.status] || trackResult.status }}
+            </span>
+            <span
+              v-if="trackResult.priority"
+              class="track-result__priority"
+              :style="{ color: priorityColors[trackResult.priority] }"
+            >
+              {{ priorityLabels[trackResult.priority] || trackResult.priority }}
             </span>
             <span class="track-result__id">{{ trackResult.tracking_id }}</span>
           </div>
+
+          <!-- 描述 -->
+          <p v-if="trackResult.description" class="track-result__desc">
+            {{ trackResult.description }}
+          </p>
+
+          <!-- 状态说明（拒绝/归档原因等）-->
+          <p
+            v-if="trackResult.status_reason"
+            class="track-result__reason"
+          >
+            说明：{{ trackResult.status_reason }}
+          </p>
+
           <div class="track-result__times">
             <span>提交时间：{{ trackResult.submitted_at }}</span>
             <span v-if="trackResult.reviewed_at">
-              审核时间：{{ trackResult.reviewed_at }}
+              处理时间：{{ trackResult.reviewed_at }}
             </span>
           </div>
+
           <p v-if="trackResult.converted_issue_id" class="track-result__hint">
-            已转正式工作项 #{{ trackResult.converted_issue_id }}
+            已转正为正式工作项 #{{ trackResult.converted_issue_id }}
           </p>
         </div>
       </AppCard>
