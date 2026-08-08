@@ -3,9 +3,11 @@ package issue
 
 import (
 	"archive/zip"
+	"bytes"
 	"context"
 	"encoding/csv"
 	"encoding/json"
+	"encoding/xml"
 	"fmt"
 	"io"
 	"net/http"
@@ -1529,23 +1531,316 @@ func (h *IssueHandler) removeVote(c *gin.Context) {
 
 // xlsxToCSVReader 将上传的 .xlsx 文件转换为 CSV reader 供 Import 解析。
 //
-// 当前 go.mod 尚未引入 github.com/xuri/excelize/v2，因此这是一个显式 TODO：
-// 1. 执行 go get github.com/xuri/excelize/v2 添加依赖
-// 2. 替换下方 if-err 块为：
+// 纯标准库实现（archive/zip + encoding/xml），无需引入第三方依赖：
+//  1. 读取 xl/sharedStrings.xml 建立「索引 → 字符串」映射；
+//  2. 读取 xl/workbook.xml + _rels 定位第一个工作表；
+//  3. 解析该工作表单元格（支持共享字符串 t="s" 与内联字符串 t="inlineStr"），
+//     按行输出为 CSV，交回既有的 CSV 导入管线。
 //
-//    	f, err := excelize.OpenReader(src)
-//    	if err != nil { return nil, errs.ErrValidation.Wrap(err) }
-//    	rows, err := f.GetRows(f.GetSheetName(0))
-//    	if err != nil { return nil, errs.ErrValidation.Wrap(err) }
-//    	var buf bytes.Buffer
-//    	w := csv.NewWriter(&buf)
-//    	_ = w.WriteAll(rows)
-//    	w.Flush()
-//    	return &buf, nil
+// 覆盖 Excel / WPS / Numbers / Google Sheets 导出的常规单表结构。
 func xlsxToCSVReader(src io.Reader) (io.Reader, error) {
-	return nil, errs.ErrNotImplemented.WithDetails(
-		errs.FieldDetail{Field: "xlsx", Reason: "「XLSX 导入」需要添加依赖 github.com/xuri/excelize/v2，请先执行 go get"},
+	raw, err := io.ReadAll(src)
+	if err != nil {
+		return nil, errs.ErrValidation.Wrap(err)
+	}
+	zr, err := zip.NewReader(bytes.NewReader(raw), int64(len(raw)))
+	if err != nil {
+		return nil, errs.ErrValidation.WithDetails(
+			errs.FieldDetail{Field: "xlsx", Reason: "不是合法的 .xlsx 压缩包: " + err.Error()},
+		)
+	}
+
+	shared := loadSharedStrings(zr)
+	sheetPath, err := firstSheetPath(zr)
+	if err != nil {
+		return nil, err
+	}
+	sheetFile, err := zr.Open(sheetPath)
+	if err != nil {
+		return nil, errs.ErrValidation.Wrap(err)
+	}
+	defer sheetFile.Close()
+
+	sheetXML, err := io.ReadAll(sheetFile)
+	if err != nil {
+		return nil, errs.ErrValidation.Wrap(err)
+	}
+
+	rows := parseSheet(sheetXML, shared)
+	var buf bytes.Buffer
+	w := csv.NewWriter(&buf)
+	if err := w.WriteAll(rows); err != nil {
+		return nil, errs.ErrInternal.Wrap(err)
+	}
+	w.Flush()
+	if err := w.Error(); err != nil {
+		return nil, errs.ErrInternal.Wrap(err)
+	}
+	return &buf, nil
+}
+
+// loadSharedStrings 解析 xl/sharedStrings.xml（若存在），返回索引→字符串。
+func loadSharedStrings(zr *zip.Reader) []string {
+	for _, f := range zr.File {
+		if strings.EqualFold(f.Name, "xl/sharedStrings.xml") {
+			rc, err := f.Open()
+			if err != nil {
+				return nil
+			}
+			data, _ := io.ReadAll(rc)
+			rc.Close()
+			return parseSharedStrings(data)
+		}
+	}
+	return nil
+}
+
+// parseSharedStrings 解析 <sst><si>…</si></sst>。
+// 一个 <si> 可能含多个 <t>（含富文本 <r><t>），需拼接。
+func parseSharedStrings(data []byte) []string {
+	var out []string
+	dec := xml.NewDecoder(bytes.NewReader(data))
+	var buf strings.Builder
+	inSI, inT := false, false
+	for {
+		tok, err := dec.Token()
+		if err != nil {
+			break
+		}
+		switch el := tok.(type) {
+		case xml.StartElement:
+			switch el.Name.Local {
+			case "si":
+				inSI = true
+				buf.Reset()
+		case "t":
+			inT = true
+		}
+		case xml.CharData:
+			if inSI && inT {
+				buf.Write(el)
+			}
+		case xml.EndElement:
+			switch el.Name.Local {
+			case "si":
+				out = append(out, buf.String())
+				inSI = false
+				buf.Reset()
+			case "t":
+				inT = false
+			}
+		}
+	}
+	return out
+}
+
+// firstSheetPath 通过 workbook.xml 与 _rels 找到第一个工作表的实际路径。
+func firstSheetPath(zr *zip.Reader) (string, error) {
+	var wbData []byte
+	for _, f := range zr.File {
+		if strings.EqualFold(f.Name, "xl/workbook.xml") {
+			rc, err := f.Open()
+			if err != nil {
+				return "", err
+			}
+			wbData, _ = io.ReadAll(rc)
+			rc.Close()
+			break
+		}
+	}
+	if wbData == nil {
+		// 退化：直接找 worksheets/sheet1.xml
+		for _, f := range zr.File {
+			if strings.EqualFold(f.Name, "xl/worksheets/sheet1.xml") {
+				return f.Name, nil
+			}
+		}
+		return "", errs.ErrValidation.WithDetails(
+			errs.FieldDetail{Field: "xlsx", Reason: "找不到 workbook.xml 或工作表"},
+		)
+	}
+
+	// 解析 <sheet name="..." r:id="rIdN"/> 与 <Relationships><Relationship Id="rIdN" Target="worksheets/sheet1.xml"/>
+	type rel struct {
+		ID, Target string
+	}
+	ridToTarget := map[string]string{}
+	dec := xml.NewDecoder(bytes.NewReader(wbData))
+	inRels := false
+	for {
+		tok, err := dec.Token()
+		if err != nil {
+			break
+		}
+		if se, ok := tok.(xml.StartElement); ok {
+			if se.Name.Local == "Relationships" {
+				inRels = true
+				continue
+			}
+			if inRels && se.Name.Local == "Relationship" {
+				var id, target string
+				for _, a := range se.Attr {
+					switch a.Name.Local {
+					case "Id":
+						id = a.Value
+					case "Target":
+						target = a.Value
+					}
+				}
+				if id != "" {
+					ridToTarget[id] = target
+				}
+			}
+			if se.Name.Local == "sheet" {
+				var rid string
+				for _, a := range se.Attr {
+					if a.Name.Space != "" && strings.Contains(strings.ToLower(a.Name.Space), "relationships") && a.Name.Local == "id" {
+						rid = a.Value
+					}
+					if a.Name.Local == "id" && rid == "" {
+						// 部分导出使用默认命名空间下的 r:id
+						rid = a.Value
+					}
+				}
+				if t, ok := ridToTarget[rid]; ok {
+					if strings.HasPrefix(t, "/") {
+						return strings.TrimPrefix(t, "/"), nil
+					}
+					return "xl/" + t, nil
+				}
+			}
+		}
+	}
+	// 退化：取第一个 worksheets/sheetN.xml
+	for _, f := range zr.File {
+		if strings.HasPrefix(strings.ToLower(f.Name), "xl/worksheets/sheet") && strings.HasSuffix(strings.ToLower(f.Name), ".xml") {
+			return f.Name, nil
+		}
+	}
+	return "", errs.ErrValidation.WithDetails(
+		errs.FieldDetail{Field: "xlsx", Reason: "无法定位工作表"},
 	)
+}
+
+// parseSheet 解析工作表 XML，返回二维字符串（行×单元格）。
+// 支持：共享字符串 t="s"（<v> 为索引）、内联字符串 t="inlineStr"（<is><t>）、
+// 普通数值/文本（<v> 字面量）。
+func parseSheet(data []byte, shared []string) [][]string {
+	var rows [][]string
+	dec := xml.NewDecoder(bytes.NewReader(data))
+	var curRow []string
+	expectCol := 0 // 期望的下一列索引（1-based），用于补齐空列
+	inRow, inV, inIs, inT := false, false, false, false
+	var cellType, cellRef string
+	var sb strings.Builder
+
+	flushCell := func() {
+		// 根据 cellRef 计算列索引，补齐中间空列
+		col := colIndex(cellRef)
+		for expectCol < col-1 {
+			curRow = append(curRow, "")
+			expectCol++
+		}
+		curRow = append(curRow, sb.String())
+		expectCol = col
+		sb.Reset()
+	}
+
+	for {
+		tok, err := dec.Token()
+		if err != nil {
+			break
+		}
+		switch el := tok.(type) {
+		case xml.StartElement:
+			switch el.Name.Local {
+			case "row":
+				if inRow {
+					rows = append(rows, curRow)
+				}
+				inRow = true
+				curRow = nil
+				expectCol = 0
+		case "c":
+			cellType = ""
+			cellRef = ""
+				for _, a := range el.Attr {
+					switch a.Name.Local {
+					case "r":
+						cellRef = a.Value
+					case "t":
+						cellType = a.Value
+					}
+				}
+			case "v":
+				inV = true
+				sb.Reset()
+			case "is":
+				inIs = true
+			case "t":
+				inT = true
+				if !inIs {
+					sb.Reset()
+				}
+			}
+		case xml.CharData:
+			if inV {
+				text := string(el)
+				if cellType == "s" {
+					if idx, e := strconv.Atoi(strings.TrimSpace(text)); e == nil && idx >= 0 && idx < len(shared) {
+						sb.WriteString(shared[idx])
+					}
+				} else {
+					sb.WriteString(text)
+				}
+			} else if inIs && inT {
+				sb.Write(el)
+			}
+		case xml.EndElement:
+			switch el.Name.Local {
+		case "c":
+			flushCell()
+			inV, inIs, inT = false, false, false
+			cellType = ""
+			case "v":
+				inV = false
+			case "t":
+				inT = false
+			case "is":
+				inIs = false
+			case "row":
+				// 行结束：把当前行写入（若 inRow 为真且 curRow 非空或空行也保留）
+				rows = append(rows, curRow)
+				inRow = false
+				curRow = nil
+				expectCol = 0
+			}
+		}
+	}
+	if inRow && curRow != nil {
+		rows = append(rows, curRow)
+	}
+	return rows
+}
+
+// colIndex 将单元格引用（如 "AB12"）解析为 1-based 列号。
+func colIndex(ref string) int {
+	i := 0
+	for i < len(ref) && (ref[i] < 'A' || ref[i] > 'Z') {
+		i++
+	}
+	letters := ref[i:]
+	n := 0
+	for _, ch := range letters {
+		if ch < 'A' || ch > 'Z' {
+			break
+		}
+		n = n*26 + int(ch-'A'+1)
+	}
+	if n == 0 {
+		return 1
+	}
+	return n
 }
 
 func (h *IssueHandler) watchIssue(c *gin.Context) {
