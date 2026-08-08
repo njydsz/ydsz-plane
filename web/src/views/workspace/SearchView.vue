@@ -79,7 +79,7 @@ const jqlExamples = [
   { q: "登录页 闪退", desc: "全文检索（关键词之间隐式 AND）" },
   { q: "project:YD status:todo assignee:me()", desc: "结构化多条件组合" },
   { q: "type:defect severity>=3 created>now(-7d)", desc: "严重缺陷 + 近 7 天" },
-  { q: "\"支付回调\" AND module:支付", desc: "短语 + 字段组合" },
+  { q: '"支付回调" AND module:支付', desc: "短语 + 字段组合" },
   { q: "type:task status in (todo, doing) -assignee:me()", desc: "排除已指派给我的" },
 ];
 
@@ -311,11 +311,90 @@ onMounted(load);
         <input
           v-model="query"
           class="search-bar__input"
-          placeholder="搜索工作项、迭代、版本..."
+          :class="{ 'search-bar__input--jql': hasJqlSyntax }"
+          placeholder='搜索... 支持 JQL 语法，如 type:defect assignee:me()'
           @focus="showHistory = true"
           @keydown.enter="submitSearch"
         />
         <button class="search-bar__btn" @click="submitSearch">搜索</button>
+        <button
+          class="search-bar__help-btn"
+          :class="{ 'search-bar__help-btn--active': showJqlHelp }"
+          title="JQL 语法帮助"
+          @click="showJqlHelp = !showJqlHelp"
+        >?</button>
+      </div>
+      <div v-if="hasJqlSyntax" class="search-bar__jql-hint">
+        <span class="jql-badge">JQL</span>
+        <span class="jql-hint__text">已检测到结构化查询语法</span>
+      </div>
+
+      <!-- JQL 语法帮助面板 -->
+      <div v-if="showJqlHelp" class="jql-help-panel">
+        <div class="jql-help-panel__header">
+          <h3>JQL 搜索语法</h3>
+          <span class="jql-help-panel__note">支持类 Jira 查询语言，无语法时自动降级全文检索</span>
+        </div>
+
+        <div class="jql-help-panel__body">
+          <!-- 示例 -->
+          <section class="jql-section">
+            <h4 class="jql-section__title">快速示例 <small>（点击插入）</small></h4>
+            <div class="jql-examples">
+              <button
+                v-for="(ex, i) in jqlExamples"
+                :key="i"
+                class="jql-example-chip"
+                @click="query = ex.q; showJqlHelp = false; submitSearch()"
+              >
+                <code>{{ ex.q }}</code>
+                <span class="jql-example-chip__desc">{{ ex.desc }}</span>
+              </button>
+            </div>
+          </section>
+
+          <!-- 字段 -->
+          <section class="jql-section">
+            <h4 class="jql-section__title">字段</h4>
+            <div class="jql-fields">
+              <div
+                v-for="f in jqlFields"
+                :key="f.key"
+                class="jql-field"
+                @mouseenter="jqlHoveredField = f.key"
+                @mouseleave="jqlHoveredField = null"
+              >
+                <code class="jql-field__key" @click="query += ' ' + f.key + ':'; showJqlHelp = false">{{ f.key }}</code>
+                <span class="jql-field__label">{{ f.label }}</span>
+                <span class="jql-field__desc">{{ f.desc }}</span>
+                <code v-if="jqlHoveredField === f.key" class="jql-field__ex">{{ f.example }}</code>
+              </div>
+            </div>
+          </section>
+
+          <!-- 操作符 -->
+          <section class="jql-section">
+            <h4 class="jql-section__title">操作符</h4>
+            <div class="jql-operators">
+              <div v-for="op in jqlOperators" :key="op.op" class="jql-operator">
+                <code>{{ op.op }}</code>
+                <span>{{ op.label }}</span>
+                <code class="jql-operator__ex">{{ op.example }}</code>
+              </div>
+            </div>
+          </section>
+
+          <!-- 逻辑 -->
+          <section class="jql-section">
+            <h4 class="jql-section__title">逻辑连接</h4>
+            <div class="jql-logic">
+              <code>AND</code> <span>空格隐式 AND</span>
+              <code>OR</code> <span>或关系</span>
+              <code>NOT / -</code> <span>排除（前缀 -）</span>
+              <code>( ... )</code> <span>分组</span>
+            </div>
+          </section>
+        </div>
       </div>
 
       <!-- Content -->
@@ -555,6 +634,7 @@ onMounted(load);
   background: var(--surface-1, #fff);
   margin-bottom: 20px;
   transition: border-color 0.15s;
+  position: relative;
 }
 
 .search-bar:focus-within {
@@ -574,6 +654,7 @@ onMounted(load);
   font-size: 14px;
   color: var(--text-primary, #1f2937);
   background: transparent;
+  padding-right: 36px;
 }
 
 .search-bar__input::placeholder {
@@ -593,6 +674,235 @@ onMounted(load);
 
 .search-bar__btn:hover {
   background: var(--brand-600, #2563eb);
+}
+
+/* ---- JQL ---- */
+.search-bar__help-btn {
+  position: absolute;
+  right: 80px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1px solid var(--border-default, #e5e7eb);
+  background: var(--surface-1, #fff);
+  color: var(--text-tertiary, #9ca3af);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: var(--font-mono, monospace);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.search-bar__help-btn:hover {
+  border-color: var(--brand-500, #3b82f6);
+  color: var(--brand-500, #3b82f6);
+}
+.search-bar__help-btn--active {
+  background: var(--brand-500, #3b82f6);
+  color: #fff;
+  border-color: var(--brand-500, #3b82f6);
+}
+.search-bar__input--jql {
+  border-color: var(--brand-300, #93c5fd) !important;
+  background: var(--brand-50, #eff6ff);
+}
+.search-bar__jql-hint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  font-size: 12px;
+  color: var(--text-tertiary, #9ca3af);
+}
+.jql-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: var(--brand-500, #3b82f6);
+  color: #fff;
+  letter-spacing: 0.5px;
+}
+.jql-hint__text { color: var(--brand-600, #2563eb); }
+
+/* ---- JQL Help Panel ---- */
+.jql-help-panel {
+  margin-top: 12px;
+  border: 1px solid var(--border-subtle, #e5e7eb);
+  border-radius: var(--radius-md, 8px);
+  background: var(--surface-1, #fff);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+}
+.jql-help-panel__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-subtle, #e5e7eb);
+  background: var(--surface-2, #f9fafb);
+}
+.jql-help-panel__header h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary, #1f2937);
+}
+.jql-help-panel__note {
+  font-size: 11px;
+  color: var(--text-tertiary, #9ca3af);
+}
+.jql-help-panel__body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  padding: 16px;
+}
+.jql-section__title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary, #6b7280);
+  margin: 0 0 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.jql-section__title small {
+  font-weight: 400;
+  text-transform: none;
+  color: var(--text-tertiary, #9ca3af);
+}
+/* Examples */
+.jql-examples {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.jql-example-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid var(--border-subtle, #e5e7eb);
+  border-radius: var(--radius-sm, 6px);
+  background: var(--surface-1, #fff);
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  transition: border-color 0.15s, background 0.15s;
+}
+.jql-example-chip:hover {
+  border-color: var(--brand-400, #60a5fa);
+  background: var(--brand-50, #eff6ff);
+}
+.jql-example-chip code {
+  font-size: 11px;
+  color: var(--brand-700, #1d4ed8);
+  background: var(--brand-50, #eff6ff);
+  padding: 1px 5px;
+  border-radius: 3px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.jql-example-chip__desc {
+  font-size: 11px;
+  color: var(--text-tertiary, #9ca3af);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* Fields */
+.jql-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+}
+.jql-field {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px;
+  border-radius: var(--radius-sm, 6px);
+  cursor: pointer;
+  position: relative;
+}
+.jql-field:hover { background: var(--surface-2, #f9fafb); }
+.jql-field__key {
+  font-size: 11px;
+  color: var(--brand-600, #2563eb);
+  cursor: pointer;
+  font-weight: 600;
+}
+.jql-field__key:hover { text-decoration: underline; }
+.jql-field__label {
+  font-size: 11px;
+  color: var(--text-secondary, #6b7280);
+}
+.jql-field__desc {
+  font-size: 10px;
+  color: var(--text-tertiary, #9ca3af);
+  width: 100%;
+  padding-left: 2px;
+}
+.jql-field__ex {
+  font-size: 10px;
+  color: var(--success-600, #059669);
+  background: var(--success-50, #ecfdf5);
+  padding: 1px 4px;
+  border-radius: 2px;
+}
+/* Operators */
+.jql-operators {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+}
+.jql-operator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-secondary, #6b7280);
+  padding: 3px 6px;
+}
+.jql-operator code {
+  font-size: 11px;
+  color: var(--text-primary, #1f2937);
+  background: var(--surface-3, #e5e7eb);
+  padding: 1px 5px;
+  border-radius: 3px;
+  min-width: 20px;
+  text-align: center;
+}
+.jql-operator__ex {
+  color: var(--text-tertiary, #9ca3af);
+  margin-left: auto;
+}
+/* Logic */
+.jql-logic {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 10px;
+  font-size: 11px;
+  color: var(--text-secondary, #6b7280);
+}
+.jql-logic code {
+  font-size: 11px;
+  color: var(--warning-700, #b45309);
+  background: var(--warning-50, #fffbeb);
+  padding: 1px 5px;
+  border-radius: 3px;
+  text-align: center;
+}
+
+@media (max-width: 768px) {
+  .jql-help-panel__body { grid-template-columns: 1fr; }
+  .jql-fields { grid-template-columns: 1fr; }
+  .search-bar__help-btn { right: 70px; }
 }
 
 .search-meta__row {

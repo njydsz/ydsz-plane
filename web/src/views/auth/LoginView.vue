@@ -42,7 +42,7 @@ onMounted(async () => {
     const wsId = getWorkspaceId();
     if (wsId > 0) {
       const res = await apiClient.get<{ items: SSOProvider[] }>(
-        `/api/v1/workspaces/${wsId}/sso/providers`
+        `/workspaces/${wsId}/sso/providers`
       );
       ssoProviders.value = res.data?.items ?? [];
     }

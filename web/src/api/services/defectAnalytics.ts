@@ -160,7 +160,7 @@ export const defectAnalyticsApi = {
 
     const qs = params.toString();
     const { data } = await apiClient.get<DefectAnalytics>(
-      `/api/v1/workspaces/${wsId}/projects/${projectId}/analytics/defects${qs ? '?' + qs : ''}`,
+      `/workspaces/${wsId}/projects/${projectId}/analytics/defects${qs ? '?' + qs : ''}`,
     );
     return data;
   },
@@ -177,7 +177,7 @@ export const defectAnalyticsApi = {
 
     const qs = params.toString();
     const { data } = await apiClient.get<DefectAgeAnalysis>(
-      `/api/v1/workspaces/${wsId}/projects/${projectId}/analytics/defect-age${qs ? '?' + qs : ''}`,
+      `/workspaces/${wsId}/projects/${projectId}/analytics/defect-age${qs ? '?' + qs : ''}`,
     );
     return data;
   },
@@ -192,7 +192,7 @@ export const defectAnalyticsApi = {
 
     const qs = params.toString();
     const { data } = await apiClient.get<RootCauseAnalysis>(
-      `/api/v1/workspaces/${wsId}/projects/${projectId}/analytics/root-cause${qs ? '?' + qs : ''}`,
+      `/workspaces/${wsId}/projects/${projectId}/analytics/root-cause${qs ? '?' + qs : ''}`,
     );
     return data;
   },
@@ -209,7 +209,7 @@ export const defectAnalyticsApi = {
     params.set('format', format);
 
     const { data } = await apiClient.get<Blob>(
-      `/api/v1/workspaces/${wsId}/projects/${projectId}/analytics/defects/export?${params.toString()}`,
+      `/workspaces/${wsId}/projects/${projectId}/analytics/defects/export?${params.toString()}`,
       { responseType: 'blob' },
     );
     return data;

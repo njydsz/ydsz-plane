@@ -28,7 +28,7 @@ export const auditApi = {
   /** 获取审计日志列表 */
   async list(wsId: number, limit = 50): Promise<AuditLogEntry[]> {
     const { data } = await apiClient.get<AuditLogEntry[]>(
-      `/api/v1/workspaces/${wsId}/audit-logs`,
+      `/workspaces/${wsId}/audit-logs`,
       { params: { limit } },
     );
     return data;

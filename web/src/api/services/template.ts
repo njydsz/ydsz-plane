@@ -18,7 +18,7 @@ export const templateApi = {
   /** 获取全部预置模板列表 */
   async listTemplates(wsId: number): Promise<ProjectTemplate[]> {
     const { data } = await apiClient.get<ProjectTemplate[]>(
-      `/api/v1/workspaces/${wsId}/templates`,
+      `/workspaces/${wsId}/templates`,
     );
     return data;
   },
