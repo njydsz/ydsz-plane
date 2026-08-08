@@ -46,6 +46,46 @@ const wsId = ref<number | null>(null);
 // ---- 行内编辑态 ----
 const descEditing = ref(false);
 
+// ---- 抽屉宽度（可拖拽调整，默认 480px）----
+const drawerWidth = ref(480);
+const minWidth = 380;
+const maxWidth = 760;
+const resizing = ref(false);
+
+function startResize(e: PointerEvent) {
+  e.preventDefault();
+  resizing.value = true;
+  document.body.style.cursor = "ew-resize";
+  document.body.style.userSelect = "none";
+  const startX = e.clientX;
+  const startWidth = drawerWidth.value;
+  const onMove = (ev: PointerEvent) => {
+    const delta = startX - ev.clientX; // 向右拖 = 变宽
+    drawerWidth.value = Math.min(maxWidth, Math.max(minWidth, startWidth + delta));
+  };
+  const onUp = () => {
+    resizing.value = false;
+    document.body.style.cursor = "";
+    document.body.style.userSelect = "";
+    window.removeEventListener("pointermove", onMove);
+    window.removeEventListener("pointerup", onUp);
+  };
+  window.addEventListener("pointermove", onMove);
+  window.addEventListener("pointerup", onUp);
+}
+
+// ---- 连续预览导航 ----
+const hasPrev = computed(() => peek.hasPrev);
+const hasNext = computed(() => peek.hasNext);
+
+function navigatePeek(dir: 1 | -1) {
+  const next = peek.navigate(dir);
+  if (next) {
+    descEditing.value = false;
+    // watch(peek.target) 会自动触发 loadIssue
+  }
+}
+
 // ---- 派生 ----
 const projectId = computed(() => peek.target?.projectId ?? 0);
 const issueId = computed(() => peek.target?.issueId ?? 0);
@@ -190,6 +230,17 @@ function close() {
 function onKeydown(e: KeyboardEvent) {
   if (e.key === "Escape" && isOpen.value) {
     close();
+    return;
+  }
+  // Alt+↑ / Alt+↓ 连续预览导航
+  if (isOpen.value && e.altKey) {
+    if (e.key === "ArrowUp") {
+      e.preventDefault();
+      navigatePeek(-1);
+    } else if (e.key === "ArrowDown") {
+      e.preventDefault();
+      navigatePeek(1);
+    }
   }
 }
 
@@ -226,11 +277,48 @@ onUnmounted(() => {
     </Transition>
 
     <Transition name="peek-slide">
-      <aside v-if="isOpen" class="peek" role="dialog" aria-label="工作项预览">
-        <!-- 关闭按钮 -->
-        <button class="peek__close" title="关闭 (Escape)" @click="close">
-          ✕
-        </button>
+      <aside
+        v-if="isOpen"
+        class="peek"
+        :style="{ width: drawerWidth + 'px' }"
+        role="dialog"
+        aria-label="工作项预览"
+      >
+        <!-- 宽度拖拽把手 -->
+        <div
+          class="peek__resize-handle"
+          :class="{ 'peek__resize-handle--active': resizing }"
+          title="拖拽调整宽度"
+          @pointerdown="startResize"
+        />
+
+        <!-- 顶栏：连续预览导航 + 关闭 -->
+        <div class="peek__topbar">
+          <div class="peek__nav-group">
+            <button
+              class="peek__nav-btn"
+              :disabled="!hasPrev"
+              title="上一个工作项 (Alt+↑)"
+              @click="navigatePeek(-1)"
+            >
+              ↑
+            </button>
+            <button
+              class="peek__nav-btn"
+              :disabled="!hasNext"
+              title="下一个工作项 (Alt+↓)"
+              @click="navigatePeek(1)"
+            >
+              ↓
+            </button>
+            <span v-if="peek.currentIndex >= 0" class="peek__position">
+              {{ peek.currentIndex + 1 }}/{{ peek.contextList.length }}
+            </span>
+          </div>
+          <button class="peek__close" title="关闭 (Escape)" @click="close">
+            ✕
+          </button>
+        </div>
 
         <!-- 加载态 -->
         <div v-if="loading" class="peek__loading">
@@ -462,6 +550,80 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   overflow-y: auto;
+  min-width: 360px;
+}
+
+/* ===== 宽度拖拽把手 ===== */
+.peek__resize-handle {
+  position: absolute;
+  top: 0;
+  left: -3px;
+  bottom: 0;
+  width: 6px;
+  cursor: ew-resize;
+  z-index: 2;
+  background: transparent;
+  transition: background 0.15s;
+}
+.peek__resize-handle:hover,
+.peek__resize-handle--active {
+  background: var(--brand-200, #bfdbfe);
+}
+
+/* ===== 顶栏（导航 + 关闭）===== */
+.peek__topbar {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px 0;
+  background: var(--bg-surface-1, var(--surface-1, #fff));
+}
+
+.peek__nav-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.peek__nav-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid var(--border-subtle, #e5e7eb);
+  background: var(--bg-surface-2, #f3f4f6);
+  color: var(--txt-secondary, #6b7280);
+  font-size: 13px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+.peek__nav-btn:hover:not(:disabled) {
+  background: var(--bg-layer-3, #e5e7eb);
+  color: var(--txt-primary, #1f2937);
+}
+.peek__nav-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.peek__position {
+  font-size: 11px;
+  color: var(--txt-tertiary, #9ca3af);
+  font-variant-numeric: tabular-nums;
+  margin-left: 4px;
+  padding: 4px 6px;
+  background: var(--bg-surface-2, #f3f4f6);
+  border-radius: var(--radius-sm, 4px);
+}
+
+/* ===== 关闭按钮（置于顶栏）===== */
+.peek__close {
+  position: static;
 }
 
 .peek-slide-enter-active {
@@ -475,24 +637,21 @@ onUnmounted(() => {
   transform: translateX(100%);
 }
 
-/* ===== Close button ===== */
+/* ===== Close button（顶栏内）===== */
 .peek__close {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
-  border: none;
+  border: 1px solid var(--border-subtle, #e5e7eb);
   background: var(--bg-surface-2, var(--surface-2, #f3f4f6));
   color: var(--txt-secondary, var(--text-secondary, #6b7280));
-  font-size: 16px;
+  font-size: 13px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: background 0.15s;
-  z-index: 1;
+  flex-shrink: 0;
 }
 
 .peek__close:hover {

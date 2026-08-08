@@ -132,7 +132,13 @@ const totalPages = computed(() => Math.max(1, Math.ceil(total.value / perPage.va
 
 function openIssue(issueId: number) {
   // 单击打开 Peek 预览抽屉；抽屉内有「打开详情」按钮执行路由跳转
-  peek.open(Number(route.params.workspaceId), projectId.value, issueId);
+  // 传入当前列表可见的 issue ID 序列，支持抽屉内上一个/下一个连续预览
+  peek.openWithContext(
+    Number(route.params.workspaceId),
+    projectId.value,
+    issueId,
+    issueStore.issues.map((i) => i.id),
+  );
 }
 
 function toggleSelect(issueId: number) {

@@ -247,4 +247,24 @@ export const dashboardApi = {
     wrap<DashboardTemplate[]>(
       apiClient.get(`/workspaces/${wsId}/projects/${projectId}/dashboard/templates`),
     ),
+
+  // --- 工作空间级仪表盘（跨项目汇总） ---
+
+  /** 列出工作空间级风险告警（跨项目） */
+  listWorkspaceAlerts: (wsId: number | string) =>
+    wrap<RiskAlert[]>(
+      apiClient.get(`/workspaces/${wsId}/dashboard/alerts`),
+    ),
+
+  /** 解决工作空间级告警 */
+  resolveWorkspaceAlert: (wsId: number | string, alertId: number) =>
+    wrap<void>(
+      apiClient.post(`/workspaces/${wsId}/dashboard/alerts/${alertId}/resolve`),
+    ),
+
+  /** 列出工作空间级仪表盘模板 */
+  listWorkspaceTemplates: (wsId: number | string) =>
+    wrap<DashboardTemplate[]>(
+      apiClient.get(`/workspaces/${wsId}/dashboard/templates`),
+    ),
 };

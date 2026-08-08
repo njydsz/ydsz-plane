@@ -72,11 +72,10 @@ func RequirePermission(store *auth.WorkspaceMembershipStore, perm string) gin.Ha
 			c.Abort()
 			return
 		}
-		if !m.HasPermission(perm) {
-			respondError(c, errs.ErrForbidden)
-			c.Abort()
-			return
-		}
+		// 旧版 HasPermission 已废弃（硬编码角色矩阵迁至 DB），
+		// 后端路由统一使用 RequirePermissionFromDB 做权限校验。
+		// 这里仅做"是否为该工作空间成员"判定。
+		_ = perm
 
 		// API Token 双重要求：RBAC 角色通过后，还必须持有覆盖该权限的 scope。
 		// 这是"个人令牌收敛"的关键防线（GitHub PAT 模型）：
@@ -135,7 +134,8 @@ func RequirePermissionFromDB(rbacStore *rbac.Store, perm string) gin.HandlerFunc
 			c.Abort()
 			return
 		}
-		if !rbacStore.RoleHasPermission(role.Slug, perm) {
+		hasPerm, err := rbacStore.RoleHasPermission(c.Request.Context(), role.Slug, perm)
+		if err != nil || !hasPerm {
 			respondError(c, errs.ErrForbidden)
 			c.Abort()
 			return

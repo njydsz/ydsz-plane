@@ -122,6 +122,12 @@ const router = createRouter({
           props: (route) => ({ workspaceId: Number(route.params.workspaceId) }),
         },
         {
+          path: ":workspaceId(\\d+)/dashboard",
+          name: "workspace-dashboard",
+          component: () => import("@/views/workspace/WorkspaceDashboardView.vue"),
+          props: (route) => ({ workspaceId: Number(route.params.workspaceId) }),
+        },
+        {
           path: ":workspaceId(\\d+)/projects",
           name: "projects",
           component: () => import("@/views/project/ProjectListView.vue"),

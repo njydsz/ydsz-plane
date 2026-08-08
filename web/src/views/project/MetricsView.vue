@@ -36,12 +36,12 @@ const quality = ref<QualityMetrics | null>(null);
 const dora = ref<DORAResult | null>(null);
 const resource = ref<ResourceLoadResult | null>(null);
 
-// -------- DORA 等级颜色 --------
-const levelColors: Record<string, string> = {
-  elite: "var(--success-600)",
-  high: "var(--info-600)",
-  medium: "var(--warning-600)",
-  low: "var(--danger-600)",
+// -------- DORA 等级 → variant 映射 --------
+const levelVariant: Record<string, "success" | "info" | "warning" | "danger"> = {
+  elite: "success",
+  high: "info",
+  medium: "warning",
+  low: "danger",
 };
 const levelLabels: Record<string, string> = {
   elite: "精英",
@@ -130,6 +130,7 @@ const qualityScore = computed(() => {
         }"
         :key="key"
         class="metric-card"
+        padding="sm"
       >
         <div class="metric-card__header">
           <span class="metric-card__title">
@@ -142,7 +143,7 @@ const qualityScore = computed(() => {
               }[key]
             }}
           </span>
-          <AppBadge :color="levelColors[metric.level]">
+          <AppBadge :variant="levelVariant[metric.level]">
             {{ levelLabels[metric.level] }}
           </AppBadge>
         </div>
@@ -156,11 +157,11 @@ const qualityScore = computed(() => {
     <!-- 速度 + 前置时间 + 质量 -->
     <section class="card-grid card-grid--secondary">
       <!-- 平均速度 -->
-      <AppCard v-if="velocityTrend" class="metric-card">
+      <AppCard v-if="velocityTrend" class="metric-card" padding="sm">
         <div class="metric-card__header">
           <span class="metric-card__title">迭代速度</span>
-          <AppBadge v-if="velocityTrend.diff > 0" color="var(--success-600)">↑ 高于均值</AppBadge>
-          <AppBadge v-else-if="velocityTrend.diff < 0" color="var(--warning-600)">↓ 低于均值</AppBadge>
+          <AppBadge v-if="velocityTrend.diff > 0" variant="success">↑ 高于均值</AppBadge>
+          <AppBadge v-else-if="velocityTrend.diff < 0" variant="warning">↓ 低于均值</AppBadge>
         </div>
         <div class="metric-card__value">
           {{ velocityTrend.latest }}
@@ -172,7 +173,7 @@ const qualityScore = computed(() => {
       </AppCard>
 
       <!-- 前置时间 -->
-      <AppCard v-if="leadTimeDays" class="metric-card">
+      <AppCard v-if="leadTimeDays" class="metric-card" padding="sm">
         <div class="metric-card__header">
           <span class="metric-card__title">前置时间（P50）</span>
         </div>
@@ -181,16 +182,16 @@ const qualityScore = computed(() => {
           <span class="metric-card__unit">天</span>
         </div>
         <div class="metric-card__sub">
-          P85 {{ (leadTime!.percentiles.p85_hours / 24).toFixed(1) }} 天 · 
+          P85 {{ (leadTime!.percentiles.p85_hours / 24).toFixed(1) }} 天 ·
           P95 {{ (leadTime!.percentiles.p95_hours / 24).toFixed(1) }} 天
         </div>
       </AppCard>
 
       <!-- 质量综合 -->
-      <AppCard v-if="qualityScore !== null" class="metric-card">
+      <AppCard v-if="qualityScore !== null" class="metric-card" padding="sm">
         <div class="metric-card__header">
           <span class="metric-card__title">质量评分</span>
-          <AppBadge :color="qualityScore >= 80 ? 'var(--success-600)' : qualityScore >= 60 ? 'var(--warning-600)' : 'var(--danger-600)'">
+          <AppBadge :variant="qualityScore >= 80 ? 'success' : qualityScore >= 60 ? 'warning' : 'danger'">
             {{ qualityScore >= 80 ? "良好" : qualityScore >= 60 ? "一般" : "需改进" }}
           </AppBadge>
         </div>
@@ -204,7 +205,7 @@ const qualityScore = computed(() => {
       </AppCard>
 
       <!-- 资源负载 -->
-      <AppCard v-if="resource" class="metric-card">
+      <AppCard v-if="resource" class="metric-card" padding="sm">
         <div class="metric-card__header">
           <span class="metric-card__title">在制品（WIP）</span>
         </div>
