@@ -586,7 +586,6 @@ COMMENT ON COLUMN public.api_tokens.token_hash IS 'SHA-256 hash 值（ydz_ 前�
 COMMENT ON COLUMN public.api_tokens.scopes IS '权限范围 JSONB ["read:issues", "write:issues", "admin:*"]；白名单';
 COMMENT ON COLUMN public.api_tokens.expires_at IS '过期时间 TIMESTAMPTZ（NULL=不过期；推荐设置 ≤90d）';
 COMMENT ON COLUMN public.api_tokens.last_used_at IS '最后使用时间（活跃度审计；长期未用可告警/建议吊销）';
-COMMENT ON COLUMN public.api_tokens.created_by IS '创建人 FK；管理与撤销监听';
 COMMENT ON COLUMN public.api_tokens.created_at IS '创建时间';
 COMMENT ON COLUMN public.api_tokens.revoked_at IS '吊销时间；NULL=有效；revoked_at 非空校验时拒绝';
 
@@ -595,8 +594,6 @@ ALTER TABLE public.api_tokens
     ADD COLUMN IF NOT EXISTS created_by BIGINT REFERENCES public.users(id),
     ADD COLUMN IF NOT EXISTS deleted_at  TIMESTAMPTZ;
 
-COMMENT ON COLUMN public.api_tokens.created_by IS '创建人 FK；管理与撤销监听';
-COMMENT ON COLUMN public.api_tokens.deleted_at IS '软删除时间戳';
 
 -- ----------------------------
 -- Table structure for attachments
@@ -622,14 +619,11 @@ CREATE TABLE "public"."attachments" (
 ;
 COMMENT ON TABLE public.attachments IS '附件表（多态关联: issue/comment/workspace/project/user；元数据 JSONB）';
 COMMENT ON COLUMN public.attachments.id IS '主键 ID';
-COMMENT ON COLUMN public.attachments.attachable_type IS '多态类型: issue / comment / workspace / project / user / intake_issue';
-COMMENT ON COLUMN public.attachments.attachable_id IS '多态关联 ID（bigint 统一；配合 attachable_type 唯一）';
 COMMENT ON COLUMN public.attachments.workspace_id IS '工作空间 FK（RLS 依据）';
 COMMENT ON COLUMN public.attachments.file_name IS '原始文件名（用户上传时显示名）';
 COMMENT ON COLUMN public.attachments.file_size IS '文件大小（字节；最大 10MB）';
 COMMENT ON COLUMN public.attachments.content_type IS 'MIME content-type（类型白名单校验）';
 COMMENT ON COLUMN public.attachments.storage_key IS 'MinIO 对象存储 key（UUID，文件名已重命名）';
-COMMENT ON COLUMN public.attachments.metadata IS '附件元数据 JSONB（图片尺寸/时长/EXIF/CRC32 等）';
 COMMENT ON COLUMN public.attachments.uploaded_by IS '上传人 FK';
 COMMENT ON COLUMN public.attachments.created_at IS '上传时间';
 COMMENT ON COLUMN public.attachments.deleted_at IS '软删除时间戳';
@@ -664,12 +658,7 @@ COMMENT ON COLUMN public.audit_logs.id IS '主键 ID';
 COMMENT ON COLUMN public.audit_logs.workspace_id IS '工作空间 FK（RLS 依据）';
 COMMENT ON COLUMN public.audit_logs.actor_id IS '操作人 FK（users.id）；系统动作为 NULL';
 COMMENT ON COLUMN public.audit_logs.action IS '操作名称（固定枚举: login / logout / permission_change / member_add / member_remove / token_revoke / webhook.create / data_export / setting.update / issue.delete）';
-COMMENT ON COLUMN public.audit_logs.target_type IS '目标类型: workspace / project / issue / user / member / token / webhook';
-COMMENT ON COLUMN public.audit_logs.target_id IS '目标 ID（BIGINT）';
 -- FIXED: COMMENT ON COLUMN public.audit_logs.detail IS '变更前→后 diff JSONB（字段级 audit；如 {role:'member'→'admin'}）';
-COMMENT ON COLUMN public.audit_logs.ip_address IS '客户端 IP（IPv4/IPv6；安全监控/异常登录识别）';
-COMMENT ON COLUMN public.audit_logs.user_agent IS '客户端 UA 字符串（浏览器/设备识别）';
-COMMENT ON COLUMN public.audit_logs.request_id IS '关联请求 ID（trace_id；日志/错误/链路追踪关联）';
 COMMENT ON COLUMN public.audit_logs.created_at IS '操作时间 TIMESTAMPTZ（在线 12 个月 + 归档 3 年；只增不改）';
 
 -- ----------------------------
@@ -716,17 +705,10 @@ COMMENT ON COLUMN public.automation_rules.id IS '主键 ID';
 COMMENT ON COLUMN public.automation_rules.workspace_id IS '工作空间 FK';
 COMMENT ON COLUMN public.automation_rules.project_id IS '项目 FK（NULL=工作空间级通用规则）';
 COMMENT ON COLUMN public.automation_rules.name IS '规则名称（如"缺陷修复自动指派验证人"）';
-COMMENT ON COLUMN public.automation_rules.enabled IS '启用开关: true=生效, false=暂停（连续失败 3 次自动禁用）';
-COMMENT ON COLUMN public.automation_rules.trigger IS '触发器 JSONB {type: issue.status_changed, filter:{type_code, to_group}}';
-COMMENT ON COLUMN public.automation_rules.conditions IS '条件矩阵 JSONB {all/any: [{field, op, value}]}；纯函数无 IO';
-COMMENT ON COLUMN public.automation_rules.actions IS '动作列表 JSONB [{type: assign/transition/notify/create_issue, ...}]；最多 10 个顺序执行';
-COMMENT ON COLUMN public.automation_rules.last_executed_at IS '最后执行时间（监控规则活跃度）';
-COMMENT ON COLUMN public.automation_rules.failure_count IS '连续失败计数；>=3 触发熔断 + 通知 admin';
 COMMENT ON COLUMN public.automation_rules.execution_count IS '累计执行成功次数（效能统计）';
 COMMENT ON COLUMN public.automation_rules.created_by IS '创建人 FK（automation.failed 通知的默认接收人 + 项目 admin）';
 COMMENT ON COLUMN public.automation_rules.created_at IS '创建时间';
 COMMENT ON COLUMN public.automation_rules.updated_at IS '修改时间（触发器自动维护）';
-COMMENT ON COLUMN public.automation_rules.deleted_at IS '软删除时间戳';
 
 -- ----------------------------
 -- Records of automation_rules
@@ -762,9 +744,7 @@ COMMENT ON COLUMN public.automation_templates.description IS '模板功能说明
 COMMENT ON COLUMN public.automation_templates.category IS '模板分类: quality/issue_management/sprint/version/intake/assignment';
 COMMENT ON COLUMN public.automation_templates.dsl_template IS '模板 rule JSON（与 automation_rules 同结构；创建项目时批量复制）';
 COMMENT ON COLUMN public.automation_templates.sort_order IS '排序权重（预设模板安装时按顺序展示）';
-COMMENT ON COLUMN public.automation_templates.is_active IS '模板是否启用；false=不在可用列表';
 COMMENT ON COLUMN public.automation_templates.created_at IS '创建时间';
-COMMENT ON COLUMN public.automation_templates.updated_at IS '修改时间';
 
 -- ----------------------------
 -- Records of automation_templates
@@ -805,14 +785,7 @@ CACHE 1
 ;
 COMMENT ON TABLE public.dashboard_snapshots IS '仪表盘快照表（定时导出/分享大屏只读链接数据）';
 COMMENT ON COLUMN public.dashboard_snapshots.id IS '主键 ID';
-COMMENT ON COLUMN public.dashboard_snapshots.dashboard_id IS '仪表盘 FK';
-COMMENT ON COLUMN public.dashboard_snapshots.snapshot_time IS '快照时间（大屏分享链接/定时导出触发）';
 COMMENT ON COLUMN public.dashboard_snapshots.data IS '完整快照 JSONB（所有卡片数据缓存；大屏只读展示）';
-COMMENT ON COLUMN public.dashboard_snapshots.share_token IS '分享令牌 SHA-256（NULL=非分享；过期/吊销后清空）';
-COMMENT ON COLUMN public.dashboard_snapshots.expires_at IS '分享有效期 TIMESTAMPTZ；到期后快照URL 404';
-COMMENT ON COLUMN public.dashboard_snapshots.created_by IS '创建人 FK';
-COMMENT ON COLUMN public.dashboard_snapshots.created_at IS '创建时间';
-COMMENT ON COLUMN public.dashboard_snapshots.workspace_id IS '工作空间 FK（RLS 依据）';
 
 -- ----------------------------
 -- Records of dashboard_snapshots
@@ -845,12 +818,8 @@ COMMENT ON TABLE public.dashboard_templates IS '仪表盘预设模板表（敏�
 COMMENT ON COLUMN public.dashboard_templates.id IS '主键 ID';
 COMMENT ON COLUMN public.dashboard_templates.name IS '模板名称（如"工程效能"/"QA 质量"/"PMO 战略多项目"）';
 COMMENT ON COLUMN public.dashboard_templates.description IS '模板适用场景说明';
-COMMENT ON COLUMN public.dashboard_templates.scope IS '作用域: project(单项目) / workspace(多项目聚合)';
 COMMENT ON COLUMN public.dashboard_templates.layout IS '预设布局 JSONB（卡片数组 [{type, x, y, w, h, config}]；gridstack.js 格式）';
-COMMENT ON COLUMN public.dashboard_templates.is_system IS '是否内置模板: true=系统预设, false=用户自定义（可分享）';
-COMMENT ON COLUMN public.dashboard_templates.created_by IS '创建人 FK（is_system=true 时为 NULL）';
 COMMENT ON COLUMN public.dashboard_templates.created_at IS '创建时间';
-COMMENT ON COLUMN public.dashboard_templates.updated_at IS '修改时间';
 
 -- ----------------------------
 -- Records of dashboard_templates
@@ -888,16 +857,7 @@ CACHE 1
 ;
 COMMENT ON TABLE public.dashboard_widgets IS '仪表盘卡片实例表（type→渲染器/数据接口映射；config JSONB 个性化配置）';
 COMMENT ON COLUMN public.dashboard_widgets.id IS '主键 ID';
-COMMENT ON COLUMN public.dashboard_widgets.dashboard_id IS '仪表盘 FK（dashboard_configs.id；可选，可存个人临时配置）';
-COMMENT ON COLUMN public.dashboard_widgets.type IS '卡片类型: project_overview / sprint_burndown / version_progress / module_distribution / quality_indicators / risk_alerts / resource_load / velocity_trend / dora_summary';
 COMMENT ON COLUMN public.dashboard_widgets.config IS '卡片个性化配置 JSONB（时间范围/项目/迭代/对比维度）';
-COMMENT ON COLUMN public.dashboard_widgets.position_x IS '布局横坐标（grid 列；0 起始）';
-COMMENT ON COLUMN public.dashboard_widgets.position_y IS '布局纵坐标（grid 行；0 起始）';
-COMMENT ON COLUMN public.dashboard_widgets.width IS '卡片宽度（grid 单元数 1-4）';
-COMMENT ON COLUMN public.dashboard_widgets.height IS '卡片高度（grid 单元数 1-4）';
-COMMENT ON COLUMN public.dashboard_widgets.refresh_interval_s IS '刷新间隔秒数（实时 30s；缓存 dash:{dashboard}:widget:{id} TTL）';
-COMMENT ON COLUMN public.dashboard_widgets.data_source IS '数据源标识符（前端渲染器 ↔ 后端接口 1:1 映射）';
-COMMENT ON COLUMN public.dashboard_widgets.workspace_id IS '工作空间 FK（RLS 依据）';
 COMMENT ON COLUMN public.dashboard_widgets.created_at IS '创建时间';
 COMMENT ON COLUMN public.dashboard_widgets.updated_at IS '修改时间';
 
@@ -934,14 +894,11 @@ COMMENT ON TABLE public.deployment_events IS '部署事件表（DORA 数据源�
 COMMENT ON COLUMN public.deployment_events.id IS '主键 ID';
 COMMENT ON COLUMN public.deployment_events.workspace_id IS '工作空间 FK（RLS 依据）';
 COMMENT ON COLUMN public.deployment_events.project_id IS '项目 FK';
-COMMENT ON COLUMN public.deployment_events.environment IS '部署环境: dev / staging / production';
 COMMENT ON COLUMN public.deployment_events.status IS '部署状态: success / failed';
 COMMENT ON COLUMN public.deployment_events.commit_sha IS '部署 commit SHA（精确到 commit；用于关联工作项/PR）';
 COMMENT ON COLUMN public.deployment_events.started_at IS '部署开始时间 TIMESTAMPTZ；started_at→deployed_at = lead time';
 COMMENT ON COLUMN public.deployment_events.deployed_at IS '部署成功时间 TIMESTAMPTZ；DORA 计算数据源';
 COMMENT ON COLUMN public.deployment_events.source IS '触发来源: ci_cd / webhook / manual；标识 CI 流水线';
-COMMENT ON COLUMN public.deployment_events.meta IS '元数据 JSONB（workflow_id / branch / tags / runner 等）';
-COMMENT ON COLUMN public.deployment_events.created_by IS '操作人 FK';
 COMMENT ON COLUMN public.deployment_events.created_at IS '注册时间（Webhook POST /hooks/deployments 入口）';
 
 -- ----------------------------
@@ -978,7 +935,6 @@ COMMENT ON COLUMN public.domain_events.event_type IS '事件类型: issue.status
 COMMENT ON COLUMN public.domain_events.payload IS '事件载荷 JSONB（当时完整状态快照；消费者解析依据）';
 COMMENT ON COLUMN public.domain_events.occurred_at IS '事件发生时间（与事务提交时间对齐；Outbox 写入时间）';
 COMMENT ON COLUMN public.domain_events.published_at IS '投递时间（worker 处理后置；NULL=待投递；WHERE published_at IS NULL 发布）';
-COMMENT ON COLUMN public.domain_events.created_at IS '写入时间（事务内与业务表同事务；唯一事实源）';
 
 -- ----------------------------
 -- Records of domain_events
@@ -996,13 +952,10 @@ CREATE TABLE "public"."idempotency_keys" (
 )
 ;
 COMMENT ON TABLE public.idempotency_keys IS 'API 幂等键表（写操作去重窗口；复用 response 缓存）';
-COMMENT ON COLUMN public.idempotency_keys.id IS '主键 ID';
 COMMENT ON COLUMN public.idempotency_keys.key IS '幂等键（客户端生成 UUID；API 请求头 X-Idempotency-Key；unique）';
 COMMENT ON COLUMN public.idempotency_keys.user_id IS '用户 FK（校验请求者身份）';
 COMMENT ON COLUMN public.idempotency_keys.response IS '原响应缓存 JSONB（同 key 重复请求直接返回原 response；省 DB 调用）';
-COMMENT ON COLUMN public.idempotency_keys.request_hash IS '请求体 SHA-256 摘要（可选；防 request body 修改后复用旧响应）';
 COMMENT ON COLUMN public.idempotency_keys.created_at IS '首次请求时间（过期清理窗口 ≥24h）';
-COMMENT ON COLUMN public.idempotency_keys.expires_at IS '过期时间 TIMESTAMPTZ；过期后同 key 可重放';
 
 -- ----------------------------
 -- Records of idempotency_keys
@@ -1047,7 +1000,6 @@ COMMENT ON COLUMN public.intake_channels.auto_assign_rules IS '自动分配规�
 COMMENT ON COLUMN public.intake_channels.created_by IS '创建人 FK';
 COMMENT ON COLUMN public.intake_channels.created_at IS '创建时间';
 COMMENT ON COLUMN public.intake_channels.updated_at IS '修改时间（触发器自动维护）';
-COMMENT ON COLUMN public.intake_channels.deleted_at IS '软删除时间戳';
 
 -- ----------------------------
 -- Records of intake_channels
@@ -1091,15 +1043,10 @@ COMMENT ON COLUMN public.intake_issues.tracking_id IS '提交回执编号（YD-I
 COMMENT ON COLUMN public.intake_issues.status IS '处理状态: open(待审核) / accepted(已转正) / rejected(已拒绝) / archived(暂存)';
 COMMENT ON COLUMN public.intake_issues.submitter_name IS '提交者姓名（脱敏显示）';
 COMMENT ON COLUMN public.intake_issues.submitter_email IS '提交者邮箱（邮件校验码找回进展）';
-COMMENT ON COLUMN public.intake_issues.subject IS '提交标题';
 COMMENT ON COLUMN public.intake_issues.description IS '提交描述（纯文本；不支持富文本/附件）';
 COMMENT ON COLUMN public.intake_issues.converted_issue_id IS '转正后工作项 FK（issues.id；创建时复制标题/描述/附件）';
-COMMENT ON COLUMN public.intake_issues.converted_at IS '转正时间（管理员审核通过时）';
-COMMENT ON COLUMN public.intake_issues.rejection_reason IS '拒绝原因（填写后通知提交者）';
-COMMENT ON COLUMN public.intake_issues.created_by IS '提交人 FK（可 NULL；匿名提交）';
 COMMENT ON COLUMN public.intake_issues.created_at IS '提交时间';
 COMMENT ON COLUMN public.intake_issues.updated_at IS '修改时间（触发器自动维护）';
-COMMENT ON COLUMN public.intake_issues.deleted_at IS '软删除时间戳';
 
 -- ----------------------------
 -- Records of intake_issues
@@ -1136,12 +1083,9 @@ COMMENT ON COLUMN public.invitations.workspace_id IS '目标工作空间 FK';
 COMMENT ON COLUMN public.invitations.email IS '被邀請人邮箱（小写；workspace+email 唯一排除软删除）';
 COMMENT ON COLUMN public.invitations.role IS '邀请角色: owner / admin / member / guest';
 COMMENT ON COLUMN public.invitations.status IS '邀请状态: pending(待确认) / accepted / rejected / expired';
-COMMENT ON COLUMN public.invitations.token IS '邀请校验令牌（UUID；SHA-256 hash 存储；邮件内链接使用）';
 COMMENT ON COLUMN public.invitations.expires_at IS '邀请有效期 TIMESTAMPTZ；过期自动标记 status=expired';
-COMMENT ON COLUMN public.invitations.invited_by IS '邀请人 FK';
 COMMENT ON COLUMN public.invitations.accepted_at IS '接受时间（跳转注册/登录后）';
 COMMENT ON COLUMN public.invitations.created_at IS '创建时间';
-COMMENT ON COLUMN public.invitations.deleted_at IS '软删除时间戳';
 
 -- ----------------------------
 -- Records of invitations
@@ -1182,7 +1126,6 @@ COMMENT ON COLUMN public.issue_activities.verb IS '操作动词: created/updated
 COMMENT ON COLUMN public.issue_activities.field IS '变更字段名（verb=updated 时使用；如 state, priority, assignees）';
 COMMENT ON COLUMN public.issue_activities.old_value IS '变更前值（TEXT 或 JSONB 序列化）';
 COMMENT ON COLUMN public.issue_activities.new_value IS '变更后值（TEXT 或 JSONB 序列化）';
-COMMENT ON COLUMN public.issue_activities.metadata IS '附加信息 JSONB（如流转 from→to、字段 diff 详情）';
 COMMENT ON COLUMN public.issue_activities.created_at IS '记录时间 TIMESTAMPTZ';
 COMMENT ON COLUMN public.issue_activities.workspace_id IS '工作空间 FK（支撑 RLS 与按月分区键）';
 
@@ -1204,8 +1147,6 @@ CREATE TABLE "public"."issue_assignees" (
 COMMENT ON TABLE public.issue_assignees IS '工作项-指派人物多对一关联表（含主负责人标记）';
 COMMENT ON COLUMN public.issue_assignees.issue_id IS '工作项 FK';
 COMMENT ON COLUMN public.issue_assignees.user_id IS '被指派人 FK';
-COMMENT ON COLUMN public.issue_assignees.is_primary IS '是否主负责人: true=主, false=辅助；每个工作项仅一个主负责人';
-COMMENT ON COLUMN public.issue_assignees.created_at IS '指派时间';
 
 -- ----------------------------
 -- Records of issue_assignees
@@ -1267,13 +1208,10 @@ CACHE 1
 COMMENT ON TABLE public.issue_dependencies IS '工作项依赖关系表（FS/SS/FF/SF + lag_days，DFS 检测环）';
 COMMENT ON COLUMN public.issue_dependencies.id IS '主键 ID';
 COMMENT ON COLUMN public.issue_dependencies.workspace_id IS '工作空间 FK';
-COMMENT ON COLUMN public.issue_dependencies.issue_id IS '前置工作项 FK（dependencies 的"from"）';
-COMMENT ON COLUMN public.issue_dependencies.dependent_id IS '后续工作项 FK（dependencies 的"to"）';
 COMMENT ON COLUMN public.issue_dependencies.dependency_type IS '依赖类型: FS(完成→开始) / SS(开始→开始) / FF(完成→完成) / SF(开始→完成)';
 COMMENT ON COLUMN public.issue_dependencies.lag_days IS '延迟天数（正=延迟等待，负=提前开始）；0 表示无延迟';
 COMMENT ON COLUMN public.issue_dependencies.created_by IS '创建人 FK';
 COMMENT ON COLUMN public.issue_dependencies.created_at IS '创建时间';
-COMMENT ON COLUMN public.issue_dependencies.deleted_at IS '软删除时间戳（唯一约束 WHERE deleted_at IS NULL）';
 
 -- ----------------------------
 -- Records of issue_dependencies
@@ -1291,7 +1229,6 @@ CREATE TABLE "public"."issue_labels" (
 COMMENT ON TABLE public.issue_labels IS '工作项-标签多对一关联表';
 COMMENT ON COLUMN public.issue_labels.issue_id IS '工作项 FK';
 COMMENT ON COLUMN public.issue_labels.label_id IS '标签 FK';
-COMMENT ON COLUMN public.issue_labels.created_at IS '关联创建时间';
 
 -- ----------------------------
 -- Records of issue_labels
@@ -1309,7 +1246,6 @@ CREATE TABLE "public"."issue_modules" (
 COMMENT ON TABLE public.issue_modules IS '工作项-模块多对一关联表';
 COMMENT ON COLUMN public.issue_modules.issue_id IS '工作项 FK';
 COMMENT ON COLUMN public.issue_modules.module_id IS '模块 FK';
-COMMENT ON COLUMN public.issue_modules.created_at IS '关联创建时间';
 
 -- ----------------------------
 -- Records of issue_modules
@@ -1339,8 +1275,6 @@ CACHE 1
 COMMENT ON TABLE public.issue_relations IS '工作项语义关联表（duplicate/relates_to/blocked_by/start_before/finish_before/implemented_by）';
 COMMENT ON COLUMN public.issue_relations.id IS '主键 ID';
 COMMENT ON COLUMN public.issue_relations.workspace_id IS '工作空间 FK';
-COMMENT ON COLUMN public.issue_relations.issue_a_id IS '工作项 A FK';
-COMMENT ON COLUMN public.issue_relations.issue_b_id IS '工作项 B FK';
 COMMENT ON COLUMN public.issue_relations.relation_type IS '语义关联类型: duplicate(重复) / relates_to(关联) / blocked_by(被阻塞) / start_before(先于开始) / finish_before(先于完成) / implemented_by(由…实现)';
 COMMENT ON COLUMN public.issue_relations.created_by IS '创建人 FK';
 COMMENT ON COLUMN public.issue_relations.created_at IS '创建时间';
@@ -1654,7 +1588,6 @@ COMMENT ON COLUMN public.metric_snapshots.value IS '指标值 NUMERIC；存储�
 COMMENT ON COLUMN public.metric_snapshots.dimensions IS '维度 JSONB {type_code, state_group, module_id, assignee_id}；钻取过滤';
 COMMENT ON COLUMN public.metric_snapshots.snapshot_date IS '快照日期（幂等 upsert key: (granularity, ref_id, metric, snapshot_date)）';
 COMMENT ON COLUMN public.metric_snapshots.created_at IS '写入时间（Cron 每日 01:30 聚合 Job）';
-COMMENT ON COLUMN public.metric_snapshots.updated_at IS '修改时间（触发器自动维护）';
 
 -- ----------------------------
 -- Records of metric_snapshots
@@ -1693,7 +1626,6 @@ COMMENT ON COLUMN public.modules.workspace_id IS '工作空间 FK';
 COMMENT ON COLUMN public.modules.project_id IS '所属项目 FK';
 COMMENT ON COLUMN public.modules.name IS '模块/组件名称';
 COMMENT ON COLUMN public.modules.description IS '模块功能说明';
-COMMENT ON COLUMN public.modules.parent_id IS '父模块 FK（modules.id）；层级 ≤3，顶层为 NULL';
 COMMENT ON COLUMN public.modules.lead_id IS '模块负责人 FK（users.id）';
 COMMENT ON COLUMN public.modules.created_by IS '创建人 FK';
 COMMENT ON COLUMN public.modules.created_at IS '创建时间';
@@ -1726,11 +1658,8 @@ COMMENT ON COLUMN public.notification_deliveries.id IS '主键 ID';
 COMMENT ON COLUMN public.notification_deliveries.notification_id IS '站内信 FK（notifications.id）';
 COMMENT ON COLUMN public.notification_deliveries.channel IS '发货渠道: email / wecom / dingtalk / feishu';
 COMMENT ON COLUMN public.notification_deliveries.status IS '投递状态: pending / sent / failed / retrying';
-COMMENT ON COLUMN public.notification_deliveries.attempt_count IS '重试次数（最大 3 次；指数退避 1min/5min/30min）';
-COMMENT ON COLUMN public.notification_deliveries.error_message IS '最后错误信息（用于排障；不存敏感内容）';
 COMMENT ON COLUMN public.notification_deliveries.sent_at IS '最终投递成功时间';
 COMMENT ON COLUMN public.notification_deliveries.created_at IS '创建时间（分区键；按月 RANGE 分区）';
-COMMENT ON COLUMN public.notification_deliveries.workspace_id IS '工作空间 FK（RLS 依据）';
 
 -- ----------------------------
 -- Records of notification_deliveries
@@ -1755,8 +1684,6 @@ CREATE TABLE "public"."notification_digests" (
 COMMENT ON TABLE public.notification_digests IS '通知摘要暂存表（daily/weekly 模式按用户+渠道聚合；定时合并发送）';
 COMMENT ON COLUMN public.notification_digests.id IS '主键 ID';
 COMMENT ON COLUMN public.notification_digests.user_id IS '用户 FK';
-COMMENT ON COLUMN public.notification_digests.channel IS '聚合渠道: email / wecom / dingtalk / feishu';
-COMMENT ON COLUMN public.notification_digests.payload IS '聚合数据 JSONB [{event_type, issue_id, title, body}]；按项目分组';
 COMMENT ON COLUMN public.notification_digests.scheduled_for IS '计划发送时间 TIMESTAMPTZ（Cron 触发；daily=08:30 用户时区）';
 COMMENT ON COLUMN public.notification_digests.sent_at IS '实际发送时间；NULL=待发送';
 COMMENT ON COLUMN public.notification_digests.created_at IS '创建时间（分区键）';
@@ -1788,10 +1715,6 @@ CREATE TABLE "public"."notification_preferences" (
 COMMENT ON TABLE public.notification_preferences IS '用户通知偏好订阅表（按 项目×事件类型×渠道三维开关；支持免打扰 digest）';
 COMMENT ON COLUMN public.notification_preferences.id IS '主键 ID';
 COMMENT ON COLUMN public.notification_preferences.user_id IS '用户 FK';
-COMMENT ON COLUMN public.notification_preferences.scope IS '订阅范围: workspace / project；决定 ref_id 语义';
-COMMENT ON COLUMN public.notification_preferences.ref_id IS '范围 ID（scope=workspace → workspace_id；scope=project → project_id）';
-COMMENT ON COLUMN public.notification_preferences.event_type IS '事件类型（通配: issue.* / sprint.* / version.* / automation.*）';
-COMMENT ON COLUMN public.notification_preferences.channel IS '通知渠道: in_app / email / wecom / dingtalk / feishu';
 COMMENT ON COLUMN public.notification_preferences.is_enabled IS '渠道开关: true=启用, false=禁用（覆盖默认矩阵）';
 COMMENT ON COLUMN public.notification_preferences.digest IS '投递模式: realtime(实时) / daily(每日 08:30 聚合) / weekly(每周一聚合)';
 COMMENT ON COLUMN public.notification_preferences.dnd_start IS '免打扰开始时间 (HH:MM 用户时区 如 22:00)；期间 realtime 降级为 digest';
@@ -1833,11 +1756,9 @@ COMMENT ON COLUMN public.notifications.id IS '主键 ID';
 COMMENT ON COLUMN public.notifications.workspace_id IS '工作空间 FK（RLS + 按月分区键）';
 COMMENT ON COLUMN public.notifications.recipient_id IS '接收人 FK（users.id；通知投递主目标）';
 COMMENT ON COLUMN public.notifications.actor_id IS '触发人 FK（users.id）；自我豁免: 操作者==接收人不落库';
-COMMENT ON COLUMN public.notifications.issue_id IS '关联工作项 FK（可 NULL；点击跳转定位）';
 COMMENT ON COLUMN public.notifications.event_type IS '事件类型: issue.created/updated/status_changed/assigned/commented/mentioned；sprint.* / version.* / automation.*';
 COMMENT ON COLUMN public.notifications.title IS '通知标题（多语言模板渲染后；纯文本）';
 COMMENT ON COLUMN public.notifications.body IS '通知正文（纯文本摘要；邮件使用 HTML 模板二次渲染）';
-COMMENT ON COLUMN public.notifications.data IS '跳转上下文 JSONB {url, issue_identifier, project_identifier}；前端点击定位';
 COMMENT ON COLUMN public.notifications.is_read IS '已读状态: true=已读(已点击), false=未读；未读数缓存 unread:{uid}';
 COMMENT ON COLUMN public.notifications.read_at IS '首次阅读时间 TIMESTAMPTZ（列表"全部已读"触发）';
 COMMENT ON COLUMN public.notifications.created_at IS '创建时间 TIMESTAMPTZ（列表/游标分页倒序 + 分区裁剪）';
@@ -1887,8 +1808,6 @@ CREATE TABLE "public"."project_sequences" (
 COMMENT ON TABLE public.project_sequences IS '项目发号器表（project_id → next_value 原子自增；发工作项编号 YD-123；允许跳号）';
 COMMENT ON COLUMN public.project_sequences.project_id IS '项目 FK（PRIMARY KEY）';
 COMMENT ON COLUMN public.project_sequences.next_value IS '当前已发号 + 1（原子自增: SET next_value = next_value + 1 RETURNING next_value - 1）';
-COMMENT ON COLUMN public.project_sequences.created_at IS '创建时间';
-COMMENT ON COLUMN public.project_sequences.updated_at IS '修改时间（触发器自动维护）';
 
 -- ----------------------------
 -- Records of project_sequences
@@ -1932,17 +1851,10 @@ COMMENT ON COLUMN public.projects.workspace_id IS '所属工作空间 FK';
 COMMENT ON COLUMN public.projects.name IS '项目名称';
 COMMENT ON COLUMN public.projects.identifier IS '项目标识符（大写 2-10 字符，工作空间内唯一；用于 YD-123 编号）';
 COMMENT ON COLUMN public.projects.description IS '项目描述（富文本/Markdown）';
-COMMENT ON COLUMN public.projects.state IS '项目状态: active(活跃) / archived(归档) / deleted(软删除)';
-COMMENT ON COLUMN public.projects.default_view IS '默认视图偏好: list/board/calendar/gantt';
-COMMENT ON COLUMN public.projects.cover_image IS '封面图片附件 ID';
-COMMENT ON COLUMN public.projects.start_date IS '项目开始日期';
-COMMENT ON COLUMN public.projects.target_date IS '项目目标日期';
 COMMENT ON COLUMN public.projects.created_by IS '创建人 FK';
 COMMENT ON COLUMN public.projects.created_at IS '创建时间';
 COMMENT ON COLUMN public.projects.updated_at IS '修改时间（触发器自动维护）';
 COMMENT ON COLUMN public.projects.deleted_at IS '软删除时间戳';
-COMMENT ON COLUMN public.projects.version IS '乐观锁版本号（默认 1）';
-COMMENT ON COLUMN public.projects.is_default IS '是否工作空间默认项目: true=默认（用于项目选择器/快捷入口）';
 COMMENT ON COLUMN public.projects.icon IS '项目图标（Emoji / Lucide 图标名）';
 COMMENT ON COLUMN public.projects.modules IS '功能模块开关 JSON: {intake, sprint, version, estimate}';
 COMMENT ON COLUMN public.projects.cover_image_url IS '项目封面图片 URL（可选）';
@@ -1985,9 +1897,6 @@ COMMENT ON COLUMN public.recent_items.workspace_id IS '工作空间 FK（RLS 依
 COMMENT ON COLUMN public.recent_items.project_id IS '所属项目 FK';
 COMMENT ON COLUMN public.recent_items.item_type IS '最近访问类型: issue / sprint / version / project / page';
 COMMENT ON COLUMN public.recent_items.item_id IS '关联 ID（BIGINT 统一）';
-COMMENT ON COLUMN public.recent_items.access_count IS '访问次数；首页"最近"列表排序依据（加权访问时间 + 频次）';
-COMMENT ON COLUMN public.recent_items.created_at IS '首次访问时间';
-COMMENT ON COLUMN public.recent_items.updated_at IS '最后访问时间（触发器 trg_recent_items_touch 更新）';
 
 -- ----------------------------
 -- Records of recent_items
@@ -2023,15 +1932,10 @@ COMMENT ON COLUMN public.risk_alerts.id IS '主键 ID';
 COMMENT ON COLUMN public.risk_alerts.rule_id IS '触发规则 FK';
 COMMENT ON COLUMN public.risk_alerts.workspace_id IS '工作空间 FK';
 COMMENT ON COLUMN public.risk_alerts.project_id IS '项目 FK';
-COMMENT ON COLUMN public.risk_alerts.issue_id IS '关联工作项 FK（可 NULL；如 sprint 级别告警）';
 COMMENT ON COLUMN public.risk_alerts.severity IS '告警严重度: info / warning / critical';
-COMMENT ON COLUMN public.risk_alerts.message IS '告警描述（含触发值/阈值对比）';
-COMMENT ON COLUMN public.risk_alerts.snapshot IS '告警快照 JSONB（当时状态: 迭代进度/关键路径/剩余工时等）';
-COMMENT ON COLUMN public.risk_alerts.status IS '处理状态: open(待处理) / acknowledged(已确认) / resolved(已解决) / dismissed(已忽略)';
 COMMENT ON COLUMN public.risk_alerts.resolved_by IS '处理人 FK（status=resolved 时必填）';
 COMMENT ON COLUMN public.risk_alerts.resolved_at IS '处理时间';
 COMMENT ON COLUMN public.risk_alerts.created_at IS '触发时间 TIMESTAMPTZ';
-COMMENT ON COLUMN public.risk_alerts.workspace_id2 IS 'RLS 依据（若有）';
 
 -- ----------------------------
 -- Records of risk_alerts
@@ -2065,17 +1969,9 @@ COMMENT ON TABLE public.risk_rules IS '风险预警规则表（监控阈值: 逾
 COMMENT ON COLUMN public.risk_rules.id IS '主键 ID';
 COMMENT ON COLUMN public.risk_rules.workspace_id IS '工作空间 FK';
 COMMENT ON COLUMN public.risk_rules.project_id IS '项目 FK（NULL=工作空间级通用规则）';
-COMMENT ON COLUMN public.risk_rules.name IS '规则名称';
-COMMENT ON COLUMN public.risk_rules.metric IS '监控指标: overdue_days / blocked_days / dependency_chain / sprint_deviation';
-COMMENT ON COLUMN public.risk_rules.operator IS '比较运算符: > / >= / < / <= / ==';
-COMMENT ON COLUMN public.risk_rules.threshold IS '阈值（数值；如逾期 3 天、燃尽偏差 20%）';
-COMMENT ON COLUMN public.risk_rules.severity IS '告警严重度: info / warning / critical';
 COMMENT ON COLUMN public.risk_rules.is_active IS '启用开关: true=生效, false=暂停';
-COMMENT ON COLUMN public.risk_rules.notification_channels IS '通知渠道 JSONB [{channel, target}]；默认项目 admin + 规则创建者';
-COMMENT ON COLUMN public.risk_rules.created_by IS '创建人 FK';
 COMMENT ON COLUMN public.risk_rules.created_at IS '创建时间';
 COMMENT ON COLUMN public.risk_rules.updated_at IS '修改时间（触发器自动维护）';
-COMMENT ON COLUMN public.risk_rules.deleted_at IS '软删除时间戳';
 
 -- ----------------------------
 -- Records of risk_rules
@@ -2109,10 +2005,8 @@ CACHE 1
 COMMENT ON TABLE public.rule_executions IS '规则执行审计表（按月分区；status/duration/results；连续失败 3 次触发熔断）';
 COMMENT ON COLUMN public.rule_executions.id IS '主键 ID';
 COMMENT ON COLUMN public.rule_executions.rule_id IS '规则 FK（automation_rules.id）';
-COMMENT ON COLUMN public.rule_executions.issue_id IS '关联工作项 FK（可 NULL；非 issue 触发器则为 NULL）';
 COMMENT ON COLUMN public.rule_executions.status IS '执行状态: success / failure / skipped / timeout';
 COMMENT ON COLUMN public.rule_executions.duration_ms IS '执行耗时毫秒（含条件求值 + 所有 Action 总时长）';
-COMMENT ON COLUMN public.rule_executions.results IS '执行明细 JSONB [{action_type, status, error?}]；success 时记录变更后值';
 COMMENT ON COLUMN public.rule_executions.error_message IS '失败错误信息（failure 时必填；用于排障）';
 COMMENT ON COLUMN public.rule_executions.created_at IS '执行时间 TIMESTAMPTZ（按月分区键；30 天 TTL drop partition）';
 COMMENT ON COLUMN public.rule_executions.workspace_id IS '工作空间 FK（RLS 依据）';
@@ -2132,10 +2026,6 @@ CREATE TABLE "public"."schema_migrations" (
 ;
 COMMENT ON TABLE public.schema_migrations IS 'Schema 迁移记录表（Flyway 风格版本号；CI 校验连续性）';
 COMMENT ON COLUMN public.schema_migrations.version IS '迁移版本编号（NNNN；递增；CI 校验连续性）';
-COMMENT ON COLUMN public.schema_migrations.applied_at IS '应用时间（迁移框架自动写入；幂等检测依据）';
-COMMENT ON COLUMN public.schema_migrations.description IS '迁移描述（便于排查 + CHANGELOG 对齐）';
-COMMENT ON COLUMN public.schema_migrations.execution_ms IS '执行耗时毫秒（用于慢迁移告警）';
-COMMENT ON COLUMN public.schema_migrations.checksum IS '迁移内容 SHA-256（防篡改；运行时校验与声明的 checksum 匹配）';
 
 -- ----------------------------
 -- Records of schema_migrations
@@ -2173,10 +2063,8 @@ COMMENT ON COLUMN public.search_bookmarks.user_id IS '用户 FK';
 COMMENT ON COLUMN public.search_bookmarks.workspace_id IS '工作空间 FK（RLS 依据）';
 COMMENT ON COLUMN public.search_bookmarks.name IS '收藏查询名称（如"我的待办"）';
 COMMENT ON COLUMN public.search_bookmarks.query IS 'JQL 查询字符串（如"assignee:me status:todo"）；完整保存';
-COMMENT ON COLUMN public.search_bookmarks.description IS '收藏说明（可选）';
 COMMENT ON COLUMN public.search_bookmarks.is_shared IS '是否分享: true=同工作空间成员可见, false=仅自己';
 COMMENT ON COLUMN public.search_bookmarks.sort_order IS '展示排序权重';
-COMMENT ON COLUMN public.search_bookmarks.created_by IS '创建人 FK';
 COMMENT ON COLUMN public.search_bookmarks.created_at IS '创建时间';
 COMMENT ON COLUMN public.search_bookmarks.updated_at IS '修改时间';
 
@@ -2212,13 +2100,9 @@ COMMENT ON TABLE public.search_documents IS '搜索文档表（ES 索引失败�
 COMMENT ON COLUMN public.search_documents.id IS '主键 ID';
 COMMENT ON COLUMN public.search_documents.workspace_id IS '工作空间 FK';
 COMMENT ON COLUMN public.search_documents.project_id IS '项目 FK';
-COMMENT ON COLUMN public.search_documents.item_type IS '索引对象类型: issue / page / doc';
-COMMENT ON COLUMN public.search_documents.item_id IS '关联 ID（BIGINT）';
 COMMENT ON COLUMN public.search_documents.title IS '索引标题';
 COMMENT ON COLUMN public.search_documents.content IS '索引内容（纯文本；tsvector 计算源）';
 COMMENT ON COLUMN public.search_documents.metadata IS '索引元数据 JSONB（attribution/comments/sprint/labels 等）';
-COMMENT ON COLUMN public.search_documents.indexed_at IS '索引时间；对账 Job 检测 updated_at > indexed_at 重做';
-COMMENT ON COLUMN public.search_documents.created_at IS '创建时间';
 COMMENT ON COLUMN public.search_documents.updated_at IS '修改时间';
 
 -- ----------------------------
@@ -2251,7 +2135,6 @@ COMMENT ON COLUMN public.search_history.user_id IS '用户 FK';
 COMMENT ON COLUMN public.search_history.workspace_id IS '工作空间 FK';
 COMMENT ON COLUMN public.search_history.query IS '完整搜索字符串（含 JQL 语法）';
 COMMENT ON COLUMN public.search_history.result_count IS '返回结果数（缓存用于效果分析）';
-COMMENT ON COLUMN public.search_history.clicked_item_id IS '点击第一条结果（优化搜索算法依据）';
 COMMENT ON COLUMN public.search_history.searched_at IS '搜索时间 TIMESTAMPTZ；自动补全历史数据源';
 
 -- ----------------------------
@@ -2272,12 +2155,9 @@ CREATE TABLE "public"."sprint_issues" (
 )
 ;
 COMMENT ON TABLE public.sprint_issues IS '迭代-工作项关联表（含中途加项标记 added_midway，复盘报告使用）';
-COMMENT ON COLUMN public.sprint_issues.id IS '主键 ID';
 COMMENT ON COLUMN public.sprint_issues.sprint_id IS '迭代 FK';
 COMMENT ON COLUMN public.sprint_issues.issue_id IS '工作项 FK';
 COMMENT ON COLUMN public.sprint_issues.added_midway IS '是否中途加入: true=迭代启动后新增（复盘报告单独统计对速率影响）';
-COMMENT ON COLUMN public.sprint_issues.created_at IS '关联创建时间（即工作项加入迭代的时间点）';
-COMMENT ON COLUMN public.sprint_issues.workspace_id IS '工作空间 FK（RLS 依据 + 复合索引）';
 
 -- ----------------------------
 -- Records of sprint_issues
@@ -2308,11 +2188,6 @@ COMMENT ON TABLE public.sprint_snapshots IS '迭代燃尽快照表（Cron 每日
 COMMENT ON COLUMN public.sprint_snapshots.id IS '主键 ID';
 COMMENT ON COLUMN public.sprint_snapshots.sprint_id IS '迭代 FK';
 COMMENT ON COLUMN public.sprint_snapshots.snapshot_date IS '快照日期（每 sprint+date 唯一；Cron 每日 00:05 写入）';
-COMMENT ON COLUMN public.sprint_snapshots.total_points IS '当日总计划故事点';
-COMMENT ON COLUMN public.sprint_snapshots.done_points IS '当日已完成故事点';
-COMMENT ON COLUMN public.sprint_snapshots.by_state_group IS '各状态组故事点分布 JSONB {backlog:N, unstarted:N, started:N, completed:N}';
-COMMENT ON COLUMN public.sprint_snapshots.added_points IS '启动后新增故事点（复盘中期加入影响计算）';
-COMMENT ON COLUMN public.sprint_snapshots.removed_points IS '启动后移除故事点';
 COMMENT ON COLUMN public.sprint_snapshots.created_at IS '写入时间';
 COMMENT ON COLUMN public.sprint_snapshots.workspace_id IS '工作空间 FK（RLS 依据）';
 
@@ -2363,13 +2238,10 @@ COMMENT ON COLUMN public.sprints.status IS '迭代状态: planned(计划中) / a
 COMMENT ON COLUMN public.sprints.start_date IS '迭代开始日期（active 时必填；同一项目同一时间仅一个 active）';
 COMMENT ON COLUMN public.sprints.end_date IS '迭代结束日期（active 时必填；结束日触发 sprint.ending_soon 提醒）';
 COMMENT ON COLUMN public.sprints.capacity IS '团队容量（人天）；与故事点总和对比计算饱和度';
-COMMENT ON COLUMN public.sprints.total_points IS '当前迭代总故事点（redundant，SprintIssue 事件回写更新）';
-COMMENT ON COLUMN public.sprints.done_points IS '已完成故事点（redundant；SprintIssue 完成事件回写）';
 COMMENT ON COLUMN public.sprints.created_by IS '创建人 FK';
 COMMENT ON COLUMN public.sprints.created_at IS '创建时间';
 COMMENT ON COLUMN public.sprints.updated_at IS '修改时间（触发器自动维护）';
 COMMENT ON COLUMN public.sprints.deleted_at IS '软删除时间戳';
-COMMENT ON COLUMN public.sprints.version IS '乐观锁版本号（默认 1）；UPDATE 条件带 version 防并发冲突';
 
 -- ----------------------------
 -- Records of sprints
@@ -2406,10 +2278,8 @@ COMMENT ON COLUMN public.state_transitions.from_state_id IS '起始状态 FK（s
 COMMENT ON COLUMN public.state_transitions.to_state_id IS '目标状态 FK（states.id）';
 COMMENT ON COLUMN public.state_transitions.required_fields IS '流转必填字段 JSONB [{field, condition}]（如缺陷→已完成要求 root_cause_category 非空）';
 -- FIXED: COMMENT ON COLUMN public.state_transitions.allowed_roles IS '允许执行的角色列表 JSONB ['owner','admin',...]；空数组=继承项目角色默认';
-COMMENT ON COLUMN public.state_transitions.created_by IS '创建人 FK';
 COMMENT ON COLUMN public.state_transitions.created_at IS '创建时间';
 COMMENT ON COLUMN public.state_transitions.updated_at IS '修改时间（触发器自动维护）';
-COMMENT ON COLUMN public.state_transitions.deleted_at IS '软删除时间戳';
 
 -- ----------------------------
 -- Records of state_transitions
@@ -2448,10 +2318,7 @@ COMMENT ON COLUMN public.states.name IS '状态显示名（如"ToDo"/"In Progres
 COMMENT ON COLUMN public.states.group IS '状态组: backlog / unstarted / started / completed / cancelled / triage（前端据此渲染卡片颜色 + 看板列）';
 COMMENT ON COLUMN public.states.color IS '状态颜色 HEX 值';
 COMMENT ON COLUMN public.states.sequence IS '状态在组内排序权重（升序）';
-COMMENT ON COLUMN public.states.description IS '状态含义说明（可选）';
 COMMENT ON COLUMN public.states.is_default IS '是否项目默认状态: true=新工作项初始状态（每个 type_code 一个默认）';
-COMMENT ON COLUMN public.states.type_code IS '工作项类型: requirement / task / defect；决定状态集隔离';
-COMMENT ON COLUMN public.states.created_by IS '创建人 FK';
 COMMENT ON COLUMN public.states.created_at IS '创建时间';
 COMMENT ON COLUMN public.states.updated_at IS '修改时间（触发器自动维护）';
 COMMENT ON COLUMN public.states.deleted_at IS '软删除时间戳';
@@ -2497,11 +2364,7 @@ COMMENT ON TABLE public.time_logs IS '工时记录表（单位: 分钟；关联�
 COMMENT ON COLUMN public.time_logs.id IS '主键 ID';
 COMMENT ON COLUMN public.time_logs.issue_id IS '关联工作项 FK';
 COMMENT ON COLUMN public.time_logs.user_id IS '登记人 FK';
-COMMENT ON COLUMN public.time_logs.minutes IS '工时分钟数（正整数；写入/编辑/删除差值回写 actual_effort）';
-COMMENT ON COLUMN public.time_logs.log_date IS '工时日期（用户可指定历史日期；默认当天）';
 COMMENT ON COLUMN public.time_logs.description IS '工时说明（可选: 做了什么）';
-COMMENT ON COLUMN public.time_logs.billable IS '是否计费工时: true=计费, false=不计费';
-COMMENT ON COLUMN public.time_logs.created_by IS '登记人/修改人 FK';
 COMMENT ON COLUMN public.time_logs.created_at IS '创建时间';
 COMMENT ON COLUMN public.time_logs.updated_at IS '修改时间';
 COMMENT ON COLUMN public.time_logs.deleted_at IS '软删除时间戳';
@@ -2538,17 +2401,9 @@ COMMENT ON TABLE public.users IS '平台用户表（跨工作空间；认证信�
 COMMENT ON COLUMN public.users.id IS '主键 ID';
 COMMENT ON COLUMN public.users.email IS '邮箱（小写唯一；登录主凭证；CI 强制唯一）';
 COMMENT ON COLUMN public.users.password_hash IS 'bcrypt(cost=12) 密码哈希值';
-COMMENT ON COLUMN public.users.first_name IS '名字';
-COMMENT ON COLUMN public.users.last_name IS '姓氏';
 COMMENT ON COLUMN public.users.display_name IS '显示名（默认 first + last；可自定义）';
-COMMENT ON COLUMN public.users.avatar IS '头像附件 ID（attachments.id）';
 COMMENT ON COLUMN public.users.is_active IS '账号激活状态: true=激活, false=禁用（软锁定）';
-COMMENT ON COLUMN public.users.is_email_verified IS '邮箱是否已验证: true=已验证, false=未验证（发送验证邮件）';
-COMMENT ON COLUMN public.users.mfa_secret IS 'TOTP 双因子密钥（AES-GCM 加密存储；NULL=未启用）';
-COMMENT ON COLUMN public.users.last_login_at IS '最后登录时间（登录成功后更新；判断账号活跃度）';
 COMMENT ON COLUMN public.users.timezone IS '用户时区（IANA 名称如 Asia/Shanghai；用于 digest/免打扰计算）';
-COMMENT ON COLUMN public.users.locale IS '偏好语言 (en/zh-CN/zh-TW/ja/ko)';
-COMMENT ON COLUMN public.users.preferences IS '用户偏好 JSONB（主题/快捷手势/通知默认开关等）';
 COMMENT ON COLUMN public.users.created_at IS '注册时间';
 COMMENT ON COLUMN public.users.updated_at IS '修改时间（触发器自动维护）';
 COMMENT ON COLUMN public.users.deleted_at IS '软删除时间戳';
@@ -2648,15 +2503,6 @@ CACHE 1
 COMMENT ON TABLE public.version_delivery_snapshots IS '版本交付快照表（发布时生成的交付报告数据: 缺陷数/通过率/准出率等）';
 COMMENT ON COLUMN public.version_delivery_snapshots.id IS '主键 ID';
 COMMENT ON COLUMN public.version_delivery_snapshots.version_id IS '版本 FK';
-COMMENT ON COLUMN public.version_delivery_snapshots.snapshot_date IS '快照时间（版本维度每日/里程碑聚合）';
-COMMENT ON COLUMN public.version_delivery_snapshots.total_points IS '当日版本总计划故事点';
-COMMENT ON COLUMN public.version_delivery_snapshots.done_points IS '当日版本已完成故事点';
-COMMENT ON COLUMN public.version_delivery_snapshots.bug_count IS '缺陷总数（含未关闭）';
-COMMENT ON COLUMN public.version_delivery_snapshots.open_bug_count IS '未关闭缺陷数';
-COMMENT ON COLUMN public.version_delivery_snapshots.pass_rate IS '测试通过率百分比';
-COMMENT ON COLUMN public.version_delivery_snapshots.deployment_count IS '累计部署次数（计数；与 DORA-DF 对齐）';
-COMMENT ON COLUMN public.version_delivery_snapshots.metrics IS '详细效能指标 JSONB（逃逸率/返工率/各状态分布等）';
-COMMENT ON COLUMN public.version_delivery_snapshots.created_at IS '写入时间';
 COMMENT ON COLUMN public.version_delivery_snapshots.workspace_id IS '工作空间 FK（RLS 依据）';
 
 -- ----------------------------
@@ -2710,8 +2556,6 @@ COMMENT ON COLUMN public.versions.checklist IS '发布检查清单 JSONB [{id,la
 COMMENT ON COLUMN public.versions.release_notes IS 'Release Notes（发布时按模板三段式生成: 需求/缺陷修复/已知问题；可编辑）';
 COMMENT ON COLUMN public.versions.delivered_at IS '实际发布 TIMESTAMPTZ（发布动作时写入）';
 COMMENT ON COLUMN public.versions.archived_at IS '归档时间 TIMESTAMPTZ';
-COMMENT ON COLUMN public.versions.delivery_report IS '交付报告 JSONB（缺陷数/通过率/准出率/迭代完成度明细；发布时生成）';
-COMMENT ON COLUMN public.versions.progress IS '聚合进度 0-100（读时计算；缓存版本失效键 version:{id}:progress）';
 COMMENT ON COLUMN public.versions.created_by IS '创建人 FK';
 COMMENT ON COLUMN public.versions.created_at IS '创建时间';
 COMMENT ON COLUMN public.versions.updated_at IS '修改时间（触发器自动维护）';
@@ -2748,7 +2592,6 @@ COMMENT ON COLUMN public.view_preferences.user_id IS '用户 FK';
 COMMENT ON COLUMN public.view_preferences.workspace_id IS '工作空间 FK（RLS 依据）';
 COMMENT ON COLUMN public.view_preferences.project_id IS '项目 FK（NULL=工作空间级默认视图偏好）';
 COMMENT ON COLUMN public.view_preferences.view_type IS '视图类型: list / board / calendar / gantt';
-COMMENT ON COLUMN public.view_preferences.preferences IS '偏好 JSONB {sort_by, sort_order, filters, group_by, field_visibility}；upsert key (user, project, view)';
 COMMENT ON COLUMN public.view_preferences.created_at IS '创建时间';
 COMMENT ON COLUMN public.view_preferences.updated_at IS '修改时间（触发器自动维护）';
 
@@ -2786,15 +2629,11 @@ COMMENT ON COLUMN public.webhook_logs.id IS '主键 ID';
 COMMENT ON COLUMN public.webhook_logs.webhook_id IS 'Webhook 配置 FK';
 COMMENT ON COLUMN public.webhook_logs.event_type IS '事件类型（与 domain_events.event_type 对齐）';
 COMMENT ON COLUMN public.webhook_logs.delivery_id IS '投递唯一 UUID（X-Ydsz-Delivery 头；接收方幂等）';
-COMMENT ON COLUMN public.webhook_logs.target_url IS '投递目标（当时快照；配置修改后仍展示原值）';
 COMMENT ON COLUMN public.webhook_logs.request_body IS 'POST body（JSON；截断 >10KB 时存 attachment）';
 COMMENT ON COLUMN public.webhook_logs.response_status IS '接收方 HTTP status code；5xx/429/超时(10s) 触发重试';
 COMMENT ON COLUMN public.webhook_logs.response_body IS '接收方响应体（截断 >1KB）；便于排障';
 COMMENT ON COLUMN public.webhook_logs.duration_ms IS '投递耗时毫秒';
-COMMENT ON COLUMN public.webhook_logs.attempt_number IS '本次重试次数（1=首次；最大 3 次）';
 COMMENT ON COLUMN public.webhook_logs.status IS '投递状态: success / failed / retrying';
-COMMENT ON COLUMN public.webhook_logs.error_message IS '错误信息（失败时）';
-COMMENT ON COLUMN public.webhook_logs.created_at IS '投递时间 TIMESTAMPTZ（按月分区 + 30 天 TTL）';
 COMMENT ON COLUMN public.webhook_logs.workspace_id IS '工作空间 FK（RLS 依据）';
 
 -- ----------------------------
@@ -2832,14 +2671,10 @@ COMMENT ON COLUMN public.webhooks.target_url IS '投递目标 URL（SSRF 防护:
 COMMENT ON COLUMN public.webhooks.secret IS 'HMAC-SHA256 密钥（X-Ydsz-Signature-256 签名头）；仅存 SHA-256 hash';
 COMMENT ON COLUMN public.webhooks.events IS '事件白名单 JSONB ["issue.created", "issue.status_changed", ...]；空数组=全部禁用';
 COMMENT ON COLUMN public.webhooks.is_active IS '启用开关: true=生效, false=暂停';
-COMMENT ON COLUMN public.webhooks.ssrf_whitelist IS '出站 IP 白名单（空=使用默认安全防护；显式声明例外 IP/CIDR）';
-COMMENT ON COLUMN public.webhooks.last_triggered_at IS '最后触发时间（监控活跃度；不活跃可告警）';
 COMMENT ON COLUMN public.webhooks.last_error IS '最后错误信息（用于排障；连续失败通知创建者）';
-COMMENT ON COLUMN public.webhooks.failure_count IS '连续失败次数；>=5 自动 unhealthy + 通知 admin';
 COMMENT ON COLUMN public.webhooks.created_by IS '创建人 FK（Webhook 失败默认通知人）';
 COMMENT ON COLUMN public.webhooks.created_at IS '创建时间';
 COMMENT ON COLUMN public.webhooks.updated_at IS '修改时间（触发器自动维护）';
-COMMENT ON COLUMN public.webhooks.deleted_at IS '软删除时间戳';
 
 -- ----------------------------
 -- Records of webhooks
@@ -2871,10 +2706,6 @@ COMMENT ON COLUMN public.workbench_configs.id IS '主键 ID';
 COMMENT ON COLUMN public.workbench_configs.user_id IS '用户 FK（per-user 工作台；每个用户一行）';
 COMMENT ON COLUMN public.workbench_configs.workspace_id IS '工作空间 FK（RLS 依据）';
 COMMENT ON COLUMN public.workbench_configs.layout IS '工作台布局 JSONB [{widget_type, x, y, w, h, config, is_pinned}]';
-COMMENT ON COLUMN public.workbench_configs.pinned_projects IS '置顶项目 ID 数组 BIGINT[]；快速访问入口';
-COMMENT ON COLUMN public.workbench_configs.recent_views IS '最近使用视图 ID 数组（用于视图选择器默认值）';
-COMMENT ON COLUMN public.workbench_configs.preferences IS '工作台偏好 JSONB（主题/快捷手势/默认看板）';
-COMMENT ON COLUMN public.workbench_configs.created_at IS '创建时间';
 COMMENT ON COLUMN public.workbench_configs.updated_at IS '修改时间（触发器自动维护）';
 
 -- ----------------------------
@@ -2908,10 +2739,8 @@ COMMENT ON COLUMN public.workbench_templates.id IS '主键 ID';
 COMMENT ON COLUMN public.workbench_templates.name IS '模板名称（如"PM 视角"/"开发者视角"/"QA 视角"）';
 COMMENT ON COLUMN public.workbench_templates.description IS '模板适用角色说明';
 COMMENT ON COLUMN public.workbench_templates.layout IS '预设布局 JSONB（widgets 数组；新账号注册时复制为默认配置）';
-COMMENT ON COLUMN public.workbench_templates.is_system IS '是否内置模板';
 COMMENT ON COLUMN public.workbench_templates.sort_order IS '排序权重';
 COMMENT ON COLUMN public.workbench_templates.created_at IS '创建时间';
-COMMENT ON COLUMN public.workbench_templates.updated_at IS '修改时间';
 
 -- ----------------------------
 -- Records of workbench_templates
@@ -2932,15 +2761,10 @@ CREATE TABLE "public"."workspace_members" (
 )
 ;
 COMMENT ON TABLE public.workspace_members IS '工作空间成员表（user↔workspace 多对一，含 owner/admin/member/guest 角色）';
-COMMENT ON COLUMN public.workspace_members.id IS '主键 ID';
 COMMENT ON COLUMN public.workspace_members.workspace_id IS '工作空间 FK';
 COMMENT ON COLUMN public.workspace_members.user_id IS '用户 FK';
 COMMENT ON COLUMN public.workspace_members.role IS '工作空间级角色: owner / admin / member / guest；用于权限点收敛';
-COMMENT ON COLUMN public.workspace_members.is_active IS '成员状态: true=激活, false=暂停（不立即离职，恢复使用）';
 COMMENT ON COLUMN public.workspace_members.joined_at IS '加入时间（接受邀请/被添加时）';
-COMMENT ON COLUMN public.workspace_members.created_by IS '添加人 FK';
-COMMENT ON COLUMN public.workspace_members.created_at IS '创建时间';
-COMMENT ON COLUMN public.workspace_members.updated_at IS '修改时间（触发器自动维护）';
 
 -- ----------------------------
 -- Records of workspace_members
@@ -3016,16 +2840,8 @@ COMMENT ON TABLE public.workspaces IS '工作空间表（多租户顶层容器�
 COMMENT ON COLUMN public.workspaces.id IS '主键 ID';
 COMMENT ON COLUMN public.workspaces.name IS '工作空间名称（唯一标识租户）';
 COMMENT ON COLUMN public.workspaces.slug IS 'URL 友好唯一标识（小写 + 连字符；用于子域名/API 路由）';
-COMMENT ON COLUMN public.workspaces.description IS '工作空间简介（可选）';
-COMMENT ON COLUMN public.workspaces.logo IS '品牌 Logo 附件 ID';
-COMMENT ON COLUMN public.workspaces.brand_colors IS '品牌色 JSONB {primary, secondary, accent} HEX 值';
-COMMENT ON COLUMN public.workspaces.default_role IS '邀请新用户默认角色: member / guest';
-COMMENT ON COLUMN public.workspaces.is_active IS '工作空间激活状态: true=正常, false=暂停（SSO/限流配置）';
-COMMENT ON COLUMN public.workspaces.settings IS '工作空间设置 JSONB（SSO/安全策略/通知通道/附件配置）';
-COMMENT ON COLUMN public.workspaces.created_by IS '创建人 FK（owner；默认拥有 owner 角色）';
 COMMENT ON COLUMN public.workspaces.created_at IS '创建时间';
 COMMENT ON COLUMN public.workspaces.updated_at IS '修改时间（触发器自动维护）';
-COMMENT ON COLUMN public.workspaces.deleted_at IS '软删除时间戳';
 
 -- ----------------------------
 -- Records of workspaces
@@ -6090,14 +5906,8 @@ COMMENT ON TABLE public.pages IS '页面表（项目内自定义页面；TipTap 
 COMMENT ON COLUMN public.pages.id IS '主键 ID';
 COMMENT ON COLUMN public.pages.workspace_id IS '工作空间 FK（RLS 依据）';
 COMMENT ON COLUMN public.pages.project_id IS '所属项目 FK';
-COMMENT ON COLUMN public.pages.title IS '页面标题';
-COMMENT ON COLUMN public.pages.content_json IS 'TipTap 编辑器内容 JSON（ProseMirror 格式；富文本 + 嵌入卡片）';
-COMMENT ON COLUMN public.pages.content_html IS '从 content_json 渲染的 HTML（展示层）';
-COMMENT ON COLUMN public.pages.cover_image IS '封面图片附件 ID';
-COMMENT ON COLUMN public.pages.icon IS '页面图标（Emoji / Lucide 图标）';
 COMMENT ON COLUMN public.pages.parent_id IS '父页面 FK（pages.id）；层级≤3';
 COMMENT ON COLUMN public.pages.sort_order IS '同级排序权重';
-COMMENT ON COLUMN public.pages.is_pinned IS '是否置顶: true=在侧边栏始终展示';
 COMMENT ON COLUMN public.pages.created_by IS '创建人 FK';
 COMMENT ON COLUMN public.pages.created_at IS '创建时间';
 COMMENT ON COLUMN public.pages.updated_at IS '修改时间（触发器自动维护）';
