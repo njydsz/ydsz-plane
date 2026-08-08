@@ -47,18 +47,18 @@ jobs:
       - name: Checkout 代码
         uses: actions/checkout@v4
 
-      - name: 初始化数据库 schema（含注释）
+      - name: 初始化数据库 schema（含注释 + 辅助函数）
         run: |
           PGPASSWORD=ydsz_test psql -h localhost -U ydsz_app -d ydsz_plane_test \
             -v ON_ERROR_STOP=1 \
             -f sql/ydsz-plane-init.sql
 
-      - name: 运行注释覆盖率检查
+      - name: 运行注释覆盖率检查（调用 ydsz_check_comment_coverage 函数）
         id: comment-check
         run: |
           PGPASSWORD=ydsz_test psql -h localhost -U ydsz_app -d ydsz_plane_test \
             -v ON_ERROR_STOP=1 \
-            -f sql/check-comments.sql 2>&1 | tee /tmp/comment_report.txt
+            -c "SELECT public.ydsz_check_comment_coverage();" 2>&1 | tee /tmp/comment_report.txt
 
           echo "report<<EOF" >> $GITHUB_OUTPUT
           cat /tmp/comment_report.txt >> $GITHUB_OUTPUT
@@ -78,6 +78,7 @@ jobs:
 
             **规范**: 阿里《Java开发手册》+ PostgreSQL 官方最佳实践
             **门禁**: 100% 表注释 + 100% 字段注释 + 100% 触发器注释
+            **检查函数**: `public.ydsz_check_comment_coverage()`
 
             <sub>自动生成 by `.github/workflows/db-comments-check.yml`</sub>
 
