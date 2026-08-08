@@ -6478,6 +6478,81 @@ END $$;
 COMMENT ON FUNCTION public.ydsz_check_comment_coverage() IS 'CI 质量门禁: 检查 public schema 下所有表/字段/触发器注释覆盖率';
 
 -- ============================================================================
--- 全部 schema 定义 + 注释 + 辅助函数 完毕。
+-- 模块四: RLS 租户隔离策略（含原 0021_rls_tenant_isolation.up.sql）
+-- 用途: 为所有带 workspace_id 的表启用 PostgreSQL 原生行级安全
+-- 策略: 使用 current_setting('app.workspace_id') 做等值过滤
+-- 参考: 等保三级、OWASP Database Security Cheat Sheet
+-- ============================================================================
+
+DO $$
+DECLARE
+    tbl TEXT;
+    tables TEXT[] := ARRAY[
+        'workspaces', 'workspace_members', 'projects', 'modules', 'labels',
+        'states', 'state_transitions', 'issues', 'issue_assignees',
+        'issue_labels', 'issue_modules', 'issue_activities', 'issue_comments',
+        'issue_relations', 'issue_dependencies', 'sprints', 'sprint_issues',
+        'sprint_snapshots', 'versions', 'automation_rules', 'rule_executions',
+        'automation_templates', 'notifications', 'notification_preferences',
+        'api_tokens', 'attachments', 'invitations', 'intake_channels',
+        'intake_issues', 'workbench_configs', 'search_documents',
+        'dashboard_widgets', 'dashboard_snapshots', 'metric_snapshots',
+        'audit_logs', 'domain_events', 'webhooks', 'webhook_logs',
+        'view_preferences', 'workbench_templates'
+    ];
+BEGIN
+    FOREACH tbl IN ARRAY tables
+    LOOP
+        IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = tbl) THEN
+            EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', tbl);
+            IF NOT EXISTS (
+                SELECT 1 FROM pg_policies
+                WHERE schemaname = 'public' AND tablename = tbl AND policyname = 'tenant_isolation'
+            ) THEN
+                EXECUTE format(
+                    'CREATE POLICY tenant_isolation ON %I USING (workspace_id::text = current_setting(''app.workspace_id'', true))',
+                    tbl
+                );
+            END IF;
+        END IF;
+    END LOOP;
+END
+$$;
+
+-- ============================================================================
+-- 模块五: RLS 回滚脚本（含原 0021_rls_tenant_isolation.down.sql）
+-- 用途: 禁用所有表的 RLS（仅在需要时取消注释执行）
+-- ============================================================================
+
+/*
+DO $$
+DECLARE
+    tbl TEXT;
+    tables TEXT[] := ARRAY[
+        'workspaces', 'workspace_members', 'projects', 'modules', 'labels',
+        'states', 'state_transitions', 'issues', 'issue_assignees',
+        'issue_labels', 'issue_modules', 'issue_activities', 'issue_comments',
+        'issue_relations', 'issue_dependencies', 'sprints', 'sprint_issues',
+        'sprint_snapshots', 'versions', 'automation_rules', 'rule_executions',
+        'automation_templates', 'notifications', 'notification_preferences',
+        'api_tokens', 'attachments', 'invitations', 'intake_channels',
+        'intake_issues', 'workbench_configs', 'search_documents',
+        'dashboard_widgets', 'dashboard_snapshots', 'metric_snapshots',
+        'audit_logs', 'domain_events', 'webhooks', 'webhook_logs',
+        'view_preferences', 'workbench_templates'
+    ];
+BEGIN
+    FOREACH tbl IN ARRAY tables
+    LOOP
+        IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = tbl) THEN
+            EXECUTE format('ALTER TABLE %I DISABLE ROW LEVEL SECURITY', tbl);
+        END IF;
+    END LOOP;
+END
+$$;
+*/
+
+-- ============================================================================
+-- 全部 schema 定义 + 注释 + 辅助函数 + RLS 完毕。
 -- 调用 ydsz_check_comment_coverage() 验证注释完整性。
 -- ============================================================================
