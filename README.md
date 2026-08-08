@@ -1,7 +1,8 @@
-# Ydsz Plane
-
 <p align="center">
-  <b>面向中国软件团队的开源项目管理平台</b>
+  <h1 align="center">Ydsz Plane</h1>
+  <p align="center">
+    面向中国软件团队的开源项目管理平台
+  </p>
 </p>
 
 <p align="center">

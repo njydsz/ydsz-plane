@@ -284,6 +284,7 @@ func RegisterDashboardRoutes(r *gin.Engine, d *Deps) {
 	ws.GET("/alerts", d.DashboardHandler.ListAlerts)
 	ws.POST("/alerts/:alert_id/resolve", d.DashboardHandler.ResolveAlert)
 	ws.GET("/templates", d.DashboardHandler.ListTemplates)
+	ws.GET("/project-compare", d.DashboardHandler.GetProjectCompare)
 }
 
 // RegisterNotificationRoutes 注册通知路由。

@@ -29,13 +29,38 @@ const error = ref("");
 const dashboardData = ref<DashboardData | null>(null);
 const isFullscreen = ref(false);
 
+// --- 编辑布局模式 ---
+const isEditMode = ref(false);
+const gridEl = ref<HTMLElement | null>(null);
+
 // --- 拖拽重排 ---
 const draggingWidgetId = ref<number | null>(null);
 const dragOverWidgetId = ref<number | null>(null);
+
+// --- 缩放（resize）状态 ---
+const resizingWidgetId = ref<number | null>(null);
+let resizeState: {
+  widgetId: number;
+  startX: number;
+  startY: number;
+  startW: number;
+  startH: number;
+  startGridW: number;
+  startGridH: number;
+} | null = null;
+
+/** 列数网格常量（与 CSS grid-template-columns 保持一致） */
+const GRID_COLS = 12;
+/** 网格间距（与 .dashboard__grid 的 gap 一致） */
+const GRID_GAP = 12;
+/** 编辑模式下固定行高（px），用于缩放换算 */
+const GRID_ROW_H = 110;
+
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
 const savingIds = ref<Set<number>>(new Set());
 
 function onDragStart(e: DragEvent, widgetId: number) {
+  if (!isEditMode.value) return;
   draggingWidgetId.value = widgetId;
   // 需要一个 data 才能触发 drag/drop 在部分浏览器上
   e.dataTransfer?.setData("text/plain", String(widgetId));
@@ -43,6 +68,7 @@ function onDragStart(e: DragEvent, widgetId: number) {
 }
 
 function onDragOver(e: DragEvent, widgetId: number) {
+  if (!isEditMode.value) return;
   e.preventDefault(); // 允许 drop
   if (draggingWidgetId.value === null || draggingWidgetId.value === widgetId) return;
   dragOverWidgetId.value = widgetId;
@@ -56,6 +82,7 @@ function onDragLeave(_e: DragEvent, widgetId: number) {
 }
 
 function onDrop(e: DragEvent, targetId: number) {
+  if (!isEditMode.value) return;
   e.preventDefault();
   const sourceId = draggingWidgetId.value;
   draggingWidgetId.value = null;
@@ -114,12 +141,68 @@ function onDragEnd() {
   dragOverWidgetId.value = null;
 }
 
-/** 防抖保存：300ms 内多次操作只发一次请求 */
+// --- 缩放（resize）逻辑 ---
+
+function onResizeStart(e: PointerEvent, widgetId: number) {
+  if (!isEditMode.value) return;
+  const widget = visibleWidgets.value.find((w) => w.id === widgetId);
+  if (!widget) return;
+  resizingWidgetId.value = widgetId;
+  resizeState = {
+    widgetId,
+    startX: e.clientX,
+    startY: e.clientY,
+    startW: e.clientX,
+    startH: e.clientY,
+    startGridW: widget.grid_w,
+    startGridH: widget.grid_h,
+  };
+  // 锁定拖拽，防止指针事件期间误触 grid-cell 的 draggable
+  window.addEventListener("pointermove", onResizeMove);
+  window.addEventListener("pointerup", onResizeEnd);
+  e.preventDefault();
+}
+
+function onResizeMove(e: PointerEvent) {
+  if (!resizeState || !gridEl.value) return;
+  const { widgetId, startX, startY, startGridW, startGridH } = resizeState;
+
+  const gridRect = gridEl.value.getBoundingClientRect();
+  const cellWidth = (gridRect.width - (GRID_COLS - 1) * GRID_GAP) / GRID_COLS;
+  const cellHeight = GRID_ROW_H + GRID_GAP;
+
+  const dx = e.clientX - startX;
+  const dy = e.clientY - startY;
+  const deltaW = Math.round(dx / cellWidth);
+  const deltaH = Math.round(dy / cellHeight);
+
+  const widget = visibleWidgets.value.find((w) => w.id === widgetId);
+  if (!widget) return;
+
+  const newW = Math.max(1, Math.min(GRID_COLS - widget.grid_x, startGridW + deltaW));
+  const newH = Math.max(1, Math.min(6, startGridH + deltaH));
+  if (newW === widget.grid_w && newH === widget.grid_h) return;
+
+  widget.grid_w = newW;
+  widget.grid_h = newH;
+  dashboardData.value = { ...dashboardData.value };
+
+  scheduleSave(widgetId, { grid_x: widget.grid_x, grid_y: widget.grid_y, grid_w: newW, grid_h: newH });
+}
+
+function onResizeEnd() {
+  window.removeEventListener("pointermove", onResizeMove);
+  window.removeEventListener("pointerup", onResizeEnd);
+  resizeState = null;
+  resizingWidgetId.value = null;
+}
+
+/** 防抖保存：1s 内多次操作只发一次请求 */
 function scheduleSave(widgetId: number, payload: { grid_x: number; grid_y: number; grid_w: number; grid_h: number }) {
   if (saveTimer) clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
     void doSave(widgetId, payload);
-  }, 300);
+  }, 1000);
 }
 
 async function doSave(widgetId: number, payload: { grid_x: number; grid_y: number; grid_w: number; grid_h: number }) {
@@ -304,6 +387,16 @@ onMounted(load);
         <button class="action-btn action-btn--ghost" @click="toggleFullscreen">
           {{ isFullscreen ? "⤓ 退出全屏" : "⤢ 全屏" }}
         </button>
+        <button
+          v-if="!isEditMode"
+          class="action-btn action-btn--ghost"
+          @click="isEditMode = true"
+        >
+          ✦ 编辑布局
+        </button>
+        <button v-else class="action-btn action-btn--edit-done" @click="exitEditMode">
+          ✓ 完成布局
+        </button>
         <button class="action-btn" @click="showAddModal = true">+ 添加 Widget</button>
         <div class="template-dropdown">
           <button class="action-btn action-btn--ghost" @click="templatesDropdownOpen = !templatesDropdownOpen">
@@ -340,8 +433,12 @@ onMounted(load);
     <!-- ===== Widget 网格 ===== -->
     <div
       v-else-if="hasWidgets"
+      ref="gridEl"
       class="dashboard__grid"
-      :class="{ 'dashboard__grid--dragging': draggingWidgetId !== null }"
+      :class="{
+        'dashboard__grid--edit': isEditMode,
+        'dashboard__grid--dragging': draggingWidgetId !== null,
+      }"
     >
       <div
         v-for="w in visibleWidgets"
@@ -351,16 +448,24 @@ onMounted(load);
           'grid-cell--dragging': draggingWidgetId === w.id,
           'grid-cell--drag-over': dragOverWidgetId === w.id,
           'grid-cell--saving': savingIds.has(w.id),
+          'grid-cell--resizing': resizingWidgetId === w.id,
         }"
         :style="gridStyle(w)"
-        draggable="true"
+        :draggable="isEditMode"
         @dragstart="onDragStart($event, w.id)"
         @dragover="onDragOver($event, w.id)"
         @dragleave="onDragLeave($event, w.id)"
         @drop="onDrop($event, w.id)"
         @dragend="onDragEnd"
       >
-        <DashWidgetCard :title="w.title" :is-saving="savingIds.has(w.id)" @remove="handleRemove(w.id)">
+        <DashWidgetCard
+          :title="w.title"
+          :is-saving="savingIds.has(w.id)"
+          :edit-mode="isEditMode"
+          :is-resizing="resizingWidgetId === w.id"
+          @remove="handleRemove(w.id)"
+          @resize-start="onResizeStart($event, w.id)"
+        >
           <component
             :is="getWidgetComponent(w.widget_type)"
             v-if="getWidgetComponent(w.widget_type)"

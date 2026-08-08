@@ -108,12 +108,46 @@ func (h *DashboardHandler) CreateWidget(c *gin.Context) {
 	c.JSON(http.StatusCreated, w)
 }
 
-// UpdateWidget 更新 widget。
+// UpdateWidget 更新 widget 的网格位置 / 尺寸 / 配置 / 标题。
 func (h *DashboardHandler) UpdateWidget(c *gin.Context) {
-	middleware.AbortWithError(c, errs.ErrValidation.WithDetails(errs.FieldDetail{
-		Field:  "method",
-		Reason: "Widget 更新可通过创建新 widget 实现",
-	}))
+	projectID := c.GetInt64(middleware.CtxProjectID)
+	widgetID := int64Param(c, "widget_id")
+
+	var req struct {
+		GridX *int            `json:"grid_x"`
+		GridY *int            `json:"grid_y"`
+		GridW *int            `json:"grid_w"`
+		GridH *int            `json:"grid_h"`
+		Title *string         `json:"title"`
+		Config map[string]any `json:"config"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		middleware.AbortWithError(c, errs.ErrValidation.WithDetails(fieldDetail(err)))
+		return
+	}
+	if req.GridX == nil && req.GridY == nil && req.GridW == nil && req.GridH == nil &&
+		req.Title == nil && req.Config == nil {
+		middleware.AbortWithError(c, errs.ErrValidation.WithDetails(errs.FieldDetail{
+			Field: "body", Reason: "至少提供一个可更新字段（grid_x/grid_y/grid_w/grid_h/title/config）",
+		}))
+		return
+	}
+
+	w, err := h.d.DashboardSvc.UpdateWidget(c.Request.Context(), UpdateWidgetInput{
+		WidgetID:  widgetID,
+		ProjectID: projectID,
+		GridX:     req.GridX,
+		GridY:     req.GridY,
+		GridW:     req.GridW,
+		GridH:     req.GridH,
+		Title:     req.Title,
+		Config:    req.Config,
+	})
+	if err != nil {
+		writeErr(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, w)
 }
 
 // DeleteWidget 删除 widget。
@@ -169,6 +203,20 @@ func (h *DashboardHandler) ListTemplates(c *gin.Context) {
 		templates = []DashboardTemplate{}
 	}
 	c.JSON(http.StatusOK, gin.H{"results": templates})
+}
+
+// GetProjectCompare 返回工作空间下所有项目的完成率 / 缺陷数对比数据。
+func (h *DashboardHandler) GetProjectCompare(c *gin.Context) {
+	wsID := c.GetInt64(middleware.CtxWorkspaceID)
+	items, err := h.d.DashboardSvc.GetProjectCompare(c.Request.Context(), wsID)
+	if err != nil {
+		writeErr(c, err)
+		return
+	}
+	if items == nil {
+		items = []ProjectCompareItem{}
+	}
+	c.JSON(http.StatusOK, gin.H{"results": items})
 }
 
 // --- Helpers ---

@@ -519,6 +519,21 @@ export default {
     tomorrow: "明天",
   },
 
+  menu: {
+    dashboard: "工作台",
+    myIssues: "我的工作项",
+    projects: "项目",
+    sprints: "迭代",
+    versions: "版本",
+    analytics: "报表",
+    automation: "自动化",
+    audit: "审计日志",
+    intake: "收件箱",
+    webhooks: "Webhooks",
+    members: "成员管理",
+    settings: "工作空间设置",
+  },
+
   module: {
     name: "模块名称",
     description: "模块描述",

@@ -15,6 +15,8 @@ import ActivityTimelineWidget from "./ActivityTimelineWidget.vue";
 import RiskAlertWidget from "./RiskAlertWidget.vue";
 import VersionBurndownWidget from "./VersionBurndownWidget.vue";
 import ModuleDistributionWidget from "./ModuleDistributionWidget.vue";
+import DoraWidget from "./DoraWidget.vue";
+import ProjectCompareWidget from "./ProjectCompareWidget.vue";
 
 import type { WidgetType } from "@/api/services/dashboard";
 
@@ -32,6 +34,8 @@ export const WIDGET_NAME_MAP: Record<WidgetType, string> = {
   team_workload: "团队负载",
   version_burndown: "版本燃尽",
   module_distribution: "模块分布",
+  dora: "研发效能 (DORA)",
+  project_compare: "多项目对比",
 };
 
 /** Widget 类型 → 渲染组件映射（用于 DashboardView 的动态组件） */
@@ -48,4 +52,6 @@ export const WIDGET_COMPONENTS: Record<WidgetType, Component> = {
   team_workload: StackedBarWidget,
   version_burndown: VersionBurndownWidget,
   module_distribution: ModuleDistributionWidget,
+  dora: DoraWidget,
+  project_compare: ProjectCompareWidget,
 };

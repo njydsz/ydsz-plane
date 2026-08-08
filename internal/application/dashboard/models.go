@@ -29,6 +29,10 @@ const (
 	WidgetRiskAlert         WidgetType = "risk_alert"
 	WidgetRecentActivity    WidgetType = "recent_activity"
 	WidgetTeamWorkload      WidgetType = "team_workload"
+	WidgetVersionBurndown   WidgetType = "version_burndown"
+	WidgetModuleDistribution WidgetType = "module_distribution"
+	WidgetDORA              WidgetType = "dora"
+	WidgetProjectCompare    WidgetType = "project_compare"
 )
 
 // DashboardWidget widget 配置。
@@ -248,9 +252,35 @@ type SaveWidgetInput struct {
 	Config     map[string]any
 }
 
+// UpdateWidgetInput 更新 widget 入参 — 仅更新非 nil 字段。
+type UpdateWidgetInput struct {
+	WidgetID  int64
+	ProjectID int64
+	GridX     *int
+	GridY     *int
+	GridW     *int
+	GridH     *int
+	Title     *string
+	Config    map[string]any
+}
+
 // RefreshSnapshotInput 刷新 widget 快照请求。
 type RefreshSnapshotInput struct {
 	ProjectID  int64
 	WidgetType WidgetType
 	RealTime   bool  // true = 忽略快照直接查
+}
+
+// --- Workspace 级聚合: 多项目对比 ---
+
+// ProjectCompareItem 单个项目的对比数据（需求完成率 + 缺陷数）。
+type ProjectCompareItem struct {
+	ProjectID       int64   `json:"project_id"`
+	ProjectName     string  `json:"project_name"`
+	Identifier      string  `json:"identifier"`
+	TotalIssues     int     `json:"total_issues"`
+	DoneIssues      int     `json:"done_issues"`
+	CompletionRate  float64 `json:"completion_rate"`
+	DefectCount     int     `json:"defect_count"`
+	ActiveSprintCount int   `json:"active_sprint_count"`
 }

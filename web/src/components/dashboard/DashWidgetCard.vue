@@ -5,20 +5,32 @@
  *
  * 拖拽由父级 (.grid-cell) 上的 draggable="true" 驱动；本组件仅
  * 在标题区提供视觉手柄，并拦截其上的点击事件以免触发 widget 内容交互。
+ *
+ * 编辑模式（editMode）下额外显示右下角 resize 手柄，通过 resizeStart 事件
+ * 通知父级进入尺寸调整流程。
  */
 defineProps<{
   title: string;
   isSaving?: boolean;
+  editMode?: boolean;
+  isResizing?: boolean;
 }>();
 
-const emit = defineEmits<{ remove: [] }>();
+const emit = defineEmits<{
+  remove: [];
+  resizeStart: [e: PointerEvent];
+}>();
 </script>
 
 <template>
-  <div class="dash-card" :class="{ 'dash-card--saving': isSaving }">
+  <div
+    class="dash-card"
+    :class="{ 'dash-card--saving': isSaving, 'dash-card--edit': editMode, 'dash-card--resizing': isResizing }"
+  >
     <div class="dash-card__header">
       <span
         class="dash-card__handle"
+        :class="{ 'dash-card__handle--hidden': !editMode }"
         aria-label="拖拽手柄"
         title="拖拽以重新排列"
       >
@@ -38,11 +50,21 @@ const emit = defineEmits<{ remove: [] }>();
     <div class="dash-card__body">
       <slot />
     </div>
+    <!-- 编辑模式：右下角缩放手柄 -->
+    <span
+      v-if="editMode"
+      class="dash-card__resize-handle"
+      role="button"
+      aria-label="调整大小"
+      title="拖拽右下角以调整大小"
+      @pointerdown.prevent.stop="emit('resizeStart', $event)"
+    ></span>
   </div>
 </template>
 
 <style scoped>
 .dash-card {
+  position: relative;
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -50,11 +72,22 @@ const emit = defineEmits<{ remove: [] }>();
   border: 1px solid var(--border-subtle, #e5e7eb);
   border-radius: var(--radius-md, 8px);
   overflow: hidden;
-  transition: opacity 0.15s, box-shadow 0.15s;
+  transition: opacity 0.15s, box-shadow 0.15s, border-color 0.15s;
 }
 
 .dash-card--saving {
   opacity: 0.75;
+}
+
+/* 编辑模式：蓝色描边高亮 */
+.dash-card--edit {
+  border-color: var(--brand-400, #7c9aff);
+  box-shadow: 0 0 0 1px var(--brand-400, #7c9aff);
+}
+
+.dash-card--resizing {
+  opacity: 0.85;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
 }
 
 .dash-card__header {
@@ -87,6 +120,10 @@ const emit = defineEmits<{ remove: [] }>();
 
 .dash-card__handle:active {
   cursor: grabbing;
+}
+
+.dash-card__handle--hidden {
+  visibility: hidden;
 }
 
 .dash-card__handle-grip {
@@ -136,5 +173,31 @@ const emit = defineEmits<{ remove: [] }>();
   min-height: 0;
   padding: 12px 14px;
   overflow: auto;
+}
+
+/* ---- 编辑模式 resize 手柄 ---- */
+.dash-card__resize-handle {
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  width: 16px;
+  height: 16px;
+  cursor: nwse-resize;
+  border-radius: var(--radius-sm, 4px);
+  background-image: linear-gradient(
+      135deg,
+      transparent 0 40%,
+      var(--brand-500, #3f63f1) 40% 55%,
+      transparent 55% 100%
+    );
+  opacity: 0.55;
+  transition: opacity 0.15s, transform 0.15s;
+  z-index: 3;
+}
+
+.dash-card__resize-handle:hover,
+.dash-card__resize-handle:active {
+  opacity: 1;
+  transform: scale(1.15);
 }
 </style>

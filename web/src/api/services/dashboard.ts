@@ -21,7 +21,9 @@ export type WidgetType =
   | "recent_activity"
   | "team_workload"
   | "version_burndown"
-  | "module_distribution";
+  | "module_distribution"
+  | "dora"
+  | "project_compare";
 
 /** 仪表盘 Widget 实体（位置、尺寸、配置、显隐状态）。 */
 export interface DashboardWidget {
@@ -209,6 +211,18 @@ export interface UpdateWidgetInput {
   config?: Record<string, any>;
 }
 
+/** 多项目对比条目 — 需求完成率 + 缺陷数（workspace 级聚合）。 */
+export interface ProjectCompareItem {
+  project_id: number;
+  project_name: string;
+  identifier: string;
+  total_issues: number;
+  done_issues: number;
+  completion_rate: number;
+  defect_count: number;
+  active_sprint_count: number;
+}
+
 /* ------------------------------------------------------------------ */
 /* API calls                                                          */
 /* ------------------------------------------------------------------ */
@@ -283,5 +297,11 @@ export const dashboardApi = {
   listWorkspaceTemplates: (wsId: number | string) =>
     wrap<DashboardTemplate[]>(
       apiClient.get(`/workspaces/${wsId}/dashboard/templates`),
+    ),
+
+  /** 多项目对比（workspace 级聚合）— 各项目需求完成率 + 缺陷数 */
+  getProjectCompare: (wsId: number | string) =>
+    wrap<ProjectCompareItem[]>(
+      apiClient.get(`/workspaces/${wsId}/dashboard/project-compare`),
     ),
 };

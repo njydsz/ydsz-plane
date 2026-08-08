@@ -376,6 +376,7 @@ func run() error {
 		Auth:            authSvc,
 		PrincipalParser: parsePrincipal,
 		WorkspaceStore:  wsStore,
+		RBACStore:       rbacStore,
 		IssueHandler:    issueHandler,
 	})
 
@@ -418,6 +419,7 @@ func run() error {
 		Auth:            authSvc,
 		PrincipalParser: parsePrincipal,
 		WorkspaceStore:  wsStore,
+		RBACStore:       rbacStore,
 		PagesHandler:    pagesHandler,
 	})
 
@@ -426,6 +428,7 @@ func run() error {
 		Auth:            authSvc,
 		PrincipalParser: parsePrincipal,
 		WorkspaceStore:  wsStore,
+		RBACStore:       rbacStore,
 		SearchHandler:   searchHandler,
 	})
 
@@ -442,6 +445,7 @@ func run() error {
 		Auth:             authSvc,
 		PrincipalParser:  parsePrincipal,
 		WorkspaceStore:   wsStore,
+		RBACStore:        rbacStore,
 		DashboardHandler: dashboardHandler,
 	})
 
@@ -450,6 +454,7 @@ func run() error {
 		Auth:                authSvc,
 		PrincipalParser:     parsePrincipal,
 		WorkspaceStore:      wsStore,
+		RBACStore:           rbacStore,
 		NotificationHandler: notifHandler,
 	})
 
@@ -458,6 +463,7 @@ func run() error {
 		Auth:              authSvc,
 		PrincipalParser:   parsePrincipal,
 		WorkspaceStore:    wsStore,
+		RBACStore:         rbacStore,
 		AttachmentHandler: attHandler,
 	})
 
@@ -466,6 +472,7 @@ func run() error {
 		Auth:                   authSvc,
 		PrincipalParser:        parsePrincipal,
 		WorkspaceStore:         wsStore,
+		RBACStore:              rbacStore,
 		DefectAnalyticsHandler: defectAnalyticsHandler,
 	})
 
@@ -482,6 +489,7 @@ func run() error {
 		Auth:            authSvc,
 		PrincipalParser: parsePrincipal,
 		WorkspaceStore:  wsStore,
+		RBACStore:       rbacStore,
 		WebhookHandler:  webhookHandler,
 	})
 
@@ -490,6 +498,7 @@ func run() error {
 		Auth:            authSvc,
 		PrincipalParser: parsePrincipal,
 		WorkspaceStore:  wsStore,
+		RBACStore:       rbacStore,
 		IntakeHandler:   intakeHandler,
 	})
 
@@ -524,6 +533,7 @@ func run() error {
 		Auth:              authSvc,
 		PrincipalParser:   parsePrincipal,
 		WorkspaceStore:    wsStore,
+		RBACStore:         rbacStore,
 		AutomationHandler: automationHandler,
 	})
 
@@ -532,6 +542,7 @@ func run() error {
 		Auth:            authSvc,
 		PrincipalParser: parsePrincipal,
 		WorkspaceStore:  wsStore,
+		RBACStore:       rbacStore,
 		MetricsHandler:  metricsHandler,
 	})
 
@@ -540,6 +551,7 @@ func run() error {
 		Auth:            authSvc,
 		PrincipalParser: parsePrincipal,
 		WorkspaceStore:  wsStore,
+		RBACStore:       rbacStore,
 		AiHandler:       aiHandler,
 	})
 

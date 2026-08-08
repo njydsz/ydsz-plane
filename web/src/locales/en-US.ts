@@ -496,6 +496,21 @@ export default {
     goBack: "Go back",
   },
 
+  menu: {
+    dashboard: "Dashboard",
+    myIssues: "My Issues",
+    projects: "Projects",
+    sprints: "Sprints",
+    versions: "Versions",
+    analytics: "Analytics",
+    automation: "Automation",
+    audit: "Audit Logs",
+    intake: "Intake",
+    webhooks: "Webhooks",
+    members: "Members",
+    settings: "Workspace Settings",
+  },
+
   validation: {
     required: "{field} is required",
     email: "Please enter a valid email address",

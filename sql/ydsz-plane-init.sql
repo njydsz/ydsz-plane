@@ -4054,7 +4054,7 @@ EXECUTE PROCEDURE "public"."set_updated_at"();
 -- ----------------------------
 -- Checks structure for table dashboard_widgets
 -- ----------------------------
-ALTER TABLE "public"."dashboard_widgets" ADD CONSTRAINT "dashboard_widgets_widget_type_check" CHECK (widget_type = ANY (ARRAY['progress_overview'::text, 'burndown'::text, 'velocity'::text, 'priority_split'::text, 'state_distribution'::text, 'overdue_list'::text, 'blocked_list'::text, 'risk_alert'::text, 'recent_activity'::text, 'team_workload'::text]));
+ALTER TABLE "public"."dashboard_widgets" ADD CONSTRAINT "dashboard_widgets_widget_type_check" CHECK (widget_type = ANY (ARRAY['progress_overview'::text, 'burndown'::text, 'velocity'::text, 'priority_split'::text, 'state_distribution'::text, 'overdue_list'::text, 'blocked_list'::text, 'risk_alert'::text, 'recent_activity'::text, 'team_workload'::text, 'version_burndown'::text, 'module_distribution'::text, 'dora'::text, 'project_compare'::text]));
 
 -- ----------------------------
 -- Primary Key structure for table dashboard_widgets

@@ -81,6 +81,42 @@ const levelLabels: Record<string, string> = {
   low: "低",
 };
 
+/** DORA 四指标展示行（标签 + 值 + 单位 + 等级）。 */
+const doraMetrics = computed(() => {
+  const d = dora.value;
+  if (!d) return null;
+  return [
+    {
+      key: "deployment_frequency",
+      label: "部署频率",
+      value: d.deployment_freq_per_day,
+      unit: "次/天",
+      level: d.performance_level,
+    },
+    {
+      key: "lead_time_for_changes",
+      label: "变更前置时间",
+      value: d.lead_time_for_changes_hours,
+      unit: "小时",
+      level: d.performance_level,
+    },
+    {
+      key: "mean_time_to_restore",
+      label: "故障恢复时间",
+      value: d.mttr_hours,
+      unit: "小时",
+      level: d.performance_level,
+    },
+    {
+      key: "change_failure_rate",
+      label: "变更失败率",
+      value: (d.change_failure_rate * 100).toFixed(1),
+      unit: "%",
+      level: d.performance_level,
+    },
+  ];
+});
+
 // --------
 async function load() {
   loading.value = true;
@@ -293,29 +329,15 @@ const throughputOption = computed<EChartsOption>(() => {
 
     <!-- DORA 四指标 -->
     <template v-else>
-      <section v-if="dora" class="card-grid card-grid--dora">
+      <section v-if="doraMetrics" class="card-grid card-grid--dora">
       <AppCard
-        v-for="(metric, key) in {
-          deployment_frequency: dora.deployment_frequency,
-          lead_time_for_changes: dora.lead_time_for_changes,
-          mean_time_to_restore: dora.mean_time_to_restore,
-          change_failure_rate: dora.change_failure_rate,
-        }"
-        :key="key"
+        v-for="(metric, index) in doraMetrics"
+        :key="metric.key + index"
         class="metric-card"
         padding="sm"
       >
         <div class="metric-card__header">
-          <span class="metric-card__title">
-            {{
-              {
-                deployment_frequency: "部署频率",
-                lead_time_for_changes: "变更前置时间",
-                mean_time_to_restore: "故障恢复时间",
-                change_failure_rate: "变更失败率",
-              }[key]
-            }}
-          </span>
+          <span class="metric-card__title">{{ metric.label }}</span>
           <AppBadge :variant="levelVariant[metric.level]">
             {{ levelLabels[metric.level] }}
           </AppBadge>

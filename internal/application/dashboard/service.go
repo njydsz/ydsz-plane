@@ -4,6 +4,7 @@ package dashboard
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -473,6 +474,51 @@ func (s *Service) getVelocity(ctx context.Context, projectID int64) (any, error)
 	return &w, nil
 }
 
+// --- Workspace 级聚合: 多项目对比 ---
+
+// GetProjectCompare 返回工作空间下所有项目的需求完成率 / 缺陷数对比数据。
+func (s *Service) GetProjectCompare(ctx context.Context, wsID int64) ([]ProjectCompareItem, error) {
+	rows, err := s.db.Query(ctx, `
+		SELECT p.id, p.name, p.identifier,
+		       count(i.id) FILTER (WHERE i.type_code = 'requirement' AND i.deleted_at IS NULL) AS total_req,
+		       count(i.id) FILTER (WHERE i.type_code = 'requirement'
+		           AND sg."group" = 'completed' AND i.deleted_at IS NULL) AS done_req,
+		       count(i.id) FILTER (WHERE i.type_code = 'defect' AND i.deleted_at IS NULL) AS defects,
+		       count(DISTINCT sp.id) FILTER (WHERE sp.status = 'active' AND sp.deleted_at IS NULL) AS active_sprints
+		FROM projects p
+		LEFT JOIN issues i ON i.project_id = p.id
+		LEFT JOIN states sg ON sg.id = i.state_id
+		LEFT JOIN sprints sp ON sp.project_id = p.id
+		WHERE p.workspace_id = $1 AND p.deleted_at IS NULL
+		GROUP BY p.id, p.name, p.identifier
+		ORDER BY p.sort_order ASC, p.id ASC`,
+		wsID)
+	if err != nil {
+		return nil, errs.ErrInternal.Wrap(err)
+	}
+	defer rows.Close()
+
+	items := []ProjectCompareItem{}
+	for rows.Next() {
+		var it ProjectCompareItem
+		var totalReq, doneReq int
+		if err := rows.Scan(&it.ProjectID, &it.ProjectName, &it.Identifier,
+			&totalReq, &doneReq, &it.DefectCount, &it.ActiveSprintCount); err != nil {
+			return nil, errs.ErrInternal.Wrap(err)
+		}
+		it.TotalIssues = totalReq
+		it.DoneIssues = doneReq
+		if totalReq > 0 {
+			it.CompletionRate = float64(doneReq) / float64(totalReq)
+		}
+		items = append(items, it)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, errs.ErrInternal.Wrap(err)
+	}
+	return items, nil
+}
+
 // --- Risk Alerts ---
 
 // getActiveAlerts 获取未解决风险告警。
@@ -579,6 +625,56 @@ func (s *Service) SaveWidget(ctx context.Context, in SaveWidgetInput) (*Dashboar
 		&w.Config, &w.IsVisible, &w.SortOrder, &w.UserID,
 		&w.CreatedAt, &w.UpdatedAt)
 	if err != nil {
+		return nil, errs.ErrInternal.Wrap(err)
+	}
+	return &w, nil
+}
+
+// UpdateWidget 更新 widget 的网格位置 / 尺寸 / 配置 / 标题。
+// 仅更新请求中显式提供的字段（指针 nil 表示不修改）。
+func (s *Service) UpdateWidget(ctx context.Context, in UpdateWidgetInput) (*DashboardWidget, error) {
+	// 校验网格边界（0-11 列网格，宽度/高度 >= 1）
+	if in.GridX != nil && (*in.GridX < 0 || *in.GridX >= 12) {
+		return nil, errs.ErrValidation.WithDetails(errs.FieldDetail{Field: "grid_x", Reason: "必须在 0-11 之间"})
+	}
+	if in.GridY != nil && *in.GridY < 0 {
+		return nil, errs.ErrValidation.WithDetails(errs.FieldDetail{Field: "grid_y", Reason: "不能为负数"})
+	}
+	if in.GridW != nil && (*in.GridW < 1 || *in.GridW > 12) {
+		return nil, errs.ErrValidation.WithDetails(errs.FieldDetail{Field: "grid_w", Reason: "必须在 1-12 之间"})
+	}
+	if in.GridH != nil && *in.GridH < 1 {
+		return nil, errs.ErrValidation.WithDetails(errs.FieldDetail{Field: "grid_h", Reason: "不能小于 1"})
+	}
+
+	var cfgJSON []byte
+	if in.Config != nil {
+		cfgJSON, _ = json.Marshal(in.Config)
+	}
+
+	var w DashboardWidget
+	err := s.db.QueryRow(ctx, `
+		UPDATE dashboard_widgets SET
+			grid_x   = COALESCE($3, grid_x),
+			grid_y   = COALESCE($4, grid_y),
+			grid_w   = COALESCE($5, grid_w),
+			grid_h   = COALESCE($6, grid_h),
+			title    = COALESCE($7, title),
+			config   = CASE WHEN $8::jsonb IS NULL THEN config ELSE $8::jsonb END,
+			sort_order = CASE WHEN $4::int IS NULL THEN sort_order ELSE $4::int * 100 + grid_x END,
+			updated_at = now()
+		WHERE id = $1 AND project_id = $2
+		RETURNING id, project_id, widget_type, title, grid_x, grid_y, grid_w, grid_h,
+		          config, is_visible, sort_order, user_id, created_at, updated_at`,
+		in.WidgetID, in.ProjectID, in.GridX, in.GridY, in.GridW, in.GridH, in.Title, cfgJSON).Scan(
+		&w.ID, &w.ProjectID, &w.WidgetType, &w.Title,
+		&w.GridX, &w.GridY, &w.GridW, &w.GridH,
+		&w.Config, &w.IsVisible, &w.SortOrder, &w.UserID,
+		&w.CreatedAt, &w.UpdatedAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, errs.ErrNotFound
+		}
 		return nil, errs.ErrInternal.Wrap(err)
 	}
 	return &w, nil

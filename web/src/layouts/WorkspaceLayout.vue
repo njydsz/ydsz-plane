@@ -277,7 +277,7 @@ watch(
             exact-active-class="is-active"
           >
             <span class="nav-icon">▸</span>
-            <span v-if="!collapsed">{{ item.titleKey }}</span>
+            <span v-if="!collapsed">{{ $t(item.titleKey) }}</span>
           </router-link>
         </div>
 

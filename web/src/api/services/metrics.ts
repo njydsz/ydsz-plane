@@ -61,20 +61,19 @@ export interface QualityMetrics {
   period_days: number;
 }
 
-/** DORA 单指标（等级 + 值 + 单位）。 */
-export interface DORAMetric {
-  level: "elite" | "high" | "medium" | "low";
-  value: number;
-  unit: string;
-}
-
-/** DORA 四指标结果（部署频率 / 变更前置时间 / 故障恢复时间 / 变更失败率）。 */
+/** DORA 四指标结果 — 后端扁平结构（30 天窗口）。 */
 export interface DORAResult {
   project_id: number;
-  deployment_frequency: DORAMetric;
-  lead_time_for_changes: DORAMetric;
-  change_failure_rate: DORAMetric;
-  mean_time_to_restore: DORAMetric;
+  /** 部署频率: 每日部署次数 */
+  deployment_freq_per_day: number;
+  /** 变更前置时间: commit→deploy 中位数（小时） */
+  lead_time_for_changes_hours: number;
+  /** 变更失败率: 失败部署占比（0-1） */
+  change_failure_rate: number;
+  /** 故障恢复时间: 故障→恢复中位时长（小时） */
+  mttr_hours: number;
+  /** 综合效能等级: elite / high / medium / low */
+  performance_level: string;
 }
 
 /** 资源负载结果 — 当前 WIP / 已启动工作项数。 */
