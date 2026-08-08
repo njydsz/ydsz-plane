@@ -459,6 +459,7 @@ GET  /api/v1/invitations/:token            邀请预览（公开）
 | 15 | [发布管理](docs/architecture/15-发布管理.md) | 版本规范、分支保护、发布门禁 |
 | 16 | [依赖安全治理](docs/architecture/16-依赖安全治理.md) | govulncheck、npm audit、漏洞响应 |
 | 17 | [性能基线与压测](docs/architecture/17-性能基线.md) | 性能目标、k6 脚本、基线回归 |
+| 18 | [开发者实现参考手册](docs/architecture/18-开发者实现参考手册.md) | 代码→文档可追溯、全量服务/视图路由清单 |
 
 ## 路线图
 

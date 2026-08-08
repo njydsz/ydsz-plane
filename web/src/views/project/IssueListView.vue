@@ -9,11 +9,13 @@ import { useRoute } from "vue-router";
 import { type IssueType, type IssuePriority, type ListIssuesParams, type State, issueApi } from "@/api/services/issue";
 import { workspaceApi, type Member } from "@/api/services/workspace";
 import { preferenceApi } from "@/api/services/preference";
+import type { SavedView } from "@/api/services/preference";
 import { useIssueStore } from "@/stores/issue";
 import { usePeekStore } from "@/stores/peek";
 import { prefs } from "@/lib/prefs";
 import { toast } from "@/lib/toast";
 import IssueFilter from "./IssueFilter.vue";
+import ViewsManager from "./ViewsManager.vue";
 import { AppErrorState, AppEmptyState, InlineEdit, InlineSelectEdit, AppSkeleton } from "@/components";
 import { type FilterState, filterToListParams } from "@/lib/filter-adapter";
 
@@ -36,6 +38,51 @@ const error = ref("");
 
 // 排序（服务端）
 const sortField = ref<string>("-updated_at"); // 默认按更新时间倒序
+
+// ========== 命名视图 ==========
+const activeViewId = ref<number | null>(null);
+const showViewsDropdown = ref(false);
+const viewConfig = ref<Record<string, unknown>>({});
+
+/** 更新当前视图配置快照 */
+function captureViewConfig() {
+  viewConfig.value = {
+    filters: currentFilter.value,
+    sort: sortField.value,
+    columns: columnConfigs.value,
+  };
+}
+
+/** 加载命名视图的配置 */
+function onLoadView(view: SavedView) {
+  const cfg = view.config || {};
+  activeViewId.value = view.id;
+
+  // 应用过滤
+  if (cfg.filters) {
+    currentFilter.value = cfg.filters as FilterState;
+  }
+  // 应用排序
+  if (cfg.sort) {
+    sortField.value = cfg.sort as string;
+  }
+  // 应用列配置
+  if (cfg.columns && Array.isArray(cfg.columns)) {
+    columnConfigs.value = defaultColumns.map((def) => {
+      const savedCol = (cfg.columns as ColumnConfig[]).find((s) => s.key === def.key);
+      return savedCol ? { ...def, ...savedCol } : def;
+    });
+  }
+
+  page.value = 1;
+  load();
+  showViewsDropdown.value = false;
+}
+
+/** 保存当前视图前捕获配置 */
+function onSaveView() {
+  captureViewConfig();
+}
 
 // 分页
 const page = ref(1);
@@ -551,6 +598,25 @@ const isCurrentPageAllSelected = computed(() => {
         <p class="hint">共 {{ total }} 个工作项</p>
       </div>
       <div class="list-view__header-right">
+        <div class="view-dropdown">
+          <button
+            class="btn btn--sm btn--view"
+            @click="showViewsDropdown = !showViewsDropdown"
+          >
+            视图
+          </button>
+          <div v-if="showViewsDropdown" class="view-dropdown__panel">
+            <ViewsManager
+              :workspace-id="Number(route.params.workspaceId)"
+              :project-id="projectId"
+              view-type="list"
+              :current-config="viewConfig"
+              :active-view-id="activeViewId"
+              @load-view="onLoadView"
+              @save-view="onSaveView"
+            />
+          </div>
+        </div>
         <div class="export-dropdown" @mouseleave="showExportDropdown = false">
           <button
             class="btn btn--sm btn--export"
@@ -973,6 +1039,27 @@ const isCurrentPageAllSelected = computed(() => {
 .btn--active { background: var(--brand-100); color: var(--brand-600); border-color: var(--brand-200); }
 .btn--export { background: var(--success-500); color: var(--text-on-brand); text-decoration: none; border: none; font-size: 12px; }
 .btn--export:hover { background: var(--success-600); }
+.btn--view { background: var(--brand-500); color: var(--text-on-brand); text-decoration: none; border: none; font-size: 12px; }
+.btn--view:hover { background: var(--brand-600); }
+
+/* 视图下拉面板 */
+.view-dropdown {
+  position: relative;
+}
+.view-dropdown__panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  width: 300px;
+  max-height: 480px;
+  overflow-y: auto;
+  background: var(--surface-1);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-popover);
+  padding: 12px;
+  z-index: 200;
+}
 
 /* 导出下拉菜单 */
 .export-dropdown { position: relative; }

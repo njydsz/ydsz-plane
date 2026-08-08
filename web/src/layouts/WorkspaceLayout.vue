@@ -77,9 +77,13 @@ function roleLabel(role?: string): string {
   return map[role ?? ""] ?? "";
 }
 
-/** 过滤后的侧边栏主菜单（不含项目内子菜单） */
+/** 过滤后的侧边栏主菜单：权限 + 项目模块开关过滤 */
 const visibleMainMenu = computed(() =>
-  WORKSPACE_MENU.filter((item) => wsStore.canSeeMenu(item)),
+  WORKSPACE_MENU.filter((item) => {
+    if (!wsStore.canSeeMenu(item)) return false;
+    if (item.moduleKey && !wsStore.isProjectModuleEnabled(item.moduleKey)) return false;
+    return true;
+  }),
 );
 
 /* ===== 初始化与 WebSocket ===== */
@@ -116,7 +120,7 @@ watch(
   (id) => {
     wsClient.disconnect();
     favoritesStore.setWorkspace(id ?? null);
-    if (id != null) {
+    if (id) {
       wsClient.connect(id, auth.user?.id);
       wsClient.on("notification.created", handleNotification);
       wsClient.on("notification.updated", handleNotification);

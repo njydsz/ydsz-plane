@@ -137,6 +137,9 @@ func (s *Store) RoleHasPermission(ctx context.Context, roleSlug, perm string) (b
 
 // ResolveMembership 返回用户在指定 workspace 的角色与权限列表。
 func (s *Store) ResolveMembership(ctx context.Context, wsID, userID int64) (Role, []string, error) {
+	if wsID <= 0 || userID <= 0 {
+		return Role{}, nil, errs.ErrForbidden
+	}
 	var roleSlug string
 	err := s.db.QueryRow(ctx, `
 		SELECT role FROM workspace_members

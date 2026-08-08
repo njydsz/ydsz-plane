@@ -27,10 +27,11 @@ import (
 
 // RequireWorkspaceParam 是一个便利中间件：把路径 :workspace_id 解析成 int64
 // 并写入 ctx (CtxWorkspaceID)。解析失败直接 422。
+// workspace_id <= 0 同样视为无效（防止因路由缺失参数导致零值穿透到下游 SQL 查询）。
 func RequireWorkspaceParam() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id, ok := parseBigInt(c.Param("workspace_id"))
-		if !ok {
+		if !ok || id <= 0 {
 			respondError(c, errs.ErrValidation.WithDetails(errs.FieldDetail{
 				Field: "workspace_id", Reason: "无效的工作空间 ID",
 			}))
@@ -167,13 +168,13 @@ func RequirePermissionFromDB(rbacStore *rbac.Store, perm string) gin.HandlerFunc
 }
 
 // RequireProjectParam 把路径 :project_id 解析成 int64 并写入 ctx (CtxProjectID)。
-// 解析失败直接 422。
+// 解析失败直接 422；project_id <= 0 同样视为无效。
 //
 // 注意：必须嵌套在 RequireWorkspaceParam 之后的子路由，因为项目是工作空间下的二级资源。
 func RequireProjectParam() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id, ok := parseBigInt(c.Param("project_id"))
-		if !ok {
+		if !ok || id <= 0 {
 			respondError(c, errs.ErrValidation.WithDetails(errs.FieldDetail{
 				Field: "project_id", Reason: "无效的项目 ID",
 			}))

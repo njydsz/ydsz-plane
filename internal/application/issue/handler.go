@@ -39,6 +39,8 @@ type HandlerDeps struct {
 	Redis *redis.Client
 	// UserNameQuery 按用户 ID 查展示名（用于通知 actor 文案；nil 时回退 "用户"）
 	UserNameQuery func(ctx context.Context, userID int64) string
+	// ImportSvc 工作项批量导入服务
+	ImportSvc *ImportService
 }
 
 // IssueHandler Gin handler 集合。
@@ -62,6 +64,7 @@ func (h *IssueHandler) Register(r *gin.RouterGroup, wsMiddleware []gin.HandlerFu
 	r.GET("/states", h.listStates)
 	r.GET("/issues", h.listIssues)
 	r.POST("/issues", h.createIssue)
+	r.POST("/issues/import", h.importIssues)
 	r.POST("/issues/batch", h.batchIssues)
 	r.GET("/issues/export", h.exportIssues)
 	r.GET("/issues/trash", h.listTrash)
@@ -702,6 +705,59 @@ func (h *IssueHandler) exportIssues(c *gin.Context) {
 	}
 	w.Flush()
 }
+
+// importIssues 从 CSV 文件批量导入工作项。
+//
+//	@Summary		导入工作项
+//	@Description	上传 CSV 文件批量创建需求/任务/缺陷
+//	@Tags			issue
+//	@Accept			multipart/form-data
+//	@Produce		json
+//	@Param			file	formData	file	true	"CSV 文件"
+//	@Success		200		{object}	ImportResult
+//	@Failure		422		{object}	errs.AppError
+//	@Router			/issues/import [post]
+func (h *IssueHandler) importIssues(c *gin.Context) {
+	wsID := c.GetInt64(middleware.CtxWorkspaceID)
+	projectID := c.GetInt64(middleware.CtxProjectID)
+	userID := c.GetInt64(middleware.CtxUserID)
+
+	if h.d.ImportSvc == nil {
+		writeErr(c, errs.ErrNotImplemented.WithDetails(
+			errs.FieldDetail{Field: "service", Reason: "导入服务未启用"},
+		))
+		return
+	}
+
+	// 接收上传文件
+	file, err := c.FormFile("file")
+	if err != nil {
+		writeErr(c, errs.ErrValidation.WithDetails(
+			errs.FieldDetail{Field: "file", Reason: "请上传 CSV 文件"},
+		))
+		return
+	}
+
+	// 仅支持 CSV
+	if !strings.HasSuffix(strings.ToLower(file.Filename), ".csv") {
+		writeErr(c, errs.ErrValidation.WithDetails(
+			errs.FieldDetail{Field: "file", Reason: "仅支持 CSV 格式（.csv 文件）"},
+		))
+		return
+	}
+
+	f, err := file.Open()
+	if err != nil {
+		writeErr(c, errs.ErrInternal.Wrap(err))
+		return
+	}
+	defer f.Close()
+
+	result := h.d.ImportSvc.Import(c.Request.Context(), wsID, projectID, userID, f)
+	c.JSON(http.StatusOK, result)
+}
+
+// --- import handler end ---
 
 // xlsxTemplate 是 OOXML 最小化模板，用于纯标准库生成 .xlsx。
 // 参考 ECMA-376 第 4 版 SpreadsheetML 规范。

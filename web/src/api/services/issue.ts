@@ -253,6 +253,22 @@ export interface ListIssuesParams {
   fix_version_id?: number;
 }
 
+/** 批量导入结果 */
+export interface ImportResult {
+  total: number;
+  succeeded: number;
+  skipped: number;
+  failed: number;
+  errors: ImportError[];
+}
+
+/** 单行导入错误 */
+export interface ImportError {
+  row: number;
+  field: string;
+  message: string;
+}
+
 /* ------------------------------------------------------------------ */
 /* API calls                                                          */
 /* ------------------------------------------------------------------ */
@@ -320,6 +336,17 @@ export const issueApi = {
     if (format) qs.set("format", format);
     const q = qs.toString();
     return `/api/v1/workspaces/${wsId}/projects/${projectId}/issues/export${q ? "?" + q : ""}`;
+  },
+
+  // --- 导入 CSV ---
+  importIssues: (wsId: number, projectId: number, file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    return wrap<ImportResult>(
+      http.post(`/workspaces/${wsId}/projects/${projectId}/issues/import`, form, {
+        headers: { "Content-Type": "multipart/form-data" },
+      }),
+    );
   },
 
   // --- 活动日志 ---

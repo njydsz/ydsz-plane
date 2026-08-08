@@ -112,6 +112,7 @@ func run() error {
 	wsSvc := workspace.NewService(pool.Pool)
 	memberSvc := workspace.NewMemberService(pool.Pool)
 	projectSvc := workspace.NewProjectService(pool.Pool)
+	projectMemberSvc := workspace.NewProjectMemberService(pool.Pool)
 	apiTokenSvc := apitoken.NewService(pool.Pool)
 
 	// 复合认证解析器：先试会话 JWT，失败后尝试个人 API Token（ydz_ 前缀）。
@@ -260,6 +261,13 @@ func run() error {
 	prefSvc := preference.NewService(pool.Pool)
 	prefHandler := preference.NewHandler(prefSvc)
 
+	// ---------- Saved Views ----------
+	viewSvc := preference.NewViewService(pool.Pool)
+	if err := viewSvc.EnsureSchema(ctx); err != nil {
+		log.Warn("view: schema ensure failed (will retry on next restart)", zap.Error(err))
+	}
+	viewHandler := preference.NewViewHandler(viewSvc)
+
 	// ---------- Pages (文档页面) ----------
 	pagesSvc := pages.NewService(pool.Pool)
 	pagesHandler := pages.NewHandler(pagesSvc)
@@ -316,6 +324,7 @@ func run() error {
 		MemberSvc:       memberSvc,
 		InvitationSvc:   invitationSvc,
 		ProjectSvc:      projectSvc,
+		ProjectMemberSvc: projectMemberSvc,
 		TemplateSvc:     templateSvc,
 		ProjectInitSvc:  projectInitSvc,
 		AuditSvc:        auditSvc,
@@ -389,6 +398,16 @@ func run() error {
 		PrincipalParser: parsePrincipal,
 		WorkspaceStore:  wsStore,
 		PrefHandler:     prefHandler,
+		RBACStore:       rbacStore,
+	})
+
+	// 注册命名视图管理路由（项目级）
+	httpapi.RegisterViewRoutes(engine, &httpapi.Deps{
+		Auth:            authSvc,
+		PrincipalParser: parsePrincipal,
+		WorkspaceStore:  wsStore,
+		ViewHandler:     viewHandler,
+		RBACStore:       rbacStore,
 	})
 
 	// 注册页面路由（项目级）

@@ -134,20 +134,34 @@ func (s *ProjectService) Create(ctx context.Context, in ProjectCreateInput) (*Pr
 	}
 
 	var p Project
-	err := s.db.QueryRow(ctx, `
-		INSERT INTO projects (workspace_id, name, slug, identifier, description, network, icon, color, template, modules, created_by)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-		RETURNING id, workspace_id, name, slug, identifier, description, network, icon, color, template, status, sort_order, modules, created_by, created_at, updated_at`,
-		in.WorkspaceID, in.Name, slug, identifier, in.Description, in.Network, in.Icon, in.Color, in.Template, sModules, in.CreatedBy).
-		Scan(&p.ID, &p.WorkspaceID, &p.Name, &p.Slug, &p.Identifier, &p.Description,
-			&p.Network, &p.Icon, &p.Color, &p.Template, &p.Status, &p.SortOrder, &p.Modules, &p.CreatedBy, &p.CreatedAt, &p.UpdatedAt)
-	if err != nil {
-		if strings.Contains(err.Error(), "projects_workspace_id_slug") ||
-			strings.Contains(err.Error(), "projects_workspace_id_identifier") {
-			return nil, errs.New("PROJECT.DUPLICATE", "项目链接标识或前缀已存在", 409)
+	err := pgx.BeginTxFunc(ctx, s.db, pgx.TxOptions{}, func(tx pgx.Tx) error {
+		if err := tx.QueryRow(ctx, `
+			INSERT INTO projects (workspace_id, name, slug, identifier, description, network, icon, color, template, modules, created_by)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+			RETURNING id, workspace_id, name, slug, identifier, description, network, icon, color, template, status, sort_order, modules, created_by, created_at, updated_at`,
+			in.WorkspaceID, in.Name, slug, identifier, in.Description, in.Network, in.Icon, in.Color, in.Template, sModules, in.CreatedBy).
+			Scan(&p.ID, &p.WorkspaceID, &p.Name, &p.Slug, &p.Identifier, &p.Description,
+				&p.Network, &p.Icon, &p.Color, &p.Template, &p.Status, &p.SortOrder, &p.Modules, &p.CreatedBy, &p.CreatedAt, &p.UpdatedAt); err != nil {
+			if strings.Contains(err.Error(), "projects_workspace_id_slug") ||
+				strings.Contains(err.Error(), "projects_workspace_id_identifier") {
+				return errs.New("PROJECT.DUPLICATE", "项目链接标识或前缀已存在", 409)
+			}
+			return errs.ErrInternal.Wrap(err)
 		}
-		return nil, errs.ErrInternal.Wrap(err)
+		// 创建者自动加入为项目 admin
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO project_members (workspace_id, project_id, user_id, role, created_by)
+			VALUES ($1, $2, $3, 'admin', $3)
+			ON CONFLICT (workspace_id, project_id, user_id) DO UPDATE SET role = 'admin'`,
+			in.WorkspaceID, p.ID, in.CreatedBy); err != nil {
+			return errs.ErrInternal.Wrap(err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
+
 	// 创建默认风险规则（失败不阻塞项目创建）
 	go EnsureProjectDefaultRiskRules(context.Background(), s.db, in.WorkspaceID, p.ID)
 	return &p, nil

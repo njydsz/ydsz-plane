@@ -2876,6 +2876,39 @@ INSERT INTO "public"."workspace_members" VALUES (3, 1, 'owner', '2026-07-09 00:0
 INSERT INTO "public"."workspace_members" VALUES (3, 3, 'admin', '2026-07-09 00:01:22.127884+08');
 
 -- ----------------------------
+-- Table structure for project_members
+-- ----------------------------
+DROP TABLE IF EXISTS "public"."project_members";
+CREATE TABLE "public"."project_members" (
+  "id" int8 NOT NULL GENERATED ALWAYS AS IDENTITY (
+INCREMENT 1
+MINVALUE  1
+MAXVALUE 9223372036854775807
+START 1
+CACHE 1
+),
+  "workspace_id" int8 NOT NULL,
+  "project_id" int8 NOT NULL,
+  "user_id" int8 NOT NULL,
+  "role" text COLLATE "pg_catalog"."default" NOT NULL DEFAULT 'member'::text,
+  "joined_at" timestamptz(6) NOT NULL DEFAULT now(),
+  "created_by" int8,
+  "created_at" timestamptz(6) NOT NULL DEFAULT now(),
+  "updated_at" timestamptz(6) NOT NULL DEFAULT now()
+)
+;
+COMMENT ON TABLE public.project_members IS '项目成员表（user↔project 多对多，含 admin/member 角色；workspace_members 的子集）';
+COMMENT ON COLUMN public.project_members.id IS '主键 ID';
+COMMENT ON COLUMN public.project_members.workspace_id IS '工作空间 FK';
+COMMENT ON COLUMN public.project_members.project_id IS '项目 FK';
+COMMENT ON COLUMN public.project_members.user_id IS '用户 FK';
+COMMENT ON COLUMN public.project_members.role IS '项目级角色: admin / member；admin 可管理项目成员与设置';
+COMMENT ON COLUMN public.project_members.joined_at IS '加入时间';
+COMMENT ON COLUMN public.project_members.created_by IS '添加人 FK';
+COMMENT ON COLUMN public.project_members.created_at IS '创建时间';
+COMMENT ON COLUMN public.project_members.updated_at IS '修改时间（触发器自动维护）';
+
+-- ----------------------------
 -- Table structure for workspaces
 -- ----------------------------
 DROP TABLE IF EXISTS "public"."workspaces";
@@ -4824,9 +4857,33 @@ ALTER TABLE "public"."projects" ADD CONSTRAINT "projects_status_check" CHECK (st
 ALTER TABLE "public"."projects" ADD CONSTRAINT "projects_template_check" CHECK (template = ANY (ARRAY['agile'::text, 'waterfall'::text, 'generic'::text]));
 
 -- ----------------------------
+-- Checks structure for table project_members
+-- ----------------------------
+ALTER TABLE "public"."project_members" ADD CONSTRAINT "project_members_role_check" CHECK (role = ANY (ARRAY['admin'::text, 'member'::text]));
+ALTER TABLE "public"."project_members" ADD CONSTRAINT "project_members_uniq" UNIQUE ("workspace_id", "project_id", "user_id");
+
+-- ----------------------------
 -- Primary Key structure for table projects
 -- ----------------------------
 ALTER TABLE "public"."projects" ADD CONSTRAINT "projects_pkey" PRIMARY KEY ("id");
+
+-- ----------------------------
+-- Primary Key structure for table project_members
+-- ----------------------------
+ALTER TABLE "public"."project_members" ADD CONSTRAINT "project_members_pkey" PRIMARY KEY ("id");
+
+-- ----------------------------
+-- Indexes structure for table project_members
+-- ----------------------------
+CREATE INDEX "idx_project_members_project" ON "public"."project_members" USING btree (
+  "workspace_id" "pg_catalog"."int8_ops" ASC NULLS LAST,
+  "project_id" "pg_catalog"."int8_ops" ASC NULLS LAST
+);
+COMMENT ON INDEX public.idx_project_members_project IS '按工作空间+项目查询成员列表';
+CREATE INDEX "idx_project_members_user" ON "public"."project_members" USING btree (
+  "user_id" "pg_catalog"."int8_ops" ASC NULLS LAST
+);
+COMMENT ON INDEX public.idx_project_members_user IS '按用户查询其参与的项目';
 
 -- ----------------------------
 -- Auto increment value for recent_items
@@ -5771,6 +5828,14 @@ ALTER TABLE "public"."project_sequences" ADD CONSTRAINT "project_sequences_proje
 -- ----------------------------
 ALTER TABLE "public"."projects" ADD CONSTRAINT "projects_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "public"."users" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
 ALTER TABLE "public"."projects" ADD CONSTRAINT "projects_workspace_id_fkey" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces" ("id") ON DELETE CASCADE ON UPDATE NO ACTION;
+
+-- ----------------------------
+-- Foreign Keys structure for table project_members
+-- ----------------------------
+ALTER TABLE "public"."project_members" ADD CONSTRAINT "project_members_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "public"."users" ("id") ON DELETE CASCADE ON UPDATE NO ACTION;
+ALTER TABLE "public"."project_members" ADD CONSTRAINT "project_members_project_id_fkey" FOREIGN KEY ("project_id") REFERENCES "public"."projects" ("id") ON DELETE CASCADE ON UPDATE NO ACTION;
+ALTER TABLE "public"."project_members" ADD CONSTRAINT "project_members_workspace_id_fkey" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces" ("id") ON DELETE CASCADE ON UPDATE NO ACTION;
+ALTER TABLE "public"."project_members" ADD CONSTRAINT "project_members_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "public"."users" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
 
 -- ----------------------------
 -- Foreign Keys structure for table recent_items

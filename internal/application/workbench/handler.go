@@ -35,6 +35,8 @@ func (h *WorkbenchHandler) Register(r *gin.RouterGroup) {
 	r.POST("/recent", h.RecordRecent)
 	r.GET("/templates", h.ListTemplates)
 	r.POST("/templates/apply", h.ApplyTemplate)
+	r.GET("/feed", h.GetFeed)
+	r.GET("/efficiency", h.GetEfficiency)
 }
 
 // GetSummary godoc
@@ -245,6 +247,60 @@ func (h *WorkbenchHandler) ApplyTemplate(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, cfg)
+}
+
+// GetFeed godoc
+//
+//	@Summary		获取关注动态流
+//	@Description	返回当前用户关注的（watched + 评论过的 + 被@提及的）工作项最新活动
+//	@Tags			workbench
+//	@Produce		json
+//	@Success		200	{array}		FeedItem
+//	@Router			/workbench/feed [get]
+func (h *WorkbenchHandler) GetFeed(c *gin.Context) {
+	wsID := c.GetInt64(middleware.CtxWorkspaceID)
+	projectID := c.GetInt64(middleware.CtxProjectID)
+	userID := c.GetInt64(middleware.CtxUserID)
+	limit := intQuery(c, "limit", 30)
+	offset := intQuery(c, "offset", 0)
+
+	var projID *int64
+	if projectID > 0 {
+		projID = &projectID
+	}
+
+	items, err := h.d.WorkbenchSvc.GetFeed(c.Request.Context(), wsID, userID, projID, limit, offset)
+	if err != nil {
+		writeErr(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, items)
+}
+
+// GetEfficiency godoc
+//
+//	@Summary		获取个人效率报告
+//	@Description	返回当前用户本周效率统计 + 近 4 周完成趋势
+//	@Tags			workbench
+//	@Produce		json
+//	@Success		200	{object}	EfficiencyReport
+//	@Router			/workbench/efficiency [get]
+func (h *WorkbenchHandler) GetEfficiency(c *gin.Context) {
+	wsID := c.GetInt64(middleware.CtxWorkspaceID)
+	projectID := c.GetInt64(middleware.CtxProjectID)
+	userID := c.GetInt64(middleware.CtxUserID)
+
+	var projID *int64
+	if projectID > 0 {
+		projID = &projectID
+	}
+
+	report, err := h.d.WorkbenchSvc.GetEfficiency(c.Request.Context(), wsID, userID, projID)
+	if err != nil {
+		writeErr(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, report)
 }
 
 // --- Helpers ---

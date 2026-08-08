@@ -453,6 +453,116 @@ func updateProject(d *Deps) gin.HandlerFunc {
 	}
 }
 
+// ==================================================================
+// 项目成员
+// ==================================================================
+
+// listProjectMembers 返回指定项目内的所有成员列表。
+func listProjectMembers(d *Deps) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		wsID := c.GetInt64(middleware.CtxWorkspaceID)
+		projectID, _ := strconv.ParseInt(c.Param("project_id"), 10, 64)
+		if projectID <= 0 {
+			middleware.AbortWithError(c, errs.ErrValidation.WithDetails(errs.FieldDetail{
+				Field: "project_id", Reason: "无效的项目 ID",
+			}))
+			return
+		}
+		members, err := d.ProjectMemberSvc.List(c.Request.Context(), wsID, projectID)
+		if err != nil {
+			writeError(c, err)
+			return
+		}
+		c.JSON(http.StatusOK, members)
+	}
+}
+
+// addProjectMember 将工作空间成员加入项目。
+func addProjectMember(d *Deps) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		wsID := c.GetInt64(middleware.CtxWorkspaceID)
+		projectID, _ := strconv.ParseInt(c.Param("project_id"), 10, 64)
+		adderID := c.GetInt64(middleware.CtxUserID)
+		if projectID <= 0 {
+			middleware.AbortWithError(c, errs.ErrValidation.WithDetails(errs.FieldDetail{
+				Field: "project_id", Reason: "无效的项目 ID",
+			}))
+			return
+		}
+		var req dto.AddProjectMemberRequest
+		if err := c.ShouldBindJSON(&req); err != nil {
+			middleware.AbortWithError(c, errs.ErrValidation.WithDetails(fieldDetails(err)...))
+			return
+		}
+		if err := d.ProjectMemberSvc.AddMember(c.Request.Context(), wsID, projectID, req.UserID, adderID, req.Role); err != nil {
+			writeError(c, err)
+			return
+		}
+		d.AuditSvc.RecordFromGin(c, wsID, "project_member.add", strconv.FormatInt(req.UserID, 10), map[string]any{
+			"project_id": projectID, "role": req.Role,
+		})
+		c.Status(http.StatusCreated)
+	}
+}
+
+// changeProjectMemberRole 修改项目成员角色。
+func changeProjectMemberRole(d *Deps) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		wsID := c.GetInt64(middleware.CtxWorkspaceID)
+		projectID, _ := strconv.ParseInt(c.Param("project_id"), 10, 64)
+		targetID, _ := strconv.ParseInt(c.Param("user_id"), 10, 64)
+		if projectID <= 0 {
+			middleware.AbortWithError(c, errs.ErrValidation.WithDetails(errs.FieldDetail{
+				Field: "project_id", Reason: "无效的项目 ID",
+			}))
+			return
+		}
+		var req dto.ChangeRoleRequest
+		if err := c.ShouldBindJSON(&req); err != nil {
+			middleware.AbortWithError(c, errs.ErrValidation.WithDetails(fieldDetails(err)...))
+			return
+		}
+		// 项目角色仅支持 admin / member
+		if req.Role != "admin" && req.Role != "member" {
+			middleware.AbortWithError(c, errs.ErrValidation.WithDetails(errs.FieldDetail{
+				Field: "role", Reason: "无效的项目角色",
+			}))
+			return
+		}
+		if err := d.ProjectMemberSvc.ChangeRole(c.Request.Context(), wsID, projectID, targetID, req.Role); err != nil {
+			writeError(c, err)
+			return
+		}
+		d.AuditSvc.RecordFromGin(c, wsID, "project_member.role_change", strconv.FormatInt(targetID, 10), map[string]any{
+			"project_id": projectID, "new_role": req.Role,
+		})
+		c.Status(http.StatusNoContent)
+	}
+}
+
+// removeProjectMember 从项目中移除成员。
+func removeProjectMember(d *Deps) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		wsID := c.GetInt64(middleware.CtxWorkspaceID)
+		projectID, _ := strconv.ParseInt(c.Param("project_id"), 10, 64)
+		targetID, _ := strconv.ParseInt(c.Param("user_id"), 10, 64)
+		if projectID <= 0 {
+			middleware.AbortWithError(c, errs.ErrValidation.WithDetails(errs.FieldDetail{
+				Field: "project_id", Reason: "无效的项目 ID",
+			}))
+			return
+		}
+		if err := d.ProjectMemberSvc.RemoveMember(c.Request.Context(), wsID, projectID, targetID); err != nil {
+			writeError(c, err)
+			return
+		}
+		d.AuditSvc.RecordFromGin(c, wsID, "project_member.remove", strconv.FormatInt(targetID, 10), map[string]any{
+			"project_id": projectID,
+		})
+		c.Status(http.StatusNoContent)
+	}
+}
+
 // archiveProject 归档指定项目，返回 204 并记录审计日志。
 func archiveProject(d *Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -463,6 +573,84 @@ func archiveProject(d *Deps) gin.HandlerFunc {
 			return
 		}
 		d.AuditSvc.RecordFromGin(c, wsID, "project.archive", strconv.FormatInt(projectID, 10), nil)
+		c.Status(http.StatusNoContent)
+	}
+}
+
+// ==================================================================
+// 项目成员管理
+// ==================================================================
+
+// listProjectMembers 返回项目的全部成员列表。
+func listProjectMembers(d *Deps) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		wsID := c.GetInt64(middleware.CtxWorkspaceID)
+		projectID, _ := strconv.ParseInt(c.Param("project_id"), 10, 64)
+		members, err := d.ProjectMemberSvc.List(c.Request.Context(), wsID, projectID)
+		if err != nil {
+			writeError(c, err)
+			return
+		}
+		c.JSON(http.StatusOK, members)
+	}
+}
+
+// addProjectMember 添加项目成员（将工作空间成员加入项目）。
+func addProjectMember(d *Deps) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		wsID := c.GetInt64(middleware.CtxWorkspaceID)
+		projectID, _ := strconv.ParseInt(c.Param("project_id"), 10, 64)
+		var req dto.AddProjectMemberRequest
+		if err := c.ShouldBindJSON(&req); err != nil {
+			middleware.AbortWithError(c, errs.ErrValidation.WithDetails(fieldDetails(err)...))
+			return
+		}
+		if err := d.ProjectMemberSvc.AddMember(c.Request.Context(), wsID, projectID, req.UserID, c.GetInt64(middleware.CtxUserID), req.Role); err != nil {
+			writeError(c, err)
+			return
+		}
+		d.AuditSvc.RecordFromGin(c, wsID, "project_member.add", strconv.FormatInt(projectID, 10), map[string]any{
+			"user_id": req.UserID, "role": req.Role,
+		})
+		c.Status(http.StatusNoContent)
+	}
+}
+
+// changeProjectMemberRole 变更项目成员角色。
+func changeProjectMemberRole(d *Deps) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		wsID := c.GetInt64(middleware.CtxWorkspaceID)
+		projectID, _ := strconv.ParseInt(c.Param("project_id"), 10, 64)
+		targetID, _ := strconv.ParseInt(c.Param("user_id"), 10, 64)
+		var req dto.ChangeRoleRequest
+		if err := c.ShouldBindJSON(&req); err != nil {
+			middleware.AbortWithError(c, errs.ErrValidation.WithDetails(fieldDetails(err)...))
+			return
+		}
+		if err := d.ProjectMemberSvc.ChangeRole(c.Request.Context(), wsID, projectID, targetID, req.Role); err != nil {
+			writeError(c, err)
+			return
+		}
+		d.AuditSvc.RecordFromGin(c, wsID, "project_member.role_change", strconv.FormatInt(projectID, 10), map[string]any{
+			"target_user": targetID, "new_role": req.Role,
+		})
+		c.Status(http.StatusNoContent)
+	}
+}
+
+// removeProjectMember 从项目中移除成员。
+func removeProjectMember(d *Deps) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		wsID := c.GetInt64(middleware.CtxWorkspaceID)
+		projectID, _ := strconv.ParseInt(c.Param("project_id"), 10, 64)
+		targetID, _ := strconv.ParseInt(c.Param("user_id"), 10, 64)
+		if err := d.ProjectMemberSvc.RemoveMember(c.Request.Context(), wsID, projectID, targetID); err != nil {
+			writeError(c, err)
+			return
+		}
+		d.AuditSvc.RecordFromGin(c, wsID, "project_member.remove", strconv.FormatInt(projectID, 10), map[string]any{
+			"target_user": targetID,
+		})
 		c.Status(http.StatusNoContent)
 	}
 }

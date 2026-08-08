@@ -62,6 +62,7 @@ type Deps struct {
 	MemberSvc       *workspace.MemberService
 	InvitationSvc   *workspace.InvitationService
 	ProjectSvc      *workspace.ProjectService
+	ProjectMemberSvc *workspace.ProjectMemberService
 	TemplateSvc     *workspace.TemplateService
 	ProjectInitSvc  *issue.ProjectInitService
 	AuditSvc        *workspace.AuditService
@@ -73,6 +74,7 @@ type Deps struct {
 	TimeLogSvc             *issue.TimeLogService
 	IssueHandler           *issue.IssueHandler
 	PrefHandler            *preference.Handler
+	ViewHandler            *preference.ViewHandler
 	PagesHandler           *pages.Handler
 	SearchHandler          *search.SearchHandler
 	SprintHandler          *sprint.Handler
@@ -129,6 +131,21 @@ func RegisterPreferenceRoutes(r *gin.Engine, d *Deps) {
 		middleware.RequirePermissionFromDB(d.RBACStore, auth.PermWorkspaceRead),
 	)
 	d.PrefHandler.Register(projects)
+}
+
+// RegisterViewRoutes 注册命名视图管理路由（项目级）。
+func RegisterViewRoutes(r *gin.Engine, d *Deps) {
+	if d.ViewHandler == nil {
+		return
+	}
+	projects := r.Group("/api/v1/workspaces/:workspace_id/projects/:project_id")
+	projects.Use(
+		middleware.RequireAuth(d.principalParser()),
+		middleware.RequireWorkspaceParam(),
+		middleware.RequireProjectParam(),
+		middleware.RequirePermissionFromDB(d.RBACStore, auth.PermWorkspaceRead),
+	)
+	d.ViewHandler.Register(projects)
 }
 
 // RegisterPagesRoutes 注册页面路由（项目级）。
@@ -232,6 +249,8 @@ func RegisterSearchRoutes(r *gin.Engine, d *Deps) {
 	wsWb.POST("/recent", d.WorkbenchHandler.RecordRecent)
 	wsWb.GET("/templates", d.WorkbenchHandler.ListTemplates)
 	wsWb.POST("/templates/apply", d.WorkbenchHandler.ApplyTemplate)
+	wsWb.GET("/feed", d.WorkbenchHandler.GetFeed)
+	wsWb.GET("/efficiency", d.WorkbenchHandler.GetEfficiency)
 }
 
 // RegisterWorkbenchRoutes 保留签名兼容（路由已在 RegisterSearchRoutes 中注册）。
@@ -547,6 +566,11 @@ func NewEngine(d *Deps) *gin.Engine {
 				ws.GET("/projects/:project_id", requireWsPermission(d, auth.PermWorkspaceRead), getProject(d))
 				ws.PATCH("/projects/:project_id", requireWsPermission(d, auth.PermProjectCreate), updateProject(d))
 				ws.DELETE("/projects/:project_id", requireWsPermission(d, auth.PermProjectDelete), archiveProject(d))
+				// 项目成员
+				ws.GET("/projects/:project_id/members", requireWsPermission(d, auth.PermWorkspaceRead), listProjectMembers(d))
+				ws.POST("/projects/:project_id/members", requireWsPermission(d, auth.PermMemberInvite), addProjectMember(d))
+				ws.PATCH("/projects/:project_id/members/:user_id", requireWsPermission(d, auth.PermMemberChangeRole), changeProjectMemberRole(d))
+				ws.DELETE("/projects/:project_id/members/:user_id", requireWsPermission(d, auth.PermMemberRemove), removeProjectMember(d))
 
 				// 项目模板（工作空间级只读，无需项目级 RBAC）
 				ws.GET("/templates", requireWsPermission(d, auth.PermProjectCreate), listProjectTemplates(d))

@@ -156,3 +156,35 @@ type ApplyTemplateInput struct {
 	UserID      int64
 	TemplateSlug string
 }
+
+// --- Feed / Efficiency ---
+
+// FeedItem 关注动态条目。
+type FeedItem struct {
+	ID         int64  `json:"id"`
+	IssueID    int64  `json:"issue_id"`
+	IssueName  string `json:"issue_name"`
+	Identifier string `json:"identifier"`
+	TypeCode   string `json:"type_code"`
+	Verb       string `json:"verb"`
+	Field      string `json:"field,omitempty"`
+	NewValue   string `json:"new_value,omitempty"`
+	ActorName  string `json:"actor_name"`
+	CreatedAt  string `json:"created_at"`
+}
+
+// EfficiencyReport 个人效率报告。
+type EfficiencyReport struct {
+	WeekPoints   int           `json:"week_points"`
+	WeekIssues   int           `json:"week_issues"`
+	WeekHours    float64       `json:"week_hours"`
+	OverdueCount int           `json:"overdue_count"`
+	WeeklyTrend  []WeeklyTrend `json:"weekly_trend"`
+}
+
+// WeeklyTrend 周度趋势数据点。
+type WeeklyTrend struct {
+	Week   string `json:"week"`
+	Count  int    `json:"count"`
+	Points int    `json:"points"`
+}

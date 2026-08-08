@@ -401,6 +401,159 @@ func (s *Service) ApplyTemplate(ctx context.Context, in ApplyTemplateInput) (*Wo
 	})
 }
 
+// --- Feed ---
+
+// GetFeed 获取关注动态流。
+// 合并: watched issues + 评论过的 issue + 被@提及的 issue 的活动记录。
+func (s *Service) GetFeed(ctx context.Context, wsID, userID int64, projectID *int64, limit, offset int) ([]FeedItem, error) {
+	if limit <= 0 {
+		limit = 30
+	}
+	if limit > 50 {
+		limit = 50
+	}
+	if offset < 0 {
+		offset = 0
+	}
+
+	args := []interface{}{wsID, userID}
+	argIdx := 3
+
+	projFilter := ""
+	if projectID != nil && *projectID > 0 {
+		projFilter = fmt.Sprintf(" AND ia.project_id = $%d", argIdx)
+		args = append(args, *projectID)
+		argIdx++
+	}
+
+	query := fmt.Sprintf(`
+		SELECT DISTINCT ON (ia.created_at, ia.id)
+			ia.id, ia.issue_id,
+			i.name AS issue_name,
+			i.identifier, i.type_code,
+			ia.verb, COALESCE(ia.field, '') AS field,
+			COALESCE(ia.new_value, '') AS new_value,
+			COALESCE(ia.actor_name, '') AS actor_name,
+			ia.created_at
+		FROM issue_activities ia
+		JOIN issues i ON i.id = ia.issue_id AND i.deleted_at IS NULL
+		WHERE ia.workspace_id = $1
+			AND (ia.actor_id IS NULL OR ia.actor_id != $2)
+			AND (
+				EXISTS (SELECT 1 FROM issue_watchers iw WHERE iw.issue_id = ia.issue_id AND iw.user_id = $2)
+				OR EXISTS (SELECT 1 FROM issue_comments ic WHERE ic.issue_id = ia.issue_id AND ic.created_by = $2)
+				OR EXISTS (SELECT 1 FROM issue_comments ic WHERE ic.issue_id = ia.issue_id AND $2 = ANY(ic.mentions))
+			)
+			%s
+		ORDER BY ia.created_at DESC, ia.id DESC
+		LIMIT $%d OFFSET $%d`, projFilter, argIdx, argIdx+1)
+
+	args = append(args, limit, offset)
+
+	rows, err := s.db.Query(ctx, query, args...)
+	if err != nil {
+		return nil, errs.ErrInternal.Wrap(err)
+	}
+	defer rows.Close()
+
+	var items []FeedItem
+	for rows.Next() {
+		var fi FeedItem
+		var createdAt time.Time
+		if err := rows.Scan(
+			&fi.ID, &fi.IssueID, &fi.IssueName, &fi.Identifier, &fi.TypeCode,
+			&fi.Verb, &fi.Field, &fi.NewValue, &fi.ActorName, &createdAt); err != nil {
+			return nil, errs.ErrInternal.Wrap(err)
+		}
+		fi.CreatedAt = createdAt.Format(time.RFC3339)
+		items = append(items, fi)
+	}
+	if items == nil {
+		items = []FeedItem{}
+	}
+	return items, rows.Err()
+}
+
+// --- Efficiency ---
+
+// GetEfficiency 获取个人效率报告。
+func (s *Service) GetEfficiency(ctx context.Context, wsID, userID int64, projectID *int64) (*EfficiencyReport, error) {
+	now := time.Now()
+	weekStart := weekStartDate(now)
+
+	var report EfficiencyReport
+
+	// 本周完成的工作项数量和 story points
+	if err := s.db.QueryRow(ctx, `
+		SELECT count(*)::int, COALESCE(sum(i.point), 0)::int
+		FROM issues i
+		JOIN states s ON s.id = i.state_id
+		WHERE s."group" = 'completed'
+			AND i.workspace_id = $1
+			AND i.deleted_at IS NULL
+			AND i.completed_at IS NOT NULL
+			AND i.completed_at::date >= $2
+			AND i.completed_at::date <= $3
+			AND EXISTS (SELECT 1 FROM issue_assignees ia WHERE ia.issue_id = i.id AND ia.user_id = $4)`,
+		wsID, weekStart, now, userID).Scan(&report.WeekIssues, &report.WeekPoints); err != nil {
+		return nil, errs.ErrInternal.Wrap(err)
+	}
+
+	// 本周记录的工时（分钟 → 小时）
+	var weekMinutes int
+	if err := s.db.QueryRow(ctx, `
+		SELECT COALESCE(sum(tl.duration_minutes), 0)::int
+		FROM time_logs tl
+		WHERE tl.workspace_id = $1
+			AND tl.user_id = $2
+			AND tl.spent_date >= $3
+			AND tl.spent_date <= $4
+			AND tl.deleted_at IS NULL`,
+		wsID, userID, weekStart, now).Scan(&weekMinutes); err != nil {
+		return nil, errs.ErrInternal.Wrap(err)
+	}
+	report.WeekHours = mathRound(float64(weekMinutes)/60.0, 1)
+
+	// 逾期数量
+	if err := s.db.QueryRow(ctx, `
+		SELECT count(*)::int FROM issues i
+		WHERE i.workspace_id = $1
+			AND i.deleted_at IS NULL
+			AND i.target_date IS NOT NULL
+			AND i.target_date < CURRENT_DATE
+			AND i.state_id NOT IN (SELECT id FROM states WHERE "group" IN ('completed','cancelled'))
+			AND EXISTS (SELECT 1 FROM issue_assignees ia WHERE ia.issue_id = i.id AND ia.user_id = $2)`,
+		wsID, userID).Scan(&report.OverdueCount); err != nil {
+		return nil, errs.ErrInternal.Wrap(err)
+	}
+
+	// 最近 4 周完成趋势
+	report.WeeklyTrend = make([]WeeklyTrend, 4)
+	for i := 0; i < 4; i++ {
+		weekLabel := fmt.Sprintf("W%d", 4-i)
+		ws := weekStartDate(now.AddDate(0, 0, -7*i))
+		we := ws.AddDate(0, 0, 6)
+		var count, points int
+		if err := s.db.QueryRow(ctx, `
+			SELECT count(*)::int, COALESCE(sum(i.point), 0)::int
+			FROM issues i
+			JOIN states s ON s.id = i.state_id
+			WHERE s."group" = 'completed'
+				AND i.workspace_id = $1
+				AND i.deleted_at IS NULL
+				AND i.completed_at IS NOT NULL
+				AND i.completed_at::date >= $2
+				AND i.completed_at::date <= $3
+				AND EXISTS (SELECT 1 FROM issue_assignees ia WHERE ia.issue_id = i.id AND ia.user_id = $4)`,
+			wsID, ws.Format("2006-01-02"), we.Format("2006-01-02"), userID).Scan(&count, &points); err != nil {
+			return nil, errs.ErrInternal.Wrap(err)
+		}
+		report.WeeklyTrend[i] = WeeklyTrend{Week: weekLabel, Count: count, Points: points}
+	}
+
+	return &report, nil
+}
+
 // --- Helpers ---
 
 func buildItemURL(itemType string, itemID int64, projectID int64) string {
@@ -415,4 +568,22 @@ func buildItemURL(itemType string, itemID int64, projectID int64) string {
 		return fmt.Sprintf("/projects/%d/board", itemID)
 	}
 	return ""
+}
+
+// weekStartDate 返回本周一的日期（ISO 周）。
+func weekStartDate(t time.Time) time.Time {
+	weekday := t.Weekday()
+	if weekday == time.Sunday {
+		weekday = 7
+	}
+	return time.Date(t.Year(), t.Month(), t.Day()-int(weekday)+1, 0, 0, 0, 0, t.Location())
+}
+
+// mathRound 四舍五入到指定小数位。
+func mathRound(v float64, decimals int) float64 {
+	pow := 1.0
+	for i := 0; i < decimals; i++ {
+		pow *= 10
+	}
+	return float64(int(v*pow+0.5)) / pow
 }

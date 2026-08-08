@@ -37,9 +37,11 @@ type UpdateWorkspaceRequest struct {
 // --- Member ---
 
 // ChangeRoleRequest 变更成员角色的请求体。
+// 工作空间级角色: admin / member / guest / pm / po / techlead / qalead / dev / owner
+// 项目级角色: admin / member（后端按路由校验）。
 type ChangeRoleRequest struct {
-	// Role 目标角色。限制为 admin / member / guest（owner 角色不可通过该接口变更）。
-	Role string `json:"role" binding:"required,oneof=admin member guest"`
+	// Role 目标角色（oneof 在后端按上下文校验，前端根据路由传入）。
+	Role string `json:"role" binding:"required"`
 }
 
 // --- Invitation ---
@@ -124,4 +126,14 @@ type UpdateProjectRequest struct {
 		Version  *bool `json:"version,omitempty"`
 		Estimate *bool `json:"estimate,omitempty"`
 	} `json:"modules,omitempty"`
+}
+
+// --- Project Member ---
+
+// AddProjectMemberRequest 添加项目成员的请求体。
+type AddProjectMemberRequest struct {
+	// UserID 被添加的用户 ID（必须是同 workspace 成员）。
+	UserID int64 `json:"user_id" binding:"required,min=1"`
+	// Role 在项目中的角色：admin / member。
+	Role string `json:"role" binding:"required,oneof=admin member"`
 }
