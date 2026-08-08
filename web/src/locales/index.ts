@@ -10,15 +10,19 @@
  *   - 模板: {{ $t('common.save') }}
  *   - 脚本: const { t } = useI18n(); t('auth.login.title')
  *   - 参数化: t('workspace.list.members', { count: 5 })
+ *
+ * S13-P2: 新增 ja-JP 日文支持
  */
 import { createI18n } from "vue-i18n";
 import zhCN from "./zh-CN";
 import enUS from "./en-US";
+import jaJP from "./ja-JP";
 
 /** 支持的语言列表 */
 export const SUPPORTED_LOCALES = [
   { code: "zh-CN", name: "简体中文", flag: "🇨🇳" },
   { code: "en-US", name: "English", flag: "🇺🇸" },
+  { code: "ja-JP", name: "日本語", flag: "🇯🇵" },
 ] as const;
 
 /** 支持的语言代码类型（与 SUPPORTED_LOCALES 的 code 字段对齐）。 */
@@ -28,13 +32,14 @@ export type SupportedLocale = (typeof SUPPORTED_LOCALES)[number]["code"];
 function detectLocale(): SupportedLocale {
   // 1. 用户手动选择的语言
   const stored = localStorage.getItem("ydsz-locale");
-  if (stored === "zh-CN" || stored === "en-US") {
-    return stored;
+  if (stored === "zh-CN" || stored === "en-US" || stored === "ja-JP") {
+    return stored as SupportedLocale;
   }
 
   // 2. 浏览器首选语言
   const navLang = navigator.language;
   if (navLang.startsWith("zh")) return "zh-CN";
+  if (navLang.startsWith("ja")) return "ja-JP";
   if (navLang.startsWith("en")) return "en-US";
 
   // 3. 默认中文
@@ -49,8 +54,9 @@ export const i18n = createI18n({
   messages: {
     "zh-CN": zhCN,
     "en-US": enUS,
+    "ja-JP": jaJP,
   },
-  // 全局配置
+  // 全球配置
   silentTranslationWarn: import.meta.env.PROD, // 生产环境静默缺失翻译警告
   missingWarn: import.meta.env.DEV, // 开发环境显示缺失翻译警告
   fallbackWarn: import.meta.env.DEV,

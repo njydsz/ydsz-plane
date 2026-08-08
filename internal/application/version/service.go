@@ -175,6 +175,7 @@ func (s *Service) Create(ctx context.Context, in CreateVersionInput) (*Version, 
 		}
 
 		v = &Version{}
+		var sdNB, edNB, tdNB sql.NullString
 		err := tx.QueryRow(ctx, `
 			INSERT INTO versions (workspace_id, project_id, name, semver, description,
 				status, checklist, start_date, end_date, target_date, created_by)
@@ -185,10 +186,19 @@ func (s *Service) Create(ctx context.Context, in CreateVersionInput) (*Version, 
 			clRaw, start, end, target, in.CreatedBy).Scan(
 			&v.ID, &v.WorkspaceID, &v.ProjectID, &v.Name, &v.Semver,
 			&v.Description, &v.Status, &v.Version, &v.ReleaseNotes, &v.DeliveredAt,
-			&v.StartDate, &v.EndDate, &v.TargetDate,
+			&sdNB, &edNB, &tdNB,
 			&v.ArchivedAt, &v.CreatedBy, &v.CreatedAt, &v.UpdatedAt)
 		if err != nil {
 			return errs.ErrInternal.Wrap(fmt.Errorf("insert+scan version: %w", err))
+		}
+		if sdNB.Valid {
+			v.StartDate = &sdNB.String
+		}
+		if edNB.Valid {
+			v.EndDate = &edNB.String
+		}
+		if tdNB.Valid {
+			v.TargetDate = &tdNB.String
 		}
 		v.Checklist = checklist
 		return nil

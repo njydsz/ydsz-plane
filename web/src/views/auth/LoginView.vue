@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 /**
  * 登录页 — 邮箱+密码登录 + SSO/OIDC 企业认证入口。
  *
@@ -14,6 +14,7 @@ import { useRoute, useRouter } from "vue-router";
 
 import { ApiError, apiClient } from "@/api/client";
 import { useAuthStore } from "@/stores/auth";
+import LanguageSwitcher from "@/components/LanguageSwitcher.vue";
 
 const auth = useAuthStore();
 const router = useRouter();
@@ -113,6 +114,11 @@ async function onSubmit() {
       <div class="footer-links">
         <router-link to="/register">注册账号</router-link>
         <router-link to="/forgot-password">忘记密码？</router-link>
+      </div>
+
+      <!-- S13 P2: 语言切换器 -->
+      <div class="footer-lang">
+        <LanguageSwitcher variant="dropdown" />
       </div>
 
       <!-- S13 SSO divider -->

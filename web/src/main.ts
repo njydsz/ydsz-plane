@@ -14,7 +14,6 @@ import { createApp } from "vue";
 import App from "./App.vue";
 import router from "./router";
 import { i18n } from "./locales";
-import { registerSW } from "./pwa";
 
 import "./design/tokens.css";
 import { initTheme } from "./lib/theme";
