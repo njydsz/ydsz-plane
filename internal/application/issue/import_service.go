@@ -80,6 +80,8 @@ type ImportService struct {
 // NewImportService 创建导入服务。
 func NewImportService(svc *Service) *ImportService {
 	return &ImportService{svc: svc}
+}
+
 // Import 统一导入入口。
 //
 //	reader: 已打开的文件 reader（CSV 文本流；XLSX 需由调用方转换或走 TODO stub）。

@@ -220,3 +220,146 @@ func showDumpVersion(dbURL string) error {
 	fmt.Printf("version=%s applied_at=%s\n", dumpVersion, appliedAt.Format(time.RFC3339))
 	return nil
 }
+
+// splitSQLStatements 将整段 SQL 按顶层 ';' 拆分为多条独立语句。
+//
+// 与 psql -f 行为一致：
+//   - 忽略 '$$' / '$$tag$$' 美元引用体内的 ';'（函数体、DO 块等）
+//   - 忽略单引号 / 双引号字符串字面量内的 ';'
+//   - 忽略 '--' 行注释与 '/* */' 块注释内的 ';'
+//
+// 返回的非空语句已去除首尾空白；空语句（仅注释/空白）被跳过。
+func splitSQLStatements(sql string) []string {
+	var stmts []string
+	var b strings.Builder
+	inDollar := false
+	dollarTag := ""
+	inSingle := false
+	inDouble := false
+	inLineComment := false
+	inBlockComment := false
+
+	runes := []rune(sql)
+	for i := 0; i < len(runes); i++ {
+		ch := runes[i]
+		prev := byte(0)
+		if i > 0 {
+			prev = byte(runes[i-1])
+		}
+
+		// 块注释开始/结束
+		if !inDollar && !inSingle && !inDouble && !inLineComment {
+			if !inBlockComment && i+1 < len(runes) && ch == '/' && runes[i+1] == '*' {
+				inBlockComment = true
+				b.WriteRune(ch)
+				b.WriteRune(runes[i+1])
+				i++
+				continue
+			}
+			if inBlockComment && i+1 < len(runes) && ch == '*' && runes[i+1] == '/' {
+				inBlockComment = false
+				b.WriteRune(ch)
+				b.WriteRune(runes[i+1])
+				i++
+				continue
+			}
+		}
+
+		// 行注释（仅在非字符串/非美元引用/非块注释状态）
+		if !inDollar && !inSingle && !inDouble && !inBlockComment && ch == '-' && i+1 < len(runes) && runes[i+1] == '-' {
+			inLineComment = true
+			b.WriteRune(ch)
+			b.WriteRune(runes[i+1])
+			i++
+			continue
+		}
+		if inLineComment {
+			b.WriteRune(ch)
+			if ch == '\n' {
+				inLineComment = false
+			}
+			continue
+		}
+
+		// 块注释内字符原样写入
+		if inBlockComment {
+			b.WriteRune(ch)
+			continue
+		}
+
+		// 美元引用切换：$$ 或 $tag$$
+		if !inSingle && !inDouble {
+			if ch == '$' {
+				// 尝试读取完整美元标签：$$ 或 $name$$
+				end := i
+				for end < len(runes) && (runes[end] == '$' || isDollarTagChar(runes[end])) {
+					end++
+				}
+				if end < len(runes) && runes[end] == '$' {
+					tag := string(runes[i : end+1])
+					if !inDollar {
+						inDollar = true
+						dollarTag = tag
+						b.WriteString(tag)
+						i = end
+						continue
+					}
+					// 匹配结束标签
+					if tag == dollarTag {
+						inDollar = false
+						dollarTag = ""
+						b.WriteString(tag)
+						i = end
+						continue
+					}
+					// 不匹配的 $...$ 当作普通文本
+					b.WriteRune(ch)
+					continue
+				}
+			}
+		}
+
+		// 字符串字面量
+		if !inDollar {
+			if ch == '\'' && !inDouble {
+				if inSingle {
+					if prev != '\\' { // 简化：标准下连续 '' 为转义，这里按 pgx 默认 standard_conforming_strings 处理
+						inSingle = false
+					}
+				} else {
+					inSingle = true
+				}
+				b.WriteRune(ch)
+				continue
+			}
+			if ch == '"' && !inSingle {
+				inDouble = !inDouble
+				b.WriteRune(ch)
+				continue
+			}
+		}
+
+		// 顶层语句分隔符
+		if ch == ';' && !inDollar && !inSingle && !inDouble {
+			stmt := strings.TrimSpace(b.String())
+			if stmt != "" {
+				stmts = append(stmts, stmt)
+			}
+			b.Reset()
+			continue
+		}
+
+		b.WriteRune(ch)
+	}
+
+	// 末尾可能还有一条未以 ';' 结尾的语句
+	if tail := strings.TrimSpace(b.String()); tail != "" {
+		stmts = append(stmts, tail)
+	}
+	return stmts
+}
+
+// isDollarTagChar 判断美元引用标签中的字符（字母、数字、下划线）。
+func isDollarTagChar(r rune) bool {
+	return r == '_' || (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9')
+}

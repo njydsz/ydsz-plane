@@ -26,9 +26,12 @@ func RegisterTieredRoutes(r *gin.Engine, d *Deps) {
 	}
 
 	// ---- Session 层（浏览器 SPA） ----
+	// 注意：中间件顺序 — RequireWorkspaceParam 必须在 RequirePermissionFromDB 之前，
+	// 否则权限检查时 CtxWorkspaceID 尚未注入，会直接 403。
 	session := r.Group("/_session")
 	session.Use(
 		middleware.SessionAuth(d.Cfg, d.Auth, d.Redis),
+		middleware.RequireWorkspaceParam(),
 		middleware.RequirePermissionFromDB(d.RBACStore, auth.PermWorkspaceRead),
 	)
 	if d.IssueHandler != nil {

@@ -18,6 +18,7 @@ import IssueFilter from "./IssueFilter.vue";
 import ViewsManager from "./ViewsManager.vue";
 import { AppErrorState, AppEmptyState, InlineEdit, InlineSelectEdit, AppSkeleton } from "@/components";
 import { type FilterState, filterToListParams } from "@/lib/filter-adapter";
+import ImportDialog from "@/components/ImportDialog.vue";
 
 const route = useRoute();
 const issueStore = useIssueStore();
@@ -534,6 +535,12 @@ onMounted(() => {
   nextTick(() => measureContainer());
 });
 
+const showImportDialog = ref(false);
+
+function onImported() {
+  load();
+}
+
 const exportCsvUrl = computed(() =>
   issueApi.exportUrl(wsId.value, projectId.value, filterToListParams(currentFilter.value), "csv"),
 );
@@ -629,6 +636,12 @@ const isCurrentPageAllSelected = computed(() => {
             <a :href="exportXlsxUrl" class="export-dropdown__item" download>导出 Excel (.xlsx)</a>
           </div>
         </div>
+        <button
+          class="btn btn--sm btn--import"
+          @click="showImportDialog = true"
+        >
+          导入
+        </button>
         <div class="view-switcher">
           <router-link
             :to="`/${route.params.workspaceId}/projects/${projectId}/board`"
@@ -954,6 +967,15 @@ const isCurrentPageAllSelected = computed(() => {
         </div>
       </div>
     </div>
+
+    <!-- CSV/XLSX 导入弹窗 -->
+    <ImportDialog
+      :visible="showImportDialog"
+      :ws-id="Number(route.params.workspaceId)"
+      :project-id="projectId"
+      @close="showImportDialog = false"
+      @imported="onImported"
+    />
   </div>
 </template>
 
@@ -1039,6 +1061,8 @@ const isCurrentPageAllSelected = computed(() => {
 .btn--active { background: var(--brand-100); color: var(--brand-600); border-color: var(--brand-200); }
 .btn--export { background: var(--success-500); color: var(--text-on-brand); text-decoration: none; border: none; font-size: 12px; }
 .btn--export:hover { background: var(--success-600); }
+.btn--import { background: var(--surface-1); color: var(--text-primary); border: 1px solid var(--border-default); font-size: 12px; }
+.btn--import:hover { background: var(--surface-3); }
 .btn--view { background: var(--brand-500); color: var(--text-on-brand); text-decoration: none; border: none; font-size: 12px; }
 .btn--view:hover { background: var(--brand-600); }
 

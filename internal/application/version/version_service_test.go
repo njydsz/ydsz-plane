@@ -305,6 +305,14 @@ func TestNormalizeChecklist(t *testing.T) {
 // strptr 返回字符串指针，便于构造 *string 字段测试数据。
 func strptr(s string) *string { return &s }
 
+// derefS 安全解引用 *string，nil 返回空串。
+func derefS(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
+}
+
 // ==========================================================================
 // P0-4: 模型 JSON 序列化 / 反序列化
 // ==========================================================================
@@ -363,8 +371,8 @@ func TestVersion_JSONRoundTrip(t *testing.T) {
 	if got.Status != v.Status {
 		t.Errorf("status: got %q want %q", got.Status, v.Status)
 	}
-	if got.ReleaseNotes != v.ReleaseNotes {
-		t.Errorf("release_notes: got %q want %q", got.ReleaseNotes, v.ReleaseNotes)
+	if derefS(got.ReleaseNotes) != derefS(v.ReleaseNotes) {
+		t.Errorf("release_notes: got %q want %q", derefS(got.ReleaseNotes), derefS(v.ReleaseNotes))
 	}
 	if got.Progress == nil {
 		t.Fatal("progress should not be nil")
