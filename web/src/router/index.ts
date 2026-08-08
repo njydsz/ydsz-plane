@@ -174,6 +174,18 @@ const router = createRouter({
           component: () => import("@/views/workspace/WorkspaceDashboardView.vue"),
           props: (route) => ({ workspaceId: Number(route.params.workspaceId) }),
         },
+        // 知识库：空间列表
+        {
+          path: ":workspaceId(\\d+)/knowledge",
+          name: "knowledge-list",
+          component: () => import("@/views/knowledge/KnowledgeListView.vue"),
+        },
+        // 知识库：空间内文档管理
+        {
+          path: ":workspaceId(\\d+)/knowledge/:spaceId",
+          name: "knowledge-space",
+          component: () => import("@/views/knowledge/KnowledgeSpaceView.vue"),
+        },
         {
           path: ":workspaceId(\\d+)/projects",
           name: "projects",

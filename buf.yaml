@@ -1,0 +1,24 @@
+# Buf configuration for Ydsz Plane gRPC API.
+#
+# 生成代码：
+#   buf lint                  — 规范检查
+#   buf generate              — 生成 Go/TS 桩代码
+#
+# 安装 buf：
+#   go install github.com/bufbuild/buf/cmd/buf@latest
+version: v2
+lint:
+  use:
+    - DEFAULT
+  except:
+    - PACKAGE_DIRECTORY_MATCH
+breaking:
+  use:
+    - FILE
+plugins:
+  - plugin: go
+    out: api/proto
+    opt: paths=source_relative
+  - plugin: go-grpc
+    out: api/proto
+    opt: paths=source_relative,require_unimplemented_servers=false

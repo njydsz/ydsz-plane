@@ -106,6 +106,7 @@ export const WORKSPACE_MENU: MenuItem[] = [
   { name: 'workspace-dashboard', path: 'dashboard', titleKey: 'menu.dashboard', icon: 'LayoutDashboard' },
   { name: 'workspace-my-issues', path: 'my-issues', titleKey: 'menu.myIssues', icon: 'UserCircle' },
   { name: 'workspace-projects', path: 'projects', titleKey: 'menu.projects', icon: 'FolderKanban', permissions: ['project:read'] },
+  { name: 'workspace-knowledge', path: 'knowledge', titleKey: 'menu.knowledge', icon: 'BookOpen' },
   { name: 'workspace-sprints', path: 'sprints', titleKey: 'menu.sprints', icon: 'Clock', permissions: ['sprint:read'], minLevel: 30, moduleKey: 'sprint' },
   { name: 'workspace-versions', path: 'versions', titleKey: 'menu.versions', icon: 'Tag', permissions: ['version:read'], minLevel: 50, moduleKey: 'version' },
   { name: 'workspace-analytics', path: 'analytics', titleKey: 'menu.analytics', icon: 'BarChart3', permissions: ['analytics:read'], minLevel: 50 },

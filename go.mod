@@ -23,6 +23,7 @@ require (
 	github.com/xeipuuv/gojsonschema v1.2.0
 	go.uber.org/zap v1.28.0
 	golang.org/x/crypto v0.54.0
+	google.golang.org/grpc v1.78.0
 )
 
 require (

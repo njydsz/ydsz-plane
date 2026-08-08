@@ -105,3 +105,38 @@ perf-json:
 fmt:
 	gofmt -w .
 	cd web && pnpm format
+
+# --- S14: 微服务独立构建 + 桌面客户端 ---
+
+# 构建通知服务独立二进制
+build-notification-svc:
+	CGO_ENABLED=1 go build -ldflags="-s -w" -o bin/notification-service ./cmd/notification-service
+
+# 构建搜索服务独立二进制
+build-search-svc:
+	CGO_ENABLED=1 go build -ldflags="-s -w" -o bin/search-service ./cmd/search-service
+
+# 同时构建两个微服务
+build-microservices: build-notification-svc build-search-svc
+
+# 构建桌面客户端（需要 wails CLI 已安装且目标平台 gcc）
+# 前置: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+# Windows 前置: choco install tdm-gcc -y (cgo 需要)
+desktop-build:
+	wails build -platform windows/amd64
+
+desktop-build-darwin:
+	wails build -platform darwin/universal
+
+desktop-build-linux:
+	wails build -platform linux/amd64
+
+desktop-dev:
+	wails dev
+
+# 运行 S14 通知服务独立部署（依赖 notification_db 已初始化）
+run-notification-svc: build-notification-svc
+	./bin/notification-service
+
+run-search-svc: build-search-svc
+	./bin/search-service

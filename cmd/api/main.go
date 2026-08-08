@@ -23,6 +23,7 @@ import (
 	"github.com/njydsz/ydsz-plane/internal/application/dlq"
 	"github.com/njydsz/ydsz-plane/internal/application/intake"
 	"github.com/njydsz/ydsz-plane/internal/application/issue"
+	"github.com/njydsz/ydsz-plane/internal/application/knowledge"
 	"github.com/njydsz/ydsz-plane/internal/application/metrics"
 	notif "github.com/njydsz/ydsz-plane/internal/application/notification"
 	"github.com/njydsz/ydsz-plane/internal/application/pages"
@@ -204,6 +205,10 @@ func run() error {
 	})
 	versionHandler := version.NewHandler(versionSvc)
 
+	// ---------- Knowledge domain ----------
+	knowledgeSvc := knowledge.NewService(pool.Pool)
+	knowledgeHandler := knowledge.NewHandler(knowledgeSvc)
+
 	// ---------- Search domain ----------
 	searchSvc := search.NewService(pool.Pool)
 	searchHandler := search.NewSearchHandler(&search.HandlerDeps{
@@ -357,6 +362,8 @@ func run() error {
 		SprintHandler: sprintHandler,
 		// Version domain
 		VersionHandler: versionHandler,
+		// Knowledge domain (S9)
+		KnowledgeHandler: knowledgeHandler,
 		// Webhook domain (S10)
 		WebhookHandler: webhookHandler,
 		// Intake domain (S10)
@@ -399,6 +406,15 @@ func run() error {
 		PrincipalParser: parsePrincipal,
 		WorkspaceStore:  wsStore,
 		VersionHandler:  versionHandler,
+	})
+
+	// 注册知识库路由（工作空间级，可选项目级过滤）
+	httpapi.RegisterKnowledgeRoutes(engine, &httpapi.Deps{
+		Auth:            authSvc,
+		PrincipalParser: parsePrincipal,
+		WorkspaceStore:  wsStore,
+		RBACStore:       rbacStore,
+		KnowledgeHandler: knowledgeHandler,
 	})
 
 	// 注册视图偏好路由（项目级）
