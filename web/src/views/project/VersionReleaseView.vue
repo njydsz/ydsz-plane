@@ -6,7 +6,7 @@
 import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
-import { versionApi, type Version, type DeliveryReport } from "@/api/services/version";
+import { versionApi, type Version, type DeliveryReport, type ChecklistItem } from "@/api/services/version";
 import { AppBadge, AppButton, AppLoadingState, AppErrorState, ProgressBar } from "@/components";
 
 const route = useRoute();
@@ -35,6 +35,10 @@ const error = ref("");
 const draftOverride = ref("");
 const forceChecklist = ref(false);
 const addKnown = ref(true);
+
+// checklist inline editing
+const newChecklistLabel = ref("");
+const savingChecklist = ref(false);
 
 let wsIdVal = 0;
 
@@ -106,6 +110,75 @@ function prev() {
   if (idx > 0) {
     currentStep.value = STEPS[idx - 1].key;
   }
+}
+
+/* ---------- checklist inline edit ---------- */
+
+/** 当前 checklist 副本（用于本地编辑同步到 UI） */
+const editingChecklist = computed({
+  get: () => version.value?.checklist ?? [],
+  set: (val: ChecklistItem[]) => {
+    if (version.value) version.value.checklist = val;
+  },
+});
+
+/** 持久化当前 checklist 到后端 */
+async function persistChecklist(items: ChecklistItem[]) {
+  if (!version.value) return;
+  savingChecklist.value = true;
+  try {
+    const wsId = await resolveWsId();
+    const updated = await versionApi.updateVersion(wsId, projectId.value, versionId.value, {
+      checklist: items,
+      version: version.value.version ?? 0,
+    });
+    version.value = updated;
+  } catch (e: unknown) {
+    error.value = e instanceof Error ? e.message : "保存清单失败";
+  } finally {
+    savingChecklist.value = false;
+  }
+}
+
+/** 切换某条 checked 状态 */
+async function toggleCheckItem(item: ChecklistItem) {
+  const list = editingChecklist.value.map((c) =>
+    c.id === item.id ? { ...c, checked: !c.checked } : c,
+  );
+  editingChecklist.value = list;
+  await persistChecklist(list);
+}
+
+/** 切换某条 required 状态 */
+async function toggleRequired(item: ChecklistItem) {
+  const list = editingChecklist.value.map((c) =>
+    c.id === item.id ? { ...c, required: !c.required } : c,
+  );
+  editingChecklist.value = list;
+  await persistChecklist(list);
+}
+
+/** 删除某条 checklist */
+async function removeCheckItem(item: ChecklistItem) {
+  const list = editingChecklist.value.filter((c) => c.id !== item.id);
+  editingChecklist.value = list;
+  await persistChecklist(list);
+}
+
+/** 新增 checklist 条目 */
+async function addCheckItem() {
+  const label = newChecklistLabel.value.trim();
+  if (!label) return;
+  const newItem: ChecklistItem = {
+    id: `chk-${Date.now()}`,
+    label,
+    required: false,
+    checked: false,
+  };
+  const list = [...editingChecklist.value, newItem];
+  editingChecklist.value = list;
+  newChecklistLabel.value = "";
+  await persistChecklist(list);
 }
 
 /* ---------- publish ---------- */
@@ -196,24 +269,68 @@ onMounted(load);
             确保所有必做检查项已完成，这是发布流程的第一步。
           </p>
 
-          <ul v-if="version.checklist?.length" class="checklist">
-            <li
-              v-for="item in version.checklist"
-              :key="item.id"
-              class="checklist__item"
-              :class="{
-                'checklist__item--done': item.checked,
-                'checklist__item--required': item.required && !item.checked,
-              }"
+          <!-- 可编辑的检查清单 -->
+          <div v-if="editingChecklist.length > 0" class="checklist-editor">
+            <ul class="checklist">
+              <li
+                v-for="item in editingChecklist"
+                :key="item.id"
+                class="checklist__item"
+                :class="{
+                  'checklist__item--done': item.checked,
+                  'checklist__item--required': item.required && !item.checked,
+                }"
+              >
+                <label class="checklist__check">
+                  <input
+                    type="checkbox"
+                    :checked="item.checked"
+                    :disabled="savingChecklist"
+                    @change="toggleCheckItem(item)"
+                  />
+                  <span class="checklist__icon">{{ item.checked ? '✓' : '○' }}</span>
+                </label>
+                <span class="checklist__text">{{ item.label }}</span>
+                <!-- Required toggle -->
+                <label class="checklist__required-toggle" title="标记为必过项">
+                  <input
+                    type="checkbox"
+                    :checked="item.required"
+                    :disabled="savingChecklist"
+                    @change="toggleRequired(item)"
+                  />
+                  <span class="checklist__required-label">必做</span>
+                </label>
+                <button
+                  class="checklist__remove"
+                  title="删除"
+                  :disabled="savingChecklist"
+                  @click="removeCheckItem(item)"
+                >
+                  ×
+                </button>
+              </li>
+            </ul>
+          </div>
+          <p v-else class="step-section__empty">暂无检查项。使用下方按钮添加。</p>
+
+          <!-- 新增条目输入区 -->
+          <div class="checklist-add">
+            <input
+              v-model="newChecklistLabel"
+              class="checklist-add__input"
+              placeholder="新增检查项..."
+              :disabled="savingChecklist"
+              @keydown.enter.prevent="addCheckItem"
+            />
+            <button
+              class="btn btn--sm"
+              :disabled="!newChecklistLabel.trim() || savingChecklist"
+              @click="addCheckItem"
             >
-              <span class="checklist__icon">
-                {{ item.checked ? '✓' : '○' }}
-              </span>
-              <span class="checklist__text">{{ item.label }}</span>
-              <AppBadge v-if="item.required" variant="danger">必做</AppBadge>
-            </li>
-          </ul>
-          <p v-else class="step-section__empty">暂无检查项。你可以在版本编辑中配置检查清单。</p>
+              {{ savingChecklist ? '保存中...' : 'Add Checklist Item' }}
+            </button>
+          </div>
 
           <label class="force-toggle">
             <input v-model="forceChecklist" type="checkbox" />
@@ -582,6 +699,109 @@ onMounted(load);
 .checklist__item--done .checklist__icon { color: var(--success-500); }
 .checklist__item--required .checklist__icon { color: var(--danger-500); }
 .checklist__text { flex: 1; font-size: 13px; }
+
+/* ---- checklist inline editing ---- */
+.checklist__check {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+}
+
+.checklist__check input {
+  accent-color: var(--brand-500);
+}
+
+.checklist__required-toggle {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.checklist__required-toggle input {
+  accent-color: var(--danger-500);
+}
+
+.checklist__required-label {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+
+.checklist__required-toggle input:checked + .checklist__required-label {
+  color: var(--danger-500);
+  font-weight: 600;
+}
+
+.checklist__remove {
+  background: none;
+  border: none;
+  color: var(--text-tertiary);
+  font-size: 18px;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+  flex-shrink: 0;
+  border-radius: 4px;
+  transition: color 0.1s, background 0.1s;
+}
+
+.checklist__remove:hover:not(:disabled) {
+  color: var(--danger-500);
+  background: var(--danger-50);
+}
+
+.checklist__remove:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.checklist-add {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.checklist-add__input {
+  flex: 1;
+  padding: 6px 10px;
+  font-size: 13px;
+  font-family: inherit;
+  border: 1px solid var(--border-default, #d1d5db);
+  border-radius: var(--radius-sm, 6px);
+  background: var(--surface-1, #fff);
+  color: var(--text-primary, #1f2937);
+  outline: none;
+}
+
+.checklist-add__input:focus {
+  border-color: var(--brand-500);
+  box-shadow: 0 0 0 2px var(--brand-50);
+}
+
+.btn--sm {
+  padding: 6px 12px;
+  font-size: 12px;
+  font-family: inherit;
+  border-radius: var(--radius-sm, 6px);
+  cursor: pointer;
+  border: 1px solid var(--border-default, #d1d5db);
+  background: var(--brand-500);
+  color: #fff;
+  white-space: nowrap;
+}
+
+.btn--sm:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn--sm:hover:not(:disabled) {
+  background: var(--brand-600);
+}
 
 .force-toggle {
   display: flex;

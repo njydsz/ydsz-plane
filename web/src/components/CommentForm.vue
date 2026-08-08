@@ -18,6 +18,8 @@ const props = defineProps<{
   loading?: boolean;
   initialValue?: string;
   parentId?: number | null;
+  workspaceId?: number | string;
+  projectId?: number | string;
 }>();
 
 const emit = defineEmits<{
@@ -99,6 +101,8 @@ defineExpose({ focus });
       v-model:content-html="contentHtml"
       v-model:content-json="contentJson"
       :placeholder="placeholder"
+      :workspace-id="workspaceId"
+      :project-id="projectId"
       compact
     />
 

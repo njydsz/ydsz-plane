@@ -483,6 +483,8 @@ onMounted(() => {
               v-model:content-json="descJsonValue"
               placeholder="输入工作项描述..."
               :min-height="'200px'"
+              :workspace-id="ws?.id ?? props.workspaceId"
+              :project-id="props.projectId"
               @paste-image="handleDescPasteImage"
             />
             <div class="edit-row__actions">

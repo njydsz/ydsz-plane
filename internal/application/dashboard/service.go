@@ -129,8 +129,14 @@ func (s *Service) getProgressOverview(ctx context.Context, projectID int64) (any
 			count(*) FILTER (WHERE sg."group" = 'completed' AND i.deleted_at IS NULL) AS done,
 			count(*) FILTER (WHERE sg."group" = 'started' AND i.deleted_at IS NULL) AS in_progress,
 			count(*) FILTER (WHERE i.target_date < CURRENT_DATE AND sg."group" NOT IN ('completed','cancelled') AND i.deleted_at IS NULL) AS overdue,
-			count(*) FILTER (WHERE EXISTS (SELECT 1 FROM issue_relations ir WHERE ir.source_issue_id = i.id AND ir.relation_type = 'blocked_by') AND i.deleted_at IS NULL) AS blocked
-		FROM issues i
+			count(*) FILTER (WHERE EXISTS (SELECT 1 FROM biz_entity_relation ir WHERE ir.source_id = i.id AND ir.relation_type = 'blocked_by') AND i.deleted_at IS NULL) AS blocked
+		FROM (
+		    SELECT id, state_id, project_id, deleted_at, target_date FROM task
+		    UNION ALL
+		    SELECT id, state_id, project_id, deleted_at, target_date FROM requirement
+		    UNION ALL
+		    SELECT id, state_id, project_id, deleted_at, target_date FROM defect
+		) i
 		JOIN states sg ON sg.id = i.state_id
 		WHERE i.project_id = $1`,
 		projectID).Scan(&w.TotalIssues, &w.DoneIssues, &w.InProgress, &w.OverdueIssues, &w.BlockedIssues)
@@ -157,7 +163,13 @@ func (s *Service) countActiveSprints(ctx context.Context, projectID int64) int {
 func (s *Service) getPrioritySplit(ctx context.Context, projectID int64) (any, error) {
 	w := PrioritySplitWidget{ByPriority: map[string]int{}}
 	rows, err := s.db.Query(ctx, `
-		SELECT i.priority, count(*) FROM issues i
+		SELECT i.priority, count(*) FROM (
+		    SELECT priority, project_id, deleted_at FROM task
+		    UNION ALL
+		    SELECT priority, project_id, deleted_at FROM requirement
+		    UNION ALL
+		    SELECT priority, project_id, deleted_at FROM defect
+		) i
 		WHERE i.project_id = $1 AND i.deleted_at IS NULL
 		GROUP BY i.priority ORDER BY i.priority`,
 		projectID)

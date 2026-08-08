@@ -323,6 +323,8 @@ function cancel() {
               variant="comment"
               placeholder="输入工作项描述..."
               :min-height="'80px'"
+              :workspace-id="workspaceId"
+              :project-id="projectId"
             />
           </div>
 

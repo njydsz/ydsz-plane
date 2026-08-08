@@ -1,12 +1,14 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 /**
  * 工作项列表页 — 表格视图展示工作项。
- * 支持: 服务端排序 / 分页 / 列过滤 / 批量选择与删除。
+ * 支持: 服务端排序 / 分页 / 列过滤 / 批量选择与删除 / 跨页勾选 / 列配置持久化 / 批量指派+标签。
  */
-import { computed, onMounted, ref } from "vue";
+import { computed, nextTick, onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
 
 import { type IssueType, type IssuePriority, type ListIssuesParams, type State, issueApi } from "@/api/services/issue";
+import { workspaceApi, type Member } from "@/api/services/workspace";
+import { preferenceApi } from "@/api/services/preference";
 import { useIssueStore } from "@/stores/issue";
 import { usePeekStore } from "@/stores/peek";
 import { prefs } from "@/lib/prefs";
@@ -18,6 +20,13 @@ import { type FilterState, filterToListParams } from "@/lib/filter-adapter";
 const route = useRoute();
 const issueStore = useIssueStore();
 const peek = usePeekStore();
+
+/** P1-3: 列表视图字段裁剪 — 默认仅取关键字段，展开/详情时再加载全量 */
+const LIST_VIEW_FIELDS = ["id", "identifier", "name", "state_id", "priority", "type_code", "severity", "point", "assignees", "updated_at"];
+
+/** P1-3: 虚拟滚动常量 */
+const ROW_HEIGHT = 48; // px
+const BUFFER_ROWS = 5; // 上下各缓冲行数
 
 // ---- 状态 ----
 const projectId = computed(() => Number(route.params.projectId));
@@ -36,8 +45,166 @@ const total = computed(() => issueStore.total);
 // 当前过滤参数（强类型 FilterState，对标 Plane 的多视图 FilterAdapter）
 const currentFilter = ref<FilterState>({});
 
-// 批量操作
+// ========== P1-2: 跨页勾选 ==========
+// selectedIds 跨页保持；翻页不清零
 const selectedIds = ref<Set<number>>(new Set());
+// 跨页选中的数量：总数减去当前页选中的数量
+const crossPageSelectedCount = computed(() => {
+  if (selectedIds.value.size === 0) return 0;
+  const currentPageIds = new Set(issueStore.issues.map((i) => i.id));
+  let count = 0;
+  for (const id of selectedIds.value) {
+    if (!currentPageIds.has(id)) count++;
+  }
+  return count;
+});
+const totalSelectedCount = computed(() => selectedIds.value.size);
+
+// ========== P1-2: 列配置 ==========
+interface ColumnConfig {
+  key: string;
+  label: string;
+  width?: string;
+  sortable?: boolean;
+  visible: boolean;
+  pinned?: boolean;
+}
+
+const defaultColumns: ColumnConfig[] = [
+  { key: "identifier", label: "编号", width: "120px", visible: true },
+  { key: "name", label: "名称", sortable: true, visible: true },
+  { key: "type_code", label: "类型", width: "72px", sortable: true, visible: true },
+  { key: "priority", label: "优先级", width: "72px", sortable: true, visible: true },
+  { key: "state", label: "状态", width: "90px", visible: true },
+  { key: "severity", label: "严重度", width: "72px", sortable: true, visible: true },
+  { key: "point", label: "点数", width: "60px", sortable: true, visible: true },
+  { key: "assignees", label: "指派人", width: "100px", visible: true },
+  { key: "updated_at", label: "更新时间", width: "130px", sortable: true, visible: true },
+];
+
+const columnConfigs = ref<ColumnConfig[]>(JSON.parse(JSON.stringify(defaultColumns)));
+const showColumnConfigModal = ref(false);
+const columnConfigDraft = ref<ColumnConfig[]>([]);
+const savingColumnConfig = ref(false);
+
+/** 可见列 */
+const visibleColumns = computed(() => columnConfigs.value.filter((c) => c.visible));
+
+/** 从偏好加载列配置 */
+async function loadColumnConfig() {
+  try {
+    const pref = await preferenceApi.get(wsId.value, projectId.value, "list");
+    if (pref?.columns && Array.isArray(pref.columns) && pref.columns.length > 0) {
+      const saved = pref.columns as ColumnConfig[];
+      // 合并：保留 saved 中已有的列的新增/变更，但确保列定义与 defaults 对齐
+      columnConfigs.value = defaultColumns.map((def) => {
+        const savedCol = saved.find((s) => s.key === def.key);
+        return savedCol ? { ...def, ...savedCol } : def;
+      });
+    }
+  } catch {
+    /* 无偏好时使用默认列 */
+  }
+}
+
+/** 保存列配置到偏好 */
+async function saveColumnConfig(configs: ColumnConfig[]) {
+  if (!wsId.value) return;
+  savingColumnConfig.value = true;
+  try {
+    await preferenceApi.save(wsId.value, projectId.value, "list", {
+      columns: configs,
+    });
+    columnConfigs.value = JSON.parse(JSON.stringify(configs));
+  } catch (e: unknown) {
+    toast.error(e instanceof Error ? e.message : "保存列配置失败");
+  } finally {
+    savingColumnConfig.value = false;
+  }
+}
+
+/** 打开列配置弹窗 */
+function openColumnConfigModal() {
+  columnConfigDraft.value = JSON.parse(JSON.stringify(columnConfigs.value));
+  showColumnConfigModal.value = true;
+}
+
+/** 提交列配置 */
+function applyColumnConfig() {
+  saveColumnConfig(columnConfigDraft.value);
+  showColumnConfigModal.value = false;
+}
+
+// ========== P1-2: Batch assign/tags ==========
+const members = ref<Member[]>([]);
+/** 标签列表 — 通过 project-level labels 获取（当前版本无独立标签 API，使用空列表占位，UI 保留扩展点） */
+const labels = ref<{ id: number; name: string }[]>([]);
+const showBatchAssign = ref(false);
+const showBatchLabel = ref(false);
+const batchAssignId = ref<number | null>(null);
+const batchLabelId = ref<number | null>(null);
+const batchOperating = ref(false);
+
+async function loadMembers() {
+  if (!wsId.value) return;
+  try {
+    members.value = await workspaceApi.listMembers(wsId.value);
+  } catch {
+    /* 静默失败 */
+  }
+}
+
+async function loadLabels() {
+  /* 未来对接标签 API 时在此加载 */
+  labels.value = [];
+}
+
+/** 批量指派 */
+async function batchAssign() {
+  if (batchAssignId.value == null || selectedIds.value.size === 0) return;
+  batchOperating.value = true;
+  try {
+    const r = await issueApi.batch(wsId.value, projectId.value, {
+      issue_ids: [...selectedIds.value],
+      assignee_id: batchAssignId.value,
+    });
+    if (r.failed > 0) error.value = `${r.succeeded} 项成功，${r.failed} 项失败`;
+    else toast.success(`已指派 ${r.succeeded} 项`);
+    showBatchAssign.value = false;
+    batchAssignId.value = null;
+    selectedIds.value = new Set();
+    load();
+  } catch (e: unknown) {
+    error.value = e instanceof Error ? e.message : "批量指派失败";
+  } finally {
+    batchOperating.value = false;
+  }
+}
+
+/** 批量添加标签 */
+async function batchAddLabel() {
+  if (batchLabelId.value == null || selectedIds.value.size === 0) return;
+  batchOperating.value = true;
+  try {
+    // 批量标签: 使用 batch API 的 labels 字段（labels: number[]）
+    const r = await issueApi.batch(wsId.value, projectId.value, {
+      issue_ids: [...selectedIds.value],
+      labels: [batchLabelId.value],
+    } as any);
+    if (r.failed > 0) error.value = `${r.succeeded} 项成功，${r.failed} 项失败`;
+    else toast.success(`已添加标签到 ${r.succeeded} 项`);
+    showBatchLabel.value = false;
+    batchLabelId.value = null;
+    selectedIds.value = new Set();
+    load();
+  } catch (e: unknown) {
+    error.value = e instanceof Error ? e.message : "批量添加标签失败";
+  } finally {
+    batchOperating.value = false;
+  }
+}
+
+// ---- 批量删除 ----
 const showDeleteConfirm = ref(false);
 const batchDeleting = ref(false);
 
@@ -76,9 +243,26 @@ async function load() {
       offset: (page.value - 1) * perPage.value,
     };
 
+    // 使用 issueApi.listIssues 直接调用以支持字段裁剪（stores 层不支持 fields 参数）
+    const fetchIssuesWithFields = async () => {
+      issueStore.loading = true;
+      issueStore.error = null;
+      try {
+        const res = await issueApi.listIssues(wsIdVal, projectId.value, params, LIST_VIEW_FIELDS);
+        issueStore.issues = res.results;
+        issueStore.total = res.total;
+      } catch (e: unknown) {
+        issueStore.error = e instanceof Error ? e.message : "加载失败";
+        throw e;
+      } finally {
+        issueStore.loading = false;
+      }
+    };
+
     await Promise.all([
       issueStore.fetchStates(wsIdVal, projectId.value),
-      issueStore.fetchIssues(wsIdVal, projectId.value, params),
+      fetchIssuesWithFields(),
+      loadColumnConfig(),
     ]);
   } catch (e: unknown) {
     error.value = e instanceof Error ? e.message : "加载失败";
@@ -143,10 +327,47 @@ function toggleSelect(issueId: number) {
 }
 
 function toggleSelectAll() {
-  if (selectedIds.value.size === issueStore.issues.length) {
-    selectedIds.value = new Set();
+  const currentPageIds = issueStore.issues.map((i) => i.id);
+  if (currentPageIds.every((id) => selectedIds.value.has(id))) {
+    // 当前页全部选中 → 取消当前页
+    const next = new Set(selectedIds.value);
+    for (const id of currentPageIds) next.delete(id);
+    selectedIds.value = next;
   } else {
-    selectedIds.value = new Set(issueStore.issues.map((i) => i.id));
+    // 选中当前页全部
+    const next = new Set(selectedIds.value);
+    for (const id of currentPageIds) next.add(id);
+    selectedIds.value = next;
+  }
+}
+
+/** 清空所有选择 */
+function clearSelection() {
+  selectedIds.value = new Set();
+}
+
+/** 选择全部匹配项（通过后端的 listIssues 取全量 ID） */
+async function selectAllMatching() {
+  try {
+    loading.value = true;
+    const filterParams = filterToListParams(currentFilter.value);
+    // 用一个较大的 limit 取全量 ID（上限提示）
+    const SAFE_LIMIT = 5000;
+    const params: ListIssuesParams = {
+      ...filterParams,
+      sort: buildSortParam(),
+      limit: SAFE_LIMIT,
+      offset: 0,
+    };
+    const result = await issueApi.listIssues(wsId.value, projectId.value, params);
+    if (result.total > SAFE_LIMIT) {
+      toast.warning(`匹配项超过 ${SAFE_LIMIT} 条，仅选择前 ${SAFE_LIMIT} 项。建议缩小过滤范围。`);
+    }
+    selectedIds.value = new Set(result.results.map((i) => i.id));
+  } catch (e: unknown) {
+    error.value = e instanceof Error ? e.message : "选择全部失败";
+  } finally {
+    loading.value = false;
   }
 }
 
@@ -244,21 +465,26 @@ const priorityOptions: { value: IssuePriority; label: string; color: string; ico
   { value: "none", label: "无", color: "var(--text-tertiary)", icon: "⬜" },
 ];
 
-const columns: { key: string; label: string; width?: string; sortable?: boolean }[] = [
-  { key: "identifier", label: "编号", width: "120px" },
-  { key: "name", label: "名称", sortable: true },
-  { key: "type_code", label: "类型", width: "72px", sortable: true },
-  { key: "priority", label: "优先级", width: "72px", sortable: true },
-  { key: "state", label: "状态", width: "90px" },
-  { key: "severity", label: "严重度", width: "72px", sortable: true },
-  { key: "point", label: "点数", width: "60px", sortable: true },
-  { key: "assignees", label: "指派人", width: "100px" },
-  { key: "updated_at", label: "更新时间", width: "130px", sortable: true },
-];
+// 列头右键菜单
+const showColumnContextMenu = ref(false);
+const contextMenuColKey = ref("");
+
+function onColumnHeaderContext(colKey: string, event: MouseEvent) {
+  event.preventDefault();
+  contextMenuColKey.value = colKey;
+  showColumnContextMenu.value = true;
+}
+
+function closeContextMenu() {
+  showColumnContextMenu.value = false;
+}
 
 onMounted(() => {
   prefs.setLastView(projectId.value, "list");
   load();
+  loadMembers();
+  loadLabels();
+  nextTick(() => measureContainer());
 });
 
 const exportCsvUrl = computed(() =>
@@ -271,6 +497,49 @@ const exportXlsxUrl = computed(() =>
 
 /** 导出格式下拉是否展开 */
 const showExportDropdown = ref(false);
+
+// ========== P1-3: 虚拟滚动 ==========
+const scrollContainerRef = ref<HTMLElement | null>(null);
+const scrollTop = ref(0);
+const containerHeight = ref(600);
+
+/** 可见行范围 */
+const visibleRange = computed(() => {
+  const total = issueStore.issues.length;
+  if (total === 0) return { start: 0, end: 0 };
+  const start = Math.max(0, Math.floor(scrollTop.value / ROW_HEIGHT) - BUFFER_ROWS);
+  const visibleCount = Math.ceil(containerHeight.value / ROW_HEIGHT);
+  const end = Math.min(total, start + visibleCount + BUFFER_ROWS * 2);
+  return { start, end };
+});
+
+/** 当前可视行 */
+const visibleIssues = computed(() => {
+  return issueStore.issues.slice(visibleRange.value.start, visibleRange.value.end);
+});
+
+/** 滚动占位总高度 */
+const scrollSpacerHeight = computed(() => issueStore.issues.length * ROW_HEIGHT);
+
+/** 滚动偏移 */
+const scrollOffsetTop = computed(() => visibleRange.value.start * ROW_HEIGHT);
+
+function onTableScroll(e: Event) {
+  scrollTop.value = (e.target as HTMLElement).scrollTop;
+}
+
+/** 测量容器高度 */
+function measureContainer() {
+  if (scrollContainerRef.value) {
+    containerHeight.value = scrollContainerRef.value.clientHeight;
+  }
+}
+
+/** 当前页 checkbox 全选状态 */
+const isCurrentPageAllSelected = computed(() => {
+  if (issueStore.issues.length === 0) return false;
+  return issueStore.issues.every((i) => selectedIds.value.has(i.id));
+});
 
 </script>
 
@@ -319,14 +588,17 @@ const showExportDropdown = ref(false);
       @filter-change="onFilterChange"
     />
 
-    <!-- 批量操作工具栏 -->
+    <!-- P1-2: 跨页批量操作工具栏 -->
     <div v-if="hasSelection" class="batch-bar">
-      <span class="batch-bar__info">已选 {{ selectedIds.size }} 项</span>
-      <select class="batch-select" @change="(e: Event) => { const v = Number((e.target as HTMLSelectElement).value); if (v) batchTransition(v) }">
+      <span class="batch-bar__info">
+        已选 <strong>{{ totalSelectedCount }}</strong> 项
+        <template v-if="crossPageSelectedCount > 0">（含跨页 {{ crossPageSelectedCount }} 项）</template>
+      </span>
+      <select class="batch-select" @change="(e: Event) => { const v = Number((e.target as HTMLSelectElement).value); if (v) batchTransition(v); (e.target as HTMLSelectElement).value = '' }">
         <option value="">批量流转...</option>
         <option v-for="st in issueStore.states" :key="st.id" :value="st.id">{{ st.name }}</option>
       </select>
-      <select class="batch-select" @change="(e: Event) => { const v = (e.target as HTMLSelectElement).value; if (v) batchUpdatePriority(v) }">
+      <select class="batch-select" @change="(e: Event) => { const v = (e.target as HTMLSelectElement).value; if (v) batchUpdatePriority(v); (e.target as HTMLSelectElement).value = '' }">
         <option value="">批量优先级...</option>
         <option value="urgent">紧急</option>
         <option value="high">高</option>
@@ -334,8 +606,51 @@ const showExportDropdown = ref(false);
         <option value="low">低</option>
         <option value="none">无</option>
       </select>
+
+      <!-- 批量指派 -->
+      <div class="batch-inline-dropdown">
+        <button class="btn btn--sm" :class="{ 'btn--active': showBatchAssign }" @click="showBatchAssign = !showBatchAssign">
+          批量指派
+        </button>
+        <div v-if="showBatchAssign" class="batch-inline-panel">
+          <select v-model="batchAssignId" class="batch-select">
+            <option :value="null" disabled>选择成员...</option>
+            <option v-for="m in members" :key="m.id" :value="m.id">{{ m.display_name || m.email }}</option>
+          </select>
+          <button class="btn btn--sm btn--primary" :disabled="batchAssignId == null || batchOperating" @click="batchAssign">
+            {{ batchOperating ? '处理中...' : '确认' }}
+          </button>
+        </div>
+      </div>
+
+      <!-- 批量标签 -->
+      <div class="batch-inline-dropdown">
+        <button class="btn btn--sm" :class="{ 'btn--active': showBatchLabel }" @click="showBatchLabel = !showBatchLabel">
+          批量标签
+        </button>
+        <div v-if="showBatchLabel" class="batch-inline-panel">
+          <select v-model="batchLabelId" class="batch-select">
+            <option :value="null" disabled>选择标签...</option>
+            <option v-for="l in labels" :key="l.id" :value="l.id">{{ l.name }}</option>
+          </select>
+          <button class="btn btn--sm btn--primary" :disabled="batchLabelId == null || batchOperating" @click="batchAddLabel">
+            {{ batchOperating ? '处理中...' : '确认' }}
+          </button>
+        </div>
+      </div>
+
       <button class="btn btn--sm btn--danger" @click="showDeleteConfirm = true">批量删除</button>
-      <button class="btn btn--sm btn--ghost" @click="selectedIds = new Set()">取消选择</button>
+      <button class="btn btn--sm btn--ghost" @click="clearSelection">清空选择</button>
+      <button class="btn btn--sm btn--ghost" @click="selectAllMatching">选择全部匹配项</button>
+    </div>
+
+    <!-- 列头右键菜单 -->
+    <div v-if="showColumnContextMenu" class="context-menu-overlay" @click="closeContextMenu">
+      <div class="context-menu" :style="{ left: '50%', top: '120px' }" @click.stop>
+        <button class="context-menu__item" @click="openColumnConfigModal(); closeContextMenu()">
+          配置列...
+        </button>
+      </div>
     </div>
 
     <AppSkeleton v-if="loading" variant="table" :rows="8" />
@@ -354,33 +669,47 @@ const showExportDropdown = ref(false);
             <th class="th-check">
               <input
                 type="checkbox"
-                :checked="selectedIds.size === issueStore.issues.length && issueStore.issues.length > 0"
+                :checked="isCurrentPageAllSelected"
                 @change="toggleSelectAll"
               />
             </th>
             <th
-              v-for="col in columns"
+              v-for="col in visibleColumns"
               :key="col.key"
               :style="col.width ? { width: col.width, minWidth: col.width } : {}"
               :class="{ 'th--sortable': col.sortable }"
               @click="col.sortable && toggleSort(col.key)"
+              @contextmenu="onColumnHeaderContext(col.key, $event)"
             >
               {{ col.label }}<span class="sort-indicator">{{ sortIndicator(col.key) }}</span>
             </th>
           </tr>
         </thead>
-        <tbody>
-          <tr v-if="issueStore.issues.length === 0">
-            <td :colspan="columns.length + 1" class="empty-cell">
-              暂无工作项
-            </td>
-          </tr>
-          <tr
-            v-for="iss in issueStore.issues"
-            :key="iss.id"
-            :class="{ 'row--selected': selectedIds.has(iss.id) }"
-            class="row"
-          >
+      </table>
+      <!-- 虚拟滚动容器 -->
+      <div
+        ref="scrollContainerRef"
+        class="virtual-scroll-container"
+        @scroll="onTableScroll"
+      >
+        <div class="virtual-scroll-spacer" :style="{ height: scrollSpacerHeight + 'px' }">
+          <table class="table table--virtual">
+            <colgroup>
+              <col style="width: 40px" />
+              <col
+                v-for="col in visibleColumns"
+                :key="col.key"
+                :style="col.width ? { width: col.width, minWidth: col.width } : {}"
+              />
+            </colgroup>
+            <tbody :style="{ transform: 'translateY(' + scrollOffsetTop + 'px)' }">
+              <tr
+                v-for="iss in visibleIssues"
+                :key="iss.id"
+                class="row"
+                :class="{ 'row--selected': selectedIds.has(iss.id) }"
+                :style="{ height: ROW_HEIGHT + 'px' }"
+              >
             <td class="td-check" @click.stop>
               <input
                 type="checkbox"
@@ -388,12 +717,12 @@ const showExportDropdown = ref(false);
                 @change="toggleSelect(iss.id)"
               />
             </td>
-            <td class="td-identifier">
+            <td v-if="visibleColumns.some(c => c.key === 'identifier')" class="td-identifier">
               <span class="identifier-link" @click="openIssue(iss.id)">
                 {{ iss.identifier }}
               </span>
             </td>
-            <td class="td-name">
+            <td v-if="visibleColumns.some(c => c.key === 'name')" class="td-name">
               <span class="name-link" @click="openIssue(iss.id)">
                 <span class="type-dot" :class="`dot-${iss.type_code}`"></span>
               </span>
@@ -404,12 +733,12 @@ const showExportDropdown = ref(false);
                 @submit="(v) => inlineUpdate(iss, { name: v })"
               />
             </td>
-            <td>
+            <td v-if="visibleColumns.some(c => c.key === 'type_code')">
               <span class="badge-sm" :class="`type-${iss.type_code}`">
                 {{ typeLabel(iss.type_code) }}
               </span>
             </td>
-            <td>
+            <td v-if="visibleColumns.some(c => c.key === 'priority')">
               <InlineSelectEdit
                 :model-value="iss.priority"
                 :options="priorityOptions"
@@ -423,7 +752,7 @@ const showExportDropdown = ref(false);
                 </template>
               </InlineSelectEdit>
             </td>
-            <td>
+            <td v-if="visibleColumns.some(c => c.key === 'state')">
               <InlineSelectEdit
                 :model-value="iss.state_id"
                 :options="issueStore.states.map((s) => ({ value: s.id, label: s.name, color: s.color }))"
@@ -440,13 +769,13 @@ const showExportDropdown = ref(false);
                 </template>
               </InlineSelectEdit>
             </td>
-            <td class="td-severity">
+            <td v-if="visibleColumns.some(c => c.key === 'severity')" class="td-severity">
               {{ severityText(iss.severity) }}
             </td>
-            <td class="td-num">
+            <td v-if="visibleColumns.some(c => c.key === 'point')" class="td-num">
               {{ iss.point != null ? iss.point + "pt" : "-" }}
             </td>
-            <td class="td-assignees">
+            <td v-if="visibleColumns.some(c => c.key === 'assignees')" class="td-assignees">
               <span v-if="iss.assignees?.length > 0">
                 <span v-for="uid in iss.assignees.slice(0, 3)" :key="uid" class="avatar-placeholder">
                   U{{ uid }}
@@ -455,12 +784,19 @@ const showExportDropdown = ref(false);
               </span>
               <span v-else class="text-muted">-</span>
             </td>
-            <td class="td-date">
+            <td v-if="visibleColumns.some(c => c.key === 'updated_at')" class="td-date">
               {{ new Date(iss.updated_at).toLocaleDateString("zh-CN") }}
             </td>
           </tr>
-        </tbody>
-      </table>
+            <tr v-if="visibleIssues.length === 0">
+              <td :colspan="visibleColumns.length + 1" class="empty-cell">
+                暂无工作项
+              </td>
+            </tr>
+          </tbody>
+          </table>
+        </div>
+      </div>
 
       <!-- 分页器 -->
       <div v-if="totalPages > 1" class="pagination">
@@ -513,6 +849,45 @@ const showExportDropdown = ref(false);
         </div>
       </div>
     </div>
+
+    <!-- P1-2: 列配置弹窗 -->
+    <div v-if="showColumnConfigModal" class="modal-overlay" @click.self="showColumnConfigModal = false">
+      <div class="column-config-modal">
+        <div class="column-config-modal__header">
+          <h3>配置列</h3>
+          <button class="btn btn--ghost btn--sm" @click="showColumnConfigModal = false">×</button>
+        </div>
+        <p class="column-config-modal__hint">拖拽排序 / 勾选显示 / 输入宽度</p>
+        <ul class="column-config-list">
+          <li
+            v-for="col in columnConfigDraft"
+            :key="col.key"
+            class="column-config-item"
+          >
+            <span class="column-config-item__drag">⋮⋮</span>
+            <label class="column-config-item__check">
+              <input type="checkbox" v-model="col.visible" />
+              <span>{{ col.label }}</span>
+            </label>
+            <input
+              v-if="col.width !== undefined"
+              class="column-config-item__width"
+              type="text"
+              placeholder="auto"
+              :value="col.width"
+              @input="(e: Event) => { col.width = (e.target as HTMLInputElement).value }"
+            />
+            <span v-else class="column-config-item__width column-config-item__width--auto">auto</span>
+          </li>
+        </ul>
+        <div class="column-config-modal__actions">
+          <button class="btn btn--ghost" @click="showColumnConfigModal = false">取消</button>
+          <button class="btn btn--primary" :disabled="savingColumnConfig" @click="applyColumnConfig">
+            {{ savingColumnConfig ? '保存中...' : '保存配置' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -552,7 +927,7 @@ const showExportDropdown = ref(false);
 
 /* 批量工具栏 */
 .batch-bar {
-  display: flex; align-items: center; gap: 10px;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
   padding: 8px 12px; margin-bottom: 12px;
   background: var(--brand-50); border: 1px solid var(--brand-200);
   border-radius: var(--radius-sm);
@@ -567,10 +942,35 @@ const showExportDropdown = ref(false);
 }
 .batch-select:focus { border-color: var(--brand-500); outline: none; }
 
-.btn--sm { padding: 4px 10px; font-size: 12px; font-family: inherit; border-radius: var(--radius-sm); cursor: pointer; border: 1px solid var(--border-default); }
+/* 行内下拉批量操作 */
+.batch-inline-dropdown {
+  position: relative;
+}
+
+.batch-inline-panel {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px;
+  background: var(--surface-1);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-popover);
+}
+
+.btn--sm { padding: 4px 10px; font-size: 12px; font-family: inherit; border-radius: var(--radius-sm); cursor: pointer; border: 1px solid var(--border-default); background: var(--surface-1); color: var(--text-primary); }
 .btn--danger { background: var(--danger-500); color: var(--text-on-brand); border: none; }
 .btn--danger:hover { background: var(--danger-600); }
-.btn--ghost { background: none; color: var(--text-secondary); }
+.btn--ghost { background: none; color: var(--text-secondary); border-color: transparent; }
+.btn--ghost:hover { background: var(--surface-3); }
+.btn--primary { background: var(--brand-500); color: var(--text-on-brand); border-color: var(--brand-500); }
+.btn--primary:hover:not(:disabled) { background: var(--brand-600); }
+.btn--primary:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn--active { background: var(--brand-100); color: var(--brand-600); border-color: var(--brand-200); }
 .btn--export { background: var(--success-500); color: var(--text-on-brand); text-decoration: none; border: none; font-size: 12px; }
 .btn--export:hover { background: var(--success-600); }
 
@@ -589,11 +989,35 @@ const showExportDropdown = ref(false);
 }
 .export-dropdown__item:hover { background: var(--surface-2); }
 .export-dropdown__item + .export-dropdown__item { border-top: 1px solid var(--border-subtle); }
-.btn--ghost:hover { background: var(--surface-3); }
 
 /* 表格 */
-.table-wrap { overflow-x: auto; }
+.table-wrap { overflow-x: auto; display: flex; flex-direction: column; }
 .table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.table--virtual { table-layout: fixed; }
+
+/* P1-3: 虚拟滚动 */
+.virtual-scroll-container {
+  overflow-y: auto;
+  flex: 1;
+  position: relative;
+  max-height: calc(100vh - 280px); /* 视口高度 - 顶部工具栏高度估算 */
+}
+.virtual-scroll-spacer {
+  position: relative;
+  width: 100%;
+}
+.table--virtual {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+.table--virtual tbody {
+  position: absolute;
+  width: 100%;
+}
+.table--virtual .row {
+  height: 48px;
+}
 .table th, .table td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--border-subtle); white-space: nowrap; }
 .table th { font-size: 11px; font-weight: 600; color: var(--text-tertiary); text-transform: uppercase; }
 .th--sortable { cursor: pointer; user-select: none; }
@@ -676,4 +1100,115 @@ const showExportDropdown = ref(false);
 .modal-box h3 { margin: 0 0 8px; }
 .modal-box p { font-size: 14px; color: var(--text-secondary); margin: 0 0 16px; }
 .modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+
+/* 上下文菜单 */
+.context-menu-overlay {
+  position: fixed; inset: 0; z-index: 999;
+}
+.context-menu {
+  position: fixed;
+  background: var(--surface-1);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-popover);
+  min-width: 150px;
+  z-index: 1000;
+  padding: 4px 0;
+}
+.context-menu__item {
+  display: block;
+  width: 100%;
+  padding: 8px 14px;
+  text-align: left;
+  font-size: 13px;
+  font-family: inherit;
+  color: var(--text-primary);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+.context-menu__item:hover { background: var(--surface-2); }
+
+/* 列配置弹窗 */
+.column-config-modal {
+  background: var(--surface-1);
+  border-radius: var(--radius-md);
+  width: 480px;
+  max-width: 90vw;
+  max-height: 70vh;
+  display: flex;
+  flex-direction: column;
+  padding: 24px;
+}
+.column-config-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.column-config-modal__header h3 { margin: 0; font-size: 16px; }
+.column-config-modal__hint {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin: 0 0 16px;
+}
+.column-config-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.column-config-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+  cursor: move;
+}
+.column-config-item__drag {
+  color: var(--text-tertiary);
+  font-size: 14px;
+  flex-shrink: 0;
+  cursor: grab;
+}
+.column-config-item__check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  font-size: 13px;
+  cursor: pointer;
+}
+.column-config-item__check input { accent-color: var(--brand-500); }
+.column-config-item__width {
+  width: 60px;
+  padding: 3px 6px;
+  font-size: 12px;
+  font-family: inherit;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--surface-1);
+  color: var(--text-primary);
+  outline: none;
+  text-align: center;
+}
+.column-config-item__width:focus { border-color: var(--brand-500); }
+.column-config-item__width--auto {
+  width: 60px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+.column-config-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
 </style>

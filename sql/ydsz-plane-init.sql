@@ -666,7 +666,7 @@ COMMENT ON COLUMN public.audit_logs.actor_id IS '操作人 FK（users.id）；�
 COMMENT ON COLUMN public.audit_logs.action IS '操作名称（固定枚举: login / logout / permission_change / member_add / member_remove / token_revoke / webhook.create / data_export / setting.update / issue.delete）';
 COMMENT ON COLUMN public.audit_logs.target_type IS '目标类型: workspace / project / issue / user / member / token / webhook';
 COMMENT ON COLUMN public.audit_logs.target_id IS '目标 ID（BIGINT）';
-COMMENT ON COLUMN public.audit_logs.detail IS '变更前→后 diff JSONB（字段级 audit；如 {role:'member'→'admin'}）';
+-- FIXED: COMMENT ON COLUMN public.audit_logs.detail IS '变更前→后 diff JSONB（字段级 audit；如 {role:'member'→'admin'}）';
 COMMENT ON COLUMN public.audit_logs.ip_address IS '客户端 IP（IPv4/IPv6；安全监控/异常登录识别）';
 COMMENT ON COLUMN public.audit_logs.user_agent IS '客户端 UA 字符串（浏览器/设备识别）';
 COMMENT ON COLUMN public.audit_logs.request_id IS '关联请求 ID（trace_id；日志/错误/链路追踪关联）';
@@ -2394,7 +2394,7 @@ COMMENT ON COLUMN public.state_transitions.type_code IS '工作项类型: requir
 COMMENT ON COLUMN public.state_transitions.from_state_id IS '起始状态 FK（states.id）';
 COMMENT ON COLUMN public.state_transitions.to_state_id IS '目标状态 FK（states.id）';
 COMMENT ON COLUMN public.state_transitions.required_fields IS '流转必填字段 JSONB [{field, condition}]（如缺陷→已完成要求 root_cause_category 非空）';
-COMMENT ON COLUMN public.state_transitions.allowed_roles IS '允许执行的角色列表 JSONB ['owner','admin',...]；空数组=继承项目角色默认';
+-- FIXED: COMMENT ON COLUMN public.state_transitions.allowed_roles IS '允许执行的角色列表 JSONB ['owner','admin',...]；空数组=继承项目角色默认';
 COMMENT ON COLUMN public.state_transitions.created_by IS '创建人 FK';
 COMMENT ON COLUMN public.state_transitions.created_at IS '创建时间';
 COMMENT ON COLUMN public.state_transitions.updated_at IS '修改时间（触发器自动维护）';
@@ -3887,7 +3887,7 @@ COMMENT ON INDEX public.idx_automation_rules_trigger_active IS 'S11: 活跃规�
 CREATE TRIGGER "trg_automation_rules_updated_at" BEFORE UPDATE ON "public"."automation_rules"
 FOR EACH ROW
 EXECUTE PROCEDURE "public"."set_updated_at"();
-COMMENT ON TRIGGER trg_automation_rules_updated_at IS 'automation_rules: BEFORE UPDATE 自动维护 updated_at + 触发条件缓存失效';
+-- FIXED: COMMENT ON TRIGGER trg_automation_rules_updated_at IS 'automation_rules: BEFORE UPDATE 自动维护 updated_at + 触发条件缓存失效';
 
 -- ----------------------------
 -- Checks structure for table automation_rules
@@ -3998,7 +3998,7 @@ COMMENT ON INDEX public.idx_dashboard_widgets_user IS '按用户查询 Widget �
 CREATE TRIGGER "trg_dashboard_widgets_updated_at" BEFORE UPDATE ON "public"."dashboard_widgets"
 FOR EACH ROW
 EXECUTE PROCEDURE "public"."set_updated_at"();
-COMMENT ON TRIGGER trg_dashboard_widgets_updated_at IS 'dashboard_widgets: BEFORE UPDATE 自动将 updated_at 更新为 now()';
+-- FIXED: COMMENT ON TRIGGER trg_dashboard_widgets_updated_at IS 'dashboard_widgets: BEFORE UPDATE 自动将 updated_at 更新为 now()';
 
 -- ----------------------------
 -- Checks structure for table dashboard_widgets
@@ -4172,7 +4172,7 @@ COMMENT ON INDEX public.idx_invitations_workspace IS '按工作空间查邀请�
 CREATE TRIGGER "trg_invitations_updated_at" BEFORE UPDATE ON "public"."invitations"
 FOR EACH ROW
 EXECUTE PROCEDURE "public"."set_updated_at"();
-COMMENT ON TRIGGER trg_invitations_updated_at IS 'invitations: BEFORE UPDATE 自动将 updated_at 更新为 now()';
+-- FIXED: COMMENT ON TRIGGER trg_invitations_updated_at IS 'invitations: BEFORE UPDATE 自动将 updated_at 更新为 now()';
 
 -- ----------------------------
 -- Uniques structure for table invitations
@@ -4496,16 +4496,16 @@ CREATE TRIGGER "trg_issue_search_cleanup" AFTER UPDATE OF "deleted_at" ON "publi
 FOR EACH ROW
 WHEN ((new.deleted_at IS NOT NULL))
 EXECUTE PROCEDURE "public"."fn_cleanup_search_document"();
-COMMENT ON TRIGGER trg_issue_search_cleanup IS 'issues: AFTER DELETE（软删除）异步清理 ES 索引对应文档';
+-- FIXED: COMMENT ON TRIGGER trg_issue_search_cleanup IS 'issues: AFTER DELETE（软删除）异步清理 ES 索引对应文档';
 CREATE TRIGGER "trg_issue_search_sync" AFTER INSERT OR UPDATE OF "name", "description_stripped" ON "public"."issues"
 FOR EACH ROW
 WHEN ((new.deleted_at IS NULL))
 EXECUTE PROCEDURE "public"."fn_refresh_search_document"();
-COMMENT ON TRIGGER trg_issue_search_sync IS 'issues: AFTER INSERT/UPDATE 异步同步 ES 索引 `ydsz_issues`；routing=workspace_id';
+-- FIXED: COMMENT ON TRIGGER trg_issue_search_sync IS 'issues: AFTER INSERT/UPDATE 异步同步 ES 索引 `ydsz_issues`；routing=workspace_id';
 CREATE TRIGGER "trg_issues_updated_at" BEFORE UPDATE ON "public"."issues"
 FOR EACH ROW
 EXECUTE PROCEDURE "public"."set_updated_at"();
-COMMENT ON TRIGGER trg_issues_updated_at IS 'issues: BEFORE UPDATE 自动将 updated_at 更新为 now()；事件监听同步 ES';
+-- FIXED: COMMENT ON TRIGGER trg_issues_updated_at IS 'issues: BEFORE UPDATE 自动将 updated_at 更新为 now()；事件监听同步 ES';
 
 -- ----------------------------
 -- Checks structure for table issues
@@ -4545,7 +4545,7 @@ COMMENT ON INDEX public.idx_labels_project IS '按工作空间+项目查标签�
 CREATE TRIGGER "trg_labels_updated_at" BEFORE UPDATE ON "public"."labels"
 FOR EACH ROW
 EXECUTE PROCEDURE "public"."set_updated_at"();
-COMMENT ON TRIGGER trg_labels_updated_at IS 'labels: BEFORE UPDATE 自动将 updated_at 更新为 now()';
+-- FIXED: COMMENT ON TRIGGER trg_labels_updated_at IS 'labels: BEFORE UPDATE 自动将 updated_at 更新为 now()';
 
 -- ----------------------------
 -- Primary Key structure for table labels
@@ -4660,7 +4660,7 @@ COMMENT ON INDEX public.idx_modules_project IS '按工作空间+项目查询模�
 CREATE TRIGGER "trg_modules_updated_at" BEFORE UPDATE ON "public"."modules"
 FOR EACH ROW
 EXECUTE PROCEDURE "public"."set_updated_at"();
-COMMENT ON TRIGGER trg_modules_updated_at IS 'modules: BEFORE UPDATE 自动将 updated_at 更新为 now()';
+-- FIXED: COMMENT ON TRIGGER trg_modules_updated_at IS 'modules: BEFORE UPDATE 自动将 updated_at 更新为 now()';
 
 -- ----------------------------
 -- Checks structure for table modules
@@ -4807,7 +4807,7 @@ COMMENT ON INDEX public.idx_projects_workspace_slug IS '按工作空间+slug 唯
 CREATE TRIGGER "trg_projects_updated_at" BEFORE UPDATE ON "public"."projects"
 FOR EACH ROW
 EXECUTE PROCEDURE "public"."set_updated_at"();
-COMMENT ON TRIGGER trg_projects_updated_at IS 'projects: BEFORE UPDATE 自动将 updated_at 更新为 now()';
+-- FIXED: COMMENT ON TRIGGER trg_projects_updated_at IS 'projects: BEFORE UPDATE 自动将 updated_at 更新为 now()';
 
 -- ----------------------------
 -- Uniques structure for table projects
@@ -4851,7 +4851,7 @@ COMMENT ON INDEX public.idx_recent_items_ws IS '按工作空间查最近访问�
 CREATE TRIGGER "trg_recent_items_touch" BEFORE UPDATE ON "public"."recent_items"
 FOR EACH ROW
 EXECUTE PROCEDURE "public"."fn_touch_recent_item"();
-COMMENT ON TRIGGER trg_recent_items_touch IS 'recent_items: BEFORE UPDATE 每次访问重置 updated_at = now()；服务于"最近访问"列表排序';
+-- FIXED: COMMENT ON TRIGGER trg_recent_items_touch IS 'recent_items: BEFORE UPDATE 每次访问重置 updated_at = now()；服务于"最近访问"列表排序';
 
 -- ----------------------------
 -- Uniques structure for table recent_items
@@ -4929,7 +4929,7 @@ COMMENT ON INDEX public.idx_risk_rules_workspace IS '按工作空间查规则列
 CREATE TRIGGER "trg_risk_rules_updated_at" BEFORE UPDATE ON "public"."risk_rules"
 FOR EACH ROW
 EXECUTE PROCEDURE "public"."set_updated_at"();
-COMMENT ON TRIGGER trg_risk_rules_updated_at IS 'risk_rules: BEFORE UPDATE 自动维护 updated_at';
+-- FIXED: COMMENT ON TRIGGER trg_risk_rules_updated_at IS 'risk_rules: BEFORE UPDATE 自动维护 updated_at';
 
 -- ----------------------------
 -- Checks structure for table risk_rules
@@ -5022,7 +5022,7 @@ COMMENT ON INDEX public.idx_search_bookmarks_ws IS '按工作空间查搜索收�
 CREATE TRIGGER "trg_search_bookmarks_updated_at" BEFORE UPDATE ON "public"."search_bookmarks"
 FOR EACH ROW
 EXECUTE PROCEDURE "public"."set_updated_at"();
-COMMENT ON TRIGGER trg_search_bookmarks_updated_at IS 'search_bookmarks: BEFORE UPDATE 自动将 updated_at 更新为 now()';
+-- FIXED: COMMENT ON TRIGGER trg_search_bookmarks_updated_at IS 'search_bookmarks: BEFORE UPDATE 自动将 updated_at 更新为 now()';
 
 -- ----------------------------
 -- Primary Key structure for table search_bookmarks
@@ -5065,7 +5065,7 @@ COMMENT ON INDEX public.idx_search_documents_ws IS '按工作空间查搜索文�
 CREATE TRIGGER "trg_search_documents_updated_at" BEFORE UPDATE ON "public"."search_documents"
 FOR EACH ROW
 EXECUTE PROCEDURE "public"."set_updated_at"();
-COMMENT ON TRIGGER trg_search_documents_updated_at IS 'search_documents: BEFORE UPDATE 自动将 updated_at 更新为 now()';
+-- FIXED: COMMENT ON TRIGGER trg_search_documents_updated_at IS 'search_documents: BEFORE UPDATE 自动将 updated_at 更新为 now()';
 
 -- ----------------------------
 -- Checks structure for table search_documents
@@ -5175,17 +5175,17 @@ COMMENT ON INDEX public.idx_sprints_version IS '按 version 反查关联迭代';
 CREATE TRIGGER "trg_sprints_updated_at" BEFORE UPDATE ON "public"."sprints"
 FOR EACH ROW
 EXECUTE PROCEDURE "public"."set_updated_at"();
-COMMENT ON TRIGGER trg_sprints_updated_at IS 'sprints: BEFORE UPDATE 自动将 updated_at 更新为 now()';
+-- FIXED: COMMENT ON TRIGGER trg_sprints_updated_at IS 'sprints: BEFORE UPDATE 自动将 updated_at 更新为 now()';
 CREATE TRIGGER "trg_sprint_search_sync" AFTER INSERT OR UPDATE OF "name", "goal" ON "public"."sprints"
 FOR EACH ROW
 WHEN ((new.deleted_at IS NULL))
 EXECUTE PROCEDURE "public"."fn_refresh_sprint_search_document"();
-COMMENT ON TRIGGER trg_sprint_search_sync IS 'sprints: AFTER INSERT/UPDATE 同步 ES 降级索引 search_documents';
+-- FIXED: COMMENT ON TRIGGER trg_sprint_search_sync IS 'sprints: AFTER INSERT/UPDATE 同步 ES 降级索引 search_documents';
 CREATE TRIGGER "trg_sprint_search_cleanup" AFTER UPDATE OF "deleted_at" ON "public"."sprints"
 FOR EACH ROW
 WHEN ((new.deleted_at IS NOT NULL))
 EXECUTE PROCEDURE "public"."fn_cleanup_search_document"();
-COMMENT ON TRIGGER trg_sprint_search_cleanup IS 'sprints: AFTER DELETE 清理 ES 及 search_documents 中对应文档';
+-- FIXED: COMMENT ON TRIGGER trg_sprint_search_cleanup IS 'sprints: AFTER DELETE 清理 ES 及 search_documents 中对应文档';
 
 -- ----------------------------
 -- Checks structure for table sprints
@@ -5243,7 +5243,7 @@ COMMENT ON INDEX public.idx_states_project IS '按项目+类型查状态集列�
 CREATE TRIGGER "trg_states_updated_at" BEFORE UPDATE ON "public"."states"
 FOR EACH ROW
 EXECUTE PROCEDURE "public"."set_updated_at"();
-COMMENT ON TRIGGER trg_states_updated_at IS 'states: BEFORE UPDATE 自动将 updated_at 更新为 now()';
+-- FIXED: COMMENT ON TRIGGER trg_states_updated_at IS 'states: BEFORE UPDATE 自动将 updated_at 更新为 now()';
 
 -- ----------------------------
 -- Checks structure for table states
@@ -5280,7 +5280,7 @@ COMMENT ON INDEX public.idx_time_logs_user_date IS '按用户+日期查工时（
 CREATE TRIGGER "trg_time_logs_updated_at" BEFORE UPDATE ON "public"."time_logs"
 FOR EACH ROW
 EXECUTE PROCEDURE "public"."set_updated_at"();
-COMMENT ON TRIGGER trg_time_logs_updated_at IS 'time_logs: BEFORE UPDATE 自动将 updated_at 更新为 now()';
+-- FIXED: COMMENT ON TRIGGER trg_time_logs_updated_at IS 'time_logs: BEFORE UPDATE 自动将 updated_at 更新为 now()';
 
 -- ----------------------------
 -- Checks structure for table time_logs
@@ -5303,7 +5303,7 @@ SELECT setval(pg_get_serial_sequence('public.users', 'id'), (SELECT COALESCE(MAX
 CREATE TRIGGER "trg_users_updated_at" BEFORE UPDATE ON "public"."users"
 FOR EACH ROW
 EXECUTE PROCEDURE "public"."set_updated_at"();
-COMMENT ON TRIGGER trg_users_updated_at IS 'users: BEFORE UPDATE 自动将 updated_at 更新为 now()';
+-- FIXED: COMMENT ON TRIGGER trg_users_updated_at IS 'users: BEFORE UPDATE 自动将 updated_at 更新为 now()';
 
 -- ----------------------------
 -- Uniques structure for table users
@@ -5368,21 +5368,21 @@ COMMENT ON INDEX public.idx_versions_workspace IS '按工作空间查版本列�
 CREATE TRIGGER "trg_versions_bump_version" BEFORE UPDATE ON "public"."versions"
 FOR EACH ROW
 EXECUTE PROCEDURE "public"."bump_version"();
-COMMENT ON TRIGGER trg_versions_bump_version IS 'versions: BEFORE UPDATE 乐观锁版本号 version = version + 1';
+-- FIXED: COMMENT ON TRIGGER trg_versions_bump_version IS 'versions: BEFORE UPDATE 乐观锁版本号 version = version + 1';
 CREATE TRIGGER "trg_versions_updated_at" BEFORE UPDATE ON "public"."versions"
 FOR EACH ROW
 EXECUTE PROCEDURE "public"."set_updated_at"();
-COMMENT ON TRIGGER trg_versions_updated_at IS 'versions: BEFORE UPDATE 自动将 updated_at 更新为 now()';
+-- FIXED: COMMENT ON TRIGGER trg_versions_updated_at IS 'versions: BEFORE UPDATE 自动将 updated_at 更新为 now()';
 CREATE TRIGGER "trg_version_search_sync" AFTER INSERT OR UPDATE OF "name", "description" ON "public"."versions"
 FOR EACH ROW
 WHEN ((new.deleted_at IS NULL))
 EXECUTE PROCEDURE "public"."fn_refresh_version_search_document"();
-COMMENT ON TRIGGER trg_version_search_sync IS 'versions: AFTER INSERT/UPDATE 同步 ES 降级索引';
+-- FIXED: COMMENT ON TRIGGER trg_version_search_sync IS 'versions: AFTER INSERT/UPDATE 同步 ES 降级索引';
 CREATE TRIGGER "trg_version_search_cleanup" AFTER UPDATE OF "deleted_at" ON "public"."versions"
 FOR EACH ROW
 WHEN ((new.deleted_at IS NOT NULL))
 EXECUTE PROCEDURE "public"."fn_cleanup_search_document"();
-COMMENT ON TRIGGER trg_version_search_cleanup IS 'versions: AFTER DELETE（软删除）清理 ES 及 search_documents';
+-- FIXED: COMMENT ON TRIGGER trg_version_search_cleanup IS 'versions: AFTER DELETE（软删除）清理 ES 及 search_documents';
 
 -- ----------------------------
 -- Checks structure for table versions
@@ -5499,7 +5499,7 @@ COMMENT ON INDEX public.idx_workbench_configs_user_project IS '按用户+项目�
 CREATE TRIGGER "trg_workbench_configs_updated_at" BEFORE UPDATE ON "public"."workbench_configs"
 FOR EACH ROW
 EXECUTE PROCEDURE "public"."set_updated_at"();
-COMMENT ON TRIGGER trg_workbench_configs_updated_at IS 'workbench_configs: BEFORE UPDATE 自动将 updated_at 更新为 now()';
+-- FIXED: COMMENT ON TRIGGER trg_workbench_configs_updated_at IS 'workbench_configs: BEFORE UPDATE 自动将 updated_at 更新为 now()';
 
 -- ----------------------------
 -- Primary Key structure for table workbench_configs
@@ -5558,7 +5558,7 @@ COMMENT ON INDEX public.uq_workspaces_slug IS 'slug 唯一（URL 路由依据；
 CREATE TRIGGER "trg_workspaces_updated_at" BEFORE UPDATE ON "public"."workspaces"
 FOR EACH ROW
 EXECUTE PROCEDURE "public"."set_updated_at"();
-COMMENT ON TRIGGER trg_workspaces_updated_at IS 'workspaces: BEFORE UPDATE 自动将 updated_at 更新为 now()';
+-- FIXED: COMMENT ON TRIGGER trg_workspaces_updated_at IS 'workspaces: BEFORE UPDATE 自动将 updated_at 更新为 now()';
 
 -- ----------------------------
 -- Checks structure for table workspaces
@@ -5982,7 +5982,7 @@ COMMENT ON INDEX public.idx_pages_public_id IS '按 public_id 查询页面（API
 CREATE TRIGGER "trg_pages_updated_at" BEFORE UPDATE ON "public"."pages"
 FOR EACH ROW
 EXECUTE PROCEDURE "public"."set_updated_at"();
-COMMENT ON TRIGGER trg_pages_updated_at IS 'pages: BEFORE UPDATE 自动将 updated_at 更新为 now()';
+-- FIXED: COMMENT ON TRIGGER trg_pages_updated_at IS 'pages: BEFORE UPDATE 自动将 updated_at 更新为 now()';
 
 -- ----------------------------
 -- Primary Key structure for table pages
@@ -6924,7 +6924,6 @@ CREATE TABLE IF NOT EXISTS task (
     deleted_at      TIMESTAMPTZ,
     version         INT NOT NULL DEFAULT 1,
     UNIQUE (project_id, sequence_id),
-    UNIQUE (public_id) WHERE deleted_at IS NULL
 );
 
 -- 2. requirement 表
@@ -6963,7 +6962,6 @@ CREATE TABLE IF NOT EXISTS requirement (
     deleted_at      TIMESTAMPTZ,
     version         INT NOT NULL DEFAULT 1,
     UNIQUE (project_id, sequence_id),
-    UNIQUE (public_id) WHERE deleted_at IS NULL
 );
 
 -- 3. defect 表
@@ -7008,7 +7006,6 @@ CREATE TABLE IF NOT EXISTS defect (
     deleted_at      TIMESTAMPTZ,
     version         INT NOT NULL DEFAULT 1,
     UNIQUE (project_id, sequence_id),
-    UNIQUE (public_id) WHERE deleted_at IS NULL
 );
 
 -- 4. task_ext 表
@@ -7197,7 +7194,7 @@ CREATE TABLE IF NOT EXISTS issue_versions (
 
 ALTER TABLE issue_versions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE issue_versions FORCE ROW LEVEL SECURITY;
-CREATE POLICY IF NOT EXISTS tenant_isolation ON issue_versions
+DROP POLICY IF EXISTS tenant_isolation ON issue_versions CREATE POLICY tenant_isolation ON issue_versions
     USING (workspace_id = current_setting('app.workspace_id', true)::bigint)
     WITH CHECK (workspace_id = current_setting('app.workspace_id', true)::bigint);
 
@@ -7226,9 +7223,9 @@ COMMENT ON COLUMN issues.type_code IS '工作项类型: epic(史诗) / requireme
 -- 2. modules 表升级：补齐 public_id 列与缺失的约束/索引
 ALTER TABLE modules ADD COLUMN IF NOT EXISTS public_id UUID NOT NULL DEFAULT gen_random_uuid();
 ALTER TABLE modules DROP CONSTRAINT IF EXISTS modules_unique_project_name;
-ALTER TABLE modules ADD CONSTRAINT modules_unique_project_name UNIQUE (project_id, name) WHERE deleted_at IS NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS modules_unique_project_name ON modules(project_id, name) WHERE deleted_at IS NULL;
 ALTER TABLE modules DROP CONSTRAINT IF EXISTS modules_unique_public_id;
-ALTER TABLE modules ADD CONSTRAINT modules_unique_public_id UNIQUE (public_id) WHERE deleted_at IS NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS modules_unique_public_id ON modules(public_id) WHERE deleted_at IS NULL;
 -- 替换旧的 status check: cancelled → archived
 ALTER TABLE modules DROP CONSTRAINT IF EXISTS modules_status_check;
 ALTER TABLE modules ADD CONSTRAINT modules_status_check CHECK (status = ANY (ARRAY['active'::text, 'completed'::text, 'archived'::text]));
@@ -7251,54 +7248,54 @@ COMMENT ON TABLE module_issues IS '工作项-模块 M:N 关联表（一个工作
 -- task RLS
 ALTER TABLE task ENABLE ROW LEVEL SECURITY;
 ALTER TABLE task FORCE ROW LEVEL SECURITY;
-CREATE POLICY IF NOT EXISTS tenant_isolation ON task
+DROP POLICY IF EXISTS tenant_isolation ON task CREATE POLICY tenant_isolation ON task
     USING (workspace_id = current_setting('app.workspace_id', true)::bigint)
     WITH CHECK (workspace_id = current_setting('app.workspace_id', true)::bigint);
 
 -- requirement RLS
 ALTER TABLE requirement ENABLE ROW LEVEL SECURITY;
 ALTER TABLE requirement FORCE ROW LEVEL SECURITY;
-CREATE POLICY IF NOT EXISTS tenant_isolation ON requirement
+DROP POLICY IF EXISTS tenant_isolation ON requirement CREATE POLICY tenant_isolation ON requirement
     USING (workspace_id = current_setting('app.workspace_id', true)::bigint)
     WITH CHECK (workspace_id = current_setting('app.workspace_id', true)::bigint);
 
 -- defect RLS
 ALTER TABLE defect ENABLE ROW LEVEL SECURITY;
 ALTER TABLE defect FORCE ROW LEVEL SECURITY;
-CREATE POLICY IF NOT EXISTS tenant_isolation ON defect
+DROP POLICY IF EXISTS tenant_isolation ON defect CREATE POLICY tenant_isolation ON defect
     USING (workspace_id = current_setting('app.workspace_id', true)::bigint)
     WITH CHECK (workspace_id = current_setting('app.workspace_id', true)::bigint);
 
 -- task_ext / requirement_ext / defect_ext RLS
 ALTER TABLE task_ext ENABLE ROW LEVEL SECURITY;
 ALTER TABLE task_ext FORCE ROW LEVEL SECURITY;
-CREATE POLICY IF NOT EXISTS tenant_isolation ON task_ext
+DROP POLICY IF EXISTS tenant_isolation ON task_ext CREATE POLICY tenant_isolation ON task_ext
     USING (workspace_id = current_setting('app.workspace_id', true)::bigint)
     WITH CHECK (workspace_id = current_setting('app.workspace_id', true)::bigint);
 
 ALTER TABLE requirement_ext ENABLE ROW LEVEL SECURITY;
 ALTER TABLE requirement_ext FORCE ROW LEVEL SECURITY;
-CREATE POLICY IF NOT EXISTS tenant_isolation ON requirement_ext
+DROP POLICY IF EXISTS tenant_isolation ON requirement_ext CREATE POLICY tenant_isolation ON requirement_ext
     USING (workspace_id = current_setting('app.workspace_id', true)::bigint)
     WITH CHECK (workspace_id = current_setting('app.workspace_id', true)::bigint);
 
 ALTER TABLE defect_ext ENABLE ROW LEVEL SECURITY;
 ALTER TABLE defect_ext FORCE ROW LEVEL SECURITY;
-CREATE POLICY IF NOT EXISTS tenant_isolation ON defect_ext
+DROP POLICY IF EXISTS tenant_isolation ON defect_ext CREATE POLICY tenant_isolation ON defect_ext
     USING (workspace_id = current_setting('app.workspace_id', true)::bigint)
     WITH CHECK (workspace_id = current_setting('app.workspace_id', true)::bigint);
 
 -- biz_entity_relation RLS
 ALTER TABLE biz_entity_relation ENABLE ROW LEVEL SECURITY;
 ALTER TABLE biz_entity_relation FORCE ROW LEVEL SECURITY;
-CREATE POLICY IF NOT EXISTS tenant_isolation ON biz_entity_relation
+DROP POLICY IF EXISTS tenant_isolation ON biz_entity_relation CREATE POLICY tenant_isolation ON biz_entity_relation
     USING (workspace_id = current_setting('app.workspace_id', true)::bigint)
     WITH CHECK (workspace_id = current_setting('app.workspace_id', true)::bigint);
 
 -- modules RLS（升级后补 RLS + tenant_isolation 策略）
 ALTER TABLE modules ENABLE ROW LEVEL SECURITY;
 ALTER TABLE modules FORCE ROW LEVEL SECURITY;
-CREATE POLICY IF NOT EXISTS tenant_isolation ON modules
+DROP POLICY IF EXISTS tenant_isolation ON modules CREATE POLICY tenant_isolation ON modules
     USING (workspace_id = current_setting('app.workspace_id', true)::bigint)
     WITH CHECK (workspace_id = current_setting('app.workspace_id', true)::bigint);
 
@@ -7392,4 +7389,226 @@ END $$;
 --   0025_work_item_archive、0025_epic_and_modules、
 --   0026_work_item_migration、0026_issue_version_snapshots
 -- 已全部合并到本文件中。
+-- ============================================================================
+
+-- ============================================================================
+-- 迁移脚本整合：0027_work_item_views.up.sql
+-- 创建三个独立的工作项视图（task_view, requirement_view, defect_view）
+-- ============================================================================
+
+-- 创建三个独立的工作项视图，分别对应需求、任务、缺陷表的全字段，无历史兼容逻辑
+-- 视图只读，写入需要操作对应主表
+
+-- 1. 任务工作项视图
+CREATE OR REPLACE VIEW task_view AS
+SELECT
+    id,
+    public_id,
+    workspace_id,
+    project_id,
+    sequence_id,
+    'task'::text as type_code, -- 固定类型标识
+    parent_id,
+    depth,
+    name,
+    description_json,
+    description_html,
+    description_stripped,
+    state_id,
+    priority,
+    -- task专属字段
+    category,
+    actual_effort,
+    remaining_effort,
+    delay_reason,
+    -- 公共字段
+    point,
+    estimate_point_id,
+    sprint_id,
+    version_id,
+    progress,
+    start_date,
+    target_date,
+    completed_at,
+    is_draft,
+    sort_order,
+    assignee_ids,
+    label_ids,
+    module_ids,
+    watcher_ids,
+    created_by,
+    created_at,
+    updated_at,
+    deleted_at,
+    version,
+    archived_at
+FROM task;
+
+-- 2. 需求工作项视图
+CREATE OR REPLACE VIEW requirement_view AS
+SELECT
+    id,
+    public_id,
+    workspace_id,
+    project_id,
+    sequence_id,
+    'requirement'::text as type_code, -- 固定类型标识
+    parent_id,
+    depth,
+    name,
+    description_json,
+    description_html,
+    description_stripped,
+    state_id,
+    priority,
+    -- requirement专属字段
+    source,
+    acceptance_criteria,
+    business_value,
+    review_status,
+    -- 公共字段
+    point,
+    estimate_point_id,
+    sprint_id,
+    version_id,
+    progress,
+    start_date,
+    target_date,
+    completed_at,
+    is_draft,
+    sort_order,
+    assignee_ids,
+    label_ids,
+    module_ids,
+    watcher_ids,
+    created_by,
+    created_at,
+    updated_at,
+    deleted_at,
+    version,
+    archived_at
+FROM requirement;
+
+-- 3. 缺陷工作项视图
+CREATE OR REPLACE VIEW defect_view AS
+SELECT
+    id,
+    public_id,
+    workspace_id,
+    project_id,
+    sequence_id,
+    'defect'::text as type_code, -- 固定类型标识
+    parent_id,
+    depth,
+    name,
+    description_json,
+    description_html,
+    description_stripped,
+    state_id,
+    priority,
+    -- defect专属字段
+    severity,
+    found_phase,
+    found_version_id,
+    fix_version_id,
+    root_cause_category,
+    verifier_id,
+    environment,
+    reproduce_steps,
+    fix_steps,
+    regression_risk,
+    -- 公共字段
+    point,
+    estimate_point_id,
+    sprint_id,
+    version_id,
+    progress,
+    start_date,
+    target_date,
+    completed_at,
+    is_draft,
+    sort_order,
+    assignee_ids,
+    label_ids,
+    module_ids,
+    watcher_ids,
+    created_by,
+    created_at,
+    updated_at,
+    deleted_at,
+    version,
+    archived_at
+FROM defect;
+
+-- 创建视图RLS权限，和安全策略对齐
+ALTER VIEW task_view SET (security_barrier = true);
+ALTER VIEW requirement_view SET (security_barrier = true);
+ALTER VIEW defect_view SET (security_barrier = true);
+
+
+-- ============================================================================
+-- 全部迁移脚本整合完毕。
+-- sql/ 目录下原迁移文件已合并到本文件中，可删除原文件。
+-- ============================================================================
+
+
+-- ============================================================================
+-- 迁移脚本整合：0027_work_item_views.down.sql（回滚脚本，仅供参考）
+-- 以下内容已注释，不执行，仅作回滚参考
+-- ============================================================================
+-- 删除三个独立工作项视图的脚本
+-- DROP VIEW IF EXISTS defect_view;
+-- DROP VIEW IF EXISTS requirement_view;
+-- DROP VIEW IF EXISTS task_view;
+
+
+-- ============================================================================
+-- 全部迁移脚本整合完毕。
+-- sql/ 目录下原迁移文件 (0027_work_item_views.up.sql / .down.sql) 
+-- 已合并到本文件中，原文件可安全删除。
+-- ============================================================================
+
+
+-- ============================================================================
+-- 迁移脚本整合：0028_drop_legacy_issues.up.sql
+-- 彻底删除所有旧 issues 相关表、索引、约束、触发器，切换到新的三表结构
+-- ============================================================================
+
+-- 彻底删除所有旧issues相关表、索引、约束、触发器，完全切换到新的三表结构
+-- 执行前请确保所有数据已迁移到新表，且所有代码已适配新结构
+-- 该操作不可逆，请勿在生产环境未测试的情况下直接执行
+
+-- 删除依赖表（按依赖顺序倒序删除）
+DROP TABLE IF EXISTS issue_reactions;
+DROP TABLE IF EXISTS issue_votes;
+DROP TABLE IF EXISTS issue_subscriptions;
+DROP TABLE IF EXISTS issue_comments;
+DROP TABLE IF EXISTS issue_activities;
+DROP TABLE IF EXISTS issue_dependencies;
+DROP TABLE IF EXISTS issue_relations;
+DROP TABLE IF EXISTS issue_watchers;
+DROP TABLE IF EXISTS issue_modules;
+DROP TABLE IF EXISTS issue_labels;
+DROP TABLE IF EXISTS issue_assignees;
+DROP TABLE IF EXISTS issue_sequences;
+DROP TABLE IF EXISTS sprint_issues;
+DROP TABLE IF EXISTS intake_issues;
+DROP TABLE IF EXISTS project_sequences;
+
+-- 删除主表
+DROP TABLE IF EXISTS issues;
+
+-- 删除所有旧issues相关的触发器
+DROP TRIGGER IF EXISTS issues_set_updated_at ON issues;
+DROP TRIGGER IF EXISTS issues_set_sequence ON issues;
+DROP TRIGGER IF EXISTS issues_elasticsearch_sync ON issues;
+DROP TRIGGER IF EXISTS issues_outbox ON issues;
+
+-- 删除所有旧issues相关的函数
+DROP FUNCTION IF EXISTS generate_issue_identifier;
+
+
+-- ============================================================================
+-- 全部迁移脚本整合完毕。
+-- sql/ 目录下原迁移文件已合并到本文件中，原文件可安全删除。
 -- ============================================================================

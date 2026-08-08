@@ -202,7 +202,7 @@ func (h *IssueHandler) createIssue(c *gin.Context) {
 	// 通知被指派者 + 广播工作项创建
 	h.notifyIssueCreated(c.Request.Context(), wsID, req.Assignees, userID,
 		h.actorName(c, userID), iss.Name, iss.ID)
-	h.broadcastIssueUpdated(c.Request.Context(), wsID, projectID, iss.ID)
+	h.broadcastIssueUpdated(c.Request.Context(), wsID, projectID, iss.ID, userID, iss.Version)
 
 	c.JSON(http.StatusCreated, iss)
 }
@@ -341,7 +341,7 @@ func (h *IssueHandler) updateIssue(c *gin.Context) {
 		return
 	}
 	// 广播 + 仅核心事件通知关注者
-	h.broadcastIssueUpdated(c.Request.Context(), wsID, projectID, iss.ID)
+	h.broadcastIssueUpdated(c.Request.Context(), wsID, projectID, iss.ID, userID, iss.Version)
 	c.JSON(http.StatusOK, iss)
 }
 
@@ -392,7 +392,7 @@ func (h *IssueHandler) transition(c *gin.Context) {
 		return
 	}
 	// 广播状态变更（看板实时刷新）
-	h.broadcastIssueUpdated(c.Request.Context(), wsID, projectID, iss.ID)
+	h.broadcastIssueUpdated(c.Request.Context(), wsID, projectID, iss.ID, userID, iss.Version)
 	// 通知关注者，传递核心事件类型issue.status_changed，触发通知
 	h.notifyIssueWatchers(c.Request.Context(), wsID, iss.ID, userID, "issue.status_changed", h.actorName(c, userID), iss.Name, "工作项状态已变更")
 	c.JSON(http.StatusOK, iss)
@@ -421,6 +421,7 @@ func (h *IssueHandler) reorderIssue(c *gin.Context) {
 	iss, err := h.d.IssueSvc.Reorder(c.Request.Context(), wsID, issueID, ReorderInput{
 		PrevSortOrder: req.PrevSortOrder,
 		NextSortOrder: req.NextSortOrder,
+		Version:       req.Version,
 	})
 	if err != nil {
 		writeErr(c, err)
@@ -889,6 +890,7 @@ type updateIssueRequest struct {
 type reorderIssueRequest struct {
 	PrevSortOrder *float64 `json:"prev_sort_order"`
 	NextSortOrder *float64 `json:"next_sort_order"`
+	Version       *int     `json:"version"`
 }
 
 type batchIssuesRequest struct {
@@ -1134,7 +1136,7 @@ func (h *IssueHandler) createComment(c *gin.Context) {
 	// 通知关注者（有人评论了我关注的工作项）
 	h.notifyIssueWatchers(c.Request.Context(), wsID, issueID, userID, "issue.commented",
 		comment.CreatorName, h.issueTitle(c, wsID, issueID), "你关注的工作项有新评论")
-	h.broadcastIssueUpdated(c.Request.Context(), wsID, projectID, issueID)
+	h.broadcastIssueUpdated(c.Request.Context(), wsID, projectID, issueID, userID, -1)
 
 	c.JSON(http.StatusCreated, comment)
 }

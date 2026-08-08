@@ -16,21 +16,59 @@ const saving = ref(false);
 const error = ref("");
 const saved = ref(false);
 
-/** 事件类型选项（与后端 EventType 对齐） */
-const EVENT_OPTIONS: Array<{ value: string; label: string }> = [
-  { value: "issue.created", label: "工作项创建" },
-  { value: "issue.assigned", label: "工作项指派" },
-  { value: "issue.status_changed", label: "工作项状态变更" },
-  { value: "issue.deleted", label: "工作项删除" },
-  { value: "comment.created", label: "评论" },
-  { value: "sprint.started", label: "迭代启动" },
-  { value: "sprint.completed", label: "迭代完成" },
-  { value: "version.released", label: "版本发布" },
-  { value: "member.added", label: "成员加入" },
-  { value: "member.removed", label: "成员移除" },
-  { value: "member.role_changed", label: "成员角色变更" },
-  { value: "invitation.sent", label: "邀请发送" },
-];
+/** 事件类型选项（与后端 EventType 对齐），按分组归类 */
+type EventGroup = {
+  key: string
+  label: string
+  icon: string
+  collapsed: boolean
+  events: Array<{ value: string; label: string }>
+}
+
+const eventGroups = ref<EventGroup[]>([
+  {
+    key: "mention",
+    label: "提及我的",
+    icon: "📣",
+    collapsed: false,
+    events: [
+      { value: "issue.assigned", label: "工作项指派给我" },
+      { value: "comment.created", label: "评论回复" },
+    ],
+  },
+  {
+    key: "subscription",
+    label: "我订阅的",
+    icon: "🔔",
+    collapsed: false,
+    events: [
+      { value: "issue.created", label: "工作项创建" },
+      { value: "issue.status_changed", label: "工作项状态变更" },
+      { value: "issue.deleted", label: "工作项删除" },
+      { value: "sprint.started", label: "迭代启动" },
+           { value: "sprint.completed", label: "迭代完成" },
+      { value: "version.released", label: "版本发布" },
+    ],
+  },
+  {
+    key: "system",
+    label: "系统公告",
+    icon: "📢",
+    collapsed: false,
+    events: [
+      { value: "member.added", label: "成员加入" },
+      { value: "member.removed", label: "成员移除" },
+      { value: "member.role_changed", label: "成员角色变更" },
+      { value: "invitation.sent", label: "邀请发送" },
+    ],
+  },
+])
+
+/** 切换分组折叠/展开 */
+function toggleGroup(key: string) {
+  const g = eventGroups.value.find((g) => g.key === key)
+  if (g) g.collapsed = !g.collapsed
+}
 
 const DIGEST_OPTIONS = [
   { value: "realtime", label: "实时推送" },
@@ -141,19 +179,79 @@ onMounted(load);
         </div>
       </div>
 
-      <!-- 事件订阅 -->
+      <!-- 事件订阅（按分组折叠面板） -->
       <div class="notification-prefs__card">
         <div class="notification-prefs__card-title">事件订阅</div>
         <p class="notification-prefs__hint">不勾选任何事件 = 接收全部通知</p>
-        <div class="notification-prefs__grid">
-          <label v-for="opt in EVENT_OPTIONS" :key="opt.value" class="notification-prefs__checkbox">
-            <input
-              type="checkbox"
-              :checked="isEventOn(opt.value)"
-              @change="toggleEvent(opt.value)"
-            />
-            <span>{{ opt.label }}</span>
-          </label>
+
+        <div class="event-groups">
+          <div
+            v-for="group in eventGroups"
+            :key="group.key"
+            class="event-group"
+            :class="{ 'event-group--collapsed': group.collapsed }"
+          >
+            <!-- 分组标题栏 -->
+            <button
+              class="event-group__header"
+              type="button"
+              @click="toggleGroup(group.key)"
+            >
+              <span class="event-group__icon">{{ group.icon }}</span>
+              <span class="event-group__label">{{ group.label }}</span>
+              <span class="event-group__toggle">
+                {{ group.collapsed ? "▶" : "▼" }}
+              </span>
+            </button>
+
+            <!-- 分组内容：事件列表 + 渠道矩阵 -->
+            <div v-show="!group.collapsed" class="event-group__body">
+              <!-- 事件检查框 -->
+              <div class="notification-prefs__grid">
+                <label
+                  v-for="opt in group.events"
+                  :key="opt.value"
+                  class="notification-prefs__checkbox"
+                >
+                  <input
+                    type="checkbox"
+                    :checked="isEventOn(opt.value)"
+                    @change="toggleEvent(opt.value)"
+                  />
+                  <span>{{ opt.label }}</span>
+                </label>
+              </div>
+
+              <!-- 渠道矩阵 -->
+              <div class="notification-prefs__channels notification-prefs__channels--inline">
+                <div class="notification-prefs__channels-header">
+                  <span class="notification-prefs__channels-title">通知渠道</span>
+                </div>
+                <div class="notification-prefs__grid notification-prefs__grid--channels">
+                  <label class="notification-prefs__checkbox notification-prefs__checkbox--disabled">
+                    <input type="checkbox" checked disabled />
+                    <span>站内信</span>
+                  </label>
+                  <label class="notification-prefs__checkbox">
+                    <input type="checkbox" :checked="isChannelOn('email')" @change="toggleChannel('email')" />
+                    <span>邮件</span>
+                  </label>
+                  <label class="notification-prefs__checkbox">
+                    <input type="checkbox" :checked="isChannelOn('wecom')" @change="toggleChannel('wecom')" />
+                    <span>企业微信</span>
+                  </label>
+                  <label class="notification-prefs__checkbox">
+                    <input type="checkbox" :checked="isChannelOn('dingtalk')" @change="toggleChannel('dingtalk')" />
+                    <span>钉钉</span>
+                  </label>
+                  <label class="notification-prefs__checkbox">
+                    <input type="checkbox" :checked="isChannelOn('feishu')" @change="toggleChannel('feishu')" />
+                    <span>飞书</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -360,6 +458,71 @@ onMounted(load);
   border: 1px solid var(--border-default, #d1d5db);
   border-radius: var(--radius-sm, 6px);
   outline: none;
+}
+
+/* ===== Event groups (collapsible) ===== */
+.event-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.event-group {
+  border: 1px solid var(--border-subtle, #e5e7eb);
+  border-radius: var(--radius-sm, 6px);
+  overflow: hidden;
+}
+
+.event-group__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 14px;
+  background: var(--surface-2, #f9fafb);
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--text-primary, #1f2937);
+  text-align: left;
+  transition: background 0.1s;
+}
+
+.event-group__header:hover {
+  background: var(--surface-3, #e5e7eb);
+}
+
+.event-group__icon {
+  font-size: 14px;
+}
+
+.event-group__label {
+  flex: 1;
+  font-weight: 500;
+}
+
+.event-group__toggle {
+  font-size: 10px;
+  color: var(--text-tertiary, #9ca3af);
+}
+
+.event-group__body {
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.event-group--collapsed {
+  opacity: 0.85;
+}
+
+.notification-prefs__channels--inline {
+  margin-top: 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-subtle, #e5e7eb);
 }
 
 /* ===== Channel subscription ===== */

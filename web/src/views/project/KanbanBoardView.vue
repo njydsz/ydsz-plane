@@ -3,8 +3,9 @@
  * 看板视图 — 按状态分列展示工作项。
  * 支持: 列间拖拽流转 / 列内拖拽排序 / 视觉反馈 / 中值插入排序。
  */
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRoute } from "vue-router";
+import { VueDraggable } from "vue-draggable-plus";
 
 import { issueApi, type Issue, type IssuePriority } from "@/api/services/issue";
 import { preferenceApi } from "@/api/services/preference";
@@ -12,6 +13,8 @@ import { useIssueStore } from "@/stores/issue";
 import { usePeekStore } from "@/stores/peek";
 import { prefs } from "@/lib/prefs";
 import { toast, promiseToast } from "@/lib/toast";
+import { wsClient } from "@/lib/ws-client";
+import { useAuthStore } from "@/stores/auth";
 import IssueCreateModal from "./IssueCreateModal.vue";
 import IssueFilter from "./IssueFilter.vue";
 import { AppErrorState, AppEmptyState, InlineEdit, InlineSelectEdit, AppSkeleton } from "@/components";
@@ -24,6 +27,7 @@ import {
 const route = useRoute();
 const issueStore = useIssueStore();
 const peek = usePeekStore();
+const authStore = useAuthStore();
 
 const projectId = computed(() => Number(route.params.projectId));
 const wsId = ref(0);
@@ -96,12 +100,21 @@ function startColumnResize(e: PointerEvent) {
   window.addEventListener("pointerup", onUp);
 }
 
-// --- 拖拽状态 ---
+// --- 拖拽状态（VueDraggable 驱动）---
 const dragIssue = ref<Issue | null>(null);
-const dragOverColumn = ref<number | null>(null);
-const dropIndex = ref<number | null>(null);
 /** 正在执行 transition / reorder API 调用，阻止重复提交 */
 const processingDrop = ref(false);
+/** 跨列拖拽时 Source 列 ID（用于 @add 事件中的回滚） */
+const dragSourceStateId = ref<number | null>(null);
+
+async function doFetch() {
+  const wsIdVal = Number(route.params.workspaceId);
+  const params = filterToListParams(filters.value);
+  await Promise.all([
+    issueStore.fetchStates(wsIdVal, projectId.value),
+    issueStore.fetchIssues(wsIdVal, projectId.value, params),
+  ]);
+}
 
 async function load() {
   loading.value = true;
@@ -109,6 +122,13 @@ async function load() {
   try {
     const wsIdVal = Number(route.params.workspaceId);
     wsId.value = wsIdVal;
+
+    // 建立 WebSocket 连接以实时接收看板变更事件（他人拖拽/流转时本地状态同步）
+    if (!wsClient.isConnected || wsClient.currentWorkspaceId !== wsIdVal) {
+      wsClient.connect(wsIdVal);
+      wsClient.on("issue.updated", handleRemoteIssueUpdate);
+      wsClient.onReconnect(() => { void doFetch(); });
+    }
 
     // FilterState → ListParams 转换，仅在 API 边界使用
     const params = filterToListParams(filters.value);
@@ -138,134 +158,127 @@ function issuesInState(stateId: number): Issue[] {
     .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
 }
 
-// --- 拖拽事件 ---
+// --- 拖拽事件（VueDraggable 驱动） ---
 
-function onDragStart(issue: Issue, event: DragEvent) {
-  dragIssue.value = issue;
-  if (event.dataTransfer) {
-    event.dataTransfer.effectAllowed = "move";
-    event.dataTransfer.setData("text/plain", String(issue.id));
-    // 设置拖拽预览：一个半透明的小型标识卡（对标 Plane 的 drag ghost）
-    const ghost = document.createElement("div");
-    ghost.className = "kanban-ghost";
-    ghost.textContent = `${issue.identifier} · ${issue.name}`;
-    document.body.appendChild(ghost);
-    event.dataTransfer.setDragImage(ghost, 12, 12);
-    // 清理：setDragImage 后幽灵元素不再需要，但为避免累积在下一帧移除
-    requestAnimationFrame(() => ghost.remove());
+/** VueDraggable @start：记录被拖拽的 issue 与源列 */
+function onDragStart(evt: { item?: HTMLElement }) {
+  const id = evt.item?.dataset?.id;
+  if (id) {
+    const issue = issueStore.issues.find((i) => String(i.id) === id) ?? null;
+    dragIssue.value = issue;
+    dragSourceStateId.value = issue?.state_id ?? null;
   }
 }
 
+/** VueDraggable @end：清理拖拽状态 */
 function onDragEnd() {
   dragIssue.value = null;
-  dragOverColumn.value = null;
-  dropIndex.value = null;
+  dragSourceStateId.value = null;
 }
 
-function onColumnDragOver(stateId: number, event: DragEvent) {
-  event.preventDefault();
-  if (!processingDrop.value) {
-    dragOverColumn.value = stateId;
-    if (event.dataTransfer) {
-      event.dataTransfer.dropEffect = "move";
-    }
-  }
-}
-
-function onColumnDragLeave(stateId: number) {
-  if (dragOverColumn.value === stateId) {
-    dragOverColumn.value = null;
-  }
-}
-
-/** 卡片间拖拽悬停 — 计算插入位置 */
-function onCardDragOver(stateId: number, index: number, event: DragEvent) {
-  event.preventDefault();
-  event.stopPropagation();
-  dragOverColumn.value = stateId;
-
-  // 根据鼠标在卡片上的位置确定插入上方还是下方
-  const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
-  const mid = rect.top + rect.height / 2;
-  dropIndex.value = event.clientY < mid ? index : index + 1;
-}
-
-/** 列容器拖拽悬停 — 检测拖拽到列表末尾空白区（追加到末尾） */
-function onCardsDragOver(stateId: number, event: DragEvent) {
-  event.preventDefault();
-  event.stopPropagation();
-  dragOverColumn.value = stateId;
-  // 当拖拽位于最后一张卡片之下时，dropIndex 设为列表长度（即追加到末尾）
-  const cards = (event.currentTarget as HTMLElement).querySelectorAll(".issue-card");
-  if (cards.length === 0) {
-    dropIndex.value = 0;
-    return;
-  }
-  const lastCard = cards[cards.length - 1] as HTMLElement;
-  const lastRect = lastCard.getBoundingClientRect();
-  if (event.clientY > lastRect.bottom) {
-    dropIndex.value = cards.length;
-  }
-}
-
-async function onColumnDrop(stateId: number, event: DragEvent) {
-  event.preventDefault();
+/** VueDraggable @add：item 从其他列转移到本列 — 触发 transition + reorder */
+async function onColumnAdd(stateId: number, evt: { newIndex?: number }) {
   const dragged = dragIssue.value;
   if (!dragged || processingDrop.value) return;
+  if (dragged.state_id === stateId) return; // in-column reorder handled by @update
 
-  const targetIdx = dropIndex.value;
-  dragIssue.value = null;
-  dragOverColumn.value = null;
-  dropIndex.value = null;
-
-  // 同列且未移动位置 → 无操作
-  if (dragged.state_id === stateId && targetIdx === null) return;
+  const targetIdx = evt.newIndex ?? 0;
+  const targetName = issueStore.states.find((s) => s.id === stateId)?.name ?? "";
 
   processingDrop.value = true;
   try {
-    let updatedIssue: Issue;
+    // 状态流转
+    const updatedIssue = await promiseToast(
+      issueApi.transition(wsId.value, projectId.value, dragged.id, stateId),
+      {
+        loading: "正在流转...",
+        success: () => `已流转至「${targetName}」`,
+        error: (err) => err instanceof Error ? err.message : "流转失败",
+      },
+    );
 
-    if (dragged.state_id !== stateId) {
-      // 跨列流转 — 使用 promiseToast 显示 loading / success / error 三态
-      const targetName = issueStore.states.find((s) => s.id === stateId)?.name ?? "";
-      updatedIssue = await promiseToast(
-        issueApi.transition(wsId.value, projectId.value, dragged.id, stateId),
-        {
-          loading: "正在流转...",
-          success: () => `已流转至「${targetName}」`,
-          error: (err) => err instanceof Error ? err.message : "流转失败",
-        },
-      );
-    } else {
-      updatedIssue = dragged;
-    }
-
-    // 列内排序 — 过滤掉自身后计算中值插入位置
+    // 列内排序 — 中值插入
     const columnIssues = issuesInState(stateId).filter((i) => i.id !== dragged.id);
-    const insertIdx = Math.min(targetIdx ?? columnIssues.length, columnIssues.length);
-
+    const insertIdx = Math.min(targetIdx, columnIssues.length);
     const prevIssue = insertIdx > 0 ? columnIssues[insertIdx - 1] : null;
     const nextIssue = insertIdx < columnIssues.length ? columnIssues[insertIdx] : null;
 
-    // 跨列或同列有位置变化 → 调用 reorder
-    if (targetIdx !== null || dragged.state_id !== stateId) {
-      updatedIssue = await promiseToast(
-        issueApi.reorder(
-          wsId.value,
-          projectId.value,
-          updatedIssue.id,
-          prevIssue?.sort_order ?? null,
-          nextIssue?.sort_order ?? null,
-        ),
-        {
-          loading: "正在排序...",
-          success: () => "排序已更新",
-          error: (err) => err instanceof Error ? err.message : "排序失败",
+    const reorderedIssue = await promiseToast(
+      issueApi.reorder(
+        wsId.value,
+        projectId.value,
+        updatedIssue.id,
+        prevIssue?.sort_order ?? null,
+        nextIssue?.sort_order ?? null,
+        updatedIssue.version, // 乐观锁 CAS（transition 返回最新 version）
+      ),
+      {
+        loading: "正在排序...",
+        success: () => "排序已更新",
+        error: (err) => {
+          const msg = err instanceof Error ? err.message : "排序失败";
+          if (/已被他人修改|VERSION_CONFLICT|409/.test(msg)) {
+            toast.warning("该工作项已被他人修改，正在刷新...");
+            void doFetch();
+            return "已刷新";
+          }
+          return msg;
         },
-      );
-    }
+      },
+    );
 
-    // 乐观更新：在列表中直接更新 state_id + sort_order
+    // 乐观更新：更新 store
+    const idx = issueStore.issues.findIndex((i) => i.id === reorderedIssue.id);
+    if (idx >= 0) {
+      issueStore.issues[idx] = { ...issueStore.issues[idx], ...reorderedIssue };
+    }
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : "操作失败";
+    toast.error(msg);
+    await issueStore.fetchIssues(wsId.value, projectId.value);
+  } finally {
+    processingDrop.value = false;
+    onDragEnd();
+  }
+}
+
+/** VueDraggable @update：item 在列内重排序 */
+async function onColumnUpdate(stateId: number, evt: { oldIndex?: number; newIndex?: number }) {
+  const newIdx = evt.newIndex ?? 0;
+  if (evt.oldIndex === newIdx) return;
+  const columnIssues = issuesInState(stateId);
+  const moved = columnIssues[newIdx];
+  if (!moved || processingDrop.value) return;
+
+  // 计算插入位置的前后兄弟
+  const prevIssue = newIdx > 0 ? columnIssues[newIdx - 1] : null;
+  const nextIssue = newIdx < columnIssues.length - 1 ? columnIssues[newIdx + 1] : null;
+
+  processingDrop.value = true;
+  try {
+    const updatedIssue = await promiseToast(
+      issueApi.reorder(
+        wsId.value,
+        projectId.value,
+        moved.id,
+        prevIssue?.sort_order ?? null,
+        nextIssue?.sort_order ?? null,
+        moved.version, // 乐观锁 CAS
+      ),
+      {
+        loading: "正在排序...",
+        success: () => "排序已更新",
+        error: (err) => {
+          const msg = err instanceof Error ? err.message : "排序失败";
+          if (/已被他人修改|VERSION_CONFLICT|409/.test(msg)) {
+            toast.warning("该工作项已被他人修改，正在刷新...");
+            void doFetch();
+            return "已刷新";
+          }
+          return msg;
+        },
+      },
+    );
     const idx = issueStore.issues.findIndex((i) => i.id === updatedIssue.id);
     if (idx >= 0) {
       issueStore.issues[idx] = { ...issueStore.issues[idx], ...updatedIssue };
@@ -273,7 +286,6 @@ async function onColumnDrop(stateId: number, event: DragEvent) {
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "操作失败";
     toast.error(msg);
-    // 回滚：重新拉取以恢复服务端真实状态
     await issueStore.fetchIssues(wsId.value, projectId.value);
   } finally {
     processingDrop.value = false;
@@ -328,6 +340,27 @@ onMounted(() => {
   prefs.setLastView(projectId.value, "board");
   load();
 });
+
+onUnmounted(() => {
+  wsClient.off("issue.updated", handleRemoteIssueUpdate);
+});
+
+/** 远端 WebSocket 事件处理：他人更新本工作项时合并最新状态 */
+function handleRemoteIssueUpdate(data: { project_id?: number; issue_id?: number; workspace_id?: number; actor_id?: number; new_version?: number }) {
+  if (!data || data.project_id !== projectId.value || !data.issue_id) return;
+  // 自己触发的事件已经在本地乐观更新，跳过
+  if (data.actor_id && data.actor_id === authStore.user?.id) return;
+  const idx = issueStore.issues.findIndex((i) => i.id === data.issue_id);
+  if (idx < 0) return;
+  // 远端有新版本（或 -1 标记表示不确定）时拉取详情覆盖本地
+  const localVer = issueStore.issues[idx].version ?? 0;
+  if (!data.new_version || data.new_version === -1 || data.new_version > localVer) {
+    void issueApi.getIssue(wsId.value, projectId.value, data.issue_id).then((fresh) => {
+      const i = issueStore.issues.findIndex((x) => x.id === data.issue_id);
+      if (i >= 0) issueStore.issues[i] = { ...issueStore.issues[i], ...fresh };
+    }).catch(() => { /* 静默失败 */ });
+  }
+}
 </script>
 
 <template>
@@ -343,14 +376,14 @@ onMounted(() => {
             :to="`/${route.params.workspaceId}/projects/${projectId}/board`"
             class="view-tab is-active"
           >
-看板
-</router-link>
+          看板
+          </router-link>
           <router-link
             :to="`/${route.params.workspaceId}/projects/${projectId}/list`"
             class="view-tab"
           >
-列表
-</router-link>
+          列表
+          </router-link>
         </div>
         <button class="btn btn--primary" @click="showCreateModal = true">+ 创建工作项</button>
       </div>
@@ -376,18 +409,10 @@ onMounted(() => {
         v-for="state in issueStore.states"
         :key="state.id"
         class="kanban__column"
-        :class="{
-          'kanban__column--over': dragOverColumn === state.id && dragIssue?.state_id !== state.id,
-          'kanban__column--reorder': dragOverColumn === state.id && dragIssue?.state_id === state.id,
-        }"
-        @dragover="onColumnDragOver(state.id, $event)"
-        @dragleave="onColumnDragLeave(state.id)"
-        @drop="onColumnDrop(state.id, $event)"
       >
         <div class="kanban__column-header" :style="{ borderTopColor: state.color }">
           <span class="kanban__column-name">{{ state.name }}</span>
           <span class="kanban__column-count">{{ issuesInState(state.id).length }}</span>
-          <!-- 列宽拖拽把手 -->
           <span
             class="kanban__col-resize"
             title="拖拽调整列宽"
@@ -395,23 +420,27 @@ onMounted(() => {
           >⋮</span>
         </div>
 
-        <div
+        <VueDraggable
           class="kanban__cards"
-          @dragover="onCardsDragOver(state.id, $event)"
+          :model-value="issuesInState(state.id)"
+          group="kanban-board"
+          :animation="150"
+          ghost-class="kanban-ghost"
+          chosen-class="issue-card--chosen"
+          drag-class="issue-card--dragging"
+          :data-state-id="state.id"
+          :sort="true"
+          :disabled="processingDrop"
+          @start="onDragStart"
+          @end="onDragEnd"
+          @add="onColumnAdd(state.id, $event)"
+          @update="onColumnUpdate(state.id, $event)"
         >
           <div
-            v-for="(iss, idx) in issuesInState(state.id)"
+            v-for="iss in issuesInState(state.id)"
             :key="iss.id"
             class="issue-card"
-            :class="{
-              'issue-card--dragging': dragIssue?.id === iss.id,
-              'drop-above': dragIssue?.id !== iss.id && dropIndex === idx && dragOverColumn === state.id,
-              'drop-below': dragIssue?.id !== iss.id && dropIndex === issuesInState(state.id).length && dragOverColumn === state.id && idx === issuesInState(state.id).length - 1,
-            }"
-            draggable="true"
-            @dragstart="onDragStart(iss, $event)"
-            @dragend="onDragEnd"
-            @dragover="onCardDragOver(state.id, idx, $event)"
+            :data-id="iss.id"
             @click="openIssue(iss.id)"
           >
             <div class="issue-card__header">
@@ -457,18 +486,12 @@ onMounted(() => {
             </div>
           </div>
 
-          <!-- 拖拽到空白列/列表末尾的插入指示器 -->
-          <div
-            v-if="issuesInState(state.id).length === 0 && dragOverColumn === state.id"
-            class="kanban__drop-empty"
-          >
-            释放以移动到此列
-          </div>
-
-          <div v-if="issuesInState(state.id).length === 0 && dragOverColumn !== state.id" class="kanban__empty">
-            暂无工作项
-          </div>
-        </div>
+          <template #footer>
+            <div v-if="issuesInState(state.id).length === 0" class="kanban__empty">
+              <p>拖拽工作项到此处</p>
+            </div>
+          </template>
+        </VueDraggable>
       </div>
     </div>
 
@@ -674,6 +697,11 @@ onMounted(() => {
 .issue-card--dragging {
   opacity: 0.4;
   transform: scale(0.97);
+}
+
+/* 被选中拖拽的卡片（原始元素保留在原位的样式） */
+.issue-card--chosen {
+  opacity: 0.8;
 }
 
 /* 插入指示线 — 插入到某张卡片上方 */

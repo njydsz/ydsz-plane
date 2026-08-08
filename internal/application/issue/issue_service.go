@@ -113,6 +113,7 @@ type ListIssuesOptions struct {
 type ReorderInput struct {
 	PrevSortOrder *float64 // 前一个工作项的 sort_order，nil 表示移到第一个
 	NextSortOrder *float64 // 后一个工作项的 sort_order，nil 表示移到最后一个
+	Version       *int     // 客户端获取的版本号，用于乐观锁防冲突（nil 表示跳过版本校验）
 }
 
 // BatchUpdateInput 批量操作输入。
@@ -182,8 +183,6 @@ func (s *Service) GetByID(ctx context.Context, wsID, issueID int64) (*Issue, err
 	// 先查询工作项类型，判断在新旧表的哪个位置
 	var typeCode string
 	err := s.db.QueryRow(ctx, `
-		SELECT type_code FROM issues WHERE id = $1 AND workspace_id = $2 AND deleted_at IS NULL
-		UNION ALL
 		SELECT 'task' FROM task WHERE id = $1 AND workspace_id = $2 AND deleted_at IS NULL
 		UNION ALL
 		SELECT 'requirement' FROM requirement WHERE id = $1 AND workspace_id = $2 AND deleted_at IS NULL
@@ -283,31 +282,8 @@ func (s *Service) GetByID(ctx context.Context, wsID, issueID int64) (*Issue, err
 			&iss.StartDate, &targetDate, &completedAt, &iss.Progress,
 			&iss.IsDraft, &iss.Version, &iss.CreatedBy, &iss.CreatedAt, &iss.UpdatedAt,
 			&identifier, &foundVerID, &fixVerID, &releaseVerID, &sprintID)
-	default: // 兼容旧表未迁移的数据
-		err = s.db.QueryRow(ctx, `
-			SELECT i.id, i.public_id, i.workspace_id, i.project_id, i.sequence_id,
-			       i.type_code, i.parent_id, i.depth, i.name,
-			       i.description_json, i.description_html,
-			       i.state_id, s.name, s.color, s."group",
-			       i.priority, i.severity, i.found_phase, i.category, i.point,
-			       i.start_date, i.target_date, i.completed_at, i.progress,
-			       i.is_draft, i.version, i.created_by, i.created_at, i.updated_at,
-			       p.identifier,
-			       i.found_version_id, i.fix_version_id, i.release_version_id,
-			       i.sprint_id
-			FROM issues i
-			JOIN states s ON s.id = i.state_id
-			JOIN projects p ON p.id = i.project_id
-			WHERE i.id = $1 AND i.workspace_id = $2 AND i.deleted_at IS NULL`,
-			issueID, wsID).Scan(
-			&iss.ID, &iss.PublicID, &iss.WorkspaceID, &iss.ProjectID, &iss.SequenceID,
-			&iss.TypeCode, &parentID, &iss.Depth, &iss.Name,
-			&iss.DescriptionJSON, &iss.DescriptionHTML,
-			&iss.StateID, &stateName, &stateColor, &stateGroup,
-			&iss.Priority, &severity, &foundPhase, &category, &point,
-			&iss.StartDate, &targetDate, &completedAt, &iss.Progress,
-			&iss.IsDraft, &iss.Version, &iss.CreatedBy, &iss.CreatedAt, &iss.UpdatedAt,
-			&identifier, &foundVerID, &fixVerID, &releaseVerID, &sprintID)
+	default:
+		return nil, errs.ErrNotFound
 	}
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -635,12 +611,26 @@ func (s *Service) Reorder(ctx context.Context, wsID, issueID int64, in ReorderIn
 		newOrder = (*in.PrevSortOrder + *in.NextSortOrder) / 2.0
 	}
 
-	_, err := s.db.Exec(ctx, `
-		UPDATE issues SET sort_order = $1, updated_at = now()
-		WHERE id = $2 AND workspace_id = $3 AND deleted_at IS NULL`,
-		newOrder, issueID, wsID)
-	if err != nil {
-		return nil, errs.ErrInternal.Wrap(fmt.Errorf("reorder: %w", err))
+	// 乐观锁 CAS：若客户端传入 version，则校验一致性，冲突返回 ErrVersionConflict
+	if in.Version != nil {
+		tag, err := s.db.Exec(ctx, `
+			UPDATE issues SET sort_order = $1, updated_at = now(), version = version + 1
+			WHERE id = $2 AND workspace_id = $3 AND deleted_at IS NULL AND version = $4`,
+			newOrder, issueID, wsID, *in.Version)
+		if err != nil {
+			return nil, errs.ErrInternal.Wrap(fmt.Errorf("reorder: %w", err))
+		}
+		if tag.RowsAffected() == 0 {
+			return nil, errs.ErrVersionConflict
+		}
+	} else {
+		_, err := s.db.Exec(ctx, `
+			UPDATE issues SET sort_order = $1, updated_at = now(), version = version + 1
+			WHERE id = $2 AND workspace_id = $3 AND deleted_at IS NULL`,
+			newOrder, issueID, wsID)
+		if err != nil {
+			return nil, errs.ErrInternal.Wrap(fmt.Errorf("reorder: %w", err))
+		}
 	}
 
 	return s.GetByID(ctx, wsID, issueID)

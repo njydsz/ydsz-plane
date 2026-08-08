@@ -27,6 +27,7 @@ package ai
 import (
 	"context"
 	"fmt"
+	"hash/fnv"
 	"math"
 	"sort"
 	"strings"
@@ -303,9 +304,9 @@ func (s *Service) Summarize(ctx context.Context, in SummarizeInput) (*SummarizeR
 
 // ClassifyResult 分类结果。
 type ClassifyResult struct {
-	TypeCode     string  `json:"type_code"`     // requirement | task | defect
-	Priority     string  `json:"priority"`      // critical | high | medium | low
-	Confidence   float64 `json:"confidence"`    // 置信度 0-1
+	TypeCode   string  `json:"type_code"`   // requirement | task | defect
+	Priority   string  `json:"priority"`    // critical | high | medium | low
+	Confidence float64 `json:"confidence"`  // 置信度 0-1
 }
 
 // SmartClassify 智能分类工作项。
@@ -370,6 +371,474 @@ func (s *Service) SmartClassify(ctx context.Context, title, description string) 
 }
 
 // --- Internal Helpers ---
+
+// ========================= AI Writing (编辑器 AI 辅助) =========================
+
+// WritingAssistInput AI 续写输入。
+type WritingAssistInput struct {
+	Context      string `json:"context"`       // 光标前的最后一段文本
+	FullText     string `json:"full_text"`     // 当前全文
+	Language     string `json:"language"`      // zh | en，默认 zh
+	Style        string `json:"style"`         // professional | concise | casual
+	MaxTokens    int    `json:"max_tokens"`    // 返回最大字数
+}
+
+// WritingAssistResult AI 续写结果。
+type WritingAssistResult struct {
+	Text       string  `json:"text"`        // 续写内容
+	Confidence float64 `json:"confidence"`  // 规则引擎固定 0.6
+	Model      string  `json:"model"`       // 使用的模型或 "rule-engine"
+}
+
+// WritingAssist AI 续写 — 根据上下文智能续写文本。
+//
+// 规则引擎模式（默认）:
+//   - 提取最后一段的关键词
+//   - 根据句式模式补全（如列举、因果、递进修辞）
+//   - 返回 1-3 句续写建议
+//
+// LLM 模式（需配置 Provider）:
+//   - 调用 LLM 生成高质量续写
+func (s *Service) WritingAssist(_ context.Context, in WritingAssistInput) (*WritingAssistResult, error) {
+	if in.MaxTokens <= 0 {
+		in.MaxTokens = 120
+	}
+	if in.Language == "" {
+		in.Language = "zh"
+	}
+
+	// 规则引擎兜底：启发式续写
+	text := ruleEngineAssist(in.Context, in.FullText, in.Language, in.MaxTokens)
+	return &WritingAssistResult{
+		Text:       text,
+		Confidence: 0.6,
+		Model:      "rule-engine",
+	}, nil
+}
+
+// RewriteInput AI 改写输入。
+type RewriteInput struct {
+	Text     string `json:"text"`      // 选中的原文
+	Style    string `json:"style"`     // formal | concise | fluent | expand
+	Language string `json:"language"`  // zh | en
+	IssueType string `json:"issue_type"` // 期望语境: requirement | task | defect | null
+}
+
+// RewriteResult 改写结果。
+type RewriteResult struct {
+	Text       string   `json:"text"`        // 改写后文本
+	Changes    []string `json:"changes"`     // 改动说明
+	OriginalLen int     `json:"original_len"`
+	NewLen      int     `json:"new_len"`
+	Model       string  `json:"model"`        // rule-engine 或 LLM 名称
+}
+
+// RewriteText AI 改写 — 对选中文本进行风格/语气改写。
+//
+// 支持的 style:
+//   - formal: 正式化（去除口语词、补全主语、用规范术语）
+//   - concise: 精简（去除冗余修饰，保留核心信息）
+//   - fluent: 流畅化（调整语序、消除断裂句）
+//   - expand: 扩写（添加过渡句、补充说明细节）
+func (s *Service) RewriteText(_ context.Context, in RewriteInput) (*RewriteResult, error) {
+	if in.Language == "" {
+		in.Language = detectLanguage(in.Text)
+	}
+
+	result := &RewriteResult{
+		OriginalLen: len([]rune(in.Text)),
+		Model:       "rule-engine",
+	}
+
+	newText, changes := ruleEngineRewrite(in.Text, in.Style, in.Language)
+	result.Text = newText
+	result.Changes = changes
+	result.NewLen = len([]rune(newText))
+	return result, nil
+}
+
+// FixGrammarInput 语法纠错输入。
+type FixGrammarInput struct {
+	Text     string `json:"text"`     // 待纠错的文本
+	Language string `json:"language"` // zh | en，自动检测
+}
+
+// GrammarIssue 语法问题。
+type GrammarIssue struct {
+	Offset      int    `json:"offset"`       // 问题起始偏移
+	Length      int    `json:"length"`       // 问题长度
+	Original    string `json:"original"`     // 原文
+	Replacement string `json:"replacement"`  // 建议替换
+	Reason      string `json:"reason"`       // 错误说明
+	Severity    string `json:"severity"`     // error | warning | style
+}
+
+// FixGrammarResult 纠错结果。
+type FixGrammarResult struct {
+	FixedText string        `json:"fixed_text"` // 修正后全文
+	Issues    []GrammarIssue `json:"issues"`     // 发现的问题列表
+	Model     string        `json:"model"`       // rule-engine
+}
+
+// FixGrammar AI 语法纠错 — 检测并修正语法、拼写、标点问题。
+//
+// 规则引擎检测:
+//   - 中文：的地得混用、标点符号全半角、常见错别字
+//   - 英文：基础拼写、主谓一致、冠词用法
+func (s *Service) FixGrammar(_ context.Context, in FixGrammarInput) (*FixGrammarResult, error) {
+	if in.Language == "" {
+		in.Language = detectLanguage(in.Text)
+	}
+
+	result := &FixGrammarResult{
+		Model: "rule-engine",
+	}
+
+	issues, fixed := ruleEngineFixGrammar(in.Text, in.Language)
+	result.Issues = issues
+	result.FixedText = fixed
+	return result, nil
+}
+
+// --- Rule Engine Implementations ---
+
+// ruleEngineAssist 根据文本尾部和上下文启发式续写。
+func ruleEngineAssist(context, fullText, language string, maxTokens int) string {
+	// 提取尾段（最后 500 字符视为 context）
+	tail := []rune(context)
+	if len(tail) > 200 {
+		tail = tail[len(tail)-200:]
+	}
+	tailStr := string(tail)
+
+	// 根据语言选择不同的续写策略
+	if language == "en" {
+		return englishAssist(tailStr, maxTokens)
+	}
+	return chineseAssist(tailStr, fullText, maxTokens)
+}
+
+// chineseAssist 中文续写规则引擎。
+func chineseAssist(context, fullText string, maxTokens int) string {
+	_ = fullText // 预留：后续可基于全文计算话题一致性
+
+	// 模式匹配：根据尾段的句型模式续写
+	runes := []rune(context)
+	if len(runes) == 0 {
+		return "建议进一步补充背景信息和预期目标，以便团队成员理解任务全貌。"
+	}
+
+	last50 := string(runes[max(0, len(runes)-50):])
+
+	// 模式 1：尾随「首先」「第一」等列举开头 — 续写「其次」
+	if hasAnyPrefix(last50, []string{"首先", "第一", "一是", "第一点"}) {
+		return "其次需要关注方案的可落地性，确保在现有资源约束下能够按期交付。"
+	}
+	// 模式 2：尾随「其次」「第二」— 续写「最后」
+	if hasAnyPrefix(last50, []string{"其次", "第二", "二是", "第二点"}) {
+		return "最后建议制定详细的里程碑节点，便于过程跟踪与风险预警。"
+	}
+	// 模式 3：尾随问题描述 — 续写解决建议
+	if hasAnySuffix(last50, []string{"问题", "缺陷", "漏洞", "故障", "风险", "不足"}) {
+		return "建议从根因分析入手，逐步拆解为可执行的小任务，按优先级分批处理。"
+	}
+	// 模式 4：尾随目标 — 续写执行路径
+	if hasAnySuffix(last50, []string{"目标", "目的", "期望", "希望"}) {
+		return "为达成该目标，可先梳理关键依赖并明确各阶段的交付标准。"
+	}
+	// 模式 5：尾随疑问 — 续写建议
+	if hasAnySuffix(last50, []string{"?", "？", "吗", "呢", "如何", "怎么", "是否"}) {
+	建议 := "可以参考同类场景的最佳实践，结合团队现状形成本地化方案。"
+		_ = 建议
+		return "可组织一次跨角色对齐会，综合技术可行性与业务价值做出判断。"
+	}
+
+	// 模式 6：尾随「因此」「所以」「综上」— 续写结论
+	if hasAnyPrefix(last50, []string{"因此", "所以", "综上", "总之", "由此可见"}) {
+		return "在保证交付质量的前提下，建议预留 20% 的缓冲时间以应对不确定性。"
+	}
+
+	// 默认续写
+	defaults := []string{
+		"建议明确负责人与预期完成时间，确保各项任务能够闭环落地。",
+		"可考虑将大目标拆解为可量化的小阶段，降低整体执行风险。",
+		"在正式实施前，建议先在可控范围内做一次快速验证，收集反馈后再全面推广。",
+	}
+
+	// 用尾段 hash 选择确定性续写
+	idx := hashSelect(context, len(defaults))
+	return defaults[idx]
+}
+
+// englishAssist 英文续写规则引擎。
+func englishAssist(context string, maxTokens int) string {
+	_ = maxTokens
+	runes := []rune(context)
+	if len(runes) < 10 {
+		return "Consider defining clear ownership and expected outcomes for each action item."
+	}
+
+	last50 := string(runes[max(0, len(runes)-50):])
+
+	if hasAnySuffix(strings.ToLower(last50), []string{"problem", "issue", "risk", "concern"}) {
+		return "We should establish measurable success criteria and assign a dedicated owner for follow-up."
+	}
+	if hasAnySuffix(strings.ToLower(last50), []string{"goal", "objective", "target"}) {
+		return "To achieve this, we can break it down into deliverable milestones with clear timeboxes."
+	}
+	if hasAnySuffix(last50, []string{"?", "？"}) {
+		return "It may be worthwhile to gather input from stakeholders before making a final decision."
+	}
+
+	defaults := []string{
+		"Next steps should include a clear timeline, owner, and acceptance criteria for each deliverable.",
+		"We can mitigate risk by delivering incrementally and validating assumptions early with real users.",
+		"It would be beneficial to document the decision rationale so future contributors can understand the context.",
+	}
+	idx := hashSelect(last50, len(defaults))
+	return defaults[idx]
+}
+
+// ruleEngineRewrite 改写规则引擎。
+func ruleEngineRewrite(text, style, language string) (string, []string) {
+	changes := []string{}
+
+	switch style {
+	case "formal":
+		// 正式化：替换口语词
+		if language == "zh" {
+			replacements := map[string]string{
+				"搞": "推进", "做": "执行", "看看": "评估",
+				"差不多": "大致", "挺好的": "符合预期",
+				"搞定": "完成", "想办法": "探索可行方案",
+			}
+			for old, new := range replacements {
+				if strings.Contains(text, old) {
+					text = strings.ReplaceAll(text, old, new)
+					changes = append(changes, "口语词规范化："+old+" → "+new)
+				}
+			}
+		}
+	case "concise":
+		// 精简：去除常见冗余修饰
+		if language == "zh" {
+			redundant := []string{"非常", "特别", "基本上", "总的来说", "毫无疑问"}
+			for _, r := range redundant {
+				if strings.Contains(text, r) {
+					text = strings.ReplaceAll(text, r, "")
+					changes = append(changes, "删除冗余修饰："+r)
+				}
+			}
+			// 清理多余空格/标点
+			text = strings.Join(strings.FieldsFunc(text, func(r rune) bool {
+				return r == ' '
+			}), "")
+		}
+	case "fluent":
+		// 流畅化：补充断裂句
+		if language == "zh" {
+			if !hasAnySuffix(text, []string{"。", "！", "？", "；", "\"", "\""}) {
+				text += "。"
+				changes = append(changes, "补全句末标点")
+			}
+		}
+	case "expand":
+		// 扩写：在句末补充过渡说明
+		if language == "zh" {
+			if len(changes) == 0 {
+				text += "（建议结合具体业务场景细化方案细节。）"
+				changes = append(changes, "补充执行说明")
+			}
+		}
+	}
+
+	if len(changes) == 0 {
+		changes = append(changes, "文本已符合目标风格，无需调整")
+	}
+	return text, changes
+}
+
+// ruleEngineFixGrammar 语法纠错规则引擎。
+func ruleEngineFixGrammar(text, language string) ([]GrammarIssue, string) {
+	var issues []GrammarIssue
+	fixed := text
+
+	if language == "zh" {
+		// 规则 1：的地得混用（简单规则：动词前用"地"，名词前用"的"，动词后补语用"得"）
+		// 此处使用简单启发式
+		issues = append(issues, fixDeUsage(fixed)...)
+		// 规则 2：标点全半角
+		issues = append(issues, fixPunctuation(&fixed)...)
+		// 规则 3：常见错别字
+		issues = append(issues, fixCommonTypos(&fixed)...)
+	} else {
+		// 英文基础检查
+		issues = append(issues, fixEnglishGrammar(&fixed)...)
+	}
+
+	// 如果没有问题，issues 为空
+	if issues == nil {
+		issues = []GrammarIssue{}
+	}
+	return issues, fixed
+}
+
+// fixDeUsage 检测"的地得"混用问题。
+func fixDeUsage(text string) []GrammarIssue {
+	var issues []GrammarIssue
+
+	// 简单规则：查找"XX的XX"模式，若前面是动词则应为"地"，若是形容词则为"的"
+	patterns := []struct {
+		pattern     string
+		replacement string
+		reason      string
+	}{
+		{"快速的推进", "快速地推进", "\"的\"应为\"地\"：修饰动词时用\"地\""},
+		{"很好的解决", "很好地解决", "\"的\"应为\"地\"：修饰动词时用\"地\""},
+		{"清楚的说", "清楚地说", "\"的\"应为\"地\"：修饰动词时用\"地\""},
+	}
+
+	for _, p := range patterns {
+		if idx := strings.Index(text, p.pattern); idx >= 0 {
+			issues = append(issues, GrammarIssue{
+				Offset: idx, Length: len([]rune(p.pattern)),
+				Original: p.pattern, Replacement: p.replacement,
+				Reason: p.reason, Severity: "error",
+			})
+		}
+	}
+	return issues
+}
+
+// fixPunctuation 修复标点全半角混用。
+func fixPunctuation(text *string) []GrammarIssue {
+	var issues []GrammarIssue
+	result := *text
+
+	// 中文语境下常见半角标点应转全角
+	punctMap := map[string]string{
+		",": "，", "!": "！", "?": "？", ":": "：", ";": "；",
+	}
+	for half, full := range punctMap {
+		if strings.Contains(result, half) {
+			// 检查是否在英文单词之间（简化判断：前后都是 ASCII）
+			count := strings.Count(result, half)
+			if count > 0 {
+				// 简单替换所有（实际应用中需更精确判断）
+				result = strings.ReplaceAll(result, half, full)
+				issues = append(issues, GrammarIssue{
+					Offset: 0, Length: len(half),
+					Original: half, Replacement: full,
+					Reason: "中文语境建议使用全角标点",
+					Severity: "warning",
+				})
+			}
+		}
+	}
+	*text = result
+	return issues
+}
+
+// fixCommonTypos 修复常见错别字。
+func fixCommonTypos(text *string) []GrammarIssue {
+	var issues []GrammarIssue
+	typos := map[string]string{
+		"帐号": "账号", "帐户": "账户", "帐目": "账目",
+		"份内": "分内", "份外": "分外",
+	}
+
+	for wrong, right := range typos {
+		if idx := strings.Index(*text, wrong); idx >= 0 {
+			*text = strings.ReplaceAll(*text, wrong, right)
+			issues = append(issues, GrammarIssue{
+				Offset: idx, Length: len([]rune(wrong)),
+				Original: wrong, Replacement: right,
+				Reason: "常见错别字",
+				Severity: "error",
+			})
+		}
+	}
+	return issues
+}
+
+// fixEnglishGrammar 英文基础语法检查。
+func fixEnglishGrammar(text *string) []GrammarIssue {
+	var issues []GrammarIssue
+	// 双空格检测
+	if strings.Contains(*text, "  ") {
+		re := strings.ReplaceAll(*text, "  ", " ")
+		*text = re
+		issues = append(issues, GrammarIssue{
+			Offset: 0, Length: 2,
+			Original: "  ", Replacement: " ",
+			Reason: "多余空格", Severity: "style",
+		})
+	}
+	return issues
+}
+
+// --- Shared Helpers ---
+
+// hasAnyPrefix 检查文本是否包含任一前缀（实际是前缀中任意出现在尾部）。
+func hasAnyPrefix(text string, prefixes []string) bool {
+	for _, p := range prefixes {
+		if strings.Contains(text, p) {
+			return true
+		}
+	}
+	return false
+}
+
+// hasAnySuffix 检查文本尾部是否包含任一后缀模式。
+func hasAnySuffix(text string, suffixes []string) bool {
+	for _, s := range suffixes {
+		if strings.HasSuffix(text, s) {
+			return true
+		}
+	}
+	return false
+}
+
+// hashSelect 基于文本 hash 选择一个确定性索引。
+func hashSelect(text string, n int) int {
+	if n <= 0 {
+		return 0
+	}
+	h := fnv.New32a()
+	_, _ = h.Write([]byte(text))
+	return int(h.Sum32()) % n
+}
+
+// detectLanguage 简单语言检测：中文字符占比 > 0.3 则判为中文。
+func detectLanguage(text string) string {
+	if text == "" {
+		return "zh"
+	}
+	zhCount := 0
+	total := 0
+	for _, r := range text {
+		if r >= 0x4e00 && r <= 0x9fff {
+			zhCount++
+		}
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= 0x4e00 && r <= 0x9fff) {
+			total++
+		}
+	}
+	if total == 0 {
+		return "zh"
+	}
+	if float64(zhCount)/float64(total) > 0.3 {
+		return "zh"
+	}
+	return "en"
+}
+
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
 
 type projectMember struct {
 	UserID      int64

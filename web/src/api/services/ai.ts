@@ -64,6 +64,69 @@ export interface SummarizeInput {
 }
 
 /* ------------------------------------------------------------------ */
+/* AI 编辑器辅助 — 续写 / 改写 / 纠错                                    */
+/* ------------------------------------------------------------------ */
+
+/** AI 续写输入 */
+export interface WritingAssistInput {
+  context: string;
+  full_text?: string;
+  language?: "zh" | "en";
+  style?: "professional" | "concise" | "casual";
+  max_tokens?: number;
+}
+
+/** AI 续写结果 */
+export interface WritingAssistResult {
+  text: string;
+  confidence: number;
+  model: string;
+}
+
+/** 改写风格 */
+export type RewriteStyle = "formal" | "concise" | "fluent" | "expand";
+
+/** AI 改写输入 */
+export interface RewriteInput {
+  text: string;
+  style: RewriteStyle;
+  language?: "zh" | "en";
+  issue_type?: "requirement" | "task" | "defect" | "";
+}
+
+/** AI 改写结果 */
+export interface RewriteResult {
+  text: string;
+  changes: string[];
+  original_len: number;
+  new_len: number;
+  model: string;
+}
+
+/** 语法问题 */
+export interface GrammarIssue {
+  offset: number;
+  length: number;
+  original: string;
+  replacement: string;
+  reason: string;
+  severity: "error" | "warning" | "style";
+}
+
+/** AI 纠错输入 */
+export interface FixGrammarInput {
+  text: string;
+  language?: "zh" | "en";
+}
+
+/** AI 纠错结果 */
+export interface FixGrammarResult {
+  fixed_text: string;
+  issues: GrammarIssue[];
+  model: string;
+}
+
+/* ------------------------------------------------------------------ */
 /* API calls                                                          */
 /* ------------------------------------------------------------------ */
 
@@ -103,5 +166,25 @@ export const aiApi = {
   summarize: (wsId: number | string, projectId: number | string, input: SummarizeInput) =>
     wrap<SummarizeResult>(
       apiClient.post(`/workspaces/${wsId}/projects/${projectId}/ai/summarize`, input),
+    ),
+
+  /* ---- 编辑器 AI 辅助 ---- */
+
+  /** AI 续写 */
+  assist: (wsId: number | string, projectId: number | string, input: WritingAssistInput) =>
+    wrap<WritingAssistResult>(
+      apiClient.post(`/workspaces/${wsId}/projects/${projectId}/ai/assist`, input),
+    ),
+
+  /** AI 改写 */
+  rewrite: (wsId: number | string, projectId: number | string, input: RewriteInput) =>
+    wrap<RewriteResult>(
+      apiClient.post(`/workspaces/${wsId}/projects/${projectId}/ai/rewrite`, input),
+    ),
+
+  /** AI 语法纠错 */
+  fixGrammar: (wsId: number | string, projectId: number | string, input: FixGrammarInput) =>
+    wrap<FixGrammarResult>(
+      apiClient.post(`/workspaces/${wsId}/projects/${projectId}/ai/fix-grammar`, input),
     ),
 };

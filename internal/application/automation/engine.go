@@ -836,13 +836,18 @@ func (e *Engine) resolveLeastLoaded(ctx context.Context, wsID, projectID int64, 
 		WHERE wm.workspace_id = $2 AND wm.role = $3
 		ORDER BY (
 			SELECT count(*)
-			FROM issue_assignees ia
-			JOIN issues i ON i.id = ia.issue_id
+			FROM (
+			    SELECT id, project_id, state_id, assignee_ids, deleted_at FROM task
+			    UNION ALL
+			    SELECT id, project_id, state_id, assignee_ids, deleted_at FROM requirement
+			    UNION ALL
+			    SELECT id, project_id, state_id, assignee_ids, deleted_at FROM defect
+			) i
 			JOIN states st ON st.id = i.state_id
-			WHERE ia.user_id = wm.user_id AND i.project_id = $1 AND i.deleted_at IS NULL
+			WHERE $4 = ANY(i.assignee_ids) AND i.project_id = $1 AND i.deleted_at IS NULL
 			  AND st."group" != 'completed'
 		) ASC, wm.user_id ASC
-		LIMIT 1`, projectID, wsID, role).Scan(&userID)
+		LIMIT 1`, projectID, wsID, role, wm.user_id).Scan(&userID)
 	if err != nil {
 		return 0, err
 	}
@@ -977,7 +982,16 @@ func (p *DefaultContextProvider) loadIssue(ctx context.Context, issueID int64) (
 		       st.name, st."group", i.priority, i.severity, i.estimate_points,
 		       i.created_by, i.parent_id, i.project_id, i.created_at, i.updated_at,
 		       i.started_at, i.completed_at
-		FROM issues i
+		FROM (
+		    SELECT id, identifier, name, 'task' as type_code, state_id, priority, severity, estimate_points,
+		           created_by, parent_id, project_id, created_at, updated_at, started_at, completed_at, deleted_at FROM task
+		    UNION ALL
+		    SELECT id, identifier, name, 'requirement', state_id, priority, severity, estimate_points,
+		           created_by, parent_id, project_id, created_at, updated_at, started_at, completed_at, deleted_at FROM requirement
+		    UNION ALL
+		    SELECT id, identifier, name, 'defect', state_id, priority, severity, estimate_points,
+		           created_by, parent_id, project_id, created_at, updated_at, started_at, completed_at, deleted_at FROM defect
+		) i
 		JOIN states st ON st.id = i.state_id
 		WHERE i.id = $1 AND i.deleted_at IS NULL`, issueID).Scan(
 		&iss.ID, &iss.Identifier, &iss.Name, &iss.TypeCode, &iss.StateID,

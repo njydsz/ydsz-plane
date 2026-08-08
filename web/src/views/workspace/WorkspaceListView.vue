@@ -41,6 +41,12 @@ function openWs(ws: Workspace) {
 function onCreateCreated(ws: Workspace) {
   showCreate.value = false;
   workspaces.value.unshift(ws);
+  // 标记需要新手引导（由 App.vue 跨路由检测并显示）
+  try {
+    sessionStorage.setItem(`pending-onboarding:${ws.id}`, "1");
+  } catch {
+    // ignore
+  }
   router.push(`/${ws.id}/projects`);
 }
 

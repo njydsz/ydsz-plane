@@ -62,7 +62,26 @@
                     {{ cmd.icon }}
                   </span>
                   <span class="cp-item-label">{{ cmd.label }}</span>
-                  <span v-if="cmd.shortcut" class="cp-item-shortcut">{{ cmd.shortcut }}</span>
+                  <kbd v-if="cmd.shortcut" class="cp-item-shortcut">{{ cmd.shortcut }}</kbd>
+                </div>
+              </div>
+
+              <!-- 最近使用命令分组 -->
+              <div v-if="recentCommands.length > 0" class="cp-group">
+                <div class="cp-group-title">最近使用</div>
+                <div
+                  v-for="(cmd, idx) in recentCommands.slice(0, RECENT_SHOW)"
+                  :key="'recent-cmd-' + cmd.id"
+                  class="cp-item"
+                  :class="{ 'cp-item--selected': selectedGroup === 'recent-cmd' && selectedIdx === idx }"
+                  @click="executeRecentCommand(cmd)"
+                  @mousemove="selectedGroup = 'recent-cmd'; selectedIdx = idx"
+                >
+                  <span class="cp-item-icon" :style="{ background: cmd.iconBg }">
+                    {{ cmd.icon }}
+                  </span>
+                  <span class="cp-item-label">{{ cmd.label }}</span>
+                  <kbd v-if="cmd.shortcut" class="cp-item-shortcut">{{ cmd.shortcut }}</kbd>
                 </div>
               </div>
             </template>
@@ -208,6 +227,16 @@ const inputRef = ref<HTMLInputElement | null>(null)
 const selectedGroup = ref("Jump")
 const selectedIdx = ref(-1)
 const mode = ref<"command" | "search">("command")
+
+/** 最近使用命令列表（从 localStorage 读取） */
+const recentCommands = ref<CommandDef[]>([])
+
+/** localStorage key */
+const RECENT_CMDS_KEY = "command-palette-recent"
+/** 最多缓存条数 */
+const RECENT_MAX = 20
+/** 展示条数 */
+const RECENT_SHOW = 5
 
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -359,7 +388,13 @@ const commandGroups = computed<CommandGroupDef[]>(() => {
 // ---------------------------------------------------------------------------
 const allCommandFlat = computed(() => {
   const groups = commandGroups.value
-  return groups.flatMap((g, gi) => g.commands.map((cmd, ci) => ({ group: g.title, idx: ci, gi, cmd })))
+  const base = groups.flatMap((g, gi) => g.commands.map((cmd, ci) => ({ group: g.title, idx: ci, gi, cmd })))
+  // 追加最近使用分组
+  const recentCmds = recentCommands.value.slice(0, RECENT_SHOW)
+  if (recentCmds.length > 0) {
+    return [...base, ...recentCmds.map((cmd, ci) => ({ group: "recent-cmd" as const, idx: ci, gi: groups.length, cmd }))]
+  }
+  return base
 })
 
 const offsetSprint = computed(() => store.results?.results.issues?.length ?? 0)
@@ -465,8 +500,47 @@ function getSelectedSearchItem(): any | null {
 //  Actions
 // ---------------------------------------------------------------------------
 function execute(cmd: CommandDef) {
+  saveRecentCommand(cmd)
   cmd.action()
   close()
+}
+
+/** 执行最近使用列表中的命令 */
+function executeRecentCommand(cmd: CommandDef) {
+  saveRecentCommand(cmd)
+  cmd.action()
+  close()
+}
+
+/** 将命令写入 localStorage 最近使用（去重 + FIFO，上限 RECENT_MAX 条） */
+function saveRecentCommand(cmd: CommandDef) {
+  try {
+    const stored = localStorage.getItem(RECENT_CMDS_KEY)
+    let list: CommandDef[] = stored ? JSON.parse(stored) : []
+    // 去重：移除同 id 的旧条目
+    list = list.filter((c: CommandDef) => c.id !== cmd.id)
+    // 头部插入
+    list.unshift({ ...cmd, action: () => {} })
+    // 截断至上限
+    if (list.length > RECENT_MAX) list = list.slice(0, RECENT_MAX)
+    localStorage.setItem(RECENT_CMDS_KEY, JSON.stringify(list))
+    recentCommands.value = list
+  } catch {
+    /* localStorage 不可用时静默忽略 */
+  }
+}
+
+/** 从 localStorage 加载最近使用命令列表 */
+function loadRecentCommands() {
+  try {
+    const stored = localStorage.getItem(RECENT_CMDS_KEY)
+    if (stored) {
+      const list: CommandDef[] = JSON.parse(stored)
+      recentCommands.value = list
+    }
+  } catch {
+    recentCommands.value = []
+  }
 }
 
 function goTo(type: string, item: any) {
@@ -608,6 +682,7 @@ watch(open, (val) => {
     mode.value = "command"
     selectedIdx.value = -1
     selectedGroup.value = "Jump"
+    loadRecentCommands()
     nextTick(() => inputRef.value?.focus())
   }
 })

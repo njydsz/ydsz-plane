@@ -19,6 +19,7 @@
  *   custom-variant: 让 Tailwind v4（如有）和原生 CSS 都能识别主题变体
  * ------------------------------------------------------------------------- */
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+@custom-variant high-contrast (&:where([data-theme="high-contrast"], [data-theme="high-contrast"] *));
 
 /* ============================================================================
  *  LIGHT MODE (default)
@@ -724,6 +725,47 @@
   --shadow-raised-300: 0 2px 4px oklch(0 0 0 / 15%), 0 4px 6px oklch(0 0 0 / 10%);
   --shadow-overlay-100: 0 10px 10px oklch(0 0 0 / 20%), 0 10px 40px oklch(0 0 0 / 15%);
   --shadow-overlay-200: 0 10px 10px oklch(0 0 0 / 25%), 0 30px 60px oklch(0 0 0 / 25%);
+}
+
+/* ============================================================================
+ *  HIGH CONTRAST MODE — 信创无障碍需求（WCAG AAA 7:1）
+ *
+ *  仅在 [data-theme="high-contrast"] 下激活，通过提升文本/边框饱和度
+ *  与加深背景差达成信创合规（依据 GB/T 37668-2019 / 工信部 YD/T 标准）。
+ *
+ *  三方集成场景：信创浏览器、政务内网国产化栈（统信 UOS / 麒麟）。
+ * ========================================================================== */
+[data-theme="high-contrast"] {
+  /* 强制性黑白叠加 */
+  --neutral-100: oklch(0.98 0 0);
+  --neutral-300: oklch(0.95 0 0);
+  --neutral-1200: oklch(0.12 0 0);
+
+  /* 文本：强制近黑/近白 */
+  --txt-primary: oklch(0.08 0 0);
+  --txt-secondary: oklch(0.15 0 0);
+  --txt-tertiary: oklch(0.25 0 0);
+  --txt-placeholder: oklch(0.45 0 0);
+  --txt-disabled: oklch(0.55 0 0);
+
+  /* 背景：提升层级对比 */
+  --bg-canvas: oklch(0.97 0 0);
+  --bg-surface-1: oklch(1 0 0);
+  --bg-surface-2: oklch(0.98 0 0);
+
+  /* 边框：加深 50%，确保可见性 */
+  --border-subtle: oklch(0.6 0 0);
+  --border-strong: oklch(0.4 0 0);
+
+  /* 文本色：加饱和品牌色以确保 >= 7:1 对比 */
+  --txt-accent-primary: oklch(0.4 0.2 250);
+  --txt-success-primary: oklch(0.35 0.18 145);
+  --txt-warning-primary: oklch(0.4 0.18 80);
+  --txt-danger-primary: oklch(0.4 0.22 25);
+
+  /* 阴影：强化轮廓（高对比模式下阴影辅助可感知性） */
+  --shadow-card: 0 0 0 2px var(--border-strong), 0 1px 4px oklch(0 0 0 / 40%);
+  --shadow-popover: 0 0 0 2px var(--border-strong), 0 8px 24px oklch(0 0 0 / 60%);
 }
 
 /* ============================================================================

@@ -264,9 +264,11 @@ export const issueApi = {
     wrap<State[]>(http.get(`/workspaces/${wsId}/projects/${projectId}/states`)),
 
   // --- 工作项 CRUD ---
-  listIssues: (wsId: number, projectId: number, params?: ListIssuesParams) =>
+  listIssues: (wsId: number, projectId: number, params?: ListIssuesParams, fields?: string[]) =>
     wrap<{ results: Issue[]; total: number; limit: number; offset: number }>(
-      http.get(`/workspaces/${wsId}/projects/${projectId}/issues`, { params }),
+      http.get(`/workspaces/${wsId}/projects/${projectId}/issues`, {
+        params: fields && fields.length > 0 ? { ...params, fields: fields.join(",") } : params,
+      }),
     ),
   getIssue: (wsId: number, projectId: number, issueId: number) =>
     wrap<Issue>(http.get(`/workspaces/${wsId}/projects/${projectId}/issues/${issueId}`)),
@@ -283,11 +285,12 @@ export const issueApi = {
       to_state_id: toStateId,
     })),
 
-  // --- 看板排序 ---
-  reorder: (wsId: number, projectId: number, issueId: number, prevSortOrder?: number | null, nextSortOrder?: number | null) =>
+  // --- 看板排序（带乐观锁 version，冲突返回 409） ---
+  reorder: (wsId: number, projectId: number, issueId: number, prevSortOrder?: number | null, nextSortOrder?: number | null, version?: number) =>
     wrap<Issue>(http.patch(`/workspaces/${wsId}/projects/${projectId}/issues/${issueId}/reorder`, {
       prev_sort_order: prevSortOrder ?? null,
       next_sort_order: nextSortOrder ?? null,
+      version: version ?? null,
     })),
 
   // --- 批量操作 ---

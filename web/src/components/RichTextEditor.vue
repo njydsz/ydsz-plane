@@ -22,9 +22,12 @@ import {
   compactExtensions,
   slashItems,
   type SlashCommandItem,
+  setAICommandContext,
 } from "@/lib/editor/extensions"
 import { computed, onBeforeUnmount, onMounted, onUnmounted, ref, watch } from "vue"
 import Mention from "@tiptap/extension-mention"
+import { aiApi } from "@/api/services/ai"
+import { toast, dismiss } from "@/lib/toast"
 
 const props = withDefaults(
   defineProps<{
@@ -38,6 +41,10 @@ const props = withDefaults(
     variant?: "full" | "comment" | "compact"
     /** 精简模式：隐藏菜单栏（用于紧凑场景，已废弃，用 variant='compact' 替代） */
     compact?: boolean
+    /** 工作空间 ID（AI 功能所需上下文） */
+    workspaceId?: number | string
+    /** 项目 ID（AI 功能所需上下文） */
+    projectId?: number | string
   }>(),
   {
     contentHtml: "",
@@ -375,18 +382,236 @@ function onEmojiShortcutOpen() {
   toggleEmojiPicker()
 }
 
+/* ---- AI 命令处理 ---- */
+
+/** 获取当前编辑器的纯文本 */
+function getPlainText(): string {
+  return editor.value?.getText() ?? ""
+}
+
+/** 获取光标之前的文本（作为续写上下文） */
+function getContextBeforeCursor(): string {
+  if (!editor.value) return ""
+  const { from } = editor.value.state.selection
+  const docSize = editor.value.state.doc.content.size
+  const start = Math.max(0, from - 500)
+  return editor.value.state.doc.textBetween(start, Math.min(from, docSize), " ")
+}
+
+/** 获取当前选中的文本 */
+function getSelectedText(): string {
+  if (!editor.value) return ""
+  const { from, to, empty } = editor.value.state.selection
+  if (empty) return ""
+  return editor.value.state.doc.textBetween(from, to, "\n")
+}
+
+/** 检测当前文本语言 */
+function detectLanguage(text: string): "zh" | "en" {
+  if (!text) return "zh"
+  let zh = 0
+  let total = 0
+  for (const ch of text) {
+    if (ch >= "\u4e00" && ch <= "\u9fff") zh++
+    if (/[一-龥a-zA-Z]/.test(ch)) total++
+  }
+  if (total === 0) return "zh"
+  return zh / total > 0.3 ? "zh" : "en"
+}
+
+/** 插入文本到光标位置 */
+function insertTextAtCursor(text: string) {
+  if (!editor.value || !text) return
+  editor.value.chain().focus().insertContent(text).run()
+}
+
+
+/** 替换选中内容 */
+function replaceSelection(text: string) {
+  if (!editor.value || !text) return
+  const { from, to, empty } = editor.value.state.selection
+  if (empty) {
+    // 未选中则替换全文
+    editor.value.chain().focus().setContent(text).run()
+    return
+  }
+  // TipTap 3 无 insertText，使用 insertContentAt 替换指定范围
+  editor.value.chain().focus().insertContentAt({ from, to }, text).run()
+}
+
+/** AI 续写处理 */
+async function onAIAssist() {
+  if (!editor.value || !workspaceReady.value) {
+    toast.warning("AI 功能暂不可用")
+    closeSlashMenu()
+    return
+  }
+  const context = getContextBeforeCursor()
+  const fullText = getPlainText()
+  const lang = detectLanguage(fullText)
+
+  const loadingToast = toast.loading("AI 正在思考...")
+  try {
+    const result = await aiApi.assist(wsIdForAI.value!, projIdForAI.value!, {
+      context, full_text: fullText, language: lang,
+    })
+    dismiss(loadingToast)
+    if (result.text) {
+      insertTextAtCursor(result.text)
+      toast.success("续写已插入")
+    }
+  } catch {
+    dismiss(loadingToast)
+    toast.error("AI 续写失败，请稍后再试")
+  }
+  closeSlashMenu()
+}
+
+/** AI 改写处理 — 弹出风格选择 */
+function onAIRewrite() {
+  if (!editor.value || !workspaceReady.value) {
+    toast.warning("AI 功能暂不可用")
+    closeSlashMenu()
+    return
+  }
+  // 把当前选中/全文暂存到全局，打开风格选择器
+  const selText = getSelectedText() || getPlainText()
+  if (!selText.trim()) {
+    toast.warning("请先输入或选择要改写的文本")
+    closeSlashMenu()
+    return
+  }
+  pendingRewriteText.value = selText
+  rewriteStylePickerOpen.value = true
+  closeSlashMenu()
+}
+
+/** 执行改写（风格选择后） */
+async function executeRewrite(style: string) {
+  if (!pendingRewriteText.value) return
+  rewriteStylePickerOpen.value = false
+
+  const loadingToast = toast.loading("AI 正在改写...")
+  try {
+    const result = await aiApi.rewrite(wsIdForAI.value!, projIdForAI.value!, {
+      text: pendingRewriteText.value,
+      style: style as "formal" | "concise" | "fluent" | "expand",
+      language: detectLanguage(pendingRewriteText.value),
+    })
+    dismiss(loadingToast)
+    if (result.text) {
+      showRewriteResult.value = true
+      rewriteOriginalText.value = pendingRewriteText.value
+      rewriteResultText.value = result.text
+    }
+  } catch {
+    dismiss(loadingToast)
+    toast.error("AI 改写失败")
+  }
+  pendingRewriteText.value = null
+}
+
+/** 应用改写结果 */
+function applyRewriteResult() {
+  if (rewriteResultText.value) {
+    replaceSelection(rewriteResultText.value)
+    toast.success("改写已应用")
+  }
+  showRewriteResult.value = false
+  rewriteResultText.value = null
+  rewriteOriginalText.value = null
+}
+
+/** AI 语法纠错处理 */
+async function onAIFixGrammar() {
+  if (!editor.value || !workspaceReady.value) {
+    toast.warning("AI 功能暂不可用")
+    closeSlashMenu()
+    return
+  }
+  const text = getSelectedText() || getPlainText()
+  if (!text.trim()) {
+    toast.warning("请先输入要纠错的文本")
+    closeSlashMenu()
+    return
+  }
+
+  const loadingToast = toast.loading("AI 正在检查...")
+  try {
+    const result = await aiApi.fixGrammar(wsIdForAI.value!, projIdForAI.value!, {
+      text, language: detectLanguage(text),
+    })
+    dismiss(loadingToast)
+    if (result.issues.length === 0) {
+      toast.success("未发现语法问题")
+    } else {
+      showGrammarResult.value = true
+      grammarIssues.value = result.issues
+      grammarFixedText.value = result.fixed_text
+      toast.info(`发现 ${result.issues.length} 处问题`)
+    }
+  } catch {
+    dismiss(loadingToast)
+    toast.error("AI 纠错失败")
+  }
+  closeSlashMenu()
+}
+
+/** 应用纠错结果 */
+function applyGrammarFix() {
+  if (grammarFixedText.value) {
+    replaceSelection(grammarFixedText.value)
+    toast.success("已修正")
+  }
+  showGrammarResult.value = false
+  grammarIssues.value = []
+  grammarFixedText.value = null
+}
+
+const workspaceReady = computed(() => !!props.workspaceId && !!props.projectId)
+const wsIdForAI = computed(() => props.workspaceId)
+const projIdForAI = computed(() => props.projectId)
+
+/* ---- AI 浮层状态 ---- */
+const rewriteStylePickerOpen = ref(false)
+const pendingRewriteText = ref<string | null>(null)
+const showRewriteResult = ref(false)
+const rewriteOriginalText = ref<string | null>(null)
+const rewriteResultText = ref<string | null>(null)
+const showGrammarResult = ref(false)
+const grammarIssues = ref<Awaited<ReturnType<typeof aiApi.fixGrammar>>["issues"]>([])
+const grammarFixedText = ref<string | null>(null)
+
 onMounted(() => {
   // slash-command 插件派发 window 级事件
   window.addEventListener("slash-command:open", onSlashCommandOpen)
   window.addEventListener("slash-command:close", closeSlashMenu)
   window.addEventListener("rich-editor:open-emoji", onEmojiShortcutOpen)
+  // AI 命令事件
+  window.addEventListener("rich-editor:ai-assist", onAIAssist)
+  window.addEventListener("rich-editor:ai-rewrite", onAIRewrite)
+  window.addEventListener("rich-editor:ai-fix-grammar", onAIFixGrammar)
+  // 设置 AI 上下文
+  updateAIContext()
 })
 
 onUnmounted(() => {
   window.removeEventListener("slash-command:open", onSlashCommandOpen)
   window.removeEventListener("slash-command:close", closeSlashMenu)
   window.removeEventListener("rich-editor:open-emoji", onEmojiShortcutOpen)
+  window.removeEventListener("rich-editor:ai-assist", onAIAssist)
+  window.removeEventListener("rich-editor:ai-rewrite", onAIRewrite)
+  window.removeEventListener("rich-editor:ai-fix-grammar", onAIFixGrammar)
 })
+
+/** 监听 workspace/project 变化时更新 AI 上下文 */
+function updateAIContext() {
+  if (props.workspaceId && props.projectId) {
+    setAICommandContext({ wsId: Number(props.workspaceId), projectId: Number(props.projectId) })
+  }
+}
+
+watch(() => [props.workspaceId, props.projectId], updateAIContext)
 
 defineExpose({ editor })
 </script>
@@ -692,6 +917,75 @@ defineExpose({ editor })
       :style="{ minHeight: variant === 'compact' ? '40px' : variant === 'comment' ? '80px' : minHeight }"
       @input="handleEditorInput"
     />
+    <!-- AI 改写风格选择 -->
+    <div v-if="rewriteStylePickerOpen" class="rich-editor__ai-modal">
+      <div class="rich-editor__ai-modal-backdrop" @click="rewriteStylePickerOpen = false" />
+      <div class="rich-editor__ai-modal-card">
+        <h4>选择改写风格</h4>
+        <div class="rich-editor__ai-style-grid">
+          <button class="rich-editor__ai-style-btn" @click="executeRewrite('formal')">
+            <strong>正式</strong>
+            <span>去除口语词，用规范术语</span>
+          </button>
+          <button class="rich-editor__ai-style-btn" @click="executeRewrite('concise')">
+            <strong>精简</strong>
+            <span>去除冗余，保留核心</span>
+          </button>
+          <button class="rich-editor__ai-style-btn" @click="executeRewrite('fluent')">
+            <strong>流畅</strong>
+            <span>调整语序，补全句末</span>
+          </button>
+          <button class="rich-editor__ai-style-btn" @click="executeRewrite('expand')">
+            <strong>扩写</strong>
+            <span>补充细节与过渡说明</span>
+          </button>
+        </div>
+        <button class="rich-editor__ai-cancel" @click="rewriteStylePickerOpen = false; pendingRewriteText = null">取消</button>
+      </div>
+    </div>
+    <!-- AI 改写结果预览 -->
+    <div v-if="showRewriteResult" class="rich-editor__ai-modal">
+      <div class="rich-editor__ai-modal-backdrop" @click="showRewriteResult = false" />
+      <div class="rich-editor__ai-modal-card rich-editor__ai-modal-card--wide">
+        <h4>改写结果预览</h4>
+        <div class="rich-editor__ai-diff">
+          <div class="rich-editor__ai-diff-col">
+            <label>原文</label>
+            <pre>{{ rewriteOriginalText }}</pre>
+          </div>
+          <div class="rich-editor__ai-diff-col">
+            <label>改写后</label>
+            <pre>{{ rewriteResultText }}</pre>
+          </div>
+        </div>
+        <div class="rich-editor__ai-actions">
+          <button class="rich-editor__ai-btn" @click="showRewriteResult = false; rewriteOriginalText = null; rewriteResultText = null">取消</button>
+          <button class="rich-editor__ai-btn rich-editor__ai-btn--primary" @click="applyRewriteResult">替换原文</button>
+        </div>
+      </div>
+    </div>
+    <!-- AI 纠错结果 -->
+    <div v-if="showGrammarResult" class="rich-editor__ai-modal">
+      <div class="rich-editor__ai-modal-backdrop" @click="showGrammarResult = false" />
+      <div class="rich-editor__ai-modal-card rich-editor__ai-modal-card--wide">
+        <h4>发现 {{ grammarIssues.length }} 处问题</h4>
+        <ul class="rich-editor__ai-issue-list">
+          <li v-for="(issue, i) in grammarIssues" :key="i" class="rich-editor__ai-issue" :class="`--${issue.severity}`">
+            <span class="rich-editor__ai-issue-badge">{{ issue.severity }}</span>
+            <span class="rich-editor__ai-issue-text">"{{ issue.original }}" → "{{ issue.replacement }}"</span>
+            <span class="rich-editor__ai-issue-reason">{{ issue.reason }}</span>
+          </li>
+        </ul>
+        <details v-if="grammarFixedText" class="rich-editor__ai-fixed-preview">
+          <summary>查看修正后全文</summary>
+          <pre>{{ grammarFixedText }}</pre>
+        </details>
+        <div class="rich-editor__ai-actions">
+          <button class="rich-editor__ai-btn" @click="showGrammarResult = false">关闭</button>
+          <button class="rich-editor__ai-btn rich-editor__ai-btn--primary" @click="applyGrammarFix">应用修正</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -1169,5 +1463,180 @@ defineExpose({ editor })
 
 .rich-editor__emoji-item:hover {
   background: var(--bg-surface-3, var(--surface-3, #f3f4f6));
+}
+
+/* ---- AI Modals ---- */
+.rich-editor__ai-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.rich-editor__ai-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+}
+.rich-editor__ai-modal-card {
+  position: relative;
+  background: var(--bg-surface-1);
+  border-radius: var(--radius-md);
+  padding: 20px;
+  max-width: 420px;
+  width: calc(100% - 40px);
+  box-shadow: var(--shadow-overlay-100);
+  z-index: 1;
+}
+.rich-editor__ai-modal-card--wide {
+  max-width: 640px;
+}
+.rich-editor__ai-modal-card h4 {
+  margin: 0 0 14px;
+  font-size: 15px;
+}
+.rich-editor__ai-style-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.rich-editor__ai-style-btn {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px;
+  text-align: left;
+  background: var(--bg-surface-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 13px;
+  font-family: inherit;
+  transition: all 0.1s;
+}
+.rich-editor__ai-style-btn:hover {
+  background: var(--bg-accent-subtle);
+  border-color: var(--border-accent-subtle);
+}
+.rich-editor__ai-style-btn span {
+  font-size: 11px;
+  color: var(--txt-tertiary);
+}
+.rich-editor__ai-cancel {
+  padding: 6px 16px;
+  background: none;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 13px;
+  font-family: inherit;
+}
+.rich-editor__ai-diff {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.rich-editor__ai-diff-col label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--txt-tertiary);
+}
+.rich-editor__ai-diff-col pre {
+  max-height: 180px;
+  overflow-y: auto;
+  padding: 8px;
+  background: var(--bg-surface-2);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: 4px 0 0;
+}
+.rich-editor__ai-issue-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 12px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+.rich-editor__ai-issue {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 8px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.rich-editor__ai-issue:last-child {
+  border-bottom: none;
+}
+.rich-editor__ai-issue-badge {
+  align-self: flex-start;
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+.rich-editor__ai-issue.--error .rich-editor__ai-issue-badge {
+  background: var(--danger-50);
+  color: var(--danger-600);
+}
+.rich-editor__ai-issue.--warning .rich-editor__ai-issue-badge {
+  background: var(--warning-50);
+  color: var(--warning-600);
+}
+.rich-editor__ai-issue.--style .rich-editor__ai-issue-badge {
+  background: var(--surface-3);
+  color: var(--text-tertiary);
+}
+.rich-editor__ai-issue-text {
+  font-size: 13px;
+}
+.rich-editor__ai-issue-reason {
+  font-size: 11px;
+  color: var(--txt-tertiary);
+}
+.rich-editor__ai-fixed-preview {
+  margin-bottom: 12px;
+}
+.rich-editor__ai-fixed-preview summary {
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--txt-secondary);
+  margin-bottom: 6px;
+}
+.rich-editor__ai-fixed-preview pre {
+  max-height: 120px;
+  overflow-y: auto;
+  padding: 8px;
+  background: var(--bg-surface-2);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  white-space: pre-wrap;
+}
+.rich-editor__ai-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.rich-editor__ai-btn {
+  padding: 6px 16px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 13px;
+  font-family: inherit;
+  background: var(--bg-surface-1);
+}
+.rich-editor__ai-btn--primary {
+  background: var(--brand-500);
+  color: #fff;
+  border-color: var(--brand-500);
+}
+.rich-editor__ai-btn--primary:hover {
+  background: var(--brand-600);
 }
 </style>

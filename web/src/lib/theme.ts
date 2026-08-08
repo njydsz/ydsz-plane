@@ -1,87 +1,66 @@
 /**
- * 主题管理 — 亮/暗模式切换与持久化。
+ * ThemeManager — 主题切换（light / dark / high-contrast）。
  *
- * 对标 Plane 的主题体系：tokens.css 已定义 [data-theme="light"/"dark"] 两套完整
- * 语义色板，本模块负责切换、持久化与跟随系统偏好。
- *
- * 优先级：用户显式选择 > 系统偏好 (prefers-color-scheme) > 默认 light。
+ * high-contrast 对标信创无障碍需求：
+ *   - 监听 localStorage('ydsz-theme') 与系统 prefers-contrast: more
+ *   - 应用 data-theme 属性到 document.documentElement
+ *   - 暴露 currentTheme ref 供 UI 主题切换器使用
  */
-import { ref } from "vue";
+export type ThemeName = 'light' | 'dark' | 'high-contrast'
 
-const STORAGE_KEY = "ydsz:theme";
+const STORAGE_KEY = 'ydsz-theme'
 
-/** 主题模式：手动亮/暗 或 跟随系统。 */
-export type ThemeMode = "light" | "dark" | "system";
+/** 当前活动主题（响应式入口）。 */
+import { ref } from 'vue'
 
-/** 当前实际生效的主题 */
-const current = ref<"light" | "dark">("light");
+export const currentTheme = ref<ThemeName>('light')
 
-/** 当前用户偏好模式（light/dark/system） */
-const mode = ref<ThemeMode>(loadMode());
-
-function loadMode(): ThemeMode {
+/** 解析系统/持久化的初始主题。 */
+function resolveInitial(): ThemeName {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw === "light" || raw === "dark" || raw === "system") return raw;
-  } catch { /* ignore */ }
-  return "system";
+    const saved = localStorage.getItem(STORAGE_KEY) as ThemeName | null
+    if (saved === 'light' || saved === 'dark' || saved === 'high-contrast') {
+      return saved
+    }
+  } catch {
+    /* localStorage 不可用（隐私模式）回退 */
+  }
+  // 系统级高对比偏好
+  if (window.matchMedia?.('(prefers-contrast: more)').matches) {
+    return 'high-contrast'
+  }
+  return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
 }
 
-function systemPrefersDark(): boolean {
-  return (
-    typeof window !== "undefined" &&
-    window.matchMedia &&
-    window.matchMedia("(prefers-color-scheme: dark)").matches
-  );
+/** 应用主题到 document。 */
+export function applyTheme(theme: ThemeName) {
+  const root = document.documentElement
+  root.setAttribute('data-theme', theme)
+  // 为 Tailwind v4 提供 class 触发（dark 变体）
+  root.classList.toggle('dark', theme === 'dark')
+  root.classList.toggle('high-contrast', theme === 'high-contrast')
+  try { localStorage.setItem(STORAGE_KEY, theme) } catch { /* ignore */ }
+  currentTheme.value = theme
 }
 
-function apply(theme: "light" | "dark") {
-  current.value = theme;
-  document.documentElement.setAttribute("data-theme", theme);
+/** 在应用启动时同步一次主题。 */
+export function initTheme(): ThemeName {
+  const theme = resolveInitial()
+  applyTheme(theme)
+  return theme
 }
 
-function persist(m: ThemeMode) {
-  try {
-    localStorage.setItem(STORAGE_KEY, m);
-  } catch { /* ignore */ }
-}
-
-/** 解析最终主题并应用到 <html> */
-export function resolveTheme(m: ThemeMode = mode.value): "light" | "dark" {
-  const t = m === "system" ? (systemPrefersDark() ? "dark" : "light") : m;
-  apply(t);
-  return t;
-}
-
-/** 切换偏好模式（内部应用；可选持久化由调用方决定） */
-export function setThemeMode(m: ThemeMode, persistPref = true): "light" | "dark" {
-  mode.value = m;
-  if (persistPref) persist(m);
-  return resolveTheme(m);
-}
-
-/** 获取当前偏好模式 */
-export function getThemeMode(): ThemeMode {
-  return mode.value;
-}
-
-/** 当前生效主题（reactive，可直接在组件中 watch） */
-export function useTheme() {
-  return current;
-}
-
-/** 监听系统偏好变化（system 模式下自动跟随） */
+/** 监听系统主题变化（仅限 light/dark 切换，不覆盖 high-contrast）。 */
 export function watchSystemTheme() {
-  if (typeof window === "undefined" || !window.matchMedia) return;
-  const mq = window.matchMedia("(prefers-color-scheme: dark)");
-  const handler = () => {
-    if (mode.value === "system") resolveTheme("system");
-  };
-  mq.addEventListener("change", handler);
-}
-
-/** 应用启动初始化 */
-export function initTheme() {
-  resolveTheme(mode.value);
-  watchSystemTheme();
+  const mq = window.matchMedia('(prefers-color-scheme: dark)')
+  mq.addEventListener?.('change', () => {
+    if (currentTheme.value === 'high-contrast') return
+    applyTheme(mq.matches ? 'dark' : 'light')
+  })
+  const hc = window.matchMedia('(prefers-contrast: more)')
+  hc.addEventListener?.('change', () => {
+    if (hc.matches && currentTheme.value !== 'high-contrast') {
+      applyTheme('high-contrast')
+    }
+  })
 }

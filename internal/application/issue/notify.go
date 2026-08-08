@@ -125,8 +125,11 @@ func (h *IssueHandler) notifyIssueAssigned(ctx context.Context, wsID int64, assi
 	}
 }
 
-// notifyIssueStatusChanged 工作项状态变更后广播（供看板实时刷新）。
-func (h *IssueHandler) broadcastIssueUpdated(ctx context.Context, wsID, projectID, issueID int64) {
+// broadcastIssueUpdated 工作项状态变更后广播（供看板实时刷新）。
+// payload 携带 actor_id 与 new_version，前端用于：
+//   - 区分自己触发的广播（actor_id == 当前 user_id → 跳过处理，本地已乐观更新）
+//   - 检测版本冲突（new_version > 本地 version → 拉取详情覆盖）
+func (h *IssueHandler) broadcastIssueUpdated(ctx context.Context, wsID, projectID, issueID, actorID, newVersion int64) {
 	if h.d.WSHub == nil {
 		return
 	}
@@ -134,6 +137,8 @@ func (h *IssueHandler) broadcastIssueUpdated(ctx context.Context, wsID, projectI
 		"workspace_id": wsID,
 		"project_id":   projectID,
 		"issue_id":     issueID,
+		"actor_id":     actorID,
+		"new_version":  newVersion,
 	})
 	_ = h.d.WSHub.Publish(ctx, wsID, ws.Message{
 		Type: "issue.updated",

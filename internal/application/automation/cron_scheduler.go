@@ -31,6 +31,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
 
+	"github.com/njydsz/ydsz-plane/internal/infrastructure/worker"
 	"github.com/njydsz/ydsz-plane/internal/rbac"
 	"github.com/njydsz/ydsz-plane/pkg/errs"
 )
@@ -107,6 +108,20 @@ func runScheduledTick(ctx context.Context, svc *Service, eng *Engine, now time.T
 			continue
 		}
 		lastRun[rule.ID] = runKey
+
+		// 时间打散：按 rule ID 计算确定性偏移，错开同分钟内多条规则的并发执行
+		// 偏移上限 55s —— 确保在下一 tick 前完成当前规则的初始 DB 查询
+		jitter := worker.IDJitter(rule.ID, 55)
+		if jitter > 0 {
+			log.Debug("automation scheduled: jitter wait",
+				zap.Int64("rule_id", rule.ID),
+				zap.Duration("jitter", jitter))
+			select {
+			case <-ctx.Done():
+				return nil
+			case <-time.After(jitter):
+			}
+		}
 
 		// 熔断器前置检查（与事件驱动路径一致）
 		breaker := eng.breakers.GetOrCreate(rule.ID)
@@ -330,7 +345,13 @@ func (e *Engine) findScheduledCandidates(ctx context.Context, rule *Rule) ([]int
 
 	sql := fmt.Sprintf(`
 		SELECT i.id
-		FROM issues i
+		FROM (
+		    SELECT id, project_id, deleted_at, target_date FROM task
+		    UNION ALL
+		    SELECT id, project_id, deleted_at, target_date FROM requirement
+		    UNION ALL
+		    SELECT id, project_id, deleted_at, target_date FROM defect
+		) i
 		WHERE %s
 		ORDER BY i.id ASC
 		LIMIT %d`,

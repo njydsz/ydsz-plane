@@ -198,6 +198,8 @@ watch(
       <CommentForm
         ref="newFormRef"
         :loading="submitting"
+        :workspace-id="workspaceId"
+        :project-id="projectId"
         @submit="handleCreate"
       />
     </div>
@@ -211,6 +213,8 @@ watch(
         ref="editFormRef"
         :loading="submitting"
         :initial-value="editingComment.content_html || editingComment.content_stripped"
+        :workspace-id="workspaceId"
+        :project-id="projectId"
         @submit="handleUpdate"
         @cancel="cancelEdit"
       />
@@ -273,6 +277,8 @@ watch(
             ref="replyFormRef"
             :loading="submitting"
             :parent-id="topComment.id"
+            :workspace-id="workspaceId"
+            :project-id="projectId"
             @submit="handleCreate"
             @cancel="cancelReply"
           />

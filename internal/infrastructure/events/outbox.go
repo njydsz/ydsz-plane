@@ -94,12 +94,19 @@ type Querier interface {
 //  3. 关闭时 ctx 取消后，进行中的批次完成后返回。
 //
 // 可观测性：每个批次周期记录已发布数量、错误与延迟。
+//
+// 错误隔离：单条发布失败不阻塞整批——失败事件单独记录错误计数并
+// 触发 OnPublishFailed 回调由上层处理（告警/死信标记），Relay 继续
+// 投递后续事件，避免一条毒消息阻塞整个 outbox 链路。
 type Relay struct {
 	db     Querier
 	mq     *mq.Client
 	log    *zap.Logger
 	batch  int
 	period time.Duration
+
+	// 发布失败时回调（可选，用于对账任务及告警）
+	OnPublishFailed func(ctx context.Context, e Event, publishErr error)
 }
 
 // NewRelay 使用已初始化的 MQ 客户端构造 Relay。
@@ -186,6 +193,14 @@ func (r *Relay) Close() error {
 		return r.mq.Close()
 	}
 	return nil
+}
+
+// IsEventProcessed 查询某消费者是否已成功处理该事件。
+func IsEventProcessed(ctx context.Context, db Querier, eventID int64, consumerID string) (bool, error) {
+	const q = `SELECT EXISTS(SELECT 1 FROM processed_events WHERE event_id = $1 AND consumer_id = $2)`
+	var exists bool
+	err := db.QueryRow(ctx, q, eventID, consumerID).Scan(&exists) //nolint:errcheck
+	return exists, err
 }
 
 // EnqueueTask 向 TaskExchange 发布后台任务信封。

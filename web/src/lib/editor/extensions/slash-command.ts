@@ -19,8 +19,26 @@ export interface SlashCommandItem {
   label: string
   icon: string
   description: string
-  category: "基础" | "媒体" | "块"
+  category: "基础" | "媒体" | "块" | "AI"
   execute: (editor: any) => void
+}
+
+/** AI 命令上下文 — 由 RichTextEditor 在 workspace/project 变化时设置 */
+export interface AICommandContext {
+  wsId: number
+  projectId: number
+}
+
+let _aiCtx: AICommandContext | null = null
+
+/** 设置 AI 命令上下文 */
+export function setAICommandContext(ctx: AICommandContext | null) {
+  _aiCtx = ctx
+}
+
+/** 获取当前 AI 命令上下文 */
+export function getAICommandContext(): AICommandContext | null {
+  return _aiCtx
 }
 
 const slashItems: SlashCommandItem[] = [
@@ -167,6 +185,37 @@ const slashItems: SlashCommandItem[] = [
     execute: () => {
       // 触发自定义事件 — 由 RichTextEditor 监听并打开 Emoji 选择面板
       window.dispatchEvent(new CustomEvent("rich-editor:open-emoji"))
+    },
+  },
+  // ---- AI ----
+  {
+    id: "ai-assist",
+    label: "AI 续写",
+    icon: "✨",
+    description: "根据上下文智能续写文本",
+    category: "AI",
+    execute: () => {
+      window.dispatchEvent(new CustomEvent("rich-editor:ai-assist"))
+    },
+  },
+  {
+    id: "ai-rewrite",
+    label: "AI 改写",
+    icon: "🔄",
+    description: "改写选中文本（正式/精简/流畅/扩写）",
+    category: "AI",
+    execute: () => {
+      window.dispatchEvent(new CustomEvent("rich-editor:ai-rewrite"))
+    },
+  },
+  {
+    id: "ai-fix-grammar",
+    label: "AI 纠错",
+    icon: "🔍",
+    description: "检测并修正语法、拼写和标点问题",
+    category: "AI",
+    execute: () => {
+      window.dispatchEvent(new CustomEvent("rich-editor:ai-fix-grammar"))
     },
   },
 ]

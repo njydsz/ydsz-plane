@@ -27,6 +27,7 @@ import (
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/events"
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/mail"
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/mq"
+	"github.com/njydsz/ydsz-plane/internal/infrastructure/worker"
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/persistence"
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/telemetry"
 	"github.com/njydsz/ydsz-plane/internal/rbac"
@@ -301,6 +302,13 @@ func runWebhookLogCleanupCron(ctx context.Context, svc *webhook.Service, log *za
 				}
 				lastRunDate = dateKey
 
+				// 时间打散：在 0~60s 窗口内按日期确定偏移，避免多实例并发命中同一秒
+				jitter := worker.DayJitter("webhook-cleanup:"+dateKey, 60)
+				if jitter > 0 {
+					log.Debug("webhook cleanup cron: jitter", zap.Duration("delay", jitter))
+					time.Sleep(jitter)
+				}
+
 				cleanupCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
 				deleted, err := svc.CleanupLogs(cleanupCtx)
 				cancel()
@@ -345,6 +353,13 @@ func runDailySnapshotCron(ctx context.Context, svc *sprint.Service, log *zap.Log
 				}
 				lastRunDate = dateKey
 
+				// 时间打散：在 0~45s 窗口内按日期确定偏移，避免多实例并发
+				jitter := worker.DayJitter(dateKey, 45)
+				if jitter > 0 {
+					log.Debug("sprint snapshot cron: jitter", zap.Duration("delay", jitter))
+					time.Sleep(jitter)
+				}
+
 				snapCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
 				count, failures := svc.SnapshotAllActive(snapCtx)
 				cancel()
@@ -384,6 +399,13 @@ func runMetricsSnapshotCron(ctx context.Context, svc *metrics.Service, log *zap.
 					continue
 				}
 				lastRunDate = dateKey
+
+				// 时间打散：在 0~15s 窗口内按日期确定偏移
+				jitter := worker.DayJitter("metrics:" + dateKey, 15)
+				if jitter > 0 {
+					log.Debug("metrics snapshot cron: jitter", zap.Duration("delay", jitter))
+					time.Sleep(jitter)
+				}
 
 				start := time.Now()
 				count, err := svc.AggregateDailySnapshots(ctx, dateKey)

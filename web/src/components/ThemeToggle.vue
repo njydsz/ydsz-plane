@@ -4,16 +4,16 @@
  * 点击在 light ↔ dark 间切换（首次点击会取消 system 跟随，改为显式选择）。
  */
 import { computed } from "vue";
-import { setThemeMode, useTheme } from "@/lib/theme";
+import { applyTheme, currentTheme } from "@/lib/theme";
 
-const theme = useTheme();
+const theme = currentTheme;
 
 const isDark = computed(() => theme.value === "dark");
 
 function toggle() {
   // 显式选择：基于当前生效主题取反，退出 system 模式
   const next = theme.value === "dark" ? "light" : "dark";
-  setThemeMode(next);
+  applyTheme(next);
 }
 
 const label = computed(() => (isDark.value ? "切换到亮色模式" : "切换到暗色模式"));

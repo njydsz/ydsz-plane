@@ -93,6 +93,8 @@ export interface Version {
   created_by: number;
   created_at: string;
   updated_at: string;
+  /** 乐观锁版本号 */
+  version: number;
   sprints?: SprintRef[];
   progress?: VersionProgress;
   quality?: QualityMetrics;

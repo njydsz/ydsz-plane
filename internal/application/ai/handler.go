@@ -35,6 +35,9 @@ func (h *Handler) Register(r *gin.RouterGroup) {
 	r.POST("/detect-duplicates", h.DetectDuplicates)
 	r.POST("/classify", h.SmartClassify)
 	r.POST("/summarize", h.Summarize)
+	r.POST("/assist", h.WritingAssist)
+	r.POST("/rewrite", h.RewriteText)
+	r.POST("/fix-grammar", h.FixGrammar)
 }
 
 // Status godoc
@@ -197,6 +200,105 @@ type detectDuplicatesRequest struct {
 type classifyRequest struct {
 	Title       string `json:"title"`
 	Description string `json:"description"`
+}
+
+type writingAssistRequest struct {
+	Context   string `json:"context"`
+	FullText  string `json:"full_text"`
+	Language  string `json:"language"`
+	Style     string `json:"style"`
+	MaxTokens int    `json:"max_tokens"`
+}
+
+type rewriteRequest struct {
+	Text      string `json:"text"`
+	Style     string `json:"style"`
+	Language  string `json:"language"`
+	IssueType string `json:"issue_type"`
+}
+
+type fixGrammarRequest struct {
+	Text     string `json:"text"`
+	Language string `json:"language"`
+}
+
+// WritingAssist godoc
+//
+//	@Summary		AI 续写
+//	@Description	根据上下文智能续写文本（规则引擎兜底，LLM 需配置）
+//	@Tags			ai
+//	@Accept			json
+//	@Produce		json
+//	@Param			body	body		writingAssistRequest	true	"续写输入"
+//	@Success		200		{object}	WritingAssistResult
+//	@Router			/projects/{project_id}/ai/assist [post]
+func (h *Handler) WritingAssist(c *gin.Context) {
+	var req writingAssistRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		middleware.AbortWithError(c, errs.ErrValidation.WithDetails(fieldDetail(err)))
+		return
+	}
+	result, err := h.d.AiSvc.WritingAssist(c.Request.Context(), WritingAssistInput{
+		Context: req.Context, FullText: req.FullText, Language: req.Language,
+		Style: req.Style, MaxTokens: req.MaxTokens,
+	})
+	if err != nil {
+		writeErr(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, result)
+}
+
+// RewriteText godoc
+//
+//	@Summary		文本改写
+//	@Description	对选中文本进行风格改写（formal / concise / fluent / expand）
+//	@Tags			ai
+//	@Accept			json
+//	@Produce		json
+//	@Param			body	body		rewriteRequest	true	"改写输入"
+//	@Success		200		{object}	RewriteResult
+//	@Router			/projects/{project_id}/ai/rewrite [post]
+func (h *Handler) RewriteText(c *gin.Context) {
+	var req rewriteRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		middleware.AbortWithError(c, errs.ErrValidation.WithDetails(fieldDetail(err)))
+		return
+	}
+	result, err := h.d.AiSvc.RewriteText(c.Request.Context(), RewriteInput{
+		Text: req.Text, Style: req.Style, Language: req.Language, IssueType: req.IssueType,
+	})
+	if err != nil {
+		writeErr(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, result)
+}
+
+// FixGrammar godoc
+//
+//	@Summary		语法纠错
+//	@Description	检测并修正语法、拼写、标点问题
+//	@Tags			ai
+//	@Accept			json
+//	@Produce		json
+//	@Param			body	body		fixGrammarRequest	true	"纠错输入"
+//	@Success		200		{object}	FixGrammarResult
+//	@Router			/projects/{project_id}/ai/fix-grammar [post]
+func (h *Handler) FixGrammar(c *gin.Context) {
+	var req fixGrammarRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		middleware.AbortWithError(c, errs.ErrValidation.WithDetails(fieldDetail(err)))
+		return
+	}
+	result, err := h.d.AiSvc.FixGrammar(c.Request.Context(), FixGrammarInput{
+		Text: req.Text, Language: req.Language,
+	})
+	if err != nil {
+		writeErr(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, result)
 }
 
 // --- Helpers ---

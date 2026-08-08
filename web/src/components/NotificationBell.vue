@@ -37,6 +37,22 @@
           </button>
         </div>
 
+        <!-- 分类 Tab -->
+        <div class="notif-tabs">
+          <button
+            v-for="tab in TABS"
+            :key="tab.key"
+            class="notif-tab"
+            :class="{ 'notif-tab--active': activeTab === tab.key }"
+            @click="activeTab = tab.key"
+          >
+            <span>{{ tab.label }}</span>
+            <span v-if="tabUnreadCounts[tab.key] > 0" class="notif-tab__badge">
+              {{ tabUnreadCounts[tab.key] > 99 ? '99+' : tabUnreadCounts[tab.key] }}
+            </span>
+          </button>
+        </div>
+
         <!-- 内容区 -->
         <div ref="scrollRef" class="dropdown-body">
           <!-- 加载中 -->
@@ -183,8 +199,44 @@ const items = computed(() => notifStore.items)
 const unreadCount = computed(() => notifStore.unreadCount)
 const loading = computed(() => notifStore.loading)
 
+/** 当前选中的通知分类 Tab */
+type NotifTab = "all" | "mention" | "subscription" | "system"
+const activeTab = ref<NotifTab>("all")
+
+/** Tab 定义 */
+const TABS: { key: NotifTab; label: string }[] = [
+  { key: "all", label: "全部" },
+  { key: "mention", label: "提及" },
+  { key: "subscription", label: "订阅" },
+  { key: "system", label: "系统" },
+]
+
+/** 事件类型 → Tab 分类 */
+function classifyEvent(eventType: string): NotifTab {
+  if (eventType === "comment.created" || eventType === "issue.assigned") return "mention"
+  if (eventType.startsWith("member.") || eventType === "invitation.sent") return "system"
+  return "subscription"
+}
+
+/** 按 Tab 过滤的通知列表 */
+const filteredItems = computed(() => {
+  if (activeTab.value === "all") return items.value
+  return items.value.filter((n) => classifyEvent(n.event_type) === activeTab.value)
+})
+
 /** 截断后的展示列表（最多 10 条） */
-const displayItems = computed(() => items.value.slice(0, MAX_DROPDOWN_ITEMS))
+const displayItems = computed(() => filteredItems.value.slice(0, MAX_DROPDOWN_ITEMS))
+
+/** 各 Tab 未读计数 */
+const tabUnreadCounts = computed(() => {
+  const counts: Record<NotifTab, number> = { all: 0, mention: 0, subscription: 0, system: 0 }
+  for (const n of items.value) {
+    if (n.is_read) continue
+    counts.all++
+    counts[classifyEvent(n.event_type)]++
+  }
+  return counts
+})
 
 /** 根据事件类型获取图标组件 */
 function getEventIcon(eventType: string) {
@@ -205,8 +257,11 @@ function truncate(text: string, maxLen: number): string {
 /** 切换面板开合；首次打开时拉取当前工作空间的通知列表 */
 async function toggle() {
   open.value = !open.value
-  if (open.value && wsStore.current) {
-    await notifStore.fetchList(wsStore.current.id, { limit: MAX_DROPDOWN_ITEMS })
+  if (open.value) {
+    activeTab.value = "all"
+    if (wsStore.current) {
+      await notifStore.fetchList(wsStore.current.id, { limit: MAX_DROPDOWN_ITEMS })
+    }
   }
 }
 
@@ -401,6 +456,60 @@ watch(
 .mark-read-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* ===== Tab 栏 ===== */
+.notif-tabs {
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+
+.notif-tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 8px 4px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-tertiary);
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.notif-tab:hover {
+  color: var(--text-primary);
+}
+
+.notif-tab--active {
+  color: var(--brand-500);
+  border-bottom-color: var(--brand-500);
+  font-weight: 500;
+}
+
+.notif-tab__badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--danger-500);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.notif-tab--active .notif-tab__badge {
+  background: var(--brand-500);
 }
 
 /* ===== 内容体 ===== */
