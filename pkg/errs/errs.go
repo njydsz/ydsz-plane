@@ -255,6 +255,22 @@ var (
 	ErrTokenExpired = New("AUTH.TOKEN_EXPIRED", "登录已过期，请重新登录", http.StatusUnauthorized)
 
 	// ==========================================================================
+	// 安全域（Domain: SECURITY）
+	// ==========================================================================
+
+	// ErrCSRFTokenInvalid CSRF 令牌校验失败（HTTP 403 Forbidden）。
+	//
+	// 触发场景：浏览器 SPA 携带会话 Cookie 发起状态变更请求（POST/PUT/PATCH/DELETE）时，
+	// 缺失 X-CSRF-Token 请求头、或请求头中的令牌值与会话绑定的预期令牌不匹配。
+	// 设计说明：
+	//   - 仅对携带 ydsz_access 会话 Cookie 的请求生效（浏览器 SPA）。
+	//   - 纯 API 客户端（Authorization: Bearer / X-Api-Key，无会话 Cookie）不受影响，
+	//     因为它们不属于 CSRF 攻击的载体场景。
+	//   - 安全方法（GET/HEAD/OPTIONS）与 WebSocket 升级请求不受 CSRF 约束。
+	// 用户文案考虑：文案模糊处理，不暴露校验细节，避免为攻击者构造绕过提供帮助。
+	ErrCSRFTokenInvalid = New("SECURITY.CSRF_INVALID", "请求验证失败，请刷新页面后重试", http.StatusForbidden)
+
+	// ==========================================================================
 	// 需求/缺陷域（Domain: ISSUE，代号 S3+）
 	// ==========================================================================
 
