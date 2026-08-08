@@ -213,9 +213,9 @@ function typeColor(type: string): string {
       <div class="header-left">
         <h1 class="page-title">日历</h1>
         <div class="nav-controls">
-          <button class="icon-btn" @click="prev" aria-label="上一个">‹</button>
+          <button class="icon-btn" aria-label="上一个" @click="prev">‹</button>
           <span class="view-title">{{ viewTitle }}</span>
-          <button class="icon-btn" @click="next" aria-label="下一个">›</button>
+          <button class="icon-btn" aria-label="下一个" @click="next">›</button>
           <button class="btn-today" @click="goToday">今天</button>
         </div>
       </div>
@@ -226,7 +226,9 @@ function typeColor(type: string): string {
             :key="v.value"
             :class="['view-tab', { active: viewMode === v.value }]"
             @click="setView(v.value)"
-          >{{ v.label }}</button>
+          >
+{{ v.label }}
+</button>
         </div>
       </div>
     </header>

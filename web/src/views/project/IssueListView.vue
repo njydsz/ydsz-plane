@@ -866,7 +866,7 @@ const isCurrentPageAllSelected = computed(() => {
           >
             <span class="column-config-item__drag">⋮⋮</span>
             <label class="column-config-item__check">
-              <input type="checkbox" v-model="col.visible" />
+              <input v-model="col.visible" type="checkbox" />
               <span>{{ col.label }}</span>
             </label>
             <input

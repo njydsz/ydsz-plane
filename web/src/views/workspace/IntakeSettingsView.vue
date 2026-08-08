@@ -320,7 +320,7 @@ onMounted(load);
     <!-- ===== 审核队列 ===== -->
     <section v-if="tab === 'queue'">
       <div class="queue-filters">
-        <select v-model="queueFilter" @change="loadQueue" class="wh-input" style="width:160px">
+        <select v-model="queueFilter" class="wh-input" style="width:160px" @change="loadQueue">
           <option value="pending">待审核</option>
           <option value="reviewed">已审核</option>
           <option value="">全部</option>
@@ -386,7 +386,7 @@ onMounted(load);
 
         <label class="wh-field wh-field--row">
           <span class="wh-label">公开访问</span>
-          <input type="checkbox" v-model="chForm.is_public" />
+          <input v-model="chForm.is_public" type="checkbox" />
           <span class="meta">公开通道允许免登录提交</span>
         </label>
 

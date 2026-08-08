@@ -237,7 +237,7 @@ onUnmounted(() => {
     <!-- 工具栏 -->
     <div class="spreadsheet-toolbar">
       <div class="toolbar-left">
-        <span class="row-count" v-if="issues.length">
+        <span v-if="issues.length" class="row-count">
           {{ issues.length }} 条记录
           <template v-if="selectedIds.size > 0">
             · 已选 {{ selectedIds.size }} 项
@@ -247,8 +247,8 @@ onUnmounted(() => {
       <div class="toolbar-right">
         <button
           class="toolbar-btn"
-          @click="loadIssues"
           :disabled="loading"
+          @click="loadIssues"
         >
           {{ loading ? "刷新中..." : "刷新" }}
         </button>
@@ -296,7 +296,7 @@ onUnmounted(() => {
             >
               <div class="col-header">
                 <span class="col-label">{{ col.label }}</span>
-                <span class="col-filter-icon" v-if="col.key !== 'identifier'">▼</span>
+                <span v-if="col.key !== 'identifier'" class="col-filter-icon">▼</span>
               </div>
               <!-- 列宽调整手柄 -->
               <div
@@ -344,13 +344,13 @@ onUnmounted(() => {
               <!-- 编辑模式 -->
               <template v-if="editingCell?.row === rowIdx && editingCell?.col === col.key">
                 <input
+                  ref="editInput"
                   v-model="editValue"
                   class="cell-input"
+                  autofocus
                   @blur="commitEdit"
                   @keydown.enter="commitEdit"
                   @keydown.escape="cancelEdit"
-                  ref="editInput"
-                  autofocus
                 />
               </template>
               <!-- 显示模式 -->

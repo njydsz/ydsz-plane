@@ -12,12 +12,15 @@ import { createRouter, createWebHistory } from "vue-router";
 import { useAuthStore } from "@/stores/auth";
 import { useWorkspaceStore } from "@/stores/workspace";
 
-/** 需要工作空间级鉴权的路由（:workspaceId 前缀）及其最低权限 */
+/** 需要工作空间级鉴权的路由（:workspaceId 前缀）及其最低权限。
+ *  留空 string 表示"仅 owner / admin 可访问"（跳过 permission 集合判断，直接校验角色）。 */
 const WORKSPACE_PERMISSIOND_ROUTES: Record<string, string> = {
   "workspace-settings": "workspace:update",
   "webhook-settings": "webhook:manage",
   "intake-settings": "intake:manage",
   "audit-logs": "audit:read",
+  "workspace-dlq": "",
+  "workspace-rbac": "",
 };
 
 const router = createRouter({
@@ -129,6 +132,20 @@ const router = createRouter({
           path: ":workspaceId(\\d+)/audit-logs",
           name: "audit-logs",
           component: () => import("@/views/workspace/AuditReportView.vue"),
+          props: (route) => ({ workspaceId: Number(route.params.workspaceId) }),
+        },
+        // S13 DLQ 死信监控（仅 owner / admin）
+        {
+          path: ":workspaceId(\\d+)/admin/dlq",
+          name: "workspace-dlq",
+          component: () => import("@/views/workspace/DLQMonitoringView.vue"),
+          props: (route) => ({ workspaceId: Number(route.params.workspaceId) }),
+        },
+        // S13 角色权限管理（仅 owner / admin）
+        {
+          path: ":workspaceId(\\d+)/admin/rbac",
+          name: "workspace-rbac",
+          component: () => import("@/views/workspace/RolesPermissionsView.vue"),
           props: (route) => ({ workspaceId: Number(route.params.workspaceId) }),
         },
         {
@@ -405,6 +422,10 @@ router.beforeEach(async (to) => {
     }
     const required = WORKSPACE_PERMISSIOND_ROUTES[String(to.name ?? "")];
     if (required && !wsStore.hasPermission(required)) {
+      return { name: "forbidden" };
+    }
+    // 空串表示仅 owner / admin 可访问（跳过 permission 集合判断，直接校验角色）
+    if (required === "" && !wsStore.canManage) {
       return { name: "forbidden" };
     }
   }

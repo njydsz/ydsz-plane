@@ -36,6 +36,7 @@ const props = withDefaults(defineProps<{
   placeholder: "未设置",
   disabled: false,
   align: "left",
+  emptyValue: undefined,
 });
 
 const emit = defineEmits<{

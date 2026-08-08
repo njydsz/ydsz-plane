@@ -106,8 +106,12 @@ export const workspaceApi = {
 
   // --- Members ---
   listMembers: (wsId: number) => wrap<Member[]>(http.get(`/workspaces/${wsId}/members`)),
+  /** 变更成员角色（PATCH 兼容旧版） */
   changeRole: (wsId: number, userId: number, role: string) =>
     wrap<void>(http.patch(`/workspaces/${wsId}/members/${userId}`, { role })),
+  /** 变更成员角色（PUT 新版，PUT /workspaces/:wsId/members/:userId/role） */
+  updateMemberRole: (wsId: number, userId: number, role: string) =>
+    wrap<void>(http.put(`/workspaces/${wsId}/members/${userId}/role`, { role })),
   removeMember: (wsId: number, userId: number) =>
     wrap<void>(http.delete(`/workspaces/${wsId}/members/${userId}`)),
 

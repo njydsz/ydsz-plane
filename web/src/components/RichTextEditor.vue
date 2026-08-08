@@ -55,6 +55,8 @@ const props = withDefaults(
     minHeight: "120px",
     variant: "full",
     compact: false,
+    workspaceId: undefined,
+    projectId: undefined,
   },
 )
 

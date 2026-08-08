@@ -844,10 +844,10 @@ func (e *Engine) resolveLeastLoaded(ctx context.Context, wsID, projectID int64, 
 			    SELECT id, project_id, state_id, assignee_ids, deleted_at FROM defect
 			) i
 			JOIN states st ON st.id = i.state_id
-			WHERE $4 = ANY(i.assignee_ids) AND i.project_id = $1 AND i.deleted_at IS NULL
+			WHERE wm.user_id = ANY(i.assignee_ids) AND i.project_id = $1 AND i.deleted_at IS NULL
 			  AND st."group" != 'completed'
 		) ASC, wm.user_id ASC
-		LIMIT 1`, projectID, wsID, role, wm.user_id).Scan(&userID)
+		LIMIT 1`, projectID, wsID, role).Scan(&userID)
 	if err != nil {
 		return 0, err
 	}

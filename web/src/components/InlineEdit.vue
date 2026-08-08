@@ -34,6 +34,7 @@ const props = withDefaults(defineProps<{
   trigger: "click",
   placeholder: "点击编辑",
   maxLength: 200,
+  validate: undefined,
   disabled: false,
   align: "left",
 });

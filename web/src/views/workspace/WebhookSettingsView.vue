@@ -302,7 +302,7 @@ onMounted(load);
           <button class="btn-sm" @click="toggleHook(h)">
             {{ h.is_active ? "暂停" : "恢复" }}
           </button>
-          <button class="btn-sm" @click="testHook(h)" title="发送测试事件">测试</button>
+          <button class="btn-sm" title="发送测试事件" @click="testHook(h)">测试</button>
           <button class="btn-sm" @click="viewLogs(h)">日志</button>
           <button class="btn-sm" @click="openEdit(h)">编辑</button>
           <button class="btn-sm btn-sm--danger" @click="removeHook(h)">删除</button>

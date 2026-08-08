@@ -203,7 +203,7 @@ onMounted(load);
             </span>
             <span class="log-target">{{ l.target || "-" }}</span>
             <span class="log-actor">{{ l.actor_name || `#${l.actor_id}` }}</span>
-            <span class="log-ip" v-if="l.ip">{{ l.ip }}</span>
+            <span v-if="l.ip" class="log-ip">{{ l.ip }}</span>
             <span class="log-time">{{ formatTime(l.created_at) }}</span>
           </div>
         </div>

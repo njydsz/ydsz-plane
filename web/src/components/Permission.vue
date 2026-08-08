@@ -31,7 +31,10 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
+  permission: undefined,
+  permissions: () => [],
   match: "all",
+  menu: undefined,
 });
 
 const wsStore = useWorkspaceStore();

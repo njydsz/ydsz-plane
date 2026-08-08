@@ -202,7 +202,7 @@ func (h *IssueHandler) createIssue(c *gin.Context) {
 	// 通知被指派者 + 广播工作项创建
 	h.notifyIssueCreated(c.Request.Context(), wsID, req.Assignees, userID,
 		h.actorName(c, userID), iss.Name, iss.ID)
-	h.broadcastIssueUpdated(c.Request.Context(), wsID, projectID, iss.ID, userID, iss.Version)
+	h.broadcastIssueUpdated(c.Request.Context(), wsID, projectID, iss.ID, userID, int64(iss.Version))
 
 	c.JSON(http.StatusCreated, iss)
 }
@@ -286,6 +286,7 @@ func (h *IssueHandler) updateIssue(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	projectID := c.GetInt64(middleware.CtxProjectID)
 	issueID := int64Param(c, "issue_id")
+	userID := c.GetInt64(middleware.CtxUserID)
 
 	var req updateIssueRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -341,7 +342,7 @@ func (h *IssueHandler) updateIssue(c *gin.Context) {
 		return
 	}
 	// 广播 + 仅核心事件通知关注者
-	h.broadcastIssueUpdated(c.Request.Context(), wsID, projectID, iss.ID, userID, iss.Version)
+	h.broadcastIssueUpdated(c.Request.Context(), wsID, projectID, iss.ID, userID, int64(iss.Version))
 	c.JSON(http.StatusOK, iss)
 }
 
@@ -392,7 +393,7 @@ func (h *IssueHandler) transition(c *gin.Context) {
 		return
 	}
 	// 广播状态变更（看板实时刷新）
-	h.broadcastIssueUpdated(c.Request.Context(), wsID, projectID, iss.ID, userID, iss.Version)
+	h.broadcastIssueUpdated(c.Request.Context(), wsID, projectID, iss.ID, userID, int64(iss.Version))
 	// 通知关注者，传递核心事件类型issue.status_changed，触发通知
 	h.notifyIssueWatchers(c.Request.Context(), wsID, iss.ID, userID, "issue.status_changed", h.actorName(c, userID), iss.Name, "工作项状态已变更")
 	c.JSON(http.StatusOK, iss)

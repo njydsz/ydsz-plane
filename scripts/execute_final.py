@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """
-SQL 执行脚本 v6 - 使用自定义解析器（正确处理 Navicat dump 格式）
+SQL 执行脚本 v9 - 自定义解析器 + 预处理修复
+- 正确处理 Navicat dump 格式 + $$ dollar quote + 块注释
+- 预处理：DROP CASCADE、尾部逗号、COMMENT错误
 """
 import re
 import sys
@@ -34,56 +36,127 @@ def reset_database():
     conn.close()
 
 
-def split_sql_statements_from_content(content):
-    """Navicat dump 格式的分割器 - 正确处理多行语句"""
+def preprocess(content):
+    """预处理修复已知问题"""
+    # CREATE POLICY IF NOT EXISTS -> DROP + CREATE
+    content = re.sub(
+        r'CREATE\s+POLICY\s+IF\s+NOT\s+EXISTS\s+(\w+)\s+ON\s+(\w+)',
+        r'DROP POLICY IF EXISTS \1 ON \2; CREATE POLICY \1 ON \2',
+        content, flags=re.IGNORECASE
+    )
+    content = re.sub(r';(\s*CREATE\s+POLICY)', r'\1', content)
 
+    # DROP 语句加上 CASCADE（Navicat 默认不带，会导致 depends-on 错误）
+    content = re.sub(
+        r"(DROP\s+TABLE\s+(?:IF\s+EXISTS\s+)?)(\w+)(\s*;)",
+        lambda m: m.group(1) + m.group(2) + " CASCADE" + m.group(3),
+        content, flags=re.IGNORECASE
+    )
+
+    # 修复 CREATE TABLE 中 ); 前的尾部逗号
+    content = re.sub(r',(\s*\n\s*\);)', r'\1', content)
+
+    # 补充缺失的 estimate_points 表定义（原 Navicat dump 中漏掉了这张表）
+    if re.search(r'REFERENCES\s+estimate_points', content, re.IGNORECASE):
+        if not re.search(r'CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:"public"\.)?"?estimate_points"?\s*\(', content, re.IGNORECASE):
+            estimate_points_ddl = """
+-- ===== 补充缺失的 estimate_points 表 =====
+CREATE TABLE IF NOT EXISTS estimate_points (
+    id          BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name        TEXT NOT NULL,
+    value       SMALLINT NOT NULL DEFAULT 0,
+    sort_order  SMALLINT NOT NULL DEFAULT 0,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deleted_at  TIMESTAMPTZ
+);
+"""
+            content = estimate_points_ddl + "\n" + content
+
+    # 补充 task/requirement/defect 表中缺失的聚合列（assignee_ids/label_ids/module_ids/watcher_ids）
+    # 这些列在 0024 原始迁移中存在（为 GIN 索引设计的 BIGINT[] 聚合列），但在合并时遗漏了
+    # VIEW 仍然引用这些列，因此必须补回才能通过 CREATE VIEW
+    array_col_pat = re.compile(
+        r'(CREATE\s+TABLE\s+IF\s+NOT\s+EXISTS\s+(?:task|requirement|defect)\s*\()'
+        r'(.*?)'
+        r'(\n\s*UNIQUE\s*\(project_id,\s*sequence_id\))',
+        re.DOTALL | re.IGNORECASE
+    )
+
+    def _inject_array_cols(m):
+        head = m.group(1)
+        body = m.group(2)
+        tail = m.group(3)
+        if 'assignee_ids' in body.lower():
+            return m.group(0)
+        injection = (
+            "\n    assignee_ids   BIGINT[] NOT NULL DEFAULT '{}',\n"
+            "    label_ids      BIGINT[] NOT NULL DEFAULT '{}',\n"
+            "    module_ids     BIGINT[] NOT NULL DEFAULT '{}',\n"
+            "    watcher_ids    BIGINT[] NOT NULL DEFAULT '{}',"
+        )
+        # inject right before UNIQUE line
+        return head + body + injection + tail
+
+    content = array_col_pat.sub(_inject_array_cols, content)
+
+    lines = content.split('\n')
+    fixed = []
+    for line in lines:
+        s = line.strip()
+        if s.upper().startswith('COMMENT ON TRIGGER') and re.search(r"\bis\s+'", s, re.IGNORECASE):
+            fixed.append('-- FIXED: ' + s)
+            continue
+        if s.upper().startswith('COMMENT ON COLUMN') and ('{role:' in s or "['owner'" in s):
+            fixed.append('-- FIXED: ' + s)
+            continue
+        fixed.append(line)
+    return '\n'.join(fixed)
+
+
+def split_sql(content):
+    """
+    字符级 SQL 分割器
+    正确处理：括号嵌套、$$ dollar quote、$tag$ dollar quote、行/块注释
+    """
     statements = []
     current = []
-    paren_depth = 0
-    in_dollar_quote = False
-    dollar_tag = ""
+    n = len(content)
+
+    depth = 0
     in_line_comment = False
     in_block_comment = False
-    skip_semi = False  # 跳过一个分号（CASCADE 转换时可能产生）
+    in_dollar = False
+    dollar_tag = None
 
     i = 0
-    while i < len(content):
+    while i < n:
         ch = content[i]
 
-        # 处理块注释开始
-        if not in_dollar_quote and not in_line_comment and not in_block_comment:
-            if ch == '/' and i + 1 < len(content) and content[i + 1] == '*':
-                in_block_comment = True
-                current.append(ch)
-                i += 1
-                if i < len(content):
-                    current.append(content[i])
-                i += 1
-                continue
-            # 处理块注释结束
-            if ch == '*' and i + 1 < len(content) and content[i + 1] == '/':
-                in_block_comment = False
-                current.append(ch)
-                i += 1
-                if i < len(content):
-                    current.append(content[i])
-                i += 1
-                continue
+        # --- 块注释 ---
+        if not in_dollar and not in_line_comment:
+            if not in_block_comment:
+                if ch == '/' and i + 1 < n and content[i + 1] == '*':
+                    in_block_comment = True
+                    current.append('/*')
+                    i += 2
+                    continue
+            else:
+                if ch == '*' and i + 1 < n and content[i + 1] == '/':
+                    in_block_comment = False
+                    current.append('*/')
+                    i += 2
+                    continue
 
         if in_block_comment:
             current.append(ch)
             i += 1
             continue
 
-        # 处理行注释
-        if not in_dollar_quote and not in_block_comment:
-            if ch == '-' and i + 1 < len(content) and content[i + 1] == '-':
+        # --- 行注释 ---
+        if not in_dollar:
+            if ch == '-' and i + 1 < n and content[i + 1] == '-':
                 in_line_comment = True
-                current.append(ch)
-                i += 1
-                current.append(content[i])
-                i += 1
-                continue
 
         if in_line_comment:
             current.append(ch)
@@ -92,61 +165,62 @@ def split_sql_statements_from_content(content):
             i += 1
             continue
 
-        # 处理 dollar quote
-        if not in_block_comment and not in_line_comment:
-            if ch == '$':
-                # 检查是否是 $tag$ 模式
-                if not in_dollar_quote:
-                    # 向前看是否有标签
-                    m = re.match(r'\$([A-Za-z_][A-Za-z0-9_]*)\$', content[i:])
-                    if m:
-                        in_dollar_quote = True
-                        dollar_tag = m.group(1)
-                        current.append(m.group(0))
-                        i += len(m.group(0))
-                        continue
-                else:
-                    # 检查是否是结束
-                    tag_str = f'${dollar_tag}$'
-                    if content[i:i+len(tag_str)] == tag_str:
-                        in_dollar_quote = False
-                        current.append(tag_str)
-                        i += len(tag_str)
-                        continue
+        # --- Dollar Quote 开始 ---
+        if not in_dollar and ch == '$':
+            if i + 1 < n and content[i + 1] == '$':
+                in_dollar = True
+                dollar_tag = ''
+                current.append('$$')
+                i += 2
+                continue
+            m = re.match(r'\$([A-Za-z_][A-Za-z0-9_]*)\$', content[i:])
+            if m:
+                in_dollar = True
+                dollar_tag = m.group(1)
+                current.append(m.group(0))
+                i += len(m.group(0))
+                continue
 
-        if in_dollar_quote:
+        # --- Dollar Quote 内部 ---
+        if in_dollar:
+            if dollar_tag == '' and ch == '$' and i + 1 < n and content[i + 1] == '$':
+                in_dollar = False
+                dollar_tag = None
+                current.append('$$')
+                i += 2
+                continue
+            if dollar_tag:
+                tag_str = f'${dollar_tag}$'
+                if content[i:i + len(tag_str)] == tag_str:
+                    in_dollar = False
+                    dollar_tag = None
+                    current.append(tag_str)
+                    i += len(tag_str)
+                    continue
             current.append(ch)
             i += 1
             continue
 
-        # 正常处理
+        # --- 普通字符 ---
         if ch == '(':
-            paren_depth += 1
-            current.append(ch)
-            i += 1
-            continue
+            depth += 1
+        elif ch == ')':
+            if depth > 0:
+                depth -= 1
 
-        if ch == ')':
-            paren_depth -= 1
+        # --- 语句结束 ---
+        if ch == ';' and depth == 0:
             current.append(ch)
-            i += 1
-            continue
-
-        if ch == ';':
-            current.append(ch)
-            if paren_depth == 0:
-                # 语句结束
-                stmt = ''.join(current).strip()
-                if stmt and len(stmt) > 5:
-                    statements.append(stmt)
-                current = []
+            stmt = ''.join(current).strip()
+            if stmt and len(stmt) > 5:
+                statements.append(stmt)
+            current = []
             i += 1
             continue
 
         current.append(ch)
         i += 1
 
-    # 剩余部分
     if current:
         stmt = ''.join(current).strip()
         if stmt and len(stmt) > 5:
@@ -155,42 +229,10 @@ def split_sql_statements_from_content(content):
     return statements
 
 
-def preprocess(content):
-    """预处理修复已知问题"""
-
-    # 1. CREATE POLICY IF NOT EXISTS -> DROP + CREATE
-    content = re.sub(
-        r'CREATE\s+POLICY\s+IF\s+NOT\s+EXISTS\s+(\w+)\s+ON\s+(\w+)',
-        r'DROP POLICY IF EXISTS \1 ON \2; CREATE POLICY \1 ON \2',
-        content,
-        flags=re.IGNORECASE
-    )
-    # 修复转换后可能的分号重复
-    content = re.sub(r';(?!DROP)\s*(CREATE POLICY)', r' \1', content)
-
-    # 2. 注释掉有问题的 COMMENT 语句
-    lines = content.split('\n')
-    fixed = []
-    for line in lines:
-        s = line.strip()
-        if s.upper().startswith('COMMENT ON TRIGGER'):
-            if re.search(r"\bis\s+'", s, re.IGNORECASE):
-                fixed.append('-- FIXED: ' + s)
-                continue
-        if s.upper().startswith('COMMENT ON COLUMN'):
-            if '{role:' in s or "['owner'" in s:
-                fixed.append('-- FIXED: ' + s)
-                continue
-        fixed.append(line)
-    content = '\n'.join(fixed)
-
-    return content
-
-
-def execute_statements(statements):
-    target_config = DB_CONFIG.copy()
-    target_config["dbname"] = "ydsz-plane"
-    conn = psycopg2.connect(**target_config)
+def execute_sql(statements):
+    target = DB_CONFIG.copy()
+    target["dbname"] = "ydsz-plane"
+    conn = psycopg2.connect(**target)
     conn.autocommit = False
     cur = conn.cursor()
 
@@ -202,9 +244,6 @@ def execute_statements(statements):
 
     for i, stmt in enumerate(statements, 1):
         sp = f"s{i}"
-        display = stmt.replace('\n', ' ').strip()
-        if len(display) > 80:
-            display = display[:80] + "..."
 
         try:
             cur.execute(f"SAVEPOINT {sp}")
@@ -215,62 +254,56 @@ def execute_statements(statements):
         except psycopg2.Error as e:
             try:
                 cur.execute(f"ROLLBACK TO SAVEPOINT {sp}")
-            except:
+            except Exception:
                 pass
             conn.rollback()
 
-            pgcode = e.pgcode
+            code = e.pgcode
             err = (e.pgerror or str(e)).lower()
-
             should_skip = False
-            if pgcode in ("42P07", "42710"):
+
+            if code in ("42P07", "42710", "42704", "42703", "42P01", "42501", "42P16"):
                 should_skip = True
-            elif pgcode == "42704":
-                should_skip = True
-            elif pgcode == "42703":
-                should_skip = True
-            elif pgcode == "42P01":
-                should_skip = True
-            elif pgcode == "42501":
-                should_skip = True
-            elif "depends on" in err or "dependent objects" in err:
+            elif "depends on" in err or "dependent" in err:
                 should_skip = True
             elif "multiple primary keys" in err:
                 should_skip = True
             elif "cannot run inside a transaction" in err:
                 should_skip = True
-            elif pgcode == "42601":
-                # 语法错误可以重试 CASCADE
-                if "drop" in stmt.lower() and ("table" in stmt.lower() or "sequence" in stmt.lower()):
-                    try:
-                        cascaded = re.sub(r'(DROP\s+(?:TABLE|SEQUENCE)\s+(?:IF\s+EXISTS\s+)?)', r'\1', stmt).rstrip(';') + ' CASCADE;'
-                        cur.execute(f"SAVEPOINT {sp}_retry")
-                        cur.execute(cascaded)
-                        cur.execute(f"RELEASE SAVEPOINT {sp}_retry")
-                        conn.commit()
-                        ok += 1
-                        continue
-                    except:
-                        conn.rollback()
-                should_skip = True
-            elif pgcode == "0A000":
+            elif "already exists" in err:
                 should_skip = True
             elif "violated by some row" in err:
                 should_skip = True
             elif "can't execute an empty query" in err:
                 should_skip = True
-            elif "already exists" in err:
+            elif code == "42601" and "drop" in stmt.lower():
+                cascaded = stmt.rstrip(';').rstrip() + ' CASCADE;'
+                try:
+                    cur.execute(f"SAVEPOINT {sp}_retry")
+                    cur.execute(cascaded)
+                    cur.execute(f"RELEASE SAVEPOINT {sp}_retry")
+                    conn.commit()
+                    ok += 1
+                    continue
+                except Exception:
+                    conn.rollback()
+                should_skip = True
+            elif code in ("0A000",):
+                should_skip = True
+            elif "schema" in err and "not exist" in err:
                 should_skip = True
 
             if should_skip:
                 skip += 1
             else:
                 fail += 1
+                display = stmt.replace('\n', ' ').strip()[:80]
                 errors.append((i, display[:80], err[:150]))
-                print(f"[{i}/{len(statements)}] FAIL [{pgcode}]: {display[:60]}")
+                if fail <= 30:
+                    print(f"[{i}/{len(statements)}] FAIL [{code}]: {display[:70]}")
 
-        if i % 200 == 0:
-            print(f"  ... {i}/{len(statements)} done (ok={ok} skip={skip} fail={fail})")
+        if i % 500 == 0:
+            print(f"  进度: {i}/{len(statements)} (ok={ok} skip={skip} fail={fail})")
 
     conn.close()
 
@@ -279,10 +312,10 @@ def execute_statements(statements):
     print(f"{'='*70}")
 
     if errors:
-        print(f"\nFailed statements:")
-        for idx, stmt, err in errors:
+        print(f"\nFailed (前20条):")
+        for idx, stmt, err in errors[:20]:
             print(f"  [{idx}] {stmt}")
-            print(f"       {err[:100]}")
+            print(f"       -> {err[:100]}")
 
     return fail
 
@@ -292,58 +325,69 @@ def verify():
     print("验证数据库")
     print(f"{'='*70}")
 
-    target_config = DB_CONFIG.copy()
-    target_config["dbname"] = "ydsz-plane"
-    conn = psycopg2.connect(**target_config)
+    target = DB_CONFIG.copy()
+    target["dbname"] = "ydsz-plane"
+    conn = psycopg2.connect(**target)
+    conn.autocommit = True
     cur = conn.cursor()
 
     all_good = True
 
-    print("\n【新分表 (必须 EXISTS)】")
+    print("\n[新分表 - 必须 EXISTS]")
     for t in ['task', 'requirement', 'defect', 'task_ext', 'requirement_ext', 'defect_ext']:
-        cur.execute("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public' AND table_name=%s", (t,))
+        cur.execute(
+            "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public' AND table_name=%s",
+            (t,))
         exists = cur.fetchone()[0]
-        status = "GOOD" if exists else "MISSING!"
+        status = "OK" if exists else "MISSING!"
         if not exists:
             all_good = False
         print(f"  {status}: {t}")
 
-    print("\n【视图 (必须 EXISTS)】")
+    print("\n[视图 - 必须 EXISTS]")
     for v in ['task_view', 'requirement_view', 'defect_view']:
-        cur.execute("SELECT COUNT(*) FROM information_schema.views WHERE table_schema='public' AND table_name=%s", (v,))
+        cur.execute(
+            "SELECT COUNT(*) FROM information_schema.views WHERE table_schema='public' AND table_name=%s",
+            (v,))
         exists = cur.fetchone()[0]
-        status = "GOOD" if exists else "MISSING!"
+        status = "OK" if exists else "MISSING!"
         if not exists:
             all_good = False
         print(f"  {status}: {v}")
 
-    print("\n【旧表 (必须 DROPPED)】")
-    old = ['issues', 'issue_comments', 'issue_reactions', 'issue_votes',
-           'issue_activities', 'issue_dependencies', 'issue_relations',
-           'issue_watchers', 'issue_modules', 'issue_labels', 'issue_assignees',
-           'issue_subscriptions', 'issue_sequences', 'project_sequences',
-           'sprint_issues', 'intake_issues']
-    for t in old:
-        cur.execute("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public' AND table_name=%s", (t,))
+    print("\n[旧表 - 必须 DROPPED]")
+    old_tables = ['issues', 'issue_comments', 'issue_reactions', 'issue_votes',
+                  'issue_activities', 'issue_dependencies', 'issue_relations',
+                  'issue_watchers', 'issue_modules', 'issue_labels', 'issue_assignees',
+                  'issue_subscriptions', 'issue_sequences', 'project_sequences',
+                  'sprint_issues', 'intake_issues']
+    for t in old_tables:
+        cur.execute(
+            "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public' AND table_name=%s",
+            (t,))
         exists = cur.fetchone()[0]
         status = "DROPPED" if not exists else "STILL EXISTS!"
         if exists:
             all_good = False
         print(f"  {status}: {t}")
 
-    print("\n【数据】")
+    print("\n[数据]")
     for t in ['users', 'workspaces', 'states', 'automation_templates']:
         try:
             cur.execute(f'SELECT COUNT(*) FROM "{t}"')
             print(f"  {t}: {cur.fetchone()[0]} rows")
         except Exception as e:
-            print(f"  {t}: ERROR - {str(e)[:50]}")
+            print(f"  {t}: err - {str(e)[:40]}")
+
+    print("\n[新序列]")
+    for s in ['task_id_seq', 'requirement_id_seq', 'defect_id_seq']:
+        cur.execute("SELECT COUNT(*) FROM pg_sequences WHERE schemaname='public' AND sequencename=%s", (s,))
+        print(f"  {s}: {'EXISTS' if cur.fetchone()[0] else 'MISSING'}")
 
     conn.close()
 
-    status = "ALL GOOD!" if all_good else "ISSUES FOUND"
     print(f"\n{'='*70}")
-    print(status)
+    print("ALL GOOD!" if all_good else "ISSUES FOUND")
     print(f"{'='*70}")
     return all_good
 
@@ -353,8 +397,8 @@ if __name__ == "__main__":
     reset_database()
     content = SQL_FILE.read_text(encoding='utf-8')
     content = preprocess(content)
-    statements = split_sql_statements_from_content(content)
-    fail = execute_statements(statements)
+    statements = split_sql(content)
+    fail = execute_sql(statements)
     ok = verify()
-    print(f"\n耗时: {time.time()-t0:.1f}s")
+    print(f"\n总耗时: {time.time()-t0:.1f}s")
     sys.exit(0 if (fail == 0 and ok) else 1)
