@@ -320,6 +320,17 @@ const router = createRouter({
             versionId: Number(route.params.versionId),
           }),
         },
+        // 工作项沉浸模式（Focus Mode）
+        {
+          path: ":workspaceId(\\d+)/projects/:projectId/issues/:issueId/focus",
+          name: "issue-focus",
+          component: () => import("@/views/project/FocusModeView.vue"),
+          props: (route) => ({
+            workspaceId: Number(route.params.workspaceId),
+            projectId: Number(route.params.projectId),
+            issueId: Number(route.params.issueId),
+          }),
+        },
         // 工作项详情页
         {
           path: ":workspaceId(\\d+)/projects/:projectId/issues/:issueId",

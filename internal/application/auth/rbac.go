@@ -1,12 +1,18 @@
 // Package auth — RBAC 领域模型（角色枚举 + 权限码常量）。
 //
-// 设计参考：GitHub / GitLab / Plane / Linear 工作空间成员模型。
-// "谁能做什么"的事实来源之一是所有 PermXxx 常量；真正的矩阵由 DB role_permissions 表承载。
+// 设计对标行业主流竞品：
+//   GitLab  = Instance Admin（系统） > Group Owner（空间） > Maintainer > Developer > Reporter > Guest
+//   Jira    = Jira Administrator（系统） > Project Admin（空间） > 各项角色
+//   Plane   = Admin > Workspace Owner > Member > Guest
+//   ONES    = 系统管理员 > 空间管理员 > 普通成员
 //
-// 与旧版本的兼容性：
-//   - 角色枚举 WorkspaceRole 保持不变（owner/admin/member/guest 已保留；新增 pm/po/techlead/qalead/dev）
-//   - 权限点常量从 ~18 个扩展到 ~50 个，用于 DB role_permissions 表的 permission_code 列
-//   - 旧 HasPermission 方法仍然可用（走 DB 查询），便于旧调用方平滑过渡
+// 关键分层（自顶向下）：
+//   admin（系统管理员）= 平台级 / L5 / level=100
+//   owner（空间管理员）= 工作空间级 / L4 / level=80
+//   pm / po / techlead / qalead = L3 / level=50
+//   dev = L2 / level=30
+//   guest = L1 / level=10
+
 package auth
 
 import (
@@ -19,14 +25,23 @@ import (
 )
 
 /* ------------------------------------------------------------------ */
-/* 权限常量（50 个）                                                    */
+/* 权限常量（~55 个）                                                   */
 /* ------------------------------------------------------------------ */
 
 const (
-	// 工作空间
-	PermWorkspaceRead   = "workspace:read"
-	PermWorkspaceUpdate = "workspace:update"
-	PermWorkspaceDelete = "workspace:delete"
+	// ===== 系统级（仅 admin 持有，owner 不可见）=====
+	PermSystemConfig        = "system:config"         // 系统通用配置：SMTP / SSO / 注册开关 / 安全策略 / 许可证
+	PermSystemUserRead      = "system:user:read"      // 查看平台所有用户
+	PermSystemUserManage    = "system:user:manage"    // 创建 / 禁用 / 重置密码任意平台用户
+	PermSystemWorkspaceList = "system:workspace:list" // 列出所有工作空间
+	PermSystemWorkspaceMgmt = "system:workspace:manage" // 归档 / 删除 / 转移工作空间所有权
+	PermSystemAuditRead     = "system:audit:read"     // 全平台审计日志
+
+	// ===== 工作空间级 =====
+	PermWorkspaceRead      = "workspace:read"
+	PermWorkspaceUpdate    = "workspace:update"
+	PermWorkspaceDelete    = "workspace:delete"
+	PermWorkspaceTransfer  = "workspace:transfer"   // 转移工作空间所有权
 
 	// 项目
 	PermProjectRead   = "project:read"
@@ -35,15 +50,15 @@ const (
 	PermProjectDelete = "project:delete"
 
 	// 工作项
-	PermIssueRead          = "issue:read"
-	PermIssueCreate        = "issue:create"
-	PermIssueEditOwn       = "issue:edit_own"
-	PermIssueEditAll       = "issue:edit_all"
-	PermIssueDelete        = "issue:delete"
-	PermIssueTransition    = "issue:transition"
-	PermIssueReassign      = "issue:reassign"
+	PermIssueRead           = "issue:read"
+	PermIssueCreate         = "issue:create"
+	PermIssueEditOwn        = "issue:edit_own"
+	PermIssueEditAll        = "issue:edit_all"
+	PermIssueDelete         = "issue:delete"
+	PermIssueTransition     = "issue:transition"
+	PermIssueReassign       = "issue:reassign"
 	PermIssueChangePriority = "issue:change_priority"
-	PermIssueManageSprint  = "issue:manage_sprint"
+	PermIssueManageSprint   = "issue:manage_sprint"
 
 	// 成员
 	PermMemberInvite     = "member:invite"
@@ -77,11 +92,11 @@ const (
 	PermAutomationManage = "automation:manage"
 	PermDeployReport     = "deploy:report"
 
-	// 审计 / 收件箱 / 知识库
-	PermAuditRead       = "audit:read"
-	PermWebhookManage   = "webhook:manage"
-	PermIntakeManage    = "intake:manage"
-	PermPagesManage     = "pages:manage"
+	// 审计 / 收件箱 / 知识库 / Webhook
+	PermAuditRead     = "audit:read"
+	PermWebhookManage = "webhook:manage"
+	PermIntakeManage  = "intake:manage"
+	PermPagesManage   = "pages:manage"
 
 	// 评论 / 关联
 	PermCommentModerate = "comment:moderate"
@@ -104,19 +119,27 @@ const (
 type WorkspaceRole string
 
 const (
-	RoleOwner    WorkspaceRole = "owner"
-	RoleAdmin    WorkspaceRole = "admin"
-	RolePM       WorkspaceRole = "pm"
-	RolePO       WorkspaceRole = "po"
+	// RoleAdmin 系统管理员 — 平台级最高权限，可进入并管理所有工作空间。
+	RoleAdmin WorkspaceRole = "admin"
+	// RoleOwner 空间管理员 — 某个工作空间内的最高权限，可管理空间下所有资源。
+	RoleOwner WorkspaceRole = "owner"
+	// RolePM 项目经理
+	RolePM WorkspaceRole = "pm"
+	// RolePO 产品经理
+	RolePO WorkspaceRole = "po"
+	// RoleTechLead 技术经理
 	RoleTechLead WorkspaceRole = "techlead"
-	RoleQALead   WorkspaceRole = "qalead"
-	RoleDev      WorkspaceRole = "dev"
-	RoleGuest    WorkspaceRole = "guest"
+	// RoleQALead 测试经理
+	RoleQALead WorkspaceRole = "qalead"
+	// RoleDev 开发（前端/后端统一）
+	RoleDev WorkspaceRole = "dev"
+	// RoleGuest 访客（只读）
+	RoleGuest WorkspaceRole = "guest"
 )
 
 func (r WorkspaceRole) IsValid() bool {
 	switch r {
-	case RoleOwner, RoleAdmin, RolePM, RolePO, RoleTechLead, RoleQALead, RoleDev, RoleGuest:
+	case RoleAdmin, RoleOwner, RolePM, RolePO, RoleTechLead, RoleQALead, RoleDev, RoleGuest:
 		return true
 	default:
 		return false
@@ -126,11 +149,17 @@ func (r WorkspaceRole) IsValid() bool {
 func (r WorkspaceRole) String() string { return string(r) }
 
 // Level 返回角色层级数值（用于前端比大小）。
+//
+//	admin          100  系统管理员（平台级）
+//	owner           80  空间管理员（空间级最高）
+//	pm/po/techlead  50  经理级
+//	dev             30  执行者
+//	guest           10  只读协作者
 func (r WorkspaceRole) Level() int {
 	switch r {
-	case RoleOwner:
-		return 100
 	case RoleAdmin:
+		return 100
+	case RoleOwner:
 		return 80
 	case RolePM, RolePO, RoleTechLead, RoleQALead:
 		return 50

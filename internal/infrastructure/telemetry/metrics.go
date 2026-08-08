@@ -127,6 +127,39 @@ var (
 			Help:      "Current number of active WebSocket connections across all nodes.",
 		},
 	)
+
+	// AIOperations 记录 AI 端点调用次数（含服务降级状态）。
+	// labels: operation=smart_assign|detect_duplicates|classify|summarize|status,
+	//         source=llm|rule_engine|unavailable, status=success|error
+	AIOperations = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: namespace,
+			Name:      "ai_operations_total",
+			Help:      "AI endpoint invocations, tagged by operation and source (llm / rule_engine / unavailable).",
+		},
+		[]string{"operation", "source", "status"},
+	)
+
+	// AIDurationMs 记录 AI 端点耗时（LLM 远端调用或规则引擎计算）。
+	AIDurationMs = promauto.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Namespace: namespace,
+			Name:      "ai_duration_ms",
+			Help:      "AI endpoint latency distribution.",
+			Buckets:   []float64{1, 5, 10, 25, 50, 100, 250, 500, 1000, 3000, 10000},
+		},
+		[]string{"operation"},
+	)
+
+	// AIFallbacks 记录 AI 从 LLM fallback 到规则引擎的次数。
+	AIFallbacks = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: namespace,
+			Name:      "ai_fallbacks_total",
+			Help:      "Count of AI operations that fell back to rule engine (provider unavailable or errored).",
+		},
+		[]string{"operation"},
+	)
 )
 
 // MetricsMiddleware 为每个请求记录 request_total 与 request_duration_ms。

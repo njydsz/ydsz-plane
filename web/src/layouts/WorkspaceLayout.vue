@@ -254,6 +254,14 @@ onMounted(bootstrap);
             <span class="nav-icon">▦</span>
             <span v-if="!collapsed">项目</span>
           </router-link>
+          <router-link
+            :to="`/${wsStore.currentId}/dashboard`"
+            class="nav-item"
+            active-class="is-active"
+          >
+            <span class="nav-icon">🛡</span>
+            <span v-if="!collapsed">空间概览</span>
+          </router-link>
         </div>
 
         <!-- 项目子导航 -->
@@ -379,6 +387,14 @@ onMounted(bootstrap);
             >
               <span class="nav-icon">📥</span>
               <span v-if="!collapsed">收件箱</span>
+            </router-link>
+            <router-link
+              to="/settings/api-tokens"
+              class="nav-item nav-item--sub"
+              active-class="is-active"
+            >
+              <span class="nav-icon">🔑</span>
+              <span v-if="!collapsed">API Tokens</span>
             </router-link>
           </div>
         </div>

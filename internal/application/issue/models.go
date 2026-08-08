@@ -58,8 +58,8 @@ type State struct {
 	UpdatedAt   time.Time `json:"updated_at"`
 }
 
-// Issue 工作项域模型（API 响应 DTO）。
-type Issue struct {
+// BaseWorkitem 所有工作项的公共基类
+type BaseWorkitem struct {
 	ID                int64          `json:"id"`
 	PublicID          string         `json:"public_id"`
 	WorkspaceID       int64          `json:"workspace_id"`
@@ -75,22 +75,9 @@ type Issue struct {
 	StateID           int64          `json:"state_id"`
 	State             *State         `json:"state,omitempty"`
 	Priority          IssuePriority  `json:"priority"`
-	Severity          *int           `json:"severity,omitempty"`
-	FoundPhase        *string        `json:"found_phase,omitempty"`
-	RootCauseCategory *string        `json:"root_cause_category,omitempty"`
-	VerifierID        *int64         `json:"verifier_id,omitempty"`
-	Environment       map[string]any `json:"environment,omitempty"`
-	ReproduceSteps    map[string]any `json:"reproduce_steps,omitempty"`
-	Category          *string        `json:"category,omitempty"`
-	ActualEffort      *float64       `json:"actual_effort,omitempty"`
-	RemainingEffort   *float64       `json:"remaining_effort,omitempty"`
-	DelayReason       *string        `json:"delay_reason,omitempty"`
-	Source            *string        `json:"source,omitempty"`
 	Point             *int           `json:"point,omitempty"`
 	SprintID          *int64         `json:"sprint_id,omitempty"`
-	FoundVersionID    *int64         `json:"found_version_id,omitempty"`
-	FixVersionID      *int64         `json:"fix_version_id,omitempty"`
-	ReleaseVersionID  *int64         `json:"release_version_id,omitempty"`
+	VersionID         *int64         `json:"version_id,omitempty"`
 	Progress          int            `json:"progress"`
 	StartDate         *time.Time     `json:"start_date,omitempty"`
 	TargetDate        *time.Time     `json:"target_date,omitempty"`
@@ -105,6 +92,88 @@ type Issue struct {
 	CreatedBy         int64          `json:"created_by"`
 	CreatedAt         time.Time      `json:"created_at"`
 	UpdatedAt         time.Time      `json:"updated_at"`
+}
+
+// Task 任务工作项
+type Task struct {
+	BaseWorkitem
+	Category          *string  `json:"category,omitempty"`
+	ActualEffort      *float64 `json:"actual_effort,omitempty"`
+	RemainingEffort   *float64 `json:"remaining_effort,omitempty"`
+	DelayReason       *string  `json:"delay_reason,omitempty"`
+}
+
+// Requirement 需求工作项
+type Requirement struct {
+	BaseWorkitem
+	Source            *string        `json:"source,omitempty"`
+	AcceptanceCriteria map[string]any `json:"acceptance_criteria,omitempty"`
+	BusinessValue      string         `json:"business_value,omitempty"`
+	ReviewStatus       *string        `json:"review_status,omitempty"`
+}
+
+// Defect 缺陷工作项
+type Defect struct {
+	BaseWorkitem
+	Severity          int            `json:"severity"`
+	FoundPhase        string         `json:"found_phase"`
+	RootCauseCategory *string        `json:"root_cause_category,omitempty"`
+	VerifierID        *int64         `json:"verifier_id,omitempty"`
+	Environment       map[string]any `json:"environment,omitempty"`
+	ReproduceSteps    map[string]any `json:"reproduce_steps"`
+	FixSteps          map[string]any `json:"fix_steps,omitempty"`
+	RegressionRisk    *string        `json:"regression_risk,omitempty"`
+	FoundVersionID    *int64         `json:"found_version_id,omitempty"`
+	FixVersionID      *int64         `json:"fix_version_id,omitempty"`
+}
+
+// WorkitemExtension 工作项扩展属性
+type WorkitemExtension struct {
+	ID          int64          `json:"id"`
+	WorkspaceID int64          `json:"workspace_id"`
+	ProjectID   int64          `json:"project_id"`
+	EntityType  IssueTypeCode  `json:"entity_type"`
+	EntityID    int64          `json:"entity_id"`
+	FieldName   string         `json:"field_name"`
+	FieldValue  map[string]any `json:"field_value"`
+	FieldSchema map[string]any `json:"field_schema"`
+	CreatedBy   int64          `json:"created_by"`
+	CreatedAt   time.Time      `json:"created_at"`
+	UpdatedAt   time.Time      `json:"updated_at"`
+}
+
+// BizEntityRelation 工作项关联关系
+type BizEntityRelation struct {
+	ID            int64         `json:"id"`
+	WorkspaceID   int64         `json:"workspace_id"`
+	ProjectID     int64         `json:"project_id"`
+	SourceType    IssueTypeCode `json:"source_type"`
+	SourceID      int64         `json:"source_id"`
+	TargetType    IssueTypeCode `json:"target_type"`
+	TargetID      int64         `json:"target_id"`
+	RelationType  string        `json:"relation_type"`
+	CreatedBy     int64         `json:"created_by"`
+	CreatedAt     time.Time     `json:"created_at"`
+}
+
+// Issue 兼容旧版API的工作项域模型（聚合不同类型工作项，内部自动映射）
+type Issue struct {
+	BaseWorkitem
+	Severity          *int           `json:"severity,omitempty"`
+	FoundPhase        *string        `json:"found_phase,omitempty"`
+	RootCauseCategory *string        `json:"root_cause_category,omitempty"`
+	VerifierID        *int64         `json:"verifier_id,omitempty"`
+	Environment       map[string]any `json:"environment,omitempty"`
+	ReproduceSteps    map[string]any `json:"reproduce_steps,omitempty"`
+	Category          *string        `json:"category,omitempty"`
+	ActualEffort      *float64       `json:"actual_effort,omitempty"`
+	RemainingEffort   *float64       `json:"remaining_effort,omitempty"`
+	DelayReason       *string        `json:"delay_reason,omitempty"`
+	Source            *string        `json:"source,omitempty"`
+	Point             *int           `json:"point,omitempty"`
+	FoundVersionID    *int64         `json:"found_version_id,omitempty"`
+	FixVersionID      *int64         `json:"fix_version_id,omitempty"`
+	ReleaseVersionID  *int64         `json:"release_version_id,omitempty"`
 }
 
 // Module 项目模块。
