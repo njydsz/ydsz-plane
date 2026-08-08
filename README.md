@@ -588,11 +588,13 @@ GET  /api/v1/invitations/:token            邀请预览（公开）
 - [x] 部署事件上报（deployment_events + 幂等）
 - [x] 每日快照（metric_snapshots + 管理员数据校准）
 
-### Phase 3+（S12+）
+### Phase 3+（S12 之后的候选增强）
+
+> 说明：甘特图（GanttChartView，只读）与日历（CalendarView）已在 S12 交付；电子表格视图仍在候选。
 
 - [ ] 通知多渠道（IM 企微/钉钉/飞书/邮件摘要）
 - [ ] 全局搜索 ES 升级（IK 分词 + 类 JQL 语法解析器）
-- [ ] 甘特图 / 日历 / 电子表格视图
+- [ ] 电子表格视图（甘特图只读 / 日历视图已交付）
 - [ ] SSO / SAML 集成
 - [ ] 国际化、PWA
 - [ ] 数据迁移工具（Jira / 云效 / ONES 导入）
