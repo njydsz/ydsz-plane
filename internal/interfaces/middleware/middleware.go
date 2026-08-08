@@ -312,14 +312,14 @@ func APIKeyAuth(apiTokenSvc *apitoken.Service, authSvc *auth.Service, rdb *redis
 				return
 			}
 		}
-		p, err := apiTokenSvc.Validate(c.Request.Context(), key)
+		p, err := apiTokenSvc.ResolvePrincipal(c.Request.Context(), key)
 		if err != nil {
 			respondError(c, errs.ErrUnauthorized)
 			c.Abort()
 			return
 		}
 		c.Set(CtxUserID, p.UserID)
-		c.Set(CtxAuthKind, string(auth.PrincipalAPIKey))
+		c.Set(CtxAuthKind, string(auth.PrincipalAPIToken))
 		if len(p.Scopes) > 0 {
 			c.Set(CtxAuthScopes, p.Scopes)
 		}
@@ -339,7 +339,7 @@ func AnonymousSession() gin.HandlerFunc {
 func RequireAPIScope(required string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		kind, _ := c.Get(CtxAuthKind)
-		if kind == string(auth.PrincipalJWT) {
+		if kind == string(auth.PrincipalJWT) || kind == string(auth.PrincipalAPIToken) {
 			c.Next()
 			return
 		}
@@ -353,6 +353,3 @@ func RequireAPIScope(required string) gin.HandlerFunc {
 		c.Next()
 	}
 }
-
-<longcat_arg_value>
-

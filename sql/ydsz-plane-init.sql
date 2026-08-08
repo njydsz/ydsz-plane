@@ -589,11 +589,14 @@ COMMENT ON COLUMN public.api_tokens.last_used_at IS '最后使用时间（活跃
 COMMENT ON COLUMN public.api_tokens.created_by IS '创建人 FK；管理与撤销监听';
 COMMENT ON COLUMN public.api_tokens.created_at IS '创建时间';
 COMMENT ON COLUMN public.api_tokens.revoked_at IS '吊销时间；NULL=有效；revoked_at 非空校验时拒绝';
-COMMENT ON COLUMN public.api_tokens.deleted_at IS '软删除时间戳';
 
--- ----------------------------
--- Records of api_tokens
--- ----------------------------
+-- 补齐旧 dump 中 COMMENT 引用但实际缺失的列
+ALTER TABLE public.api_tokens
+    ADD COLUMN IF NOT EXISTS created_by BIGINT REFERENCES public.users(id),
+    ADD COLUMN IF NOT EXISTS deleted_at  TIMESTAMPTZ;
+
+COMMENT ON COLUMN public.api_tokens.created_by IS '创建人 FK；管理与撤销监听';
+COMMENT ON COLUMN public.api_tokens.deleted_at IS '软删除时间戳';
 
 -- ----------------------------
 -- Table structure for attachments
@@ -7174,6 +7177,42 @@ ON CONFLICT (source_type, source_id, target_type, target_id, relation_type) DO N
 
 
 -- ============================================================================
+-- [原 0026] Issue 版本快照审计（对标 Plane IssueVersion / Activity History）
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS issue_versions (
+    id              BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    workspace_id    BIGINT NOT NULL REFERENCES workspaces(id),
+    project_id      BIGINT NOT NULL REFERENCES projects(id),
+    issue_id        BIGINT NOT NULL,
+    version         INT NOT NULL,
+    snapshot        JSONB NOT NULL,
+    changed_fields  TEXT[] DEFAULT '{}',
+    change_type     TEXT NOT NULL DEFAULT 'update'
+                    CHECK (change_type IN ('create','update','delete','transition')),
+    created_by      BIGINT,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (issue_id, version)
+);
+
+ALTER TABLE issue_versions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE issue_versions FORCE ROW LEVEL SECURITY;
+CREATE POLICY IF NOT EXISTS tenant_isolation ON issue_versions
+    USING (workspace_id = current_setting('app.workspace_id', true)::bigint)
+    WITH CHECK (workspace_id = current_setting('app.workspace_id', true)::bigint);
+
+CREATE INDEX IF NOT EXISTS idx_issue_versions_issue   ON issue_versions(workspace_id, issue_id, version DESC);
+CREATE INDEX IF NOT EXISTS idx_issue_versions_project ON issue_versions(workspace_id, project_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_issue_versions_actor   ON issue_versions(workspace_id, created_by) WHERE created_by IS NOT NULL;
+
+COMMENT ON TABLE issue_versions IS '工作项版本快照：记录每次变更前的字段状态，支撑审计回溯与变更对比';
+COMMENT ON COLUMN issue_versions.snapshot IS '变更前完整字段快照（JSONB，对应 BaseWorkitem 结构）';
+COMMENT ON COLUMN issue_versions.changed_fields IS '本次变更涉及的字段名，便于 diff 视图渲染';
+COMMENT ON COLUMN issue_versions.change_type IS '变更类型：create(创建) / update(字段更新) / delete(软删除) / transition(状态流转)';
+COMMENT ON COLUMN issue_versions.version IS '递增版本号；与 issues.version 一一对应';
+
+
+-- ============================================================================
 -- [原 0025] Epic 类型 + Module 模块体系
 -- ============================================================================
 
@@ -7350,6 +7389,7 @@ END $$;
 -- migrate 程序将自动进入全量 dump 模式（运行 migrate up → 执行本文件）。
 -- 原增量迁移文件：
 --   0023_rbac_roles_and_permissions、0024_work_item_split、
---   0025_work_item_archive、0025_epic_and_modules、0026_work_item_migration
+--   0025_work_item_archive、0025_epic_and_modules、
+--   0026_work_item_migration、0026_issue_version_snapshots
 -- 已全部合并到本文件中。
 -- ============================================================================
