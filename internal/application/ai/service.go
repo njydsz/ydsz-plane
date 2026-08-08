@@ -57,6 +57,23 @@ type Config struct {
 	Endpoint string
 }
 
+// IsEnabled 报告 AI 功能是否已启用。
+func (s *Service) IsEnabled() bool {
+	return s.enabled
+}
+
+// Status 返回 AI 服务当前状态（供前端健康检查与功能门控）。
+func (s *Service) Status() map[string]any {
+	providerName := "none"
+	if s.provider != nil {
+		providerName = s.provider.Name()
+	}
+	return map[string]any{
+		"enabled":  s.enabled,
+		"provider": providerName,
+	}
+}
+
 // NewService 创建 AI 服务。
 func NewService(db *pgxpool.Pool, cfg Config) *Service {
 	svc := &Service{

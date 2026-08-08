@@ -16,6 +16,7 @@ import (
 	ginSwagger "github.com/swaggo/gin-swagger"
 	"go.uber.org/zap"
 
+	"github.com/njydsz/ydsz-plane/internal/application/ai"
 	"github.com/njydsz/ydsz-plane/internal/application/apitoken"
 	"github.com/njydsz/ydsz-plane/internal/application/attachment"
 	"github.com/njydsz/ydsz-plane/internal/application/auth"
@@ -88,6 +89,8 @@ type Deps struct {
 	AutomationHandler *automation.Handler
 	// Metrics 域（S11）
 	MetricsHandler *metrics.MetricsHandler
+	// AI 域（智能指派/重复检测/分类/摘要）
+	AiHandler *ai.Handler
 }
 
 // RegisterIssueRoutes 注册工作项路由（在 NewEngine 之后调用）。

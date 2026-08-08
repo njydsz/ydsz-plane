@@ -10,7 +10,7 @@ import { issueApi, type Issue, type IssuePriority } from "@/api/services/issue";
 import { useIssueStore } from "@/stores/issue";
 import { usePeekStore } from "@/stores/peek";
 import { prefs } from "@/lib/prefs";
-import { toast } from "@/lib/toast";
+import { toast, promiseToast } from "@/lib/toast";
 import IssueCreateModal from "./IssueCreateModal.vue";
 import { AppErrorState, AppEmptyState, InlineEdit, InlineSelectEdit, AppSkeleton } from "@/components";
 
@@ -107,6 +107,24 @@ function onCardDragOver(stateId: number, index: number, event: DragEvent) {
   dropIndex.value = event.clientY < mid ? index : index + 1;
 }
 
+/** 列容器拖拽悬停 — 检测拖拽到列表末尾空白区（追加到末尾） */
+function onCardsDragOver(stateId: number, event: DragEvent) {
+  event.preventDefault();
+  event.stopPropagation();
+  dragOverColumn.value = stateId;
+  // 当拖拽位于最后一张卡片之下时，dropIndex 设为列表长度（即追加到末尾）
+  const cards = (event.currentTarget as HTMLElement).querySelectorAll(".issue-card");
+  if (cards.length === 0) {
+    dropIndex.value = 0;
+    return;
+  }
+  const lastCard = cards[cards.length - 1] as HTMLElement;
+  const lastRect = lastCard.getBoundingClientRect();
+  if (event.clientY > lastRect.bottom) {
+    dropIndex.value = cards.length;
+  }
+}
+
 async function onColumnDrop(stateId: number, event: DragEvent) {
   event.preventDefault();
   const dragged = dragIssue.value;
@@ -125,10 +143,16 @@ async function onColumnDrop(stateId: number, event: DragEvent) {
     let updatedIssue: Issue;
 
     if (dragged.state_id !== stateId) {
-      // 跨列流转
-      updatedIssue = await issueApi.transition(wsId.value, projectId.value, dragged.id, stateId);
+      // 跨列流转 — 使用 promiseToast 显示 loading / success / error 三态
       const targetName = issueStore.states.find((s) => s.id === stateId)?.name ?? "";
-      toast.success("已流转至 " + targetName);
+      updatedIssue = await promiseToast(
+        issueApi.transition(wsId.value, projectId.value, dragged.id, stateId),
+        {
+          loading: "正在流转...",
+          success: () => `已流转至「${targetName}」`,
+          error: (err) => err instanceof Error ? err.message : "流转失败",
+        },
+      );
     } else {
       updatedIssue = dragged;
     }
@@ -142,12 +166,19 @@ async function onColumnDrop(stateId: number, event: DragEvent) {
 
     // 跨列或同列有位置变化 → 调用 reorder
     if (targetIdx !== null || dragged.state_id !== stateId) {
-      updatedIssue = await issueApi.reorder(
-        wsId.value,
-        projectId.value,
-        updatedIssue.id,
-        prevIssue?.sort_order ?? null,
-        nextIssue?.sort_order ?? null,
+      updatedIssue = await promiseToast(
+        issueApi.reorder(
+          wsId.value,
+          projectId.value,
+          updatedIssue.id,
+          prevIssue?.sort_order ?? null,
+          nextIssue?.sort_order ?? null,
+        ),
+        {
+          loading: "正在排序...",
+          success: () => "排序已更新",
+          error: (err) => err instanceof Error ? err.message : "排序失败",
+        },
       );
     }
 
@@ -262,7 +293,10 @@ onMounted(() => {
           <span class="kanban__column-count">{{ issuesInState(state.id).length }}</span>
         </div>
 
-        <div class="kanban__cards">
+        <div
+          class="kanban__cards"
+          @dragover="onCardsDragOver(state.id, $event)"
+        >
           <div
             v-for="(iss, idx) in issuesInState(state.id)"
             :key="iss.id"
@@ -270,6 +304,7 @@ onMounted(() => {
             :class="{
               'issue-card--dragging': dragIssue?.id === iss.id,
               'drop-above': dragIssue?.id !== iss.id && dropIndex === idx && dragOverColumn === state.id,
+              'drop-below': dragIssue?.id !== iss.id && dropIndex === issuesInState(state.id).length && dragOverColumn === state.id && idx === issuesInState(state.id).length - 1,
             }"
             draggable="true"
             @dragstart="onDragStart(iss, $event)"
@@ -522,11 +557,25 @@ onMounted(() => {
   transform: scale(0.97);
 }
 
-/* 插入指示线 */
+/* 插入指示线 — 插入到某张卡片上方 */
 .drop-above::before {
   content: "";
   position: absolute;
   top: -3px;
+  left: 8px;
+  right: 8px;
+  height: 3px;
+  background: var(--brand-500);
+  border-radius: 2px;
+  z-index: 1;
+  box-shadow: 0 0 6px var(--brand-400);
+}
+
+/* 插入指示线 — 追加到列表末尾（最后一张卡片下方） */
+.drop-below::after {
+  content: "";
+  position: absolute;
+  bottom: -3px;
   left: 8px;
   right: 8px;
   height: 3px;
