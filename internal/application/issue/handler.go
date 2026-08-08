@@ -274,7 +274,9 @@ func (h *IssueHandler) getIssue(c *gin.Context) {
 //	@Router			/issues/{issue_id} [patch]
 func (h *IssueHandler) updateIssue(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
+	projectID := c.GetInt64(middleware.CtxProjectID)
 	issueID := int64Param(c, "issue_id")
+	userID := c.GetInt64(middleware.CtxUserID)
 
 	var req updateIssueRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -332,6 +334,11 @@ func (h *IssueHandler) updateIssue(c *gin.Context) {
 		writeErr(c, err)
 		return
 	}
+	// 广播 + 通知关注者
+	h.broadcastIssueUpdated(c.Request.Context(), wsID, iss.ProjectID, iss.ID)
+	if h.d.SocialSvc != nil {
+		h.notifyIssueWatchers(c.Request.Context(), wsID, iss.ID, userID, h.actorName(c, userID), iss.Name, "")
+	}
 	c.JSON(http.StatusOK, iss)
 }
 
@@ -383,6 +390,8 @@ func (h *IssueHandler) transition(c *gin.Context) {
 	}
 	// 广播状态变更（看板实时刷新）
 	h.broadcastIssueUpdated(c.Request.Context(), wsID, projectID, iss.ID)
+	// 通知关注者
+	h.notifyIssueWatchers(c.Request.Context(), wsID, iss.ID, userID, h.actorName(c, userID), iss.Name, "工作项状态已变更")
 	c.JSON(http.StatusOK, iss)
 }
 
