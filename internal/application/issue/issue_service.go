@@ -962,6 +962,11 @@ func (s *Service) loadWatchers(ctx context.Context, issueID int64) ([]int64, err
 	return loadIntArray(ctx, s.db, `SELECT user_id FROM issue_watchers WHERE issue_id = $1`, issueID)
 }
 
+// LoadWatchers 查询工作项关注者列表（供通知模块使用）。
+func (s *Service) LoadWatchers(ctx context.Context, issueID int64) ([]int64, error) {
+	return s.loadWatchers(ctx, issueID)
+}
+
 func (s *Service) getByIDTx(ctx context.Context, tx pgx.Tx, issueID, wsID int64) (*Issue, error) {
 	var iss Issue
 	var parentID sql.NullInt64

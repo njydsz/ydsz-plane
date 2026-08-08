@@ -144,3 +144,57 @@ func (h *IssueHandler) broadcastIssueUpdated(ctx context.Context, wsID, projectI
 func (h *IssueHandler) notifyIssueCreated(ctx context.Context, wsID int64, assignees []int64, actorID int64, actorName, issueTitle string, issueID int64) {
 	h.notifyIssueAssigned(ctx, wsID, assignees, actorID, actorName, issueTitle, issueID)
 }
+
+// notifyIssueWatchers 工作项变更后通知所有关注者（watchers）。
+//
+// 语义：关注者订阅了工作项的动态（状态/字段/评论变更），
+// 这里统一通过 EventIssueStatusChanged 事件发送站内通知 + 实时广播。
+func (h *IssueHandler) notifyIssueWatchers(ctx context.Context, wsID, issueID, actorID int64, actorName, issueTitle, changeDesc string) {
+	if h.d.NotificationSvc == nil || h.d.IssueSvc == nil {
+		return
+	}
+	watchers, err := h.d.IssueSvc.LoadWatchers(ctx, issueID)
+	if err != nil || len(watchers) == 0 {
+		return
+	}
+
+	seen := map[int64]bool{}
+	inputs := make([]notif.CreateNotificationInput, 0, len(watchers))
+	for _, uid := range watchers {
+		if uid == actorID || seen[uid] {
+			continue
+		}
+		seen[uid] = true
+		title := "工作项已更新"
+		if changeDesc != "" {
+			title = changeDesc
+		}
+		inputs = append(inputs, notif.CreateNotificationInput{
+			WorkspaceID: wsID,
+			RecipientID: uid,
+			EventType:   notif.EventIssueStatusChanged,
+			EntityType:  notif.EntityIssue,
+			EntityID:    issueID,
+			Title:       title,
+			Body:        fmt.Sprintf("你关注的工作项「%s」有新动态", issueTitle),
+			ActionURL:   fmt.Sprintf("/issues/%d", issueID),
+			ActorID:     &actorID,
+			ActorName:   actorName,
+			Channel:     notif.ChannelInApp,
+		})
+	}
+	if len(inputs) == 0 {
+		return
+	}
+
+	created, err := h.d.NotificationSvc.CreateBatch(ctx, inputs)
+	if err != nil || created == 0 {
+		return
+	}
+	if h.d.WSHub != nil {
+		_ = h.d.WSHub.Publish(ctx, wsID, ws.Message{
+			Type: "notification.created",
+			Data: json.RawMessage(`{}`),
+		})
+	}
+}

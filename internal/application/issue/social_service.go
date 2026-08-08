@@ -25,16 +25,29 @@ func NewSocialService(db *pgxpool.Pool) *SocialService {
 	return &SocialService{db: db}
 }
 
+// validateReactionType 校验表情类型合法性（空/超长返回 true=非法）。
+func validateReactionType(reactionType string) bool {
+	if reactionType == "" {
+		return true
+	}
+	return len([]rune(reactionType)) > 16
+}
+
+// validateVoteValue 校验投票值合法性（非 1/-1 返回 true=非法）。
+func validateVoteValue(vote int) bool {
+	return vote != 1 && vote != -1
+}
+
 // --- Reaction ---
 
 // AddReaction 添加表情反应（幂等：已存在则返回现有记录）。
 func (s *SocialService) AddReaction(ctx context.Context, wsID, projectID, issueID, userID int64, reactionType string) (*IssueReaction, bool, error) {
-	if reactionType == "" {
-		return nil, false, errs.ErrValidation.WithDetails(errs.FieldDetail{
-			Field: "reaction_type", Reason: "表情不能为空",
-		})
-	}
-	if len([]rune(reactionType)) > 16 {
+	if validateReactionType(reactionType) {
+		if reactionType == "" {
+			return nil, false, errs.ErrValidation.WithDetails(errs.FieldDetail{
+				Field: "reaction_type", Reason: "表情不能为空",
+			})
+		}
 		return nil, false, errs.ErrValidation.WithDetails(errs.FieldDetail{
 			Field: "reaction_type", Reason: "表情过长（最多 16 字符）",
 		})
@@ -117,7 +130,7 @@ func (s *SocialService) ListReactions(ctx context.Context, wsID, issueID, userID
 
 // VoteIssue 投票/改票。vote=1 赞成，-1 反对；重复相同投票幂等返回当前状态。
 func (s *SocialService) VoteIssue(ctx context.Context, wsID, projectID, issueID, userID int64, vote int) (*IssueVote, error) {
-	if vote != 1 && vote != -1 {
+	if validateVoteValue(vote) {
 		return nil, errs.ErrValidation.WithDetails(errs.FieldDetail{
 			Field: "vote", Reason: "投票值只能为 1（赞成）或 -1（反对）",
 		})
