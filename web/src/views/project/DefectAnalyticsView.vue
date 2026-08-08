@@ -11,7 +11,7 @@ import { useRoute } from "vue-router";
 import type { EChartsCoreOption } from "echarts";
 
 import { defectAnalyticsApi, SEVERITY_LABELS, PHASE_LABELS } from "@/api/services/defectAnalytics";
-import type { DefectAnalytics, SeverityCount, PhaseCount, ModuleCount, RootCauseCount, AgeBucket, TrendPoint } from "@/api/services/defectAnalytics";
+import type { DefectAnalytics, SeverityCount, PhaseCount, ModuleCount, RootCauseCount, AgeBucket, TrendPoint, DefectAgeAnalysis, DefectAgeStat, DefectAgeItem, RootCauseAnalysis, RootCauseStat } from "@/api/services/defectAnalytics";
 import { useWorkspaceStore } from "@/stores/workspace";
 import { AppLoadingState, AppErrorState, AppEmptyState } from "@/components";
 import ChartWidget from "@/components/dashboard/ChartWidget.vue";
@@ -26,6 +26,8 @@ const wsId = computed(() => wsStore.current?.id ?? 0);
 const loading = ref(true);
 const error = ref("");
 const analytics = ref<DefectAnalytics | null>(null);
+const defectAge = ref<DefectAgeAnalysis | null>(null);
+const rootCause = ref<RootCauseAnalysis | null>(null);
 
 /** 时间范围快捷选项 */
 const TIME_RANGES = [
@@ -63,10 +65,23 @@ async function load() {
   loading.value = true;
   error.value = "";
   try {
-    analytics.value = await defectAnalyticsApi.getAnalytics(wsId.value, projectId.value, {
-      date_from: dateFrom.value,
-      date_to: dateTo.value,
-    });
+    const [a, da, rc] = await Promise.all([
+      defectAnalyticsApi.getAnalytics(wsId.value, projectId.value, {
+        date_from: dateFrom.value,
+        date_to: dateTo.value,
+      }),
+      defectAnalyticsApi.getDefectAge(wsId.value, projectId.value, {
+        date_from: dateFrom.value,
+        date_to: dateTo.value,
+      }),
+      defectAnalyticsApi.getRootCause(wsId.value, projectId.value, {
+        date_from: dateFrom.value,
+        date_to: dateTo.value,
+      }),
+    ]);
+    analytics.value = a;
+    defectAge.value = da;
+    rootCause.value = rc;
   } catch (e: unknown) {
     error.value = e instanceof Error ? e.message : "加载失败";
   } finally {
@@ -227,6 +242,57 @@ function trendChartOption(data: TrendPoint[]): EChartsCoreOption {
 const emptyChartOption: EChartsCoreOption = {
   title: { text: "暂无数据", left: "center", top: "center", textStyle: { color: "var(--text-tertiary)", fontSize: 13 } },
 };
+
+// --- 新增图表 ---
+
+function defectAgeChartOption(data: DefectAgeStat[]): EChartsCoreOption {
+  if (!data.length) return emptyChartOption;
+  return {
+    tooltip: { trigger: "axis", axisPointer: { type: "shadow" } },
+    legend: { data: ["最低(天)", "平均(天)", "最高(天)", "中位(天)"], top: 0, textStyle: { color: "var(--text-secondary)", fontSize: 11 } },
+    grid: { left: 80, right: 24, top: 36, bottom: 24 },
+    xAxis: {
+      type: "category",
+      data: data.map((d) => d.state_name),
+      axisLabel: { color: "var(--text-secondary)", fontSize: 11 },
+    },
+    yAxis: { type: "value", axisLabel: { color: "var(--text-secondary)" }, name: "天数" },
+    series: [
+      { name: "最低(天)", type: "bar", data: data.map((d) => d.min_days), itemStyle: { color: "#16a34a" }, barGap: "10%" },
+      { name: "平均(天)", type: "bar", data: data.map((d) => d.avg_days), itemStyle: { color: "#2563eb" } },
+      { name: "最高(天)", type: "bar", data: data.map((d) => d.max_days), itemStyle: { color: "#dc2626" } },
+      { name: "中位(天)", type: "bar", data: data.map((d) => d.median_days), itemStyle: { color: "#d97706" } },
+    ],
+  };
+}
+
+function rootCausePieOption(data: RootCauseStat[]): EChartsCoreOption {
+  if (!data.length) return emptyChartOption;
+  return {
+    tooltip: { trigger: "item", formatter: "{b}: {c} ({d}%)" },
+    legend: { orient: "horizontal", bottom: 0, textStyle: { color: "var(--text-secondary)", fontSize: 12 } },
+    series: [{
+      type: "pie",
+      radius: ["40%", "68%"],
+      center: ["50%", "45%"],
+      itemStyle: { borderRadius: 4, borderColor: "var(--surface-1)", borderWidth: 2 },
+      label: { show: true, formatter: "{b}\n{d}%", fontSize: 11 },
+      data: data.map((d, i) => ({
+        name: d.root_cause === "unfilled" ? "未分类" : d.root_cause,
+        value: d.count,
+        itemStyle: { color: `var(--chart-${(i % 6) + 1})` },
+      })),
+    }],
+  };
+}
+
+const OVERDUE_COLORS: Record<number, string> = {
+  1: "#dc2626",
+  2: "#ea580c",
+  3: "#d97706",
+  4: "#ca8a04",
+  5: "#65a30d",
+};
 </script>
 
 <template>
@@ -314,6 +380,78 @@ const emptyChartOption: EChartsCoreOption = {
       <section class="chart-card chart-wide">
         <h3 class="chart-title">缺陷龄分布（天）</h3>
         <ChartWidget :option="ageChartOption(analytics.age_buckets)" :height="260" />
+      </section>
+
+      <!-- 缺陷龄按状态分析（新增） -->
+      <section v-if="defectAge && defectAge.state_stats.length" class="chart-card chart-wide">
+        <h3 class="chart-title">
+          缺陷滞留时长（按状态）
+          <span v-if="defectAge.overdue_count" class="badge-overdue">{{ defectAge.overdue_count }} 个超7天</span>
+        </h3>
+        <ChartWidget :option="defectAgeChartOption(defectAge.state_stats)" :height="320" />
+      </section>
+
+      <!-- 超阈值缺陷列表（新增） -->
+      <section v-if="defectAge && defectAge.overdue_items.length" class="chart-card chart-wide">
+        <h3 class="chart-title">超7天滞留缺陷 (Top {{ defectAge.overdue_items.length }})</h3>
+        <div class="overdue-table-wrap">
+          <table class="overdue-table">
+            <thead>
+              <tr>
+                <th>编号</th>
+                <th>标题</th>
+                <th>严重程度</th>
+                <th>当前状态</th>
+                <th>已滞留</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="item in defectAge.overdue_items" :key="item.id">
+                <td class="mono">{{ item.identifier }}</td>
+                <td class="overflow-name" :title="item.name">{{ item.name }}</td>
+                <td>
+                  <span class="sev-tag" :style="{ background: OVERDUE_COLORS[item.severity || 5] || '#65a30d' }">
+                    {{ item.severity_label }}
+                  </span>
+                </td>
+                <td>{{ item.state_name }}</td>
+                <td class="text-danger">
+                  <strong>{{ item.age_days }}</strong> 天
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- 根因分布饼图（含占比，新增） -->
+      <section v-if="rootCause && rootCause.items.length" class="chart-card chart-wide">
+        <h3 class="chart-title">根因分类分布（含占比）</h3>
+        <div class="root-cause-layout">
+          <div class="pie-wrap">
+            <ChartWidget :option="rootCausePieOption(rootCause.items)" :height="300" />
+          </div>
+          <div class="root-cause-table">
+            <table>
+              <thead><tr><th>根因</th><th>数量</th><th>占比</th></tr></thead>
+              <tbody>
+                <tr v-for="(rc, i) in rootCause.items" :key="rc.root_cause">
+                  <td>
+                    <span class="legend-dot" :style="{ background: `var(--chart-${(i % 6) + 1})` }"></span>
+                    {{ rc.root_cause === "unfilled" ? "未分类" : rc.root_cause }}
+                  </td>
+                  <td>{{ rc.count }}</td>
+                  <td>{{ rc.percentage }}%</td>
+                </tr>
+                <tr class="total-row">
+                  <td><strong>合计</strong></td>
+                  <td><strong>{{ rootCause.total_count }}</strong></td>
+                  <td><strong>100%</strong></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
       </section>
     </template>
   </div>
@@ -461,5 +599,109 @@ const emptyChartOption: EChartsCoreOption = {
 @media (max-width: 768px) {
   .kpi-grid { grid-template-columns: repeat(2, 1fr); }
   .chart-grid { grid-template-columns: 1fr; }
+  .root-cause-layout { flex-direction: column; }
+}
+
+/* --- 新增：超阈值表格 --- */
+.overdue-table-wrap { overflow-x: auto; }
+
+.overdue-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.overdue-table th {
+  text-align: left;
+  padding: 8px 12px;
+  border-bottom: 2px solid var(--border);
+  color: var(--text-tertiary);
+  font-weight: 500;
+}
+
+.overdue-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.overdue-table tbody tr:hover { background: var(--surface-2); }
+
+.overflow-name {
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mono { font-family: var(--font-mono); }
+
+.sev-tag {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #fff;
+}
+
+.badge-overdue {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 8px;
+  border-radius: 10px;
+  background: #fee2e2;
+  color: #dc2626;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+/* --- 新增：根因分布双栏布局 --- */
+.root-cause-layout {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+}
+
+.pie-wrap {
+  flex: 0 0 340px;
+}
+
+.root-cause-table {
+  flex: 1;
+  min-width: 200px;
+}
+
+.root-cause-table table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.root-cause-table th {
+  text-align: left;
+  padding: 6px 10px;
+  border-bottom: 2px solid var(--border);
+  color: var(--text-tertiary);
+  font-weight: 500;
+}
+
+.root-cause-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.root-cause-table .total-row td {
+  border-top: 2px solid var(--border);
+  border-bottom: none;
+  padding-top: 10px;
+}
+
+.legend-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 6px;
+  vertical-align: middle;
 }
 </style>

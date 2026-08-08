@@ -16,7 +16,7 @@
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
-import type { Workspace } from "@/api/services/workspace";
+import { workspaceApi, type Workspace } from "@/api/services/workspace";
 import { useAuthStore } from "@/stores/auth";
 import { useSearchStore } from "@/stores/search";
 import { useWorkspaceStore } from "@/stores/workspace";
@@ -165,7 +165,24 @@ function handleQuickCreate() {
 }
 
 onMounted(bootstrap);
-</script>
+
+/** 项目切换时加载功能模块开关到 store，驱动侧边栏按项目模块过滤 */
+watch(
+  () => currentProjectId.value,
+  async (pid) => {
+    if (!pid || !wsStore.currentId) {
+      wsStore.setProjectModules(null);
+      return;
+    }
+    try {
+      const p = await workspaceApi.getProject(wsStore.currentId, pid);
+      wsStore.setProjectModules(p.modules ?? null);
+    } catch {
+      wsStore.setProjectModules(null);
+    }
+  },
+  { immediate: true },
+);
 
 <template>
   <div class="ws-layout">

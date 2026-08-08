@@ -95,6 +95,52 @@ export const PHASE_LABELS: Record<string, string> = {
   other: '其他',
 };
 
+// ---------- 缺陷龄分析类型 ----------
+
+/** 单状态缺陷龄统计 */
+export interface DefectAgeStat {
+  state_name: string;
+  state_group: string;
+  count: number;
+  min_days: number;
+  max_days: number;
+  avg_days: number;
+  median_days: number;
+}
+
+/** 超阈值缺陷明细 */
+export interface DefectAgeItem {
+  id: number;
+  identifier: string;
+  name: string;
+  severity?: number;
+  severity_label: string;
+  state_name: string;
+  age_days: number;
+}
+
+/** 缺陷龄分析聚合结果 */
+export interface DefectAgeAnalysis {
+  state_stats: DefectAgeStat[];
+  overdue_count: number;
+  overdue_items: DefectAgeItem[];
+}
+
+// ---------- 根因分布类型 ----------
+
+/** 根因分类统计 */
+export interface RootCauseStat {
+  root_cause: string;
+  count: number;
+  percentage: number;
+}
+
+/** 根因分布分析结果 */
+export interface RootCauseAnalysis {
+  items: RootCauseStat[];
+  total_count: number;
+}
+
 /* ------------------------------------------------------------------ */
 /* API                                                                */
 /* ------------------------------------------------------------------ */
@@ -102,9 +148,6 @@ export const PHASE_LABELS: Record<string, string> = {
 export const defectAnalyticsApi = {
   /**
    * 获取缺陷分析聚合数据。
-   * @param wsId 工作空间 ID
-   * @param projectId 项目 ID
-   * @param query 可选过滤参数
    */
   async getAnalytics(wsId: number, projectId: number, query: AnalyticsQuery = {}): Promise<DefectAnalytics> {
     const params = new URLSearchParams();
@@ -123,11 +166,39 @@ export const defectAnalyticsApi = {
   },
 
   /**
+   * 获取缺陷龄分析数据 — 按状态分组统计未关闭缺陷的滞留时长。
+   */
+  async getDefectAge(wsId: number, projectId: number, query: AnalyticsQuery = {}): Promise<DefectAgeAnalysis> {
+    const params = new URLSearchParams();
+    if (query.date_from) params.set('date_from', query.date_from);
+    if (query.date_to) params.set('date_to', query.date_to);
+    if (query.severity_from != null) params.set('severity_from', String(query.severity_from));
+    if (query.severity_to != null) params.set('severity_to', String(query.severity_to));
+
+    const qs = params.toString();
+    const { data } = await apiClient.get<DefectAgeAnalysis>(
+      `/api/v1/workspaces/${wsId}/projects/${projectId}/analytics/defect-age${qs ? '?' + qs : ''}`,
+    );
+    return data;
+  },
+
+  /**
+   * 获取根因分布统计 — 按 root_cause_category 分组统计缺陷数量和占比。
+   */
+  async getRootCause(wsId: number, projectId: number, query: AnalyticsQuery = {}): Promise<RootCauseAnalysis> {
+    const params = new URLSearchParams();
+    if (query.date_from) params.set('date_from', query.date_from);
+    if (query.date_to) params.set('date_to', query.date_to);
+
+    const qs = params.toString();
+    const { data } = await apiClient.get<RootCauseAnalysis>(
+      `/api/v1/workspaces/${wsId}/projects/${projectId}/analytics/root-cause${qs ? '?' + qs : ''}`,
+    );
+    return data;
+  },
+
+  /**
    * 导出缺陷明细（CSV）。
-   * @param wsId 工作空间 ID
-   * @param projectId 项目 ID
-   * @param query 可选过滤参数
-   * @returns 下载文件的 Blob
    */
   async exportDefects(wsId: number, projectId: number, query: AnalyticsQuery = {}, format: 'csv' | 'xlsx' = 'csv'): Promise<Blob> {
     const params = new URLSearchParams();

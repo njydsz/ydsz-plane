@@ -14,7 +14,7 @@
 import { computed, onMounted, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 
-import { pagesApi, type Page } from "@/api/services/pages";
+import { pagesApi, versionsApi, linksApi, type Page, type DocumentVersion, type DocumentLink } from "@/api/services/pages";
 import { useWorkspaceContext } from "@/composables/useWorkspaceContext";
 import { toast } from "@/lib/toast";
 import RichTextEditor from "@/components/RichTextEditor.vue";
@@ -36,6 +36,20 @@ const editorHtml = ref("");
 const editorJson = ref("");
 const saving = ref(false);
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
+
+// 分类
+const editCategory = ref<string | null>(null);
+
+// 版本历史
+const versions = ref<DocumentVersion[]>([]);
+const versionsLoading = ref(false);
+const viewingVersion = ref<number | null>(null);
+const viewingVersionContent = ref<DocumentVersion | null>(null);
+
+// 关联工作项
+const links = ref<DocumentLink[]>([]);
+const linksLoading = ref(false);
+const linkInputId = ref("");
 
 // ---- 文档树组装 ----
 interface PageNode extends Page {
@@ -84,10 +98,15 @@ async function load() {
 // 选中文档 → 载入编辑器内容
 watch(currentPageId, (id) => {
   if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
-  if (!id) { editorHtml.value = ""; editorJson.value = ""; return; }
+  viewingVersion.value = null;
+  viewingVersionContent.value = null;
+  if (!id) { editorHtml.value = ""; editorJson.value = ""; versions.value = []; links.value = []; return; }
   const page = pages.value.find((p) => p.id === id);
   editorHtml.value = page?.description_html ?? "";
   editorJson.value = page?.description_json ? JSON.stringify(page.description_json) : "";
+  editCategory.value = null;
+  loadVersions();
+  loadLinks();
 });
 
 // ---- 操作 ----
@@ -181,6 +200,134 @@ function toggleCollapse(id: number) {
   if (next.has(id)) next.delete(id);
   else next.add(id);
   collapsed.value = next;
+}
+
+// ---- 分类 ----
+const categoryOptions = [
+  { value: "PRD", label: "PRD" },
+  { value: "design", label: "技术方案" },
+  { value: "api", label: "接口文档" },
+  { value: "test", label: "测试报告" },
+  { value: "checklist", label: "交付清单" },
+];
+
+function categoryLabel(cat?: string | null): string {
+  if (!cat) return "—";
+  return categoryOptions.find((c) => c.value === cat)?.label ?? cat;
+}
+
+async function saveCategory(page: Page, category: string) {
+  if (category === (page.category ?? "")) return;
+  try {
+    const updated = await pagesApi.update(wsId.value, projectId.value, page.id, {
+      category: category || "",
+      version: page.version,
+    });
+    const idx = pages.value.findIndex((p) => p.id === page.id);
+    if (idx >= 0) pages.value[idx] = updated;
+    editCategory.value = null;
+    toast.success("分类已更新");
+  } catch (e: unknown) {
+    toast.error(e instanceof Error ? e.message : "分类更新失败");
+  }
+}
+
+// ---- 版本历史 ----
+async function loadVersions() {
+  if (!currentPageId.value) return;
+  versionsLoading.value = true;
+  try {
+    versions.value = await versionsApi.list(wsId.value, projectId.value, currentPageId.value);
+  } catch {
+    // 非关键模块静默忽略
+  } finally {
+    versionsLoading.value = false;
+  }
+}
+
+async function viewVersion(versionNumber: number) {
+  if (!currentPageId.value) return;
+  try {
+    viewingVersionContent.value = await versionsApi.get(
+      wsId.value, projectId.value, currentPageId.value, versionNumber,
+    );
+    viewingVersion.value = versionNumber;
+  } catch (e: unknown) {
+    toast.error(e instanceof Error ? e.message : "加载版本失败");
+  }
+}
+
+function closeViewVersion() {
+  viewingVersion.value = null;
+  viewingVersionContent.value = null;
+}
+
+async function rollbackToVersion(versionNumber: number) {
+  if (!currentPageId.value) return;
+  if (!window.confirm(`确定回滚到版本 v${versionNumber}？当前未保存的更改将丢失。`)) return;
+  try {
+    const page = await versionsApi.rollback(
+      wsId.value, projectId.value, currentPageId.value, versionNumber,
+    );
+    const idx = pages.value.findIndex((p) => p.id === page.id);
+    if (idx >= 0) pages.value[idx] = page;
+    editorHtml.value = page.description_html ?? "";
+    editorJson.value = page.description_json ? JSON.stringify(page.description_json) : "";
+    viewingVersion.value = null;
+    viewingVersionContent.value = null;
+    toast.success("已回滚到版本 v" + versionNumber);
+  } catch (e: unknown) {
+    toast.error(e instanceof Error ? e.message : "回滚失败");
+  }
+}
+
+// ---- 关联工作项 ----
+async function loadLinks() {
+  if (!currentPageId.value) return;
+  linksLoading.value = true;
+  try {
+    links.value = await linksApi.list(wsId.value, projectId.value, currentPageId.value);
+  } catch {
+    // 非关键模块静默忽略
+  } finally {
+    linksLoading.value = false;
+  }
+}
+
+async function addLink() {
+  if (!currentPageId.value || !linkInputId.value.trim()) return;
+  const issueId = Number(linkInputId.value.trim());
+  if (isNaN(issueId) || issueId <= 0) {
+    toast.error("请输入有效的工作项 ID");
+    return;
+  }
+  try {
+    await linksApi.create(wsId.value, projectId.value, currentPageId.value, {
+      linkable_type: "issue",
+      linkable_id: issueId,
+    });
+    linkInputId.value = "";
+    toast.success("关联已添加");
+    await loadLinks();
+  } catch (e: unknown) {
+    toast.error(e instanceof Error ? e.message : "关联失败");
+  }
+}
+
+async function removeLink(linkId: number) {
+  if (!currentPageId.value || !window.confirm("确定删除该关联？")) return;
+  try {
+    await linksApi.remove(wsId.value, projectId.value, currentPageId.value, linkId);
+    toast.success("关联已删除");
+    await loadLinks();
+  } catch (e: unknown) {
+    toast.error(e instanceof Error ? e.message : "删除关联失败");
+  }
+}
+
+function linkableLabel(type: string): string {
+  const map: Record<string, string> = { issue: "工作项", sprint: "迭代", version: "版本" };
+  return map[type] ?? type;
 }
 
 onMounted(load);
@@ -302,15 +449,91 @@ onMounted(load);
               :max-length="120"
               @submit="(v) => renamePage(currentPage!, v)"
             />
+            <div class="pages__doc-category">
+              <span class="pages__doc-category-label">分类：</span>
+              <span v-if="editCategory === null" class="pages__doc-category-value">
+                <span class="pages__doc-category-badge" :class="currentPage?.category ? '' : 'pages__doc-category-badge--empty'">
+                  {{ categoryLabel(currentPage?.category) }}
+                </span>
+                <button class="btn btn--sm btn--ghost" @click="editCategory = currentPage?.category ?? ''">✎</button>
+              </span>
+              <span v-else class="pages__doc-category-edit">
+                <select v-model="editCategory" class="edit-select">
+                  <option value="">-- 请选择 --</option>
+                  <option v-for="opt in categoryOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+                </select>
+                <button class="btn btn--sm btn--primary" @click="saveCategory(currentPage!, editCategory)">保存</button>
+                <button class="btn btn--sm" @click="editCategory = null">取消</button>
+              </span>
+            </div>
           </div>
           <RichTextEditor
             v-model:content-html="editorHtml"
             v-model:content-json="editorJson"
             variant="full"
-            :min-height="'60vh'"
+            :min-height="'40vh'"
             placeholder="开始撰写文档..."
             @update:content-html="onEditorUpdate"
           />
+
+          <!-- 版本历史 -->
+          <div class="pages__versions">
+            <h4>版本历史</h4>
+            <div v-if="versionsLoading" class="text-muted">加载中...</div>
+            <div v-else-if="versions.length === 0" class="text-muted">暂无历史版本</div>
+            <div v-else class="versions-list">
+              <div
+                v-for="dv in versions"
+                :key="dv.id"
+                class="version-item"
+                :class="{ 'version-item--active': viewingVersion === dv.version_number }"
+              >
+                <span class="version-item__number">v{{ dv.version_number }}</span>
+                <span class="version-item__time">{{ new Date(dv.created_at).toLocaleString() }}</span>
+                <button class="btn btn--sm btn--ghost" @click="viewVersion(dv.version_number)">查看</button>
+                <button class="btn btn--sm btn--ghost" @click="rollbackToVersion(dv.version_number)">回滚</button>
+              </div>
+            </div>
+
+            <!-- 查看版本内容浮层 -->
+            <div v-if="viewingVersion && viewingVersionContent" class="version-preview">
+              <div class="version-preview__header">
+                <span>版本 v{{ viewingVersion }} {{ new Date(viewingVersionContent.created_at).toLocaleString() }}</span>
+                <button class="btn btn--sm" @click="closeViewVersion">关闭</button>
+              </div>
+              <div class="version-preview__content" v-html="viewingVersionContent.content_html || '<p>（空内容）</p>'"></div>
+            </div>
+          </div>
+
+          <!-- 关联工作项 -->
+          <div class="pages__links">
+            <h4>关联工作项</h4>
+            <div class="links-add">
+              <input
+                v-model="linkInputId"
+                type="text"
+                class="form-input"
+                placeholder="输入工作项 ID"
+                style="width: 160px"
+                @keydown.enter="addLink"
+              />
+              <button class="btn btn--sm btn--primary" @click="addLink">添加关联</button>
+            </div>
+            <div v-if="linksLoading" class="text-muted" style="margin-top: 8px">加载中...</div>
+            <div v-else-if="links.length === 0" class="text-muted" style="margin-top: 8px">暂无关联</div>
+            <div v-else class="links-list">
+              <div v-for="link in links" :key="link.id" class="link-item">
+                <span class="link-item__type">{{ linkableLabel(link.linkable_type) }}</span>
+                <router-link
+                  :to="`/${wsId}/projects/${projectId}/issues/${link.linkable_id}`"
+                  class="link-item__id"
+                >
+                  #{{ link.linkable_id }}
+                </router-link>
+                <button class="btn btn--sm btn--ghost link-item__remove" @click="removeLink(link.id)">✕</button>
+              </div>
+            </div>
+          </div>
         </div>
       </main>
     </div>
@@ -455,5 +678,232 @@ onMounted(load);
   padding-bottom: 12px;
   margin-bottom: 12px;
   border-bottom: 1px solid var(--border-subtle);
+}
+
+/* ---- 分类 ---- */
+.pages__doc-category {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  font-size: 13px;
+}
+
+.pages__doc-category-label {
+  color: var(--text-tertiary);
+  font-weight: 400;
+  font-size: 12px;
+}
+
+.pages__doc-category-badge {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--brand-50);
+  color: var(--brand-600);
+  font-weight: 500;
+}
+
+.pages__doc-category-badge--empty {
+  background: var(--surface-3);
+  color: var(--text-tertiary);
+}
+
+.pages__doc-category-edit {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.edit-select {
+  padding: 4px 8px;
+  font-size: 12px;
+  font-family: inherit;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--surface-1);
+  color: var(--text-primary);
+}
+
+/* ---- 版本历史 ---- */
+.pages__versions {
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.pages__versions h4 {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 8px;
+}
+
+.versions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.version-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+}
+
+.version-item:hover { background: var(--surface-2); }
+.version-item--active { background: var(--brand-50); }
+
+.version-item__number {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--brand-500);
+  min-width: 36px;
+}
+
+.version-item__time {
+  flex: 1;
+  color: var(--text-tertiary);
+  font-size: 11px;
+}
+
+.version-preview {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+}
+
+.version-preview__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.version-preview__content {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+/* ---- 关联工作项 ---- */
+.pages__links {
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.pages__links h4 {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 8px;
+}
+
+.links-add {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.form-input {
+  padding: 5px 8px;
+  font-size: 12px;
+  font-family: inherit;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--surface-1);
+  color: var(--text-primary);
+  outline: none;
+}
+
+.form-input:focus {
+  border-color: var(--brand-500);
+  box-shadow: 0 0 0 2px var(--brand-50);
+}
+
+.links-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.link-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+}
+
+.link-item:hover { background: var(--surface-2); }
+
+.link-item__type {
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: var(--brand-50);
+  color: var(--brand-600);
+  font-weight: 500;
+}
+
+.link-item__id {
+  color: var(--brand-500);
+  text-decoration: none;
+  font-family: var(--font-mono);
+  font-weight: 500;
+}
+
+.link-item__id:hover { text-decoration: underline; }
+
+.link-item__remove {
+  margin-left: auto;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.link-item:hover .link-item__remove { opacity: 1; }
+
+.btn--sm {
+  padding: 4px 10px;
+  font-size: 12px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  border: 1px solid var(--border-default);
+  background: var(--surface-1);
+  color: var(--text-secondary);
+  font-family: inherit;
+}
+
+.btn--ghost {
+  background: none;
+  border: none;
+  color: var(--brand-500);
+  padding: 2px 4px;
+}
+
+.btn--primary {
+  background: var(--brand-500);
+  color: var(--text-on-brand);
+  border-color: var(--brand-500);
+}
+
+.text-muted {
+  color: var(--text-tertiary);
+  font-size: 12px;
 }
 </style>

@@ -17,6 +17,7 @@ export interface Page {
   description_stripped?: string | null;
   parent_id?: number | null;
   sort_order: number;
+  category?: string | null;
   created_by: number;
   created_at: string;
   updated_at: string;
@@ -32,6 +33,7 @@ export interface CreatePageInput {
   description_stripped?: string;
   parent_id?: number | null;
   sort_order?: number;
+  category?: string;
 }
 
 /** 更新文档页入参（可选字段 + 乐观锁 version）。 */
@@ -42,7 +44,29 @@ export interface UpdatePageInput {
   description_stripped?: string;
   parent_id?: number | null;
   sort_order?: number;
+  category?: string;
   version: number;
+}
+
+/** 文档版本快照实体。 */
+export interface DocumentVersion {
+  id: number;
+  page_id: number;
+  version_number: number;
+  content_md?: string;
+  content_html?: string;
+  created_by: number;
+  created_at: string;
+}
+
+/** 文档关联实体。 */
+export interface DocumentLink {
+  id: number;
+  page_id: number;
+  linkable_type: string;
+  linkable_id: number;
+  created_by: number;
+  created_at: string;
 }
 
 const wrap = <T>(p: Promise<{ data: T }>) => p.then((r) => r.data);
@@ -72,4 +96,56 @@ export const pagesApi = {
   /** 删除文档页面（软删除） */
   remove: (wsId: number, projectId: number, pageId: number) =>
     wrap<void>(http.delete(`/workspaces/${wsId}/projects/${projectId}/pages/${pageId}`)),
+};
+
+const basePath = (wsId: number, projectId: number, pageId: number) =>
+  `/workspaces/${wsId}/projects/${projectId}/pages/${pageId}`;
+
+/** 文档版本历史 API */
+export const versionsApi = {
+  /** 列出页面的所有历史版本 */
+  list: async (wsId: number, projectId: number, pageId: number) => {
+    const data = await wrap<{ results?: DocumentVersion[] }>(
+      http.get(`${basePath(wsId, projectId, pageId)}/versions`),
+    );
+    return data?.results ?? [];
+  },
+
+  /** 获取指定版本快照 */
+  get: (wsId: number, projectId: number, pageId: number, versionNumber: number) =>
+    wrap<DocumentVersion>(
+      http.get(`${basePath(wsId, projectId, pageId)}/versions/${versionNumber}`),
+    ),
+
+  /** 回滚到指定版本 */
+  rollback: (wsId: number, projectId: number, pageId: number, versionNumber: number) =>
+    wrap<Page>(
+      http.post(`${basePath(wsId, projectId, pageId)}/versions/${versionNumber}/rollback`),
+    ),
+};
+
+/** 文档关联 API */
+export const linksApi = {
+  /** 列出页面的所有关联 */
+  list: async (wsId: number, projectId: number, pageId: number) => {
+    const data = await wrap<{ results?: DocumentLink[] }>(
+      http.get(`${basePath(wsId, projectId, pageId)}/links`),
+    );
+    return data?.results ?? [];
+  },
+
+  /** 创建关联 */
+  create: (
+    wsId: number,
+    projectId: number,
+    pageId: number,
+    input: { linkable_type: string; linkable_id: number },
+  ) =>
+    wrap<DocumentLink>(
+      http.post(`${basePath(wsId, projectId, pageId)}/links`, input),
+    ),
+
+  /** 删除关联 */
+  remove: (wsId: number, projectId: number, pageId: number, linkId: number) =>
+    wrap<void>(http.delete(`${basePath(wsId, projectId, pageId)}/links/${linkId}`)),
 };

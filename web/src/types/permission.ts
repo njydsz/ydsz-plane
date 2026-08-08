@@ -69,6 +69,8 @@ export const ROLE_LEVEL = {
 
 export type PermissionCode = string
 
+export type ProjectModuleKey = 'intake' | 'sprint' | 'version' | 'estimate'
+
 export interface MenuItem {
   name: string
   path: string
@@ -78,6 +80,8 @@ export interface MenuItem {
   /** 最低角色级别（≥ 该值可见），admin(100) 和 owner(80) 都能看到所有管理菜单 */
   minLevel?: number
   children?: MenuItem[]
+  /** 关联的功能模块 key：启用/禁用受项目模块开关控制 */
+  moduleKey?: ProjectModuleKey
 }
 
 /**

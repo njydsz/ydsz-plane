@@ -527,7 +527,7 @@ func (s *DefectAnalyticsService) GetDefectAge(ctx context.Context, q AnalyticsQu
 	rows, err := s.db.Query(ctx, `
 		SELECT
 			COALESCE(st.name, '未分配')          AS state_name,
-			COALESCE(st.group_name, 'unknown')   AS state_group,
+			COALESCE(st."group", 'unknown')      AS state_group,
 			COUNT(*)                              AS cnt,
 			ROUND(MIN(EXTRACT(EPOCH FROM (now() - i.created_at)) / 86400)::numeric, 1) AS min_days,
 			ROUND(MAX(EXTRACT(EPOCH FROM (now() - i.created_at)) / 86400)::numeric, 1) AS max_days,
@@ -535,7 +535,7 @@ func (s *DefectAnalyticsService) GetDefectAge(ctx context.Context, q AnalyticsQu
 		FROM issues i
 		LEFT JOIN states st ON st.id = i.state_id
 		`+baseWhere+`
-		GROUP BY st.name, st.group_name
+		GROUP BY st.name, st."group"
 		ORDER BY cnt DESC`, args...)
 	if err != nil {
 		return nil, errs.ErrInternal.Wrap(err)

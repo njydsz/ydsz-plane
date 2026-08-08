@@ -28,6 +28,7 @@ export const useWorkspaceStore = defineStore("workspace", {
     slug: "",
     permissions: new Set<string>(),
     roleDetail: null,
+    projectModules: null,
   }),
   getters: {
     /** 当前空间 ID */
@@ -48,6 +49,11 @@ export const useWorkspaceStore = defineStore("workspace", {
     canAdminister: (s) => ["owner", "admin", "pm"].includes(s.current?.role ?? ""),
     /** 是否技术角色（techlead / dev） */
     isTechRole: (s) => ["techlead", "dev"].includes(s.current?.role ?? ""),
+    /** 检查当前项目的某功能模块是否启用（未加载时默认 true） */
+    isProjectModuleEnabled: (s) => (moduleKey: keyof ProjectModuleToggles) => {
+      if (!s.projectModules) return true;
+      return s.projectModules[moduleKey] !== false;
+    },
   },
   actions: {
     /** 加载当前用户在该工作空间的权限 + 角色详情 */
@@ -97,6 +103,10 @@ export const useWorkspaceStore = defineStore("workspace", {
       this.slug = ws?.slug ?? "";
       this.permissions = new Set();
       this.roleDetail = null;
+    },
+    /** 设置当前项目的功能模块开关（由项目详情页加载时调用） */
+    setProjectModules(modules: ProjectModuleToggles | null) {
+      this.projectModules = modules;
     },
     /** 按 ID 解析并切换当前空间（命中缓存直接返回） */
     async resolveById(id: number) {
