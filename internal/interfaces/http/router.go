@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -611,6 +612,7 @@ func NewEngine(d *Deps) *gin.Engine {
 		}))
 		{
 			authed.GET("/me", me(d))
+		authed.PATCH("/me", patchMe(d))
 
 			// ----- 个人 API Token 管理（用户级，与工作空间无关） -----
 			authed.GET("/me/api-tokens", listMyApiTokens(d))
@@ -888,6 +890,81 @@ type registerRequest struct {
 func me(d *Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		uid := c.GetInt64(middleware.CtxUserID)
+		var u auth.UserBrief
+		err := d.DB.QueryRow(c.Request.Context(),
+			`SELECT id, email, display_name, coalesce(avatar_url,'') FROM users WHERE id = $1 AND is_active`, uid).
+			Scan(&u.ID, &u.Email, &u.DisplayName, &u.AvatarURL)
+		if err != nil {
+			middleware.AbortWithError(c, errs.ErrNotFound)
+			return
+		}
+		c.JSON(http.StatusOK, u)
+	}
+}
+
+// userUpdateInput 是 PATCH /me 的可编辑字段（均为可选，仅更新提交项）。
+type userUpdateInput struct {
+	DisplayName *string `json:"display_name"`
+	AvatarURL   *string `json:"avatar_url"`
+	Timezone    *string `json:"timezone"`
+}
+
+// patchMe 部分更新当前登录用户的个人资料（display_name / avatar_url / timezone）。
+// 与 GET /me 共享同一 users 表连接上下文；无 RLS 策略，直接 UPDATE 安全。
+//
+//	@Summary		更新当前用户资料
+//	@Tags		Auth
+//	@Security	BearerAuth
+//	@Accept		json
+//	@Produce	json
+//	@Param		input	body		userUpdateInput	true	"可编辑字段"
+//	@Success	200		{object}	auth.UserBrief
+//	@Failure	400		{object}	errs.AppError
+//	@Failure	401		{object}	errs.AppError
+//	@Router		/me [patch]
+func patchMe(d *Deps) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var in userUpdateInput
+		if err := c.ShouldBindJSON(&in); err != nil {
+			middleware.AbortWithError(c, errs.ErrValidation.WithDetails(fieldDetails(err)...))
+			return
+		}
+		uid := c.GetInt64(middleware.CtxUserID)
+
+		// 动态拼装 UPDATE，仅更新前端实际提交的字段（language 暂无对应列，忽略）。
+		setCols := make([]string, 0, 3)
+		args := make([]any, 0, 4)
+		idx := 1
+		if in.DisplayName != nil {
+			setCols = append(setCols, fmt.Sprintf("display_name = $%d", idx))
+			args = append(args, *in.DisplayName)
+			idx++
+		}
+		if in.AvatarURL != nil {
+			setCols = append(setCols, fmt.Sprintf("avatar_url = $%d", idx))
+			args = append(args, *in.AvatarURL)
+			idx++
+		}
+		if in.Timezone != nil {
+			setCols = append(setCols, fmt.Sprintf("timezone = $%d", idx))
+			args = append(args, *in.Timezone)
+			idx++
+		}
+		if len(setCols) == 0 {
+			// 无可更新字段：直接返回当前资料（复用 me 的读路径）。
+			me(d)(c)
+			return
+		}
+		setCols = append(setCols, "updated_at = now()")
+		args = append(args, uid) // 末尾 $N 绑定 id 条件
+		query := fmt.Sprintf(`UPDATE users SET %s WHERE id = $%d AND is_active`,
+			strings.Join(setCols, ", "), idx)
+		if _, err := d.DB.Exec(c.Request.Context(), query, args...); err != nil {
+			writeError(c, err)
+			return
+		}
+
+		// 返回更新后的资料，与 GET /me 响应形状一致。
 		var u auth.UserBrief
 		err := d.DB.QueryRow(c.Request.Context(),
 			`SELECT id, email, display_name, coalesce(avatar_url,'') FROM users WHERE id = $1 AND is_active`, uid).
