@@ -411,12 +411,13 @@ H3
           :editor="editor"
           class="km-editor__tiptap"
         />
-        <!-- eslint-disable-next-line vue/no-v-html -->
+        <!-- eslint-disable vue/no-v-html -->
         <div
           v-else
           class="km-editor__preview"
           v-html="renderMarkdown(viewingVersion?.content_md ?? editorMd)"
         />
+        <!-- eslint-enable vue/no-v-html -->
       </div>
     </div>
 

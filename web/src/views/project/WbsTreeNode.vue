@@ -88,10 +88,6 @@ const progressText = computed(() => {
   return p > 0 ? `${p}%` : "";
 });
 
-/** 状态色（从 state 对象取，缺省灰） */
-const stateColor = computed(() => props.node.issue.state?.color || "#94a3b8");
-const stateName = computed(() => props.node.issue.state?.name || "未设置");
-
 /** 深度缩进中线色（不同层级用不同颜色标示） */
 const depthBorderStyle = computed(() => {
   const colors = ["", "var(--brand-300)", "var(--brand-200)", "var(--brand-100)"];

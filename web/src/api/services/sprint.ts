@@ -42,6 +42,8 @@ export interface SprintProgress {
   done_issues: number;
   by_state_group?: Record<string, number>;
   saturation?: number;
+  added_points: number;
+  removed_points: number;
 }
 
 /** 迭代复盘快照（承诺/完成/加入/移除统计） */
@@ -117,6 +119,7 @@ export interface SprintIssueView {
   state_name: string;
   state_color: string;
   state_group: string;
+  added_midway: boolean;
   point?: number;
   severity?: number;
   created_at: string;

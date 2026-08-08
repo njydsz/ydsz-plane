@@ -566,6 +566,7 @@ func (s *Service) ListSprintIssues(ctx context.Context, wsID, sprintID int64, li
 			n := int(severity.Int64)
 			v.Severity = &n
 		}
+		v.AddedMidway = addedMidway
 		views = append(views, v)
 	}
 	return views, total, rows.Err()
@@ -622,6 +623,7 @@ type SprintIssueView struct {
 	StateName  string    `json:"state_name"`
 	StateColor string    `json:"state_color"`
 	StateGroup string    `json:"state_group"`
+	AddedMidway bool     `json:"added_midway"`
 	CreatedAt  time.Time `json:"created_at"`
 	Point      *int      `json:"point,omitempty"`
 	Severity   *int      `json:"severity,omitempty"`
@@ -1069,7 +1071,7 @@ func (s *Service) computeProgress(ctx context.Context, wsID int64, sp *Sprint) S
 	}
 
 	// 实时计算
-	var totalPoints, donePoints sql.NullFloat64
+	var totalPoints, donePoints, addedPoints sql.NullFloat64
 	var totalIssues, doneIssues int
 	byState := map[string]float64{}
 
@@ -1078,12 +1080,13 @@ func (s *Service) computeProgress(ctx context.Context, wsID int64, sp *Sprint) S
 			coalesce(sum(CASE WHEN i.point IS NOT NULL THEN i.point ELSE 0 END), 0),
 			coalesce(sum(CASE WHEN sg."group" = 'completed' AND i.point IS NOT NULL THEN i.point ELSE 0 END), 0),
 			count(*),
-			count(*) FILTER (WHERE sg."group" = 'completed')
+			count(*) FILTER (WHERE sg."group" = 'completed'),
+			coalesce(sum(CASE WHEN si.added_midway AND i.point IS NOT NULL THEN i.point ELSE 0 END), 0)
 		FROM sprint_issues si
 		JOIN issues i ON i.id = si.issue_id
 		JOIN states sg ON sg.id = i.state_id
 		WHERE si.sprint_id = $1 AND i.deleted_at IS NULL`, sp.ID).Scan(
-		&totalPoints, &donePoints, &totalIssues, &doneIssues)
+		&totalPoints, &donePoints, &totalIssues, &doneIssues, &addedPoints)
 
 	rows, err := s.db.Query(ctx, `
 		SELECT sg."group", coalesce(sum(CASE WHEN i.point IS NOT NULL THEN i.point ELSE 0 END), 0)

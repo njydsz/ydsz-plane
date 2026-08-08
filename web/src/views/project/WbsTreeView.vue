@@ -16,20 +16,17 @@
  *   - 跳转到工作项详情
  */
 import { computed, onMounted, ref, watch } from "vue";
-import { useRoute, useRouter } from "vue-router";
+import { useRoute } from "vue-router";
 
 import { issueApi, type Issue, type IssueType } from "@/api/services/issue";
 import { usePeekStore } from "@/stores/peek";
-import { useWorkspaceStore } from "@/stores/workspace";
 import { toast } from "@/lib/toast";
 import { AppEmptyState, AppErrorState, AppLoadingState } from "@/components";
 import WbsTreeNode from "./WbsTreeNode.vue";
 import IssueCreateModal from "./IssueCreateModal.vue";
 
 const route = useRoute();
-const router = useRouter();
 const peek = usePeekStore();
-const wsStore = useWorkspaceStore();
 
 const projectId = computed(() => Number(route.params.projectId));
 const wsId = computed(() => Number(route.params.workspaceId));
@@ -177,7 +174,7 @@ function collapseAll() {
 // ---- 操作 ----
 function onSelectIssue(issueId: number) {
   selectedIssueId.value = issueId;
-  peek.open(issueId);
+  peek.open(wsId.value, projectId.value, issueId);
 }
 
 function onCreateChild(parentId: number) {
@@ -217,15 +214,11 @@ async function onDelete(issue: Issue) {
   }
 }
 
-function onCreated(issue: Issue) {
-  // 新创建的工作项加入列表
-  issues.value.push(issue);
-  // 展开其父
-  if (issue.parent_id) {
-    collapsedIssues.value.delete(issue.parent_id);
-    collapsedIssues.value = new Set(collapsedIssues.value);
-  }
+function onCreated(issueId: number) {
+  // 新创建的工作项加入列表后重新加载以刷新树
+  void issueId;
   showCreateModal.value = false;
+  load();
 }
 
 // ---- 统计 ----
@@ -344,9 +337,10 @@ const rootCount = computed(() => issues.value.filter((i) => !i.parent_id).length
     <!-- 新建子工作项弹窗 -->
     <IssueCreateModal
       v-if="showCreateModal"
+      :visible="showCreateModal"
       :workspace-id="wsId"
       :project-id="projectId"
-      :parent-id="createParentId"
+      :parent-id="createParentId ?? undefined"
       @close="showCreateModal = false"
       @created="onCreated"
     />

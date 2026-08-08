@@ -109,12 +109,13 @@ onMounted(() => load());
           <span>更新时间：{{ new Date(page.updated_at).toLocaleString() }}</span>
         </div>
       </header>
-      <!-- eslint-disable-next-line vue/no-v-html -->
+      <!-- eslint-disable vue/no-v-html -->
       <div
         v-if="page.description_html"
         class="public-page__html"
         v-html="page.description_html"
       />
+      <!-- eslint-enable vue/no-v-html -->
       <AppEmptyState
         v-else
         icon="📄"
