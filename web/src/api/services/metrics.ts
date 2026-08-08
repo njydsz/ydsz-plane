@@ -92,6 +92,48 @@ export interface MetricSnapshot {
   snapshot_date: string;
 }
 
+/** 累积流图（CFD）数据点 — 按日期统计各状态组工作项数量。 */
+export interface CFDDataPoint {
+  date: string;
+  backlog: number;
+  todo: number;
+  in_progress: number;
+  done: number;
+  cancelled: number;
+  total_active: number;
+}
+
+/** 控制图数据点（单个已完成工作项的前置时间）。 */
+export interface ControlChartPoint {
+  date: string;
+  lead_days: number;
+  episode_id: string;
+}
+
+/** 移动均线数据点。 */
+export interface MovingAverage {
+  date: string;
+  value: number;
+}
+
+/** 前置时间控制图结果（散点 + P50/P85/P95 + UCL + 7 点移动均线）。 */
+export interface ControlChartResult {
+  points: ControlChartPoint[];
+  p50: number;
+  p85: number;
+  p95: number;
+  upper_control_limit: number;
+  moving_avg_7d: MovingAverage[];
+}
+
+/** 周吞吐量数据点（每周完成需求数 + 故事点）。 */
+export interface WeeklyThroughput {
+  week_start: string;
+  week_end: string;
+  completed: number;
+  points: number;
+}
+
 /* ------------------------------------------------------------------ */
 /* API                                                                */
 /* ------------------------------------------------------------------ */
@@ -134,6 +176,24 @@ export const metricsApi = {
     wrap<MetricSnapshot[]>(
       http.get(`/workspaces/${wsId}/projects/${projectId}/metrics/snapshots`, {
         params: metric ? { metric } : {},
+      }),
+    ),
+  getCFD: (wsId: number, projectId: number, days = 30) =>
+    wrap<CFDDataPoint[]>(
+      http.get(`/workspaces/${wsId}/projects/${projectId}/metrics/cfd`, {
+        params: { days },
+      }),
+    ),
+  getControlChart: (wsId: number, projectId: number, days = 90) =>
+    wrap<ControlChartResult>(
+      http.get(`/workspaces/${wsId}/projects/${projectId}/metrics/control-chart`, {
+        params: { days },
+      }),
+    ),
+  getWeeklyThroughput: (wsId: number, projectId: number, weeks = 12) =>
+    wrap<WeeklyThroughput[]>(
+      http.get(`/workspaces/${wsId}/projects/${projectId}/metrics/throughput`, {
+        params: { weeks },
       }),
     ),
 };

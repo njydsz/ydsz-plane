@@ -9,9 +9,12 @@
 package automation
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"strconv"
 	"strings"
 	"time"
@@ -20,6 +23,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
 
+	"github.com/njydsz/ydsz-plane/internal/application/webhook"
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/mq"
 )
 
@@ -74,12 +78,12 @@ type CreateIssueRequest struct {
 //   - 事件到达顺序处理，同一工作项在 Redis 锁中串行化
 //   - 防循环：via_automation=true 且 depth >5 → 丢弃
 type Engine struct {
-	svc       *Service
-	execDeps  ActionExecutor
-	ctxProv   ExecutionContextProvider
-	log       *zap.Logger
-	metrics   *Metrics
-	breakers  *CircuitBreakerRegistry
+	svc      *Service
+	execDeps ActionExecutor
+	ctxProv  ExecutionContextProvider
+	log      *zap.Logger
+	metrics  *Metrics
+	breakers *CircuitBreakerRegistry
 	// db 供引擎内部 DB 查询使用（assignees / tech_lead / least_loaded）。
 	// 由 newEngine 注入；NewEngine 构造时可为 nil（不执行需 DB 的动作）。
 	db *pgxpool.Pool
@@ -132,6 +136,13 @@ func (e *Engine) EvaluateEvent(ctx context.Context, event mq.EventEnvelope) erro
 		return fmt.Errorf("automation: build context: %w", err)
 	}
 
+	// 同工作项串行化：同一 issue 的并发求值（事件驱动 vs 定时调度）互斥，
+	// 防止状态流转/字段更新竞态。进程内分片锁；多实例 HA 走 Redis（Phase 3）。
+	if execCtx.Issue != nil && execCtx.Issue.ID > 0 {
+		unlock := issueLockPool.lockForIssue(execCtx.Issue.ID)
+		defer unlock()
+	}
+
 	// 防循环深度检查
 	if execCtx.Depth > 5 {
 		e.log.Warn("automation: execution depth exceeded, skipping",
@@ -163,7 +174,7 @@ func (e *Engine) EvaluateEvent(ctx context.Context, event mq.EventEnvelope) erro
 		breaker := e.breakers.GetOrCreate(rule.ID)
 		if !breaker.Allow() {
 			e.log.Debug("automation: rule circuit breaker open, skipping",
-			zap.Int64("rule", rule.ID))
+				zap.Int64("rule", rule.ID))
 			continue
 		}
 
@@ -328,12 +339,120 @@ func (e *Engine) executeAction(ctx context.Context, act Action, execCtx *Executi
 		return err
 
 	case ActionWebhookCall:
-		// Webhook 调用走外部 API，异步到 TaskExchange
-		return fmt.Errorf("webhook_call: not implemented in v0.2")
+		return e.executeWebhookCall(ctx, act, execCtx)
 
 	default:
 		return fmt.Errorf("unknown action type: %s", act.Type)
 	}
+}
+
+// executeWebhookCall 执行 webhook_call 动作：向外部系统发起 HTTP 调用。
+//
+// 动作配置（act.Config）:
+//   - url:           必填，目标 URL（http/https）
+//   - method:        可选，默认 POST
+//   - headers:       可选，额外请求头 map[string]string
+//   - secret:        可选，HMAC-SHA256 签名密钥（输出 X-Ydsz-Signature-256）
+//   - body_template: 可选，请求体模板（支持 ${issue.identifier} 等变量解析）
+//   - body:          可选，原始 JSON 请求体（优先级低于 body_template）
+//
+// 安全基线（与 Webhook 投递域一致）：
+//   - SSRF 防护：拒绝内网/保留/link-local 目标（webhook.ValidateTargetURL）
+//   - 超时 10s；非 2xx 返回错误 → 计入规则失败与熔断器
+//   - 禁用重定向跟随（防止 SSRF bypass）
+func (e *Engine) executeWebhookCall(ctx context.Context, act Action, execCtx *ExecutionContext) error {
+	cfg := act.Config
+
+	target, _ := cfg["url"].(string)
+	if target == "" {
+		return fmt.Errorf("webhook_call: missing config.url")
+	}
+	if err := webhook.ValidateTargetURL(target); err != nil {
+		return fmt.Errorf("webhook_call: %w", err)
+	}
+
+	method, _ := cfg["method"].(string)
+	if method == "" {
+		method = http.MethodPost
+	}
+
+	// 请求体：body_template 优先，其次 body，最后默认结构化载荷
+	var body []byte
+	if tpl, ok := cfg["body_template"].(string); ok && tpl != "" {
+		body = []byte(resolveTemplate(tpl, execCtx))
+	} else if raw, ok := cfg["body"].(string); ok && raw != "" {
+		body = []byte(raw)
+	} else {
+		payload := map[string]any{
+			"event":        "automation.webhook_call",
+			"workspace_id": execCtx.WorkspaceID,
+			"project_id":   execCtx.ProjectID,
+			"actor":        execCtx.Actor.UserName,
+			"occurred_at":  time.Now().UTC(),
+		}
+		if execCtx.Issue != nil {
+			payload["issue"] = map[string]any{
+				"id":         execCtx.Issue.ID,
+				"identifier": execCtx.Issue.Identifier,
+				"name":       execCtx.Issue.Name,
+				"type_code":  execCtx.Issue.TypeCode,
+			}
+		}
+		body, _ = json.Marshal(payload)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, method, target, bytes.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("webhook_call: new request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("User-Agent", "Ydsz-Plane-Automation/1.0")
+
+	// 自定义请求头
+	if hdrs, ok := cfg["headers"].(map[string]any); ok {
+		for k, v := range hdrs {
+			if s, ok := v.(string); ok {
+				req.Header.Set(k, s)
+			}
+		}
+	}
+
+	// 可选 HMAC-SHA256 签名（与 Webhook 投递格式一致：sha256=HMAC(secret, ts.body)）
+	if secret, ok := cfg["secret"].(string); ok && secret != "" {
+		ts := time.Now().Unix()
+		req.Header.Set("X-Ydsz-Timestamp", fmt.Sprintf("%d", ts))
+		req.Header.Set("X-Ydsz-Signature-256", webhook.SignatureHeader(secret, ts, body))
+	}
+
+	resp, err := webhookCallClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("webhook_call: http do: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 64<<10))
+		return fmt.Errorf("webhook_call: unexpected status %d: %s",
+			resp.StatusCode, truncateWebhookBody(string(respBody)))
+	}
+	return nil
+}
+
+// webhookCallClient 是 webhook_call 动作专用的 HTTP 客户端。
+// 10s 超时 + 禁用重定向（与 Webhook 投递域同一安全基线）。
+var webhookCallClient = &http.Client{
+	Timeout: 10 * time.Second,
+	CheckRedirect: func(req *http.Request, via []*http.Request) error {
+		return http.ErrUseLastResponse
+	},
+}
+
+// truncateWebhookBody 截断错误响应体，防止大响应撑爆日志/审计。
+func truncateWebhookBody(s string) string {
+	if len(s) <= 300 {
+		return s
+	}
+	return s[:300] + "..."
 }
 
 // executeNotifyAction: 执行通知动作。
@@ -818,12 +937,12 @@ func (p *DefaultContextProvider) BuildContext(ctx context.Context, event mq.Even
 
 	// 解析 event payload 获取 IDs
 	var payload struct {
-		WorkspaceID int64 `json:"workspace_id"`
-		ProjectID   int64 `json:"project_id"`
-		IssueID     int64 `json:"issue_id"`
-		SprintID    int64 `json:"sprint_id"`
-		VersionID   int64 `json:"version_id"`
-		ActorID     int64 `json:"actor_id"`
+		WorkspaceID int64  `json:"workspace_id"`
+		ProjectID   int64  `json:"project_id"`
+		IssueID     int64  `json:"issue_id"`
+		SprintID    int64  `json:"sprint_id"`
+		VersionID   int64  `json:"version_id"`
+		ActorID     int64  `json:"actor_id"`
 		ActorName   string `json:"actor_name"`
 	}
 	_ = json.Unmarshal(event.Payload, &payload)

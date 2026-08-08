@@ -13,7 +13,13 @@ import { usePeekStore } from "@/stores/peek";
 import { prefs } from "@/lib/prefs";
 import { toast, promiseToast } from "@/lib/toast";
 import IssueCreateModal from "./IssueCreateModal.vue";
+import IssueFilter from "./IssueFilter.vue";
 import { AppErrorState, AppEmptyState, InlineEdit, InlineSelectEdit, AppSkeleton } from "@/components";
+import {
+  type FilterState,
+  safeParseFilters,
+  filterToListParams,
+} from "@/lib/filter-adapter";
 
 const route = useRoute();
 const issueStore = useIssueStore();
@@ -30,17 +36,25 @@ const columnWidth = ref(280);
 const prefsReady = ref(false);
 let savePrefsTimer: ReturnType<typeof setTimeout> | null = null;
 
-/** 加载当前用户的看板偏好（列宽等） */
+// --- 过滤器状态（强类型 FilterState，对标 Plane 的多视图 FilterAdapter）---
+const filters = ref<FilterState>({});
+
+/** 加载当前用户的看板偏好（列宽 + 过滤条件等） */
 async function loadViewPreferences() {
   try {
     const wsIdVal = Number(route.params.workspaceId);
     const pref = await preferenceApi.get(wsIdVal, projectId.value, "kanban");
+    // 列宽
     if (pref?.extra && typeof pref.extra === "object") {
       const extra = pref.extra as Record<string, unknown>;
       const w = Number(extra.column_width);
       if (w >= 200 && w <= 480) {
         columnWidth.value = w;
       }
+    }
+    // 过滤条件（强类型安全转型）
+    if (pref?.filters && typeof pref.filters === "object" && !Array.isArray(pref.filters)) {
+      filters.value = safeParseFilters(pref.filters);
     }
   } catch {
     // 偏好加载失败不阻塞看板
@@ -96,9 +110,12 @@ async function load() {
     const wsIdVal = Number(route.params.workspaceId);
     wsId.value = wsIdVal;
 
+    // FilterState → ListParams 转换，仅在 API 边界使用
+    const params = filterToListParams(filters.value);
+
     await Promise.all([
       issueStore.fetchStates(wsIdVal, projectId.value),
-      issueStore.fetchIssues(wsIdVal, projectId.value),
+      issueStore.fetchIssues(wsIdVal, projectId.value, params),
     ]);
     void loadViewPreferences();
   } catch (e: unknown) {
@@ -106,6 +123,12 @@ async function load() {
   } finally {
     loading.value = false;
   }
+}
+
+/** 过滤条件变化（由 IssueFilter 触发） */
+function onFilterChange(f: FilterState) {
+  filters.value = f;
+  load();
 }
 
 /** 获取某列内的工作项，按 sort_order 升序 */
@@ -332,6 +355,15 @@ onMounted(() => {
         <button class="btn btn--primary" @click="showCreateModal = true">+ 创建工作项</button>
       </div>
     </header>
+
+    <!-- 过滤器（使用 FilterAdapter，view_type="kanban"） -->
+    <IssueFilter
+      v-if="prefsReady"
+      :project-id="projectId"
+      :workspace-id="Number(route.params.workspaceId)"
+      view-type="kanban"
+      @filter-change="onFilterChange"
+    />
 
     <AppSkeleton v-if="loading" variant="board" :cols="issueStore.states.length || 4" />
     <AppErrorState v-else-if="error" :message="error" @retry="load" />

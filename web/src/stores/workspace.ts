@@ -13,7 +13,7 @@ export const useWorkspaceStore = defineStore("workspace", {
     loaded: false,
     slug: "" as string,
     /** 当前用户在该工作空间的权限码集合 */
-    permissions: () => new Set<string>(),
+    permissions: new Set<string>() as Set<string>,
     /** 当前用户在该工作空间的角色详情 */
     roleDetail: null as RoleDefinition | null,
   }),

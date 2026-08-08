@@ -24,7 +24,6 @@ import (
 	"github.com/njydsz/ydsz-plane/internal/application/dashboard"
 	"github.com/njydsz/ydsz-plane/internal/application/intake"
 	"github.com/njydsz/ydsz-plane/internal/application/issue"
-	"github.com/njydsz/ydsz-plane/internal/application/metrics"
 	notif "github.com/njydsz/ydsz-plane/internal/application/notification"
 	"github.com/njydsz/ydsz-plane/internal/application/pages"
 	"github.com/njydsz/ydsz-plane/internal/application/preference"
@@ -90,8 +89,8 @@ type Deps struct {
 	IntakePublicHandler *intake.PublicHandler
 	// Automation 域（S11）
 	AutomationHandler *automation.Handler
-	// Metrics 域（S11）
-	MetricsHandler *metrics.MetricsHandler
+	// Metrics 域（S11）——接口类型，支持普通与带 Redis 缓存的两种实现
+	MetricsHandler MetricsHandlerRegistrar
 	// AI 域（智能指派/重复检测/分类/摘要）
 	AiHandler *ai.Handler
 }
@@ -384,6 +383,13 @@ func RegisterAIRoutes(r *gin.Engine, d *Deps) {
 		middleware.RequirePermissionFromDB(d.RBACStore, auth.PermWorkspaceRead),
 	)
 	d.AiHandler.Register(projects)
+}
+
+// MetricsHandlerRegistrar 是效能度量 handler 的注册接口。
+// 普通实现（*metrics.MetricsHandler）与带缓存实现（*metrics.CachedHandler）
+// 均实现该接口，装配层可自由选择而不影响路由注册。
+type MetricsHandlerRegistrar interface {
+	Register(r *gin.RouterGroup)
 }
 
 // RegisterMetricsRoutes 注册效能度量路由（项目级，只读）。

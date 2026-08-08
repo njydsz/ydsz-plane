@@ -17,6 +17,7 @@ import (
 
 	"github.com/njydsz/ydsz-plane/internal/application/issue"
 	"github.com/njydsz/ydsz-plane/internal/application/notification"
+	"github.com/njydsz/ydsz-plane/internal/rbac"
 )
 
 // dbActionExecutor 是 ActionExecutor 的默认实现。
@@ -28,7 +29,7 @@ type dbActionExecutor struct {
 }
 
 // newActionExecutor 创建基于真实 DB/域服务的 ActionExecutor。
-func newActionExecutor(db *pgxpool.Pool) *dbActionExecutor {
+func newActionExecutor(db *pgxpool.Pool, rbacStore *rbac.Store) *dbActionExecutor {
 	return &dbActionExecutor{
 		db:       db,
 		issueSvc: issue.NewService(db),
@@ -113,9 +114,12 @@ func (x *dbActionExecutor) UpdateIssueField(ctx context.Context, wsID, projectID
 		if convErr != nil {
 			return fmt.Errorf("update_field: state_id: %w", convErr)
 		}
-		return x.updateViaInput(ctx, wsID, issueID, current.Version, func(in *issue.UpdateIssueInput) {
-			in.StateID = &id
-		})
+		// 状态变更走状态机 Transition（校验合法流转 + 记录活动），
+		// UpdateIssueInput 已不承载 state_id。
+		if _, err := x.issueSvc.Transition(ctx, wsID, projectID, issueID, id, current.CreatedBy); err != nil {
+			return fmt.Errorf("update_field: state_id: %w", err)
+		}
+		return nil
 	case "priority":
 		p := issue.IssuePriority(valueStr)
 		return x.updateViaInput(ctx, wsID, issueID, current.Version, func(in *issue.UpdateIssueInput) {

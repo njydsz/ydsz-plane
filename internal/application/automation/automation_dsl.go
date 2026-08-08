@@ -17,19 +17,19 @@ import (
 
 // 支持的 trigger.type 值。
 var validTriggerTypes = map[string]bool{
-	"issue.created":         true,
-	"issue.updated":         true,
-	"issue.status_changed":  true,
-	"issue.commented":       true,
-	"issue.deleted":         true,
-	"sprint.created":        true,
-	"sprint.started":        true,
-	"sprint.completed":      true,
-	"version.released":      true,
-	"version.created":       true,
-	"version.updated":       true,
-	"member.added":          true,
-	"scheduled":             true,
+	"issue.created":        true,
+	"issue.updated":        true,
+	"issue.status_changed": true,
+	"issue.commented":      true,
+	"issue.deleted":        true,
+	"sprint.created":       true,
+	"sprint.started":       true,
+	"sprint.completed":     true,
+	"version.released":     true,
+	"version.created":      true,
+	"version.updated":      true,
+	"member.added":         true,
+	"scheduled":            true,
 }
 
 // 支持的 condition op。
@@ -63,8 +63,8 @@ var varRefRegex = regexp.MustCompile(`\$\{([a-zA-Z_.][a-zA-Z0-9_.]*)\}`)
 
 // ValidateDSLResult 校验结果。
 type ValidateDSLResult struct {
-	Valid   bool     `json:"valid"`
-	Errors  []string `json:"errors"`
+	Valid    bool     `json:"valid"`
+	Errors   []string `json:"errors"`
 	Warnings []string `json:"warnings"`
 }
 

@@ -25,9 +25,9 @@ import (
 type CircuitState int
 
 const (
-	CircuitClosed    CircuitState = iota // 正常放行
-	CircuitOpen                          // 熔断中（拒绝）
-	CircuitHalfOpen                      // 半开（仅放行 1 次探测）
+	CircuitClosed   CircuitState = iota // 正常放行
+	CircuitOpen                         // 熔断中（拒绝）
+	CircuitHalfOpen                     // 半开（仅放行 1 次探测）
 )
 
 // CircuitBreakerConfig 熔断器配置。

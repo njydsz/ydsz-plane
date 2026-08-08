@@ -64,17 +64,17 @@ func (s *Service) Create(ctx context.Context, in CreateRuleInput) (*Rule, error)
 	actionCount := len(in.DSL.Actions)
 
 	rule := &Rule{
-		WorkspaceID:  in.WorkspaceID,
-		ProjectID:    in.ProjectID,
-		Name:         in.Name,
-		Description:  in.Description,
-		DSL:          in.DSL,
-		TriggerType:  triggerType,
-		ActionCount:  actionCount,
-		Status:       in.Status,
-		CreatedBy:    in.CreatedBy,
+		WorkspaceID:    in.WorkspaceID,
+		ProjectID:      in.ProjectID,
+		Name:           in.Name,
+		Description:    in.Description,
+		DSL:            in.DSL,
+		TriggerType:    triggerType,
+		ActionCount:    actionCount,
+		Status:         in.Status,
+		CreatedBy:      in.CreatedBy,
 		ExecutionCount: 0,
-		SortOrder:    in.SortOrder,
+		SortOrder:      in.SortOrder,
 	}
 
 	err := s.db.QueryRow(ctx, `
@@ -401,7 +401,7 @@ func (s *Service) DryRun(ctx context.Context, wsID, ruleID int64, sampleIssueID 
 	prov := NewDefaultContextProvider(s.db)
 	dummyEvent := mq.EventEnvelope{
 		EventType: eventType,
-		Payload:  mustJSON(map[string]any{"issue_id": sampleIssueID, "workspace_id": wsID, "project_id": rule.ProjectID}),
+		Payload:   mustJSON(map[string]any{"issue_id": sampleIssueID, "workspace_id": wsID, "project_id": rule.ProjectID}),
 	}
 	execCtx, err := prov.BuildContext(ctx, dummyEvent)
 	if err != nil {

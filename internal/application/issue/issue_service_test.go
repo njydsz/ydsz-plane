@@ -300,22 +300,23 @@ func TestPriorityWeight_AllDefined(t *testing.T) {
 
 func TestIssueTypeCode_Values(t *testing.T) {
 	valid := map[IssueTypeCode]bool{
+		TypeEpic:        true,
 		TypeRequirement: true,
 		TypeTask:        true,
 		TypeDefect:      true,
 	}
 
 	cases := []IssueTypeCode{
-		TypeRequirement, TypeTask, TypeDefect,
-		IssueTypeCode("story"), IssueTypeCode("epic"), IssueTypeCode(""),
+		TypeEpic, TypeRequirement, TypeTask, TypeDefect,
+		IssueTypeCode("story"), IssueTypeCode(""),
 	}
 
 	for _, tc := range cases {
 		_, ok := valid[tc]
-		if !ok && (tc == TypeRequirement || tc == TypeTask || tc == TypeDefect) {
+		if !ok && (tc == TypeEpic || tc == TypeRequirement || tc == TypeTask || tc == TypeDefect) {
 			t.Errorf("expected %q to be valid", tc)
 		}
-		if ok && (tc != TypeRequirement && tc != TypeTask && tc != TypeDefect) {
+		if ok && (tc != TypeEpic && tc != TypeRequirement && tc != TypeTask && tc != TypeDefect) {
 			t.Errorf("expected %q to be invalid", tc)
 		}
 	}
@@ -352,25 +353,27 @@ func TestStateGroup_Values(t *testing.T) {
 
 func TestIssueModel_JSONRoundTrip(t *testing.T) {
 	iss := Issue{
-		ID:         1,
-		WorkspaceID: 1,
-		ProjectID:  1,
-		SequenceID: 42,
-		Identifier: "YD-42",
-		TypeCode:   TypeTask,
-		Depth:      2,
-		Name:       "实现登录接口",
-		DescriptionHTML: "<p>描述</p>",
-		StateID:    2,
-		Priority:   PriorityHigh,
-		Progress:   50,
-		Version:    3,
-		ParentID:   int64Ptr(1),
-		Point:      intPtr(5),
-		Severity:   intPtr(3),
+		BaseWorkitem: BaseWorkitem{
+			ID:          1,
+			WorkspaceID: 1,
+			ProjectID:   1,
+			SequenceID:  42,
+			Identifier:  "YD-42",
+			TypeCode:    TypeTask,
+			Depth:       2,
+			Name:        "实现登录接口",
+			DescriptionHTML: "<p>描述</p>",
+			StateID:     2,
+			Priority:    PriorityHigh,
+			Progress:    50,
+			Version:     3,
+			ParentID:    int64Ptr(1),
+			Assignees:   []int64{1, 2},
+			Labels:      []int64{3},
+		},
+		Point:    intPtr(5),
+		Severity: intPtr(3),
 		FoundPhase: strPtr("unit"),
-		Assignees:  []int64{1, 2},
-		Labels:     []int64{3},
 	}
 
 	raw, err := json.Marshal(iss)
@@ -411,14 +414,16 @@ func TestIssueModel_JSONRoundTrip(t *testing.T) {
 
 func TestIssueModel_EmptyFields(t *testing.T) {
 	iss := Issue{
-		ID:          1,
-		Name:        "最小工作项",
-		StateID:     1,
-		Depth:       1,
-		Priority:    PriorityNone,
-		Version:     1,
-		Assignees:   []int64{},
-		Labels:      nil,
+		BaseWorkitem: BaseWorkitem{
+			ID:        1,
+			Name:      "最小工作项",
+			StateID:   1,
+			Depth:     1,
+			Priority:  PriorityNone,
+			Version:   1,
+			Assignees: []int64{},
+			Labels:    nil,
+		},
 	}
 	raw, _ := json.Marshal(iss)
 	var got Issue
@@ -537,7 +542,7 @@ func TestBuildUpdateSet_Empty(t *testing.T) {
 
 func TestBuildUpdateSet_Name(t *testing.T) {
 	in := UpdateIssueInput{Name: strPtr("新名称")}
-	current := &Issue{Version: 1}
+	current := &Issue{BaseWorkitem: BaseWorkitem{Version: 1}}
 	sets, args := buildUpdateSet(in, current)
 	if len(sets) < 1 { // name + updated_at
 		t.Errorf("expected >=1 sets, got %d", len(sets))
@@ -556,7 +561,7 @@ func TestBuildUpdateSet_MultiField(t *testing.T) {
 		FoundPhase: &phase,
 		Version:    2,
 	}
-	current := &Issue{Version: 1}
+	current := &Issue{BaseWorkitem: BaseWorkitem{Version: 1}}
 	sets, args := buildUpdateSet(in, current)
 	// name + priority + severity + found_phase + updated_at = 5
 	if len(sets) != 5 {
@@ -576,7 +581,7 @@ func TestBuildUpdateSet_VersionFields(t *testing.T) {
 		FixVersionID:     &fixv,
 		ReleaseVersionID: &rv,
 	}
-	current := &Issue{Version: 1}
+	current := &Issue{BaseWorkitem: BaseWorkitem{Version: 1}}
 	sets, args := buildUpdateSet(in, current)
 	if len(sets) != 4 { // 3 fields + updated_at
 		t.Errorf("version fields: expected 4 sets, got %d", len(sets))

@@ -35,9 +35,9 @@ func TestVerifySignature(t *testing.T) {
 	sig := ComputeSignature(secret, timestamp, payload)
 
 	cases := []struct {
-		name    string
-		sig     string
-		wantOK  bool
+		name   string
+		sig    string
+		wantOK bool
 	}{
 		{"正确签名", sig, true},
 		{"错误签名", "invalid_sig", false},

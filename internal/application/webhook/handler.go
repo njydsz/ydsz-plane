@@ -15,9 +15,9 @@ import (
 
 // HandlerDeps 是 webhook Handler 的依赖集。
 type HandlerDeps struct {
-	WebhookSvc   *Service
+	WebhookSvc     *Service
 	WorkspaceStore *auth.WorkspaceMembershipStore
-	Dispatcher   *Dispatcher
+	Dispatcher     *Dispatcher
 }
 
 // Handler 是 webhook HTTP handler。
@@ -248,9 +248,24 @@ func (h *Handler) TestPing(c *gin.Context) {
 
 // Retry godoc
 //   - POST .../webhooks/:webhook_id/logs/:log_id/retry
+//
+// 手动重投指定投递日志：回查 domain_events 重建原始事件并同步重投
+// （签名 / SSRF / 日志全套复用初始投递链路）。
 func (h *Handler) Retry(c *gin.Context) {
-	// MVP: 仅返回占位；完整实现需要重新读取 log 并执行投递
-	c.JSON(http.StatusOK, gin.H{"ok": true, "message": "手动重投已接受"})
+	wsID := c.GetInt64("workspace_id")
+	webhookID := c.GetInt64("webhook_id")
+	logID := c.GetInt64("log_id")
+
+	if h.dispatcher == nil {
+		respondError(c, errs.ErrInternal)
+		return
+	}
+
+	if err := h.dispatcher.RetryLog(c.Request.Context(), wsID, webhookID, logID); err != nil {
+		respondError(c, errs.Validation("WEBHOOK.RETRY_FAILED", "重投失败: "+err.Error()))
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"ok": true, "message": "重投成功"})
 }
 
 // --- 请求 DTO ---

@@ -22,6 +22,7 @@ import (
 	"crypto/tls"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -30,6 +31,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"go.uber.org/zap"
 
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/mq"
@@ -120,9 +122,8 @@ func (d *Dispatcher) DispatchEvent(ctx context.Context, envelope mq.EventEnvelop
 // deliverOne 同步投递单条事件到单个 Webhook。
 func (d *Dispatcher) deliverOne(ctx context.Context, w *Webhook, envelope mq.EventEnvelope, attempt int) error {
 	// SSRF 防护：解析目标 URL 并校验 IP
-	commit := d.preFlightCheck(w.TargetURL)
-	if commit != nil {
-		return commit
+	if err := ValidateTargetURL(w.TargetURL); err != nil {
+		return err
 	}
 
 	// 构造投递负载
@@ -169,17 +170,17 @@ func (d *Dispatcher) deliverOne(ctx context.Context, w *Webhook, envelope mq.Eve
 
 	// 写日志 & 更新 webhook 状态（无论成功失败都记）
 	logEntry := &WebhookLog{
-		WebhookID:  w.ID,
-		WorkspaceID: w.WorkspaceID,
-		DeliveryID: deliveryID,
-		EventType:  envelope.EventType,
-		EventID:    &envelope.EventID,
-		RequestURL: w.TargetURL,
+		WebhookID:     w.ID,
+		WorkspaceID:   w.WorkspaceID,
+		DeliveryID:    deliveryID,
+		EventType:     envelope.EventType,
+		EventID:       &envelope.EventID,
+		RequestURL:    w.TargetURL,
 		RequestMethod: http.MethodPost,
 		RequestBody:   string(body),
-		Attempt:    int16(attempt),
-		DurationMs: &durMs,
-		OccurredAt: start,
+		Attempt:       int16(attempt),
+		DurationMs:    &durMs,
+		OccurredAt:    start,
 	}
 
 	if err != nil {
@@ -217,9 +218,10 @@ func (d *Dispatcher) deliverOne(ctx context.Context, w *Webhook, envelope mq.Eve
 	return fmt.Errorf("delivery rejected: %s", errText)
 }
 
-// preFlightCheck 执行 SSRF 防护：解析目标 URL 并校验最终 IP。
+// ValidateTargetURL 执行 SSRF 防护：解析目标 URL 并校验最终 IP。
 // 阻塞内网、保留、link-local 地址。
-func (d *Dispatcher) preFlightCheck(targetURL string) error {
+// 导出为包级函数，供自动化引擎的 webhook_call 动作等复用同一安全基线。
+func ValidateTargetURL(targetURL string) error {
 	u, err := url.Parse(targetURL)
 	if err != nil {
 		return fmt.Errorf("invalid target URL: %w", err)
@@ -242,7 +244,7 @@ func (d *Dispatcher) preFlightCheck(targetURL string) error {
 	}
 
 	for _, ip := range ips {
-		if d.isBlockedIP(ip) {
+		if isBlockedIP(ip) {
 			return fmt.Errorf("target IP %s is blocked (private/link-local)", ip.String())
 		}
 	}
@@ -251,7 +253,7 @@ func (d *Dispatcher) preFlightCheck(targetURL string) error {
 }
 
 // isBlockedIP 报告 IP 是否为内网 / 保留地址。
-func (d *Dispatcher) isBlockedIP(ip net.IP) bool {
+func isBlockedIP(ip net.IP) bool {
 	if ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsPrivate() {
 		return true
 	}
@@ -281,21 +283,21 @@ func (d *Dispatcher) enqueueRetry(ctx context.Context, w *Webhook, envelope mq.E
 
 	delay := RetryBackoffs[min(attempt-1, len(RetryBackoffs)-1)]
 	return d.mq.Enqueue(ctx, mq.Task{
-		ID:          fmt.Sprintf("webhook-retry-%d-%d", w.ID, time.Now().UnixNano()),
-		Type:        "webhook.retry",
-		Payload:     payload,
-		MaxRetries:  0, // retry 任务不再重试
-		Delay:       delay,
-		Priority:    5,
-		CreatedAt:   time.Now(),
+		ID:         fmt.Sprintf("webhook-retry-%d-%d", w.ID, time.Now().UnixNano()),
+		Type:       "webhook.retry",
+		Payload:    payload,
+		MaxRetries: 0, // retry 任务不再重试
+		Delay:      delay,
+		Priority:   5,
+		CreatedAt:  time.Now(),
 	})
 }
 
 // RetryTask 是排入重试队列的任务结构。
 type RetryTask struct {
-	WebhookID int64           `json:"webhook_id"`
+	WebhookID int64            `json:"webhook_id"`
 	Envelope  mq.EventEnvelope `json:"envelope"`
-	Attempt   int             `json:"attempt"`
+	Attempt   int              `json:"attempt"`
 }
 
 // HandleRetry 消费 retry 任务执行再次投递。
@@ -334,10 +336,10 @@ func (d *Dispatcher) HandleRetry(ctx context.Context, task mq.Task) error {
 // ExecuteTestPing 执行测试投递（由 handler 同步调用简化流程）。
 func (d *Dispatcher) ExecuteTestPing(ctx context.Context, w *Webhook) error {
 	pingPayload := map[string]interface{}{
-		"ping":       true,
-		"hook_id":    w.ID,
-		"test":       true,
-		"event":      "ping",
+		"ping":        true,
+		"hook_id":     w.ID,
+		"test":        true,
+		"event":       "ping",
 		"occurred_at": time.Now().UTC(),
 	}
 	pingBody, _ := json.Marshal(pingPayload)
@@ -350,6 +352,68 @@ func (d *Dispatcher) ExecuteTestPing(ctx context.Context, w *Webhook) error {
 		OccurredAt:  time.Now(),
 	}
 	return d.deliverOne(ctx, w, envelope, 1)
+}
+
+// RetryLog 手动重投一条历史投递日志（管理页"重投"按钮）。
+//
+// 实现要点：
+//   - 从 webhook_logs 定位日志 → 校验归属（workspace + webhook）
+//   - 通过日志记录的 event_id 回查 domain_events 重建原始事件（事件 30 天
+//     保留期内可重投；超期/已清理返回明确错误）
+//   - 同步重新投递（与初始投递共用 deliverOne：签名/SSRF/日志全套）
+//
+// 与自动重试（enqueueRetry 走 MQ 退避）不同，手动重投是用户主动操作，
+// 采用同步语义，管理页可立即看到结果。API 进程无需 MQ 连接即可完成。
+func (d *Dispatcher) RetryLog(ctx context.Context, workspaceID, webhookID, logID int64) error {
+	logEntry, err := d.svc.GetLogByID(ctx, workspaceID, webhookID, logID)
+	if err != nil {
+		return err
+	}
+	if logEntry.EventID == nil || *logEntry.EventID <= 0 {
+		return fmt.Errorf("webhook.retry: 该日志无原始事件可重投（测试 ping 或事件已清理）")
+	}
+
+	// 重建原始领域事件（domain_events 保留期内）
+	var (
+		eventType  string
+		payload    json.RawMessage
+		occurredAt time.Time
+		aggType    string
+		aggID      int64
+	)
+	err = d.svc.db.QueryRow(ctx, `
+		SELECT event_type, payload, occurred_at, aggregate_type, aggregate_id
+		FROM domain_events WHERE id = $1 AND workspace_id = $2`,
+		*logEntry.EventID, workspaceID).Scan(&eventType, &payload, &occurredAt, &aggType, &aggID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fmt.Errorf("webhook.retry: 原始事件已超出保留期（30 天）或被清理")
+		}
+		return fmt.Errorf("webhook.retry: load event: %w", err)
+	}
+
+	envelope := mq.EventEnvelope{
+		EventID:       *logEntry.EventID,
+		EventType:     eventType,
+		WorkspaceID:   workspaceID,
+		AggregateType: aggType,
+		AggregateID:   aggID,
+		Payload:       payload,
+		OccurredAt:    occurredAt,
+	}
+
+	w, err := d.svc.GetByIDWithSecret(ctx, workspaceID, webhookID)
+	if err != nil {
+		return fmt.Errorf("webhook.retry: load webhook: %w", err)
+	}
+	if !w.IsActive {
+		return fmt.Errorf("webhook.retry: webhook 已停用，请先启用")
+	}
+
+	if err := d.deliverOne(ctx, w, envelope, 1); err != nil {
+		return fmt.Errorf("webhook.retry: %w", err)
+	}
+	return nil
 }
 
 // --- 内部辅助 ---

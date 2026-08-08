@@ -6,9 +6,13 @@ package issue
 import "time"
 
 // IssueTypeCode 工作项类型枚举。
+//
+// 对标 Plane 的 IssueType：epic 作为顶层容器，requirement / task / defect 作为可执行工作项。
+// Epic 可包含多个 requirement / task / defect 作为子项（通过 parent_id 关联）。
 type IssueTypeCode string
 
 const (
+	TypeEpic        IssueTypeCode = "epic"
 	TypeRequirement IssueTypeCode = "requirement"
 	TypeTask        IssueTypeCode = "task"
 	TypeDefect      IssueTypeCode = "defect"
@@ -46,16 +50,17 @@ var PriorityWeight = map[IssuePriority]int{
 
 // State 工作项状态（项目维度）。
 type State struct {
-	ID          int64     `json:"id"`
-	WorkspaceID int64     `json:"workspace_id"`
-	ProjectID   int64     `json:"project_id"`
-	Name        string    `json:"name"`
-	Group       StateGroup `json:"group"`
-	Color       string    `json:"color"`
-	Sequence    float64   `json:"sequence"`
-	IsDefault   bool      `json:"is_default"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	ID              int64      `json:"id"`
+	WorkspaceID     int64      `json:"workspace_id"`
+	ProjectID       int64      `json:"project_id"`
+	Name            string     `json:"name"`
+	Group           StateGroup `json:"group"`
+	Color           string     `json:"color"`
+	Sequence        float64    `json:"sequence"`
+	IsDefault       bool       `json:"is_default"`
+	ApplicableTypes []string   `json:"applicable_types"` // 适用的工作项类型：all|epic|requirement|task|defect
+	CreatedAt       time.Time  `json:"created_at"`
+	UpdatedAt       time.Time  `json:"updated_at"`
 }
 
 // BaseWorkitem 所有工作项的公共基类

@@ -24,11 +24,12 @@ func TestRoleValidity(t *testing.T) {
 
 // TestRoleLevel 验证角色层级单调递增。
 func TestRoleLevel(t *testing.T) {
-	if RoleOwner.Level() <= RoleAdmin.Level() {
-		t.Errorf("owner level must exceed admin level")
+	// 层级语义：admin=100（平台级）> owner=80（空间级）> pm/po/techlead=50 > dev=30 > guest=10
+	if RoleAdmin.Level() <= RoleOwner.Level() {
+		t.Errorf("admin level must exceed owner level")
 	}
-	if RoleAdmin.Level() <= RoleGuest.Level() {
-		t.Errorf("admin level must exceed guest level")
+	if RoleOwner.Level() <= RoleGuest.Level() {
+		t.Errorf("owner level must exceed guest level")
 	}
 	// 所有角色层级非负
 	for _, r := range []WorkspaceRole{RoleOwner, RoleAdmin, RolePM, RolePO, RoleTechLead, RoleQALead, RoleDev, RoleGuest} {
@@ -45,11 +46,12 @@ func TestRoleIsAtLeast(t *testing.T) {
 		min  WorkspaceRole
 		want bool
 	}{
-		{RoleOwner, RoleAdmin, true},
-		{RoleAdmin, RoleAdmin, true},
+		{RoleAdmin, RoleOwner, true}, // admin(100) >= owner(80)
+		{RoleOwner, RoleOwner, true},
 		{RoleDev, RoleAdmin, false},
 		{RoleGuest, RoleDev, false},
-		{RoleOwner, RoleGuest, true},
+		{RoleAdmin, RoleGuest, true},
+		{RoleOwner, RolePM, true}, // owner(80) >= pm(50)
 	}
 	for _, c := range cases {
 		if got := c.role.IsAtLeast(c.min); got != c.want {

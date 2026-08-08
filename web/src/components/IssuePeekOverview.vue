@@ -170,13 +170,10 @@ async function onStateSubmit(stateId: unknown) {
   if (!issue.value || typeof stateId !== "number") return;
   const targetState = states.value.find((s) => s.id === stateId);
   await promiseToast(
-    issueApi.updateIssue(wsId.value!, projectId.value, issueId.value, {
-      state_id: stateId,
-      version: issue.value.version,
-    }),
+    issueApi.transition(wsId.value!, projectId.value, issueId.value, stateId),
     {
       loading: "切换状态中...",
-      success: () => { issue.value = { ...issue.value!, state_id: stateId }; return `已移至「${targetState?.name ?? ""}」`; },
+      success: () => { issue.value = { ...issue.value!, state_id: stateId, version: issue.value!.version + 1 }; return `已移至「${targetState?.name ?? ""}」`; },
       error: () => "状态切换失败",
     }
   );

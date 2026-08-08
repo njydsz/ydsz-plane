@@ -408,6 +408,35 @@ func (s *Service) ListLogs(ctx context.Context, input ListLogsInput) (*ListLogsR
 	return &ListLogsResult{Items: items, Total: total}, nil
 }
 
+// GetLogByID 按日志 ID 查询单条投递日志（工作空间 + webhook 双限定）。
+// 供管理页"手动重投"使用：定位日志后重新投递原始事件。
+func (s *Service) GetLogByID(ctx context.Context, workspaceID, webhookID, logID int64) (*WebhookLog, error) {
+	var l WebhookLog
+	err := s.db.QueryRow(ctx, `
+		SELECT id, webhook_id, workspace_id, delivery_id, event_type, event_id,
+			request_url, request_method, request_headers, request_body,
+			response_status, response_body, response_headers,
+			status, attempt, duration_ms, error, occurred_at
+		FROM webhook_logs
+		WHERE id = $1 AND workspace_id = $2 AND webhook_id = $3`,
+		logID, workspaceID, webhookID).Scan(
+		&l.ID, &l.WebhookID, &l.WorkspaceID, &l.DeliveryID, &l.EventType, &l.EventID,
+		&l.RequestURL, &l.RequestMethod, &l.RequestHeaders, &l.RequestBody,
+		&l.ResponseStatus, &l.ResponseBody, &l.ResponseHeaders,
+		&l.Status, &l.Attempt, &l.DurationMs, &l.Error, &l.OccurredAt,
+	)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, errs.ErrNotFound.WithDetails(errs.FieldDetail{
+				Field:  "log_id",
+				Reason: "投递日志不存在",
+			})
+		}
+		return nil, fmt.Errorf("webhook.GetLogByID: %w", err)
+	}
+	return &l, nil
+}
+
 // --- 状态维护 ---
 
 // RecordResult 更新投递结果标记。
@@ -501,13 +530,13 @@ func (s *Service) SendTestPing(ctx context.Context, webhookID, workspaceID int64
 
 	// 返回待投递的配置（实际投递由 dispatcher 异步完成）
 	log := &WebhookLog{
-		WebhookID:  w.ID,
+		WebhookID:   w.ID,
 		WorkspaceID: w.WorkspaceID,
-		EventType:  "ping",
+		EventType:   "ping",
 		RequestBody: string(pingBody),
-		Status:     LogStatusRetrying, // 占位；实际状态取决于投递
-		Attempt:    0,
-		OccurredAt: time.Now(),
+		Status:      LogStatusRetrying, // 占位；实际状态取决于投递
+		Attempt:     0,
+		OccurredAt:  time.Now(),
 	}
 	_ = pingBody
 	return log, nil

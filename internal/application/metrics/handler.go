@@ -155,9 +155,9 @@ func (h *MetricsHandler) GetDORA(c *gin.Context) {
 
 // resourceLoadResponse 资源负载视图。
 type resourceLoadResponse struct {
-	ProjectID     int64 `json:"project_id"`
-	ActiveWIP     int   `json:"active_wip"`
-	TotalStarted  int   `json:"total_started_issues"`
+	ProjectID      int64 `json:"project_id"`
+	ActiveWIP      int   `json:"active_wip"`
+	TotalStarted   int   `json:"total_started_issues"`
 	SampleSprintID int64 `json:"sample_sprint_id,omitempty"`
 }
 
@@ -206,11 +206,11 @@ func (h *MetricsHandler) GetResourceLoad(c *gin.Context) {
 
 // deploymentRequest 部署事件上报请求。
 type deploymentRequest struct {
-	Env       string    `json:"env" binding:"required"`
-	Status    string    `json:"status" binding:"required,oneof=success failed rollback"`
-	Source    string    `json:"source" binding:"required"`
-	CommitSHA string    `json:"commit_sha"`
-	StartedAt time.Time `json:"started_at"`
+	Env        string    `json:"env" binding:"required"`
+	Status     string    `json:"status" binding:"required,oneof=success failed rollback"`
+	Source     string    `json:"source" binding:"required"`
+	CommitSHA  string    `json:"commit_sha"`
+	StartedAt  time.Time `json:"started_at"`
 	DeployedAt time.Time `json:"deployed_at"`
 }
 

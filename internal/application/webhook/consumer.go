@@ -112,7 +112,7 @@ func RunConsumer(ctx context.Context, mqClient *mq.Client, dispatcher *Dispatche
 // 返回非 nil 错误时触发外层重连逻辑。
 func runConsumeLoop(ctx context.Context, mqClient *mq.Client, consumer *Consumer, log *zap.Logger) error {
 	if _, err := mqClient.DeclareQueue(ctx, consumerQueue, mq.EventExchange, routingPattern, amqp.Table{
-		"x-max-priority":       int64(5),
+		"x-max-priority":         int64(5),
 		"x-dead-letter-exchange": mq.DeadLetterExchange,
 	}); err != nil {
 		return errors.New("webhook: declare queue: " + err.Error())

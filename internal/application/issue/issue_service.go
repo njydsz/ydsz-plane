@@ -62,10 +62,11 @@ type CreateIssueInput struct {
 }
 
 // UpdateIssueInput 更新工作项的入参。
+// 注意：state_id不允许通过更新接口修改，所有状态变更必须走专用的transition端点
+// 保证状态流转必须经过规则校验、required_fields校验
 type UpdateIssueInput struct {
 	Name              *string
 	DescriptionHTML   *string
-	StateID           *int64
 	Priority          *IssuePriority
 	ParentID          *int64 // nil=不更新, 设置值=更新
 	Severity          *int
@@ -564,7 +565,15 @@ func (s *Service) BatchUpdate(ctx context.Context, wsID, projectID, userID int64
 		case in.ToStateID != nil:
 			_, batchErr = s.Transition(ctx, wsID, projectID, id, *in.ToStateID, userID)
 		case in.AssigneeID != nil || in.Priority != nil:
-			batchErr = s.directUpdateIssue(ctx, wsID, id, in.AssigneeID, in.Priority)
+			// 批量场景无客户端版本号：读取当前版本后按最新值更新（乐观锁以数据库为准）
+			var ver int
+			if err := s.db.QueryRow(ctx,
+				`SELECT version FROM issues WHERE id = $1 AND workspace_id = $2 AND deleted_at IS NULL`,
+				id, wsID).Scan(&ver); err != nil {
+				batchErr = errs.ErrInternal.Wrap(err)
+			} else {
+				batchErr = s.directUpdateIssue(ctx, wsID, id, in.AssigneeID, in.Priority, ver)
+			}
 		default:
 			continue
 		}
@@ -585,8 +594,9 @@ func (s *Service) BatchUpdate(ctx context.Context, wsID, projectID, userID int64
 	return result, nil
 }
 
-// directUpdateIssue 直接更新单个工作项的指派人/优先级（不检查乐观锁version）。
-func (s *Service) directUpdateIssue(ctx context.Context, wsID, issueID int64, assigneeID *int64, priority *string) error {
+// directUpdateIssue 更新单个工作项的指派人/优先级，带乐观锁校验
+// expectedVersion: 客户端获取到的最新版本号，更新时校验版本一致性，冲突返回errs.ErrVersionConflict
+func (s *Service) directUpdateIssue(ctx context.Context, wsID, issueID int64, assigneeID *int64, priority *string, expectedVersion int) error {
 	return s.withTx(ctx, wsID, func(tx pgx.Tx) error {
 		// 更新指派人
 		if assigneeID != nil {
@@ -600,13 +610,18 @@ func (s *Service) directUpdateIssue(ctx context.Context, wsID, issueID int64, as
 			}
 		}
 
-		// 更新优先级
+		// 更新优先级（带乐观锁校验）
 		if priority != nil {
-			if _, err := tx.Exec(ctx,
+			result, err := tx.Exec(ctx,
 				`UPDATE issues SET priority = $1, updated_at = now(), version = version + 1
-				 WHERE id = $2 AND workspace_id = $3 AND deleted_at IS NULL`,
-				*priority, issueID, wsID); err != nil {
+				 WHERE id = $2 AND workspace_id = $3 AND deleted_at IS NULL AND version = $4`,
+				*priority, issueID, wsID, expectedVersion)
+			if err != nil {
 				return err
+			}
+			// 校验更新行数，0行说明版本冲突
+			if result.RowsAffected() == 0 {
+				return errs.ErrVersionConflict
 			}
 		}
 
@@ -1210,13 +1225,6 @@ func buildUpdateSet(in UpdateIssueInput, current *Issue) ([]string, []interface{
 		args = append(args, *in.DescriptionHTML)
 		arg++
 	}
-	if in.StateID != nil {
-		sets = append(sets, "state_id = $"+strconv.Itoa(arg))
-		args = append(args, *in.StateID)
-		arg++
-		// 状态变更离开 completed 时清空完成时间
-		sets = append(sets, "completed_at = NULL")
-	}
 	if in.Priority != nil {
 		sets = append(sets, "priority = $"+strconv.Itoa(arg))
 		args = append(args, string(*in.Priority))
@@ -1278,7 +1286,7 @@ func validateCreateInput(in CreateIssueInput) error {
 	if len(in.Name) > 500 {
 		return errs.ErrValidation.WithDetails(errs.FieldDetail{Field: "name", Reason: "工作项名称不能超过 500 字符"})
 	}
-	if in.TypeCode != TypeRequirement && in.TypeCode != TypeTask && in.TypeCode != TypeDefect {
+	if in.TypeCode != TypeEpic && in.TypeCode != TypeRequirement && in.TypeCode != TypeTask && in.TypeCode != TypeDefect {
 		return errs.ErrValidation.WithDetails(errs.FieldDetail{Field: "type_code", Reason: "无效的工作项类型"})
 	}
 	return nil

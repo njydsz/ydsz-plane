@@ -46,6 +46,9 @@ func NewCachedHandler(deps *HandlerDeps, cli *redis.Client, log *zap.Logger) *Ca
 }
 
 // Register 注册带缓存的路由。
+// 说明：velocity/lead-time/quality/dora/resource-load/snapshots 走读穿透
+// 缓存；deployments（写入）、cfd/control-chart/throughput（低频分析查询）
+// 委托内层 handler 直查，避免缓存复杂聚合结果造成口径漂移。
 func (h *CachedHandler) Register(r *gin.RouterGroup) {
 	r.GET("/velocity", h.GetVelocity)
 	r.GET("/velocity/trend", h.GetVelocityTrend)
@@ -55,6 +58,12 @@ func (h *CachedHandler) Register(r *gin.RouterGroup) {
 	r.GET("/resource-load", h.GetResourceLoad)
 	r.POST("/deployments", h.RecordDeployment)
 	r.GET("/snapshots", h.ListSnapshots)
+
+	// 未缓存的分析端点（委托内层 Handler，方法经嵌入提升）
+	r.GET("/resource-load/detail", h.GetResourceLoadDetail)
+	r.GET("/cfd", h.GetCFD)
+	r.GET("/control-chart", h.GetControlChart)
+	r.GET("/throughput", h.GetWeeklyThroughput)
 }
 
 // GetVelocity 查询项目速率统计（带缓存）。

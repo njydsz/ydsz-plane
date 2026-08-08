@@ -291,9 +291,6 @@ func (h *IssueHandler) updateIssue(c *gin.Context) {
 	if req.DescriptionHTML != nil {
 		in.DescriptionHTML = req.DescriptionHTML
 	}
-	if req.StateID != nil {
-		in.StateID = req.StateID
-	}
 	if req.Priority != nil {
 		p := IssuePriority(*req.Priority)
 		in.Priority = &p
@@ -433,7 +430,7 @@ func (h *IssueHandler) reorderIssue(c *gin.Context) {
 //	@Produce		json
 //	@Param			state_id	query		int		false	"状态 ID"
 //	@Param			group		query		string	false	"状态分组 (backlog|started|completed|cancelled)"
-//	@Param			type		query		string	false	"类型 (requirement|task|defect)"
+//	@Param			type		query		string	false	"类型 (epic|requirement|task|defect)"
 //	@Param			priority	query		string	false	"优先级"
 //	@Param			parent_id	query		int		false	"父级 ID"
 //	@Param			search		query		string	false	"名称搜索"
@@ -846,7 +843,7 @@ func (h *IssueHandler) deleteTimeLog(c *gin.Context) {
 // --- request/response types ---
 
 type createIssueRequest struct {
-	Type             string         `json:"type" binding:"required,oneof=requirement task defect"`
+	Type             string         `json:"type" binding:"required,oneof=epic requirement task defect"`
 	Name             string         `json:"name" binding:"required,max=500"`
 	DescriptionHTML  string         `json:"description_html"`
 	StateID          int64          `json:"state_id"`
@@ -867,7 +864,6 @@ type createIssueRequest struct {
 type updateIssueRequest struct {
 	Name              *string `json:"name"`
 	DescriptionHTML   *string `json:"description_html"`
-	StateID           *int64  `json:"state_id"`
 	Priority          *string `json:"priority"`
 	ParentID          *int64  `json:"parent_id"`
 	Severity          *int    `json:"severity"`

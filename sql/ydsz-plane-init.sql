@@ -1496,7 +1496,7 @@ COMMENT ON COLUMN public.issues.public_id IS '对外暴露的唯一标识（UUID
 COMMENT ON COLUMN public.issues.workspace_id IS '工作空间/租户 FK，RLS 依据，复合索引首列';
 COMMENT ON COLUMN public.issues.project_id IS '所属项目 FK（projects.id），聚合根容器';
 COMMENT ON COLUMN public.issues.sequence_id IS '项目内自增序号，配合 project.identifier 展示为 YD-123';
-COMMENT ON COLUMN public.issues.type_code IS '工作项类型: requirement(需求) / task(任务) / defect(缺陷)';
+COMMENT ON COLUMN public.issues.type_code IS '工作项类型: epic(史诗) / requirement(需求) / task(任务) / defect(缺陷)';
 COMMENT ON COLUMN public.issues.parent_id IS 'WBS 父工作项 FK（issues.id），NULL=顶级，limit depth ≤3';
 COMMENT ON COLUMN public.issues.depth IS 'WBS 冗余层级（1..3），父项 depth+1 自动填充，>3 拒绝';
 COMMENT ON COLUMN public.issues.name IS '工作项标题（短文本，索引全文检索命中）';
@@ -4515,7 +4515,7 @@ ALTER TABLE "public"."issues" ADD CONSTRAINT "issues_priority_check" CHECK (prio
 ALTER TABLE "public"."issues" ADD CONSTRAINT "issues_progress_check" CHECK (progress >= 0 AND progress <= 100);
 ALTER TABLE "public"."issues" ADD CONSTRAINT "issues_root_cause_category_check" CHECK (root_cause_category = ANY (ARRAY['requirement'::text, 'technical'::text, 'environment'::text, 'data'::text]));
 ALTER TABLE "public"."issues" ADD CONSTRAINT "issues_severity_check" CHECK (severity >= 1 AND severity <= 5);
-ALTER TABLE "public"."issues" ADD CONSTRAINT "issues_type_code_check" CHECK (type_code = ANY (ARRAY['requirement'::text, 'task'::text, 'defect'::text]));
+ALTER TABLE "public"."issues" ADD CONSTRAINT "issues_type_code_check" CHECK (type_code = ANY (ARRAY['epic'::text, 'requirement'::text, 'task'::text, 'defect'::text]));
 ALTER TABLE "public"."issues" ADD CONSTRAINT "defect_required" CHECK (type_code <> 'defect'::text OR severity IS NOT NULL AND found_phase IS NOT NULL);
 
 -- ----------------------------

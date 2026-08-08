@@ -1,33 +1,44 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 /**
- * IssueFilter — 工作项通用过滤器组件。
+ * IssueFilter — 工作项通用过滤器组件（看板/列表/日历/甘特共用）。
  *
- * 支持: 搜索/状态分组/类型/优先级/严重级别/日期范围 过滤。
- * 过滤偏好按项目维度保存到 localStorage。
+ * 对标 Plane 的 IssueFilter：
+ *   - 通过 viewType 参数适配不同视图
+ *   - 使用 FilterState 强类型状态替代旧散落 ref
+ *   - 使用 FilterAdapter 进行状态序列化/反序列化
+ *   - 统一走 lib/prefs.ts 的 localStorage（替代旧的双重存储）
+ *   - 服务端偏好按 view_type 自动选择
  */
 import { onMounted, ref, watch } from "vue";
 
-import type { IssueType, ListIssuesParams, StateGroup } from "@/api/services/issue";
+import type { IssueType, StateGroup } from "@/api/services/issue";
+import { preferenceApi } from "@/api/services/preference";
+import { useWorkspaceContext } from "@/composables/useWorkspaceContext";
+import {
+  type FilterState,
+  type IssueTypeCode,
+  safeParseFilters,
+  hasActiveFilter,
+  activeFilterCount,
+} from "@/lib/filter-adapter";
+import { prefs } from "@/lib/prefs";
 
 // ---- Props ----
 const props = defineProps<{
   projectId: number;
   workspaceId: number;
+  /** 当前视图类型，决定了服务端偏好保存的 view_type 键 */
+  viewType?: "kanban" | "list" | "calendar" | "gantt" | "spreadsheet";
 }>();
 
 const emit = defineEmits<{
-  (e: "filter-change", params: ListIssuesParams): void;
+  (e: "filter-change", filters: FilterState): void;
 }>();
 
-// 按项目隔离的存储 key
-const storageKey = () => `ydsz_issue_filter_${props.projectId}`;
+const viewType = props.viewType ?? "list";
 
-// ---- 过滤状态 ----
-const search = ref("");
-const stateGroup = ref<StateGroup | "">("");
-const type = ref<IssueType | "">("");
-const priority = ref<string>("");
-const severityFrom = ref<number | null>(null);
+// ---- 过滤状态（强类型 FilterState） ----
+const filters = ref<FilterState>({});
 
 // ---- 选项 ----
 const stateGroupOptions: { value: StateGroup | ""; label: string }[] = [
@@ -40,6 +51,7 @@ const stateGroupOptions: { value: StateGroup | ""; label: string }[] = [
 
 const typeOptions: { value: IssueType | ""; label: string }[] = [
   { value: "", label: "全部类型" },
+  { value: "epic", label: "史诗" },
   { value: "requirement", label: "需求" },
   { value: "task", label: "任务" },
   { value: "defect", label: "缺陷" },
@@ -63,122 +75,137 @@ const severityOptions: { value: number | null; label: string }[] = [
   { value: 1, label: "≥S1 建议" },
 ];
 
-// ---- 是否有活跃过滤 ----
-const hasFilter = () =>
-  stateGroup.value !== "" ||
-  type.value !== "" ||
-  priority.value !== "" ||
-  severityFrom.value !== null ||
-  search.value.trim() !== "";
+// ---- 派生辅助 ----
+function hasActive(): boolean {
+  return hasActiveFilter(filters.value);
+}
+function activeCount(): number {
+  return activeFilterCount(filters.value);
+}
 
-// ---- 构建过滤参数并发射 ----
+// ---- 发射过滤变化 ----
 function emitFilter() {
-  const params: ListIssuesParams = {};
-
-  if (search.value.trim()) params.search = search.value.trim();
-  if (stateGroup.value) params.group = stateGroup.value;
-  if (type.value) params.type = type.value;
-  if (priority.value) params.priority = priority.value as ListIssuesParams["priority"];
-  if (severityFrom.value != null) params.severity_from = severityFrom.value;
-
-  emit("filter-change", params);
-  saveToStorage();
+  // 清理空值，构建干净的 FilterState
+  const cleaned: FilterState = {};
+  for (const [k, v] of Object.entries(filters.value)) {
+    if (v !== undefined && v !== null && v !== "" && !(typeof v === "number" && isNaN(v))) {
+      (cleaned as Record<string, unknown>)[k] = v;
+    }
+  }
+  filters.value = cleaned;
+  emit("filter-change", cleaned);
 }
 
-// ---- localStorage 持久化 ----
-function saveToStorage() {
-  try {
-    localStorage.setItem(
-      storageKey(),
-      JSON.stringify({
-        search: search.value,
-        stateGroup: stateGroup.value,
-        type: type.value,
-        priority: priority.value,
-        severityFrom: severityFrom.value,
-      }),
-    );
-  } catch { /* ignore */ }
+// ---- localStorage 持久化（统一走 prefs.ts） ----
+function storageKey(): string {
+  return `filter:${viewType}:${props.projectId}`;
+}
+function saveToStorage(): void {
+  prefs.set(storageKey(), filters.value);
+}
+function loadFromStorage(): FilterState {
+  return prefs.get<FilterState>(storageKey(), {});
 }
 
-function loadFromStorage() {
-  try {
-    const raw = localStorage.getItem(storageKey());
-    if (!raw) return;
-    const saved = JSON.parse(raw);
-    if (saved.search) search.value = saved.search;
-    if (saved.stateGroup) stateGroup.value = saved.stateGroup;
-    if (saved.type) type.value = saved.type;
-    if (saved.priority) priority.value = saved.priority;
-    if (saved.severityFrom != null) severityFrom.value = saved.severityFrom;
-  } catch { /* ignore */ }
-}
-
-function clearFilters() {
-  search.value = "";
-  stateGroup.value = "";
-  type.value = "";
-  priority.value = "";
-  severityFrom.value = null;
-  emitFilter();
-}
-
-// 防抖搜索
-let searchTimer: ReturnType<typeof setTimeout> | null = null;
-function onSearchInput() {
-  if (searchTimer) clearTimeout(searchTimer);
-  searchTimer = setTimeout(emitFilter, 300);
-}
-
-// 选择变化立即触发
-watch([stateGroup, type, priority, severityFrom], () => emitFilter());
-
-// ---- 服务端视图偏好（对标 Plane 的 View 保存，跨设备同步） ----
-import { preferenceApi } from "@/api/services/preference";
-import { useWorkspaceContext } from "@/composables/useWorkspaceContext";
-
+// ---- 服务端视图偏好 ----
 const { wsId } = useWorkspaceContext();
 
-/** 将当前过滤保存到服务端偏好（供列表/看板视图调用） */
-async function saveServerPreference() {
+async function saveServerPreference(): Promise<void> {
   const wsIdVal = wsId.value;
   if (!wsIdVal || !props.projectId) return;
   try {
-    await preferenceApi.save(wsIdVal, props.projectId, "list", {
-      filters: {
-        search: search.value,
-        group: stateGroup.value,
-        type: type.value,
-        priority: priority.value,
-        severity_from: severityFrom.value,
-      },
+    await preferenceApi.save(wsIdVal, props.projectId, viewType, {
+      filters: filters.value,
     });
-  } catch { /* 静默失败，不影响本地体验 */ }
+  } catch {
+    /* 静默失败，不影响本地体验 */
+  }
 }
 
-/** 从服务端偏好恢复过滤条件 */
-async function loadServerPreference() {
+async function loadServerPreference(): Promise<FilterState> {
   const wsIdVal = wsId.value;
-  if (!wsIdVal || !props.projectId) return;
+  if (!wsIdVal || !props.projectId) return {};
   try {
-    const vp = await preferenceApi.get(wsIdVal, props.projectId, "list");
-    const f = vp?.filters as Record<string, unknown> | undefined;
-    if (!f) return;
-    if (typeof f.search === "string") search.value = f.search;
-    if (typeof f.group === "string") stateGroup.value = f.group as StateGroup;
-    if (typeof f.type === "string") type.value = f.type as IssueType;
-    if (typeof f.priority === "string") priority.value = f.priority;
-    if (typeof f.severity_from === "number") severityFrom.value = f.severity_from;
-  } catch { /* ignore */ }
+    const vp = await preferenceApi.get(wsIdVal, props.projectId, viewType);
+    if (vp?.filters && typeof vp.filters === "object" && !Array.isArray(vp.filters)) {
+      return safeParseFilters(vp.filters);
+    }
+  } catch {
+    /* ignore */
+  }
+  return {};
 }
 
+// ---- 公开操作 ----
+function clearFilters(): void {
+  filters.value = {};
+  emitFilter();
+  saveToServerAndStorage();
+}
+
+function saveToServerAndStorage(): void {
+  saveToStorage();
+  void saveServerPreference();
+}
+
+// ---- 各字段 setter ----
+function setSearch(v: string): void {
+  filters.value = { ...filters.value, search: v || undefined };
+}
+function setGroup(v: StateGroup | ""): void {
+  filters.value = { ...filters.value, group: v || undefined };
+}
+function setType(v: IssueType | ""): void {
+  filters.value = { ...filters.value, type: (v || undefined) as IssueTypeCode | undefined };
+}
+function setPriority(v: string): void {
+  filters.value = { ...filters.value, priority: (v || undefined) as FilterState["priority"] };
+}
+function setSeverity(v: number | null): void {
+  filters.value = { ...filters.value, severity_from: v ?? undefined };
+}
+
+// ---- 防抖搜索 ----
+let searchTimer: ReturnType<typeof setTimeout> | null = null;
+
+function onSearchInput(): void {
+  if (searchTimer) clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => {
+    emitFilter();
+    saveToStorage(); // 搜索只走 localStorage，不频繁打服务端
+  }, 300);
+}
+
+// 选择变化立即触发 + 持久化
+watch(
+  () => [filters.value.group, filters.value.type, filters.value.priority, filters.value.severity_from],
+  () => {
+    emitFilter();
+    saveToServerAndStorage();
+  },
+);
+
+// ---- 初始化 ----
 onMounted(async () => {
-  await loadServerPreference();
-  loadFromStorage();
+  // 优先级：服务端 > localStorage > 空
+  const serverFilters = await loadServerPreference();
+  const localFilters = loadFromStorage();
+  filters.value = { ...serverFilters, ...localFilters };
   emitFilter();
 });
 
-defineExpose({ saveServerPreference, loadServerPreference });
+// ---- 暴露接口（供父组件编程调用） ----
+defineExpose({
+  clearFilters,
+  saveServerPreference,
+  loadServerPreference,
+  getFilters: () => filters.value,
+  setFilters: (f: FilterState) => {
+    filters.value = { ...f };
+    emitFilter();
+    saveToServerAndStorage();
+  },
+});
 </script>
 
 <template>
@@ -187,68 +214,73 @@ defineExpose({ saveServerPreference, loadServerPreference });
       <!-- 搜索 -->
       <div class="filter-field filter-field--search">
         <input
-          v-model="search"
+          :value="filters.search ?? ''"
           class="filter-input"
           placeholder="搜索工作项..."
-          @input="onSearchInput"
+          @input="setSearch(($event.target as HTMLInputElement).value); onSearchInput()"
         />
       </div>
 
       <!-- 状态分组 -->
       <div class="filter-field">
-        <select v-model="stateGroup" class="filter-select">
-          <option
-            v-for="opt in stateGroupOptions"
-            :key="opt.value"
-            :value="opt.value"
-          >
-{{ opt.label }}
-</option>
+        <select
+          :value="filters.group ?? ''"
+          class="filter-select"
+          @change="setGroup(($event.target as HTMLSelectElement).value as StateGroup | '')"
+        >
+          <option v-for="opt in stateGroupOptions" :key="opt.value" :value="opt.value">
+            {{ opt.label }}
+          </option>
         </select>
       </div>
 
       <!-- 类型 -->
       <div class="filter-field">
-        <select v-model="type" class="filter-select">
-          <option
-            v-for="opt in typeOptions"
-            :key="opt.value"
-            :value="opt.value"
-          >
-{{ opt.label }}
-</option>
+        <select
+          :value="filters.type ?? ''"
+          class="filter-select"
+          @change="setType(($event.target as HTMLSelectElement).value as IssueType | '')"
+        >
+          <option v-for="opt in typeOptions" :key="opt.value" :value="opt.value">
+            {{ opt.label }}
+          </option>
         </select>
       </div>
 
       <!-- 优先级 -->
       <div class="filter-field">
-        <select v-model="priority" class="filter-select">
-          <option
-            v-for="opt in priorityOptions"
-            :key="opt.value"
-            :value="opt.value"
-          >
-{{ opt.label }}
-</option>
+        <select
+          :value="filters.priority ?? ''"
+          class="filter-select"
+          @change="setPriority(($event.target as HTMLSelectElement).value)"
+        >
+          <option v-for="opt in priorityOptions" :key="opt.value" :value="opt.value">
+            {{ opt.label }}
+          </option>
         </select>
       </div>
 
       <!-- 严重级别 -->
       <div class="filter-field">
-        <select v-model="severityFrom" class="filter-select">
+        <select
+          :value="filters.severity_from ?? null"
+          class="filter-select"
+          @change="setSeverity(Number(($event.target as HTMLSelectElement).value) || null)"
+        >
           <option
             v-for="opt in severityOptions"
             :key="String(opt.value)"
-            :value="opt.value"
+            :value="opt.value ?? undefined"
           >
-{{ opt.label }}
-</option>
+            {{ opt.label }}
+          </option>
         </select>
       </div>
 
       <!-- 清除 -->
-      <button v-if="hasFilter()" class="filter-clear" @click="clearFilters">
+      <button v-if="hasActive()" class="filter-clear" @click="clearFilters">
         清除过滤
+        <span v-if="activeCount() > 0" class="filter-count">{{ activeCount() }}</span>
       </button>
     </div>
   </div>
@@ -313,9 +345,27 @@ defineExpose({ saveServerPreference, loadServerPreference });
   cursor: pointer;
   font-family: inherit;
   white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .filter-clear:hover {
   color: var(--danger-500);
+}
+
+.filter-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  font-size: 10px;
+  font-weight: 600;
+  color: white;
+  background: var(--brand-500);
+  border-radius: 8px;
+  line-height: 1;
 }
 </style>

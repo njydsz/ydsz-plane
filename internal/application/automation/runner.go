@@ -16,11 +16,12 @@ import (
 	"errors"
 	"time"
 
-	amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/jackc/pgx/v5/pgxpool"
+	amqp "github.com/rabbitmq/amqp091-go"
 	"go.uber.org/zap"
 
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/mq"
+	"github.com/njydsz/ydsz-plane/internal/rbac"
 )
 
 // consumerQueue 是自动化消费者绑定的队列名。
@@ -36,17 +37,18 @@ const routingPattern = "plane.events.#"
 // 参数:
 //   - mqClient: RabbitMQ 客户端（与 OutboxRelay 共享连接）
 //   - db: PostgreSQL 连接池（用于加载上下文/规则）
+//   - rbacStore: RBAC 权限存储（供动作执行器做越权校验）
 //   - log: 结构化日志
 //
 // 调用方应在独立 goroutine 中运行：
 //
-//	go automation.RunConsumer(ctx, mqClient, pool.Pool, log)
-func RunConsumer(ctx context.Context, mqClient *mq.Client, db *pgxpool.Pool, log *zap.Logger) {
+//	go automation.RunConsumer(ctx, mqClient, pool.Pool, rbacStore, log)
+func RunConsumer(ctx context.Context, mqClient *mq.Client, db *pgxpool.Pool, rbacStore *rbac.Store, log *zap.Logger) {
 	log.Info("automation consumer: starting",
 		zap.String("queue", consumerQueue),
 		zap.String("exchange", mq.EventExchange))
 
-	eng := newEngine(db, log)
+	eng := newEngine(db, rbacStore, log)
 
 	for {
 		select {
@@ -73,10 +75,10 @@ func RunConsumer(ctx context.Context, mqClient *mq.Client, db *pgxpool.Pool, log
 }
 
 // newEngine 创建默认的执行引擎（含内置 SPI 实现 + Prometheus 指标 + 熔断器）。
-func newEngine(db *pgxpool.Pool, log *zap.Logger) *Engine {
+func newEngine(db *pgxpool.Pool, rbacStore *rbac.Store, log *zap.Logger) *Engine {
 	svc := NewService(db)
 	prov := NewDefaultContextProvider(db)
-	exec := newActionExecutor(db)
+	exec := newActionExecutor(db, rbacStore)
 	eng := NewEngine(svc, exec, prov, log)
 	eng.db = db
 	eng.metrics = DefaultMetrics // 注入全局 Prometheus 指标
@@ -88,7 +90,7 @@ func newEngine(db *pgxpool.Pool, log *zap.Logger) *Engine {
 func runConsumeLoop(ctx context.Context, mqClient *mq.Client, eng *Engine, log *zap.Logger) error {
 	// 声明队列并绑定通配符路由
 	if _, err := mqClient.DeclareQueue(ctx, consumerQueue, mq.EventExchange, routingPattern, amqp.Table{
-		"x-max-priority": int64(5),
+		"x-max-priority":         int64(5),
 		"x-dead-letter-exchange": mq.DeadLetterExchange,
 	}); err != nil {
 		return errors.New("automation: declare queue: " + err.Error())

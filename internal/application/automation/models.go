@@ -33,11 +33,11 @@ const (
 type ExecutionStatus string
 
 const (
-	ExecMatched  ExecutionStatus = "matched"
-	ExecSkipped  ExecutionStatus = "skipped"
-	ExecSuccess  ExecutionStatus = "success"
-	ExecFailed   ExecutionStatus = "failed"
-	ExecDryRun   ExecutionStatus = "dry_run"
+	ExecMatched ExecutionStatus = "matched"
+	ExecSkipped ExecutionStatus = "skipped"
+	ExecSuccess ExecutionStatus = "success"
+	ExecFailed  ExecutionStatus = "failed"
+	ExecDryRun  ExecutionStatus = "dry_run"
 )
 
 // --- DSL Structures ---
@@ -85,9 +85,9 @@ const (
 
 // RuleDSL 完整的规则 DSL 定义。
 type RuleDSL struct {
-	Trigger    Trigger       `json:"trigger"`
-	Conditions []Condition   `json:"conditions,omitempty"` // 简单条件列表（all 语义）
-	Actions    []Action      `json:"actions"`
+	Trigger    Trigger     `json:"trigger"`
+	Conditions []Condition `json:"conditions,omitempty"` // 简单条件列表（all 语义）
+	Actions    []Action    `json:"actions"`
 	// 高级条件组（conditions 为空时生效）
 	ConditionGroup *ConditionGroup `json:"condition_group,omitempty"`
 }
@@ -133,29 +133,29 @@ type RuleExecution struct {
 
 // Template 是预置规则模板（从 automation_templates 表读取）。
 type Template struct {
-	ID             int64          `json:"id"`
-	Name           string         `json:"name"`
-	Slug           string         `json:"slug"`
-	Description    string         `json:"description"`
-	Category       string         `json:"category"`
-	DSLTemplate    RuleDSL        `json:"dsl_template"`
-	Icon           string         `json:"icon"`
-	SortOrder      int            `json:"sort_order"`
-	IsRecommended  bool           `json:"is_recommended"`
+	ID            int64   `json:"id"`
+	Name          string  `json:"name"`
+	Slug          string  `json:"slug"`
+	Description   string  `json:"description"`
+	Category      string  `json:"category"`
+	DSLTemplate   RuleDSL `json:"dsl_template"`
+	Icon          string  `json:"icon"`
+	SortOrder     int     `json:"sort_order"`
+	IsRecommended bool    `json:"is_recommended"`
 }
 
 // --- Input Types ---
 
 // CreateRuleInput 创建规则的入参。
 type CreateRuleInput struct {
-	WorkspaceID int64    `json:"workspace_id"`
-	ProjectID   *int64    `json:"project_id"`
-	Name        string   `json:"name"`
-	Description string   `json:"description"`
-	DSL         RuleDSL  `json:"dsl"`
+	WorkspaceID int64      `json:"workspace_id"`
+	ProjectID   *int64     `json:"project_id"`
+	Name        string     `json:"name"`
+	Description string     `json:"description"`
+	DSL         RuleDSL    `json:"dsl"`
 	Status      RuleStatus `json:"status"`
-	SortOrder   int      `json:"sort_order"`
-	CreatedBy   int64    `json:"-"`
+	SortOrder   int        `json:"sort_order"`
+	CreatedBy   int64      `json:"-"`
 }
 
 // UpdateRuleInput 更新规则的入参。
@@ -182,53 +182,53 @@ type ListRulesOptions struct {
 
 // ExecutionContext 运行时上下文（供条件求值与动作执行使用）。
 type ExecutionContext struct {
-	RuleID      int64          `json:"rule_id"`
-	WorkspaceID int64          `json:"workspace_id"`
-	ProjectID   int64          `json:"project_id"`
-	EventType   string         `json:"event_type"`
+	RuleID      int64  `json:"rule_id"`
+	WorkspaceID int64  `json:"workspace_id"`
+	ProjectID   int64  `json:"project_id"`
+	EventType   string `json:"event_type"`
 	// 事件载荷（按事件类型解析）
-	Issue       *IssueContext  `json:"issue,omitempty"`
-	Sprint      *SprintContext `json:"sprint,omitempty"`
-	Version     *VersionContext `json:"version,omitempty"`
-	Actor       ActorContext   `json:"actor"`
+	Issue   *IssueContext   `json:"issue,omitempty"`
+	Sprint  *SprintContext  `json:"sprint,omitempty"`
+	Version *VersionContext `json:"version,omitempty"`
+	Actor   ActorContext    `json:"actor"`
 	// 系统变量（运行时注入）
-	Now         time.Time      `json:"now"`
-	Depth       int            `json:"depth"`        // 执行链路深度
-	ViaAutomation bool         `json:"via_automation"` // 是否由其他规则触发
+	Now           time.Time `json:"now"`
+	Depth         int       `json:"depth"`          // 执行链路深度
+	ViaAutomation bool      `json:"via_automation"` // 是否由其他规则触发
 	// DryRun = true 时不实际执行动作，仅返回"将执行"列表
-	DryRun      bool           `json:"dry_run"`
+	DryRun bool `json:"dry_run"`
 }
 
 // IssueContext 运行时工作项上下文。
 type IssueContext struct {
-	ID            int64     `json:"id"`
-	Identifier    string    `json:"identifier"`
-	Name          string    `json:"name"`
-	TypeCode      string    `json:"type_code"`
-	StateID       int64     `json:"state_id"`
-	StateName     string    `json:"state_name"`
-	StateGroup    string    `json:"state_group"`
-	Priority      string    `json:"priority"`
-	Severity      *int      `json:"severity,omitempty"`
-	EstimatePoints *int     `json:"estimate_points,omitempty"`
-	CreatedBy     int64     `json:"created_by"`
-	ParentID      *int64    `json:"parent_id,omitempty"`
-	ProjectID     int64     `json:"project_id"`
-	IsDeleted     bool      `json:"is_deleted"`
-	CreatedAt     time.Time `json:"created_at"`
-	UpdatedAt     time.Time `json:"updated_at"`
-	StartedAt     *time.Time `json:"started_at,omitempty"`
-	CompletedAt   *time.Time `json:"completed_at,omitempty"`
+	ID             int64      `json:"id"`
+	Identifier     string     `json:"identifier"`
+	Name           string     `json:"name"`
+	TypeCode       string     `json:"type_code"`
+	StateID        int64      `json:"state_id"`
+	StateName      string     `json:"state_name"`
+	StateGroup     string     `json:"state_group"`
+	Priority       string     `json:"priority"`
+	Severity       *int       `json:"severity,omitempty"`
+	EstimatePoints *int       `json:"estimate_points,omitempty"`
+	CreatedBy      int64      `json:"created_by"`
+	ParentID       *int64     `json:"parent_id,omitempty"`
+	ProjectID      int64      `json:"project_id"`
+	IsDeleted      bool       `json:"is_deleted"`
+	CreatedAt      time.Time  `json:"created_at"`
+	UpdatedAt      time.Time  `json:"updated_at"`
+	StartedAt      *time.Time `json:"started_at,omitempty"`
+	CompletedAt    *time.Time `json:"completed_at,omitempty"`
 }
 
 // SprintContext 运行时迭代上下文。
 type SprintContext struct {
-	ID          int64     `json:"id"`
-	Name        string    `json:"name"`
-	ProjectID   int64     `json:"project_id"`
-	Status      string    `json:"status"`
-	StartDate   *time.Time `json:"start_date,omitempty"`
-	EndDate     *time.Time `json:"end_date,omitempty"`
+	ID        int64      `json:"id"`
+	Name      string     `json:"name"`
+	ProjectID int64      `json:"project_id"`
+	Status    string     `json:"status"`
+	StartDate *time.Time `json:"start_date,omitempty"`
+	EndDate   *time.Time `json:"end_date,omitempty"`
 }
 
 // VersionContext 运行时版本上下文。
@@ -249,12 +249,12 @@ type ActorContext struct {
 
 // ExecutionResult 单条规则执行结果。
 type ExecutionResult struct {
-	RuleID      int64          `json:"rule_id"`
-	Status      ExecutionStatus `json:"status"`
-	ActionsTaken []Action      `json:"actions_taken"`
-	DurationMs  int            `json:"duration_ms"`
-	Error       string         `json:"error,omitempty"`
-	SkippedReason string       `json:"skipped_reason,omitempty"`
+	RuleID        int64           `json:"rule_id"`
+	Status        ExecutionStatus `json:"status"`
+	ActionsTaken  []Action        `json:"actions_taken"`
+	DurationMs    int             `json:"duration_ms"`
+	Error         string          `json:"error,omitempty"`
+	SkippedReason string          `json:"skipped_reason,omitempty"`
 }
 
 // --- Built-in Rule Templates (7 条) ---
@@ -321,7 +321,7 @@ func BuiltInTemplates() []Template {
 			Description: "工作项首次进入进行中状态时，自动记录开始时间",
 			Category:    "efficiency",
 			DSLTemplate: RuleDSL{
-				Trigger: Trigger{Type: "issue.status_changed", Filter: map[string]any{"to_group": "started"}},
+				Trigger:    Trigger{Type: "issue.status_changed", Filter: map[string]any{"to_group": "started"}},
 				Conditions: []Condition{{Field: "started_at", Op: "is_empty"}},
 				Actions: []Action{
 					{Type: ActionUpdateField, Field: "started_at", Value: "${now}"},
@@ -386,7 +386,7 @@ func BuiltInTemplates() []Template {
 			Description: "当子工作项点数变更时，自动汇总到 Epic 的聚合点数字段",
 			Category:    "efficiency",
 			DSLTemplate: RuleDSL{
-				Trigger: Trigger{Type: "issue.updated", Filter: map[string]any{"field_changes": []string{"estimate_points"}}},
+				Trigger:    Trigger{Type: "issue.updated", Filter: map[string]any{"field_changes": []string{"estimate_points"}}},
 				Conditions: []Condition{{Field: "issue.type_code", Op: "ne", Value: "epic"}},
 				Actions: []Action{
 					{Type: ActionCopyField, Field: "sum_children_points", Value: "${parent.estimate_points}"},

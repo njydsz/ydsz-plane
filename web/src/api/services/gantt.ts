@@ -5,14 +5,14 @@
  * 依赖箭头由 relation 数据在后续迭代补充。
  * 路径：复用 /api/v1/workspaces/:ws/projects/:pid/issues（带日期过滤）
  */
-import { issueApi } from './issue';
+import { issueApi, type IssueType } from './issue';
 
 /** 甘特图工作项条目（精简，仅含时间线必要字段） */
 export interface GanttIssue {
   id: number;
   identifier: string;
   name: string;
-  type_code: 'requirement' | 'task' | 'defect';
+  type_code: IssueType;
   state?: {
     id: number;
     name: string;

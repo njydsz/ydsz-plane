@@ -40,6 +40,19 @@ const versions = ref<Version[]>([]);
 const loading = ref(true);
 const error = ref("");
 
+// ---- 活动动词 → 中文标签（与 ActivityTimelineWidget 保持一致） ----
+function verbLabel(verb: string): string {
+  const map: Record<string, string> = {
+    created: "创建了",
+    updated: "更新了",
+    transitioned: "流转了",
+    commented: "评论了",
+    assigned: "指派了",
+    unassigned: "取消指派了",
+  };
+  return map[verb] ?? verb;
+}
+
 // ---- 派生 ----
 const totalMinutes = computed(() =>
   timeLogs.value.reduce((s, t) => s + (t.duration_minutes ?? 0), 0),
@@ -296,7 +309,7 @@ function fmtTime(iso: string): string {
           <AppCard padding="sm">
             <ul class="activity-list">
               <li v-for="act in activities.slice(0, 8)" :key="act.id" class="activity-item">
-                <span class="activity-action">{{ act.action_label ?? act.action }}</span>
+                <span class="activity-action">{{ verbLabel(act.verb) }}</span>
                 <span class="activity-meta">
                   {{ act.actor_name ?? "系统" }} · {{ fmtTime(act.created_at) }}
                 </span>

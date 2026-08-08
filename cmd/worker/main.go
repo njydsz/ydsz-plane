@@ -29,6 +29,7 @@ import (
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/mq"
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/persistence"
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/telemetry"
+	"github.com/njydsz/ydsz-plane/internal/rbac"
 )
 
 func main() {
@@ -77,6 +78,12 @@ func run() error {
 		return err
 	}
 	defer pool.Close()
+
+	// RBAC 权限存储（供自动化动作执行器做越权校验）
+	rbacStore := rbac.NewStore(pool.Pool, log)
+	if err := rbacStore.InitCache(ctx); err != nil {
+		return fmt.Errorf("worker: rbac cache init: %w", err)
+	}
 
 	// RabbitMQ 客户端 —— 同时支撑 outbox relay 与 task worker。
 	// 单条连接即可提供两个 channel 池：relay 使用 channel 1，worker 按需开启。
@@ -161,10 +168,10 @@ func run() error {
 	worker.Register("search.index", func(ctx context.Context, task mq.Task) error {
 		// payload 约定: {"doc_type":"issue|sprint|version","doc_id":123,"op":"upsert"|"delete","workspace_id":456}
 		var payload struct {
-			DocType      string `json:"doc_type"`
-			DocID        int64  `json:"doc_id"`
-			Op           string `json:"op"`
-			WorkspaceID  int64  `json:"workspace_id"`
+			DocType     string `json:"doc_type"`
+			DocID       int64  `json:"doc_id"`
+			Op          string `json:"op"`
+			WorkspaceID int64  `json:"workspace_id"`
 		}
 		if err := json.Unmarshal(task.Payload, &payload); err != nil {
 			searchIndexLog.Warn("bad payload, skipping",
@@ -211,6 +218,19 @@ func run() error {
 	}
 	go notifApp.StartDispatchWorker(ctx, pool.Pool, mailSvc, cfg.Email.AppBaseURL, log)
 
+	// ----- 通知摘要（Digest）定时任务 -----
+	//
+	// 每分钟检查是否有到达触发时刻的 daily/weekly 摘要（依据
+	// notification_preferences.digest 配置），聚合时间窗内通知并经
+	// 邮件投递（参考 Linear / GitHub Digest 模式，降低通知噪音）。
+	// 依赖 dispatch worker 已启动以复用同一 mailSvc。
+	go notifApp.StartDigestRunner(ctx, &notifApp.DigestDeps{
+		DB:      pool.Pool,
+		MailSvc: mailSvc,
+		Log:     log.Named("digest"),
+		BaseURL: cfg.Email.AppBaseURL,
+	})
+
 	// ----- Sprint 每日快照定时任务（幂等） -----
 	//
 	// 每分钟触发一次，在 00:05 UTC（北京时间 08:05）执行。
@@ -223,7 +243,14 @@ func run() error {
 	//
 	// 订阅 EventExchange 的 plane.events.# 路由，对到达的领域事件
 	// 执行匹配的自动化规则（触发器-条件-动作）。
-	go automation.RunConsumer(ctx, mqClient, pool.Pool, log)
+	go automation.RunConsumer(ctx, mqClient, pool.Pool, rbacStore, log)
+
+	// ----- Automation scheduled/Cron 触发器调度器 -----
+	//
+	// 每分钟检查 trigger.type=scheduled 的活跃规则（逾期提醒 / 自动归档等
+	// 内置模板），cron 匹配时对候选工作项批量执行"条件求值 → 动作执行"。
+	// 与 RunConsumer 的事件驱动路径互补，二者覆盖不同 trigger 类型。
+	go automation.RunScheduledCron(ctx, pool.Pool, rbacStore, log.Named("automation.scheduled"))
 
 	// ----- Metrics 效能快照定时任务 -----
 	//
@@ -232,6 +259,12 @@ func run() error {
 	// 经 metric_snapshots 的 ON CONFLICT (workspace_id, project_id, granularity, metric, snapshot_date) 保证幂等。
 	metricsSvc := metrics.NewService(pool.Pool)
 	go runMetricsSnapshotCron(ctx, metricsSvc, log)
+
+	// ----- Webhook 投递日志 30 天清理定时任务 -----
+	//
+	// 每天 01:00 UTC（北京 09:00）删除 30 天前的 webhook_logs 记录，
+	// 防止日志表无限膨胀（设计文档 §1.2：日志保留 30 天）。
+	go runWebhookLogCleanupCron(ctx, webhookSvc, log)
 
 	log.Info("worker started",
 		zap.String("rabbitmq", mq.RedactedURL(cfg.RabbitMQ.URL)),
@@ -244,6 +277,45 @@ func run() error {
 		return err
 	}
 	return nil
+}
+
+// runWebhookLogCleanupCron 每天 01:00 UTC 执行一次 webhook 日志清理。
+// 幂等：DELETE 本身天然幂等；多 worker 实例并发执行也不会产生副作用。
+func runWebhookLogCleanupCron(ctx context.Context, svc *webhook.Service, log *zap.Logger) {
+	ticker := time.NewTicker(30 * time.Minute)
+	defer ticker.Stop()
+
+	var lastRunDate string
+
+	for {
+		select {
+		case <-ctx.Done():
+			log.Info("webhook log cleanup cron: shutting down")
+			return
+		case t := <-ticker.C:
+			utc := t.UTC()
+			dateKey := utc.Format("2006-01-02")
+			if utc.Hour() == 1 && utc.Minute() < 15 { // 01:00-01:15 窗口，±15min 容忍
+				if dateKey == lastRunDate {
+					continue
+				}
+				lastRunDate = dateKey
+
+				cleanupCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
+				deleted, err := svc.CleanupLogs(cleanupCtx)
+				cancel()
+
+				if err != nil {
+					log.Warn("webhook log cleanup cron: failed",
+						zap.String("date", dateKey), zap.Error(err))
+				} else {
+					log.Info("webhook log cleanup cron: completed",
+						zap.String("date", dateKey),
+						zap.Int64("deleted", deleted))
+				}
+			}
+		}
+	}
 }
 
 // runDailySnapshotCron 运行 1 分钟粒度的定时器，在 00:05 UTC 触发每日快照。
@@ -271,7 +343,7 @@ func runDailySnapshotCron(ctx context.Context, svc *sprint.Service, log *zap.Log
 				if dateKey == lastRunDate {
 					continue // 今天已执行过
 				}
-					lastRunDate = dateKey
+				lastRunDate = dateKey
 
 				snapCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
 				count, failures := svc.SnapshotAllActive(snapCtx)

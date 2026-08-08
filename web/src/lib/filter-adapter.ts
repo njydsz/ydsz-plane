@@ -101,7 +101,7 @@ export function urlToFilter(urlParams: Record<string, string | undefined>): Filt
   const f: FilterState = {};
   const set = (key: keyof FilterState, transform?: (v: string) => unknown) => {
     const raw = urlParams[key];
-    if (raw != null !== undefined && raw !== "") {
+    if (raw != null && raw !== "") {
       (f as Record<string, unknown>)[key] = transform ? transform(raw) : raw;
     }
   };
@@ -152,7 +152,7 @@ export function filterToListParams(f: FilterState): ListIssuesParams {
   if (f.sprint_id != null && !isNaN(f.sprint_id)) p.sprint_id = f.sprint_id;
   if (f.parent_id != null && !isNaN(f.parent_id)) p.parent_id = f.parent_id;
   if (f.severity_from != null && !isNaN(f.severity_from)) p.severity_from = f.severity_from;
-  if (f.found_version_id != null !== undefined && !isNaN(f.found_version_id)) p.found_version_id = f.found_version_id;
+  if (f.found_version_id != null && !isNaN(f.found_version_id)) p.found_version_id = f.found_version_id;
   if (f.fix_version_id != null && !isNaN(f.fix_version_id)) p.fix_version_id = f.fix_version_id;
   if (f.start_date_from) p.start_date_from = f.start_date_from;
   if (f.target_date_to) p.target_date_to = f.target_date_to;

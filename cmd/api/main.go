@@ -246,10 +246,14 @@ func run() error {
 	})
 
 	// ---------- Metrics domain (S11) ----------
+	// 使用带 Redis 读穿透缓存的 Handler：velocity/lead-time/quality/dora 等
+	// 高频仪表盘查询命中缓存（差异化 TTL + singleflight 防击穿），
+	// cfd/control-chart/throughput 等分析端点直查 DB。
+	// cli 为 nil（Redis 不可用）时自动降级为无缓存 Handler。
 	metricsSvc := metrics.NewService(pool.Pool)
-	metricsHandler := metrics.NewMetricsHandler(&metrics.HandlerDeps{
+	metricsHandler := metrics.NewCachedHandler(&metrics.HandlerDeps{
 		Svc: metricsSvc,
-	})
+	}, rdb, log)
 
 	// ---------- View Preference ----------
 	prefSvc := preference.NewService(pool.Pool)
@@ -261,6 +265,11 @@ func run() error {
 
 	// ---------- Webhook (S10) ----------
 	webhookSvc := webhook.NewService(pool.Pool)
+	// Dispatcher 的 MQ 依赖（enqueueRetry 自动重试入队）仅在 worker 进程
+	// 的事件投递链路中使用；API 进程内的 dispatcher 仅服务于管理页的
+	// 同步操作（测试推送 / 手动重投 RetryLog），二者均为同步投递、不依赖
+	// MQ。因此这里刻意传 nil，避免 API 进程引入 RabbitMQ 运行时依赖
+	// （保持 API 无状态、RabbitMQ 故障不阻塞管理操作）。
 	webhookDispatcher := webhook.NewDispatcher(webhookSvc, nil, log)
 	webhookHandler := webhook.NewHandler(&webhook.HandlerDeps{
 		WebhookSvc:     webhookSvc,

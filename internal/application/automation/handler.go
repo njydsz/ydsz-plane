@@ -397,18 +397,18 @@ type ruleListResponse struct {
 }
 
 type createRuleRequest struct {
-	Name        string   `json:"name" binding:"required,max=128"`
-	Description string   `json:"description" binding:"max=500"`
-	DSL         RuleDSL  `json:"dsl" binding:"required"`
+	Name        string     `json:"name" binding:"required,max=128"`
+	Description string     `json:"description" binding:"max=500"`
+	DSL         RuleDSL    `json:"dsl" binding:"required"`
 	Status      RuleStatus `json:"status"`
 }
 
 type updateRuleRequest struct {
-	Name        *string      `json:"name" binding:"omitempty,max=128"`
-	Description *string      `json:"description" binding:"omitempty,max=500"`
-	DSL         *RuleDSL     `json:"dsl"`
-	Status      *string      `json:"status" binding:"omitempty,oneof=draft active disabled error"`
-	Version     int          `json:"version"`
+	Name        *string  `json:"name" binding:"omitempty,max=128"`
+	Description *string  `json:"description" binding:"omitempty,max=500"`
+	DSL         *RuleDSL `json:"dsl"`
+	Status      *string  `json:"status" binding:"omitempty,oneof=draft active disabled error"`
+	Version     int      `json:"version"`
 }
 
 type toggleRuleRequest struct {

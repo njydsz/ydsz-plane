@@ -7,7 +7,7 @@ import { http } from "../client";
 /* Types                                                              */
 /* ------------------------------------------------------------------ */
 
-export type IssueType = "requirement" | "task" | "defect";
+export type IssueType = "epic" | "requirement" | "task" | "defect";
 /** 工作项优先级（降序） */
 export type IssuePriority = "urgent" | "high" | "medium" | "low" | "none";
 /** 状态分组：backlog / started / completed / cancelled */
@@ -247,6 +247,8 @@ export interface ListIssuesParams {
   start_date_from?: string;
   target_date_to?: string;
   severity_from?: number;
+  found_version_id?: number;
+  fix_version_id?: number;
 }
 
 /* ------------------------------------------------------------------ */

@@ -47,17 +47,27 @@ func (s *ProjectInitService) InitializeForProject(ctx context.Context, wsID, pro
 	}
 	tpl := ProjectTemplateByCode(string(tplCode))
 
-	// 初始化研发流状态（所有模板通用）
-	devStateIDs, err := s.insertTemplateSet(ctx, tx, wsID, projectID, DevFlowStates, "dev_flow")
+	// 初始化任务研发流状态（所有模板通用）
+	taskDevStateIDs, err := s.insertTemplateSet(ctx, tx, wsID, projectID, TaskDevFlowStates, "task_dev_flow")
 	if err != nil {
 		return err
 	}
-	if err := s.insertTransitions(ctx, tx, wsID, projectID, "all",
-		BuiltInTransitions["dev_flow"], devStateIDs); err != nil {
+	if err := s.insertTransitions(ctx, tx, wsID, projectID, string(TypeTask),
+		BuiltInTransitions["dev_flow"], taskDevStateIDs); err != nil {
 		return err
 	}
 
-	// 按模板可选注入缺陷流 / 需求评审流
+	// 初始化需求研发流状态（所有模板通用）
+	reqDevStateIDs, err := s.insertTemplateSet(ctx, tx, wsID, projectID, RequirementDevFlowStates, "requirement_dev_flow")
+	if err != nil {
+		return err
+	}
+	if err := s.insertTransitions(ctx, tx, wsID, projectID, string(TypeRequirement),
+		BuiltInTransitions["dev_flow"], reqDevStateIDs); err != nil {
+		return err
+	}
+
+	// 按模板可选注入缺陷流
 	if tpl.ApplyDefectFlow {
 		defectStateIDs, err := s.insertTemplateSet(ctx, tx, wsID, projectID, DefectFlowStates, "defect_flow")
 		if err != nil {
@@ -69,13 +79,14 @@ func (s *ProjectInitService) InitializeForProject(ctx context.Context, wsID, pro
 		}
 	}
 
+	// 按模板可选注入需求评审流
 	if tpl.ApplyRequirementFlow {
-		reqStateIDs, err := s.insertTemplateSet(ctx, tx, wsID, projectID, RequirementFlowStates, "requirement_flow")
+		reqReviewStateIDs, err := s.insertTemplateSet(ctx, tx, wsID, projectID, RequirementReviewFlowStates, "requirement_review_flow")
 		if err != nil {
 			return err
 		}
 		if err := s.insertTransitions(ctx, tx, wsID, projectID, string(TypeRequirement),
-			BuiltInTransitions["requirement_flow"], reqStateIDs); err != nil {
+			BuiltInTransitions["requirement_flow"], reqReviewStateIDs); err != nil {
 			return err
 		}
 	}
@@ -91,12 +102,21 @@ func (s *ProjectInitService) insertTemplateSet(ctx context.Context, tx pgx.Tx,
 	ids := make(map[string]int64, len(states))
 	for _, st := range states {
 		var id int64
+		// 把适用的工作项类型数组转为PostgreSQL数组格式
+		applicableTypes := "{"
+		for i, t := range st.ApplicableTypes {
+			if i > 0 {
+				applicableTypes += ","
+			}
+			applicableTypes += t
+		}
+		applicableTypes += "}"
 		err := tx.QueryRow(ctx, `
-			INSERT INTO states (workspace_id, project_id, name, "group", color, sequence, is_default, template_set)
-			VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+			INSERT INTO states (workspace_id, project_id, name, "group", color, sequence, is_default, template_set, applicable_types)
+			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
 			RETURNING id`,
 			wsID, projectID, st.Name, string(st.Group), st.Color, st.Sequence, st.IsDefault,
-			templateSetLabel).Scan(&id)
+			templateSetLabel, applicableTypes).Scan(&id)
 		if err != nil {
 			return nil, errs.ErrInternal.Wrap(err)
 		}

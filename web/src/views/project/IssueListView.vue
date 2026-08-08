@@ -13,7 +13,7 @@ import { prefs } from "@/lib/prefs";
 import { toast } from "@/lib/toast";
 import IssueFilter from "./IssueFilter.vue";
 import { AppErrorState, AppEmptyState, InlineEdit, InlineSelectEdit, AppSkeleton } from "@/components";
-import { preferenceApi } from "@/api/services/preference";
+import { type FilterState, filterToListParams } from "@/lib/filter-adapter";
 
 const route = useRoute();
 const issueStore = useIssueStore();
@@ -33,8 +33,8 @@ const page = ref(1);
 const perPage = ref(50);
 const total = computed(() => issueStore.total);
 
-// 当前过滤参数
-const currentFilter = ref<ListIssuesParams>({});
+// 当前过滤参数（强类型 FilterState，对标 Plane 的多视图 FilterAdapter）
+const currentFilter = ref<FilterState>({});
 
 // 批量操作
 const selectedIds = ref<Set<number>>(new Set());
@@ -67,8 +67,10 @@ async function load() {
   try {
     const wsIdVal = Number(route.params.workspaceId);
 
+    // FilterState → ListParams 转换（统一在 API 边界）
+    const filterParams = filterToListParams(currentFilter.value);
     const params: ListIssuesParams = {
-      ...currentFilter.value,
+      ...filterParams,
       sort: buildSortParam(),
       limit: perPage.value,
       offset: (page.value - 1) * perPage.value,
@@ -85,19 +87,11 @@ async function load() {
   }
 }
 
-function onFilterChange(params: ListIssuesParams) {
-  currentFilter.value = params;
-  page.value = 1;  // 过滤条件变化时回到第一页
+function onFilterChange(f: FilterState) {
+  currentFilter.value = f;
+  page.value = 1; // 过滤条件变化时回到第一页
   load();
-  // 服务端持久化当前过滤（对标 Plane 的 View 保存，跨设备同步）
-  if (wsId.value && projectId.value) {
-    void preferenceApi.save(wsId.value, projectId.value, "list", {
-      filters: {
-        ...params,
-        sort: sortField.value,
-      },
-    }).catch(() => { /* 静默失败 */ });
-  }
+  // 服务端持久化由 IssueFilter 内部处理，此处不再重复
 }
 
 function toggleSort(field: string) {
@@ -251,11 +245,11 @@ onMounted(() => {
 });
 
 const exportCsvUrl = computed(() =>
-  issueApi.exportUrl(wsId.value, projectId.value, currentFilter.value, "csv"),
+  issueApi.exportUrl(wsId.value, projectId.value, filterToListParams(currentFilter.value), "csv"),
 );
 
 const exportXlsxUrl = computed(() =>
-  issueApi.exportUrl(wsId.value, projectId.value, currentFilter.value, "xlsx"),
+  issueApi.exportUrl(wsId.value, projectId.value, filterToListParams(currentFilter.value), "xlsx"),
 );
 
 /** 导出格式下拉是否展开 */
@@ -300,10 +294,11 @@ const showExportDropdown = ref(false);
       </div>
     </header>
 
-    <!-- 过滤器 -->
+    <!-- 过滤器（使用 FilterAdapter，view_type="list"） -->
     <IssueFilter
       :project-id="projectId"
       :workspace-id="Number(route.params.workspaceId)"
+      view-type="list"
       @filter-change="onFilterChange"
     />
 

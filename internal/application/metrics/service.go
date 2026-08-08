@@ -34,29 +34,29 @@ func NewService(db *pgxpool.Pool) *Service {
 // --- Metric Name Constants ---
 
 const (
-	MetricVelocity        = "velocity"
-	MetricLeadTimeP50     = "lead_time_p50"
-	MetricLeadTimeP85     = "lead_time_p85"
-	MetricThroughput      = "throughput"
-	MetricWIP             = "wip"
-	MetricDefectDensity   = "defect_density"
-	MetricEscapeRate      = "escape_rate"
-	MetricReworkRate      = "rework_rate"
-	MetricDORADF          = "dora_deployment_frequency"
-	MetricDORALT          = "dora_lead_time"
-	MetricDORACFR         = "dora_change_failure_rate"
-	MetricDORAMTTR        = "dora_mttr"
+	MetricVelocity      = "velocity"
+	MetricLeadTimeP50   = "lead_time_p50"
+	MetricLeadTimeP85   = "lead_time_p85"
+	MetricThroughput    = "throughput"
+	MetricWIP           = "wip"
+	MetricDefectDensity = "defect_density"
+	MetricEscapeRate    = "escape_rate"
+	MetricReworkRate    = "rework_rate"
+	MetricDORADF        = "dora_deployment_frequency"
+	MetricDORALT        = "dora_lead_time"
+	MetricDORACFR       = "dora_change_failure_rate"
+	MetricDORAMTTR      = "dora_mttr"
 )
 
 // --- Velocity ---
 
 // VelocityResult 迭代速率统计。
 type VelocityResult struct {
-	ProjectID    int64     `json:"project_id"`
-	Average      float64   `json:"average_points"`
-	SprintCount  int       `json:"sprint_count"`
-	LastSprintID *int64    `json:"last_sprint_id,omitempty"`
-	LastPoints   int       `json:"last_points"`
+	ProjectID    int64            `json:"project_id"`
+	Average      float64          `json:"average_points"`
+	SprintCount  int              `json:"sprint_count"`
+	LastSprintID *int64           `json:"last_sprint_id,omitempty"`
+	LastPoints   int              `json:"last_points"`
 	Trend        []SprintVelocity `json:"trend,omitempty"`
 }
 
@@ -113,10 +113,10 @@ func (s *Service) GetVelocity(ctx context.Context, wsID, projectID int64, lastN 
 
 // LeadTimeResult 前置时间统计。
 type LeadTimeResult struct {
-	ProjectID int64   `json:"project_id"`
-	P50Days   float64 `json:"p50_days"`
-	P85Days   float64 `json:"p85_days"`
-	SampleSize int    `json:"sample_size"`
+	ProjectID  int64   `json:"project_id"`
+	P50Days    float64 `json:"p50_days"`
+	P85Days    float64 `json:"p85_days"`
+	SampleSize int     `json:"sample_size"`
 }
 
 // GetLeadTime 计算需求前置时间（created_at → completed_at）。
@@ -164,14 +164,14 @@ func (s *Service) GetLeadTime(ctx context.Context, wsID, projectID int64, days i
 
 // QualityMetrics 质量指标聚合。
 type QualityMetrics struct {
-	ProjectID     int64   `json:"project_id"`
-	TotalDefects  int     `json:"total_defects"`
-	EscapedDefects int    `json:"escaped_defects"`
-	EscapeRate    float64 `json:"escape_rate"`
-	DefectDensity float64 `json:"defect_density"`
-	AvgDefectAge  float64 `json:"avg_defect_age_days"`
-	ReopenedCount int     `json:"reopened_count"`
-	ReopenRate    float64 `json:"reopen_rate"`
+	ProjectID      int64   `json:"project_id"`
+	TotalDefects   int     `json:"total_defects"`
+	EscapedDefects int     `json:"escaped_defects"`
+	EscapeRate     float64 `json:"escape_rate"`
+	DefectDensity  float64 `json:"defect_density"`
+	AvgDefectAge   float64 `json:"avg_defect_age_days"`
+	ReopenedCount  int     `json:"reopened_count"`
+	ReopenRate     float64 `json:"reopen_rate"`
 }
 
 // GetQualityMetrics 计算质量指标。
@@ -221,12 +221,12 @@ func (s *Service) GetQualityMetrics(ctx context.Context, wsID, projectID int64) 
 
 // DORA 指标结果。
 type DORAResult struct {
-	ProjectID           int64    `json:"project_id"`
-	DeploymentFrequency float64  `json:"deployment_freq_per_day"`     // DF: 每日部署次数（30 天窗口）
-	LeadTimeForChanges  float64  `json:"lead_time_for_changes_hours"` // LTC: median commit→deploy
-	ChangeFailureRate   float64  `json:"change_failure_rate"`         // CFR: 失败部署占比
-	MTTR                float64  `json:"mttr_hours"`                   // MTTR: 故障恢复中位时长
-	Level               string   `json:"performance_level"`            // elite / high / medium / low
+	ProjectID           int64   `json:"project_id"`
+	DeploymentFrequency float64 `json:"deployment_freq_per_day"`     // DF: 每日部署次数（30 天窗口）
+	LeadTimeForChanges  float64 `json:"lead_time_for_changes_hours"` // LTC: median commit→deploy
+	ChangeFailureRate   float64 `json:"change_failure_rate"`         // CFR: 失败部署占比
+	MTTR                float64 `json:"mttr_hours"`                  // MTTR: 故障恢复中位时长
+	Level               string  `json:"performance_level"`           // elite / high / medium / low
 }
 
 // GetDORA 计算 DORA 四指标（30 天窗口）。

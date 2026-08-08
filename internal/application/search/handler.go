@@ -52,7 +52,7 @@ func (h *SearchHandler) Register(r *gin.RouterGroup) {
 //	@Produce		json
 //	@Param			q			query		string	true	"搜索词（支持类 JQL 语法）"
 //	@Param			doc_type	query		string	false	"过滤类型 (issue|sprint|version)"
-//	@Param			type		query		string	false	"工作项类型 (requirement|task|defect)"
+//	@Param			type		query		string	false	"工作项类型 (epic|requirement|task|defect)"
 //	@Param			priority	query		string	false	"优先级"
 //	@Param			state_id	query		int		false	"状态 ID"
 //	@Param			limit		query		int		false	"每页数量 (default 20, max 50)"

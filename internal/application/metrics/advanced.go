@@ -28,13 +28,13 @@ import (
 
 // CFDDataPoint CFD 单条数据点。
 type CFDDataPoint struct {
-	Date          string  `json:"date"`           // YYYY-MM-DD
-	Backlog       int     `json:"backlog"`        // state_group=todo
-	Todo          int     `json:"todo"`           // state_group=todo (排除 backlog)
-	InProgress    int     `json:"in_progress"`    // state_group=started
-	Done          int     `json:"done"`           // state_group=completed
-	Cancelled     int     `json:"cancelled"`      // state_group=cancelled
-	TotalActive   int     `json:"total_active"`   // 未归档的非 cancelled 总数
+	Date        string `json:"date"`         // YYYY-MM-DD
+	Backlog     int    `json:"backlog"`      // state_group=todo
+	Todo        int    `json:"todo"`         // state_group=todo (排除 backlog)
+	InProgress  int    `json:"in_progress"`  // state_group=started
+	Done        int    `json:"done"`         // state_group=completed
+	Cancelled   int    `json:"cancelled"`    // state_group=cancelled
+	TotalActive int    `json:"total_active"` // 未归档的非 cancelled 总数
 }
 
 // CFDCalculator CFD 计算器。
@@ -106,7 +106,7 @@ type ControlChartResult struct {
 	P85          float64             `json:"p85"`
 	P95          float64             `json:"p95"`
 	UpperControl float64             `json:"upper_control_limit"` // UCL = P85 * 1.5
-	MovingAvg    []MovingAverage     `json:"moving_avg_7d"`      // 7 点移动均线
+	MovingAvg    []MovingAverage     `json:"moving_avg_7d"`       // 7 点移动均线
 }
 
 // MovingAverage 移动均线数据点。
@@ -196,11 +196,11 @@ func computeMovingAverage(points []ControlChartPoint, window int) []MovingAverag
 
 // MemberLoad 单个成员的资源负载。
 type MemberLoad struct {
-	UserID         int64   `json:"user_id"`
-	UserName       string  `json:"user_name"`
-	ActiveIssues   int     `json:"active_issues"`
-	TotalPoints    int     `json:"total_points"`
-	LeadTimeAvg    float64 `json:"lead_time_avg_days"`
+	UserID       int64   `json:"user_id"`
+	UserName     string  `json:"user_name"`
+	ActiveIssues int     `json:"active_issues"`
+	TotalPoints  int     `json:"total_points"`
+	LeadTimeAvg  float64 `json:"lead_time_avg_days"`
 }
 
 // ResourceLoadDetail 项目成员级资源负载明细。
@@ -267,10 +267,10 @@ func (s *Service) GetResourceLoadDetail(ctx context.Context, wsID, projectID int
 
 // WeeklyThroughput 周吞吐量统计。
 type WeeklyThroughput struct {
-	WeekStart    string `json:"week_start"`    // YYYY-MM-DD (周一)
-	WeekEnd      string `json:"week_end"`      // YYYY-MM-DD (周日)
-	Completed    int    `json:"completed"`     // 完成需求数
-	Points       int    `json:"points"`        // 完成故事点
+	WeekStart string `json:"week_start"` // YYYY-MM-DD (周一)
+	WeekEnd   string `json:"week_end"`   // YYYY-MM-DD (周日)
+	Completed int    `json:"completed"`  // 完成需求数
+	Points    int    `json:"points"`     // 完成故事点
 }
 
 // GetWeeklyThroughput 查询项目近 N 周的吞吐量。
