@@ -53,6 +53,9 @@ func (h *Handler) Register(r *gin.RouterGroup) {
 		hooks.POST("/:webhook_id/test", h.TestPing)
 		// 重投（手动）
 		hooks.POST("/:webhook_id/logs/:log_id/retry", h.Retry)
+		// 暂停 / 恢复（PATCH is_active 的语义化别名，管理页"暂停/恢复"按钮）
+		hooks.POST("/:webhook_id/pause", h.Pause)
+		hooks.POST("/:webhook_id/resume", h.Resume)
 	}
 }
 
@@ -266,6 +269,40 @@ func (h *Handler) Retry(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"ok": true, "message": "重投成功"})
+}
+
+// Pause godoc
+//   - POST .../webhooks/:webhook_id/pause
+//
+// 暂停投递：等价于 PATCH { is_active: false }。返回更新后的 Webhook。
+func (h *Handler) Pause(c *gin.Context) {
+	wsID := c.GetInt64("workspace_id")
+	webhookID := c.GetInt64("webhook_id")
+
+	active := false
+	w, err := h.svc.Update(c.Request.Context(), wsID, webhookID, UpdateInput{IsActive: &active})
+	if err != nil {
+		respondError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, w)
+}
+
+// Resume godoc
+//   - POST .../webhooks/:webhook_id/resume
+//
+// 恢复投递：等价于 PATCH { is_active: true }。返回更新后的 Webhook。
+func (h *Handler) Resume(c *gin.Context) {
+	wsID := c.GetInt64("workspace_id")
+	webhookID := c.GetInt64("webhook_id")
+
+	active := true
+	w, err := h.svc.Update(c.Request.Context(), wsID, webhookID, UpdateInput{IsActive: &active})
+	if err != nil {
+		respondError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, w)
 }
 
 // --- 请求 DTO ---

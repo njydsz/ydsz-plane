@@ -22,6 +22,7 @@ import (
 	"github.com/njydsz/ydsz-plane/internal/application/auth"
 	"github.com/njydsz/ydsz-plane/internal/application/automation"
 	"github.com/njydsz/ydsz-plane/internal/application/dashboard"
+	"github.com/njydsz/ydsz-plane/internal/application/dlq"
 	"github.com/njydsz/ydsz-plane/internal/application/intake"
 	"github.com/njydsz/ydsz-plane/internal/application/issue"
 	notif "github.com/njydsz/ydsz-plane/internal/application/notification"
@@ -91,6 +92,8 @@ type Deps struct {
 	AutomationHandler *automation.Handler
 	// Metrics 域（S11）——接口类型，支持普通与带 Redis 缓存的两种实现
 	MetricsHandler MetricsHandlerRegistrar
+	// DLQ 域（死信队列管理）
+	DLQHandler *dlq.Handler
 	// AI 域（智能指派/重复检测/分类/摘要）
 	AiHandler *ai.Handler
 }
@@ -410,6 +413,21 @@ func RegisterMetricsRoutes(r *gin.Engine, d *Deps) {
 	d.MetricsHandler.Register(project)
 }
 
+// RegisterDLQRoutes 注册 DLQ 管理路由（工作空间级，需要 audit:read 权限）。
+// 路由模式：/api/v1/workspaces/:workspace_id/admin/dlq
+func RegisterDLQRoutes(r *gin.Engine, d *Deps) {
+	if d.DLQHandler == nil {
+		return
+	}
+	ws := r.Group("/api/v1/workspaces/:workspace_id")
+	ws.Use(
+		middleware.RequireAuth(d.principalParser()),
+		middleware.RequireWorkspaceParam(),
+		middleware.RequirePermissionFromDB(d.RBACStore, auth.PermAuditRead),
+	)
+	d.DLQHandler.Register(ws)
+}
+
 // RegisterWSRoutes 注册 WebSocket 实时推送路由。
 // 客户端通过 wss://host/ws/:workspace_id 连接，认证走 Access Token（Cookie 或 Bearer）。
 func RegisterWSRoutes(r *gin.Engine, d *Deps) {
@@ -509,6 +527,9 @@ func NewEngine(d *Deps) *gin.Engine {
 				// 成员
 				ws.GET("/members", listMembers(d))
 				ws.PATCH("/members/:user_id", requireWsPermission(d, auth.PermMemberChangeRole), changeMemberRole(d))
+				// PUT /members/:user_id/role 与 PATCH /members/:user_id 等价（RESTful 别名，
+				// 兼容前端 RolesPermissionsView / rbac.ts 的更新约定）
+				ws.PUT("/members/:user_id/role", requireWsPermission(d, auth.PermMemberChangeRole), changeMemberRole(d))
 				ws.DELETE("/members/:user_id", requireWsPermission(d, auth.PermMemberRemove), removeMember(d))
 
 				// 邀请
@@ -526,14 +547,14 @@ func NewEngine(d *Deps) *gin.Engine {
 				ws.PATCH("/projects/:project_id", requireWsPermission(d, auth.PermProjectCreate), updateProject(d))
 				ws.DELETE("/projects/:project_id", requireWsPermission(d, auth.PermProjectDelete), archiveProject(d))
 
-			// 项目模板（工作空间级只读，无需项目级 RBAC）
-			ws.GET("/templates", requireWsPermission(d, auth.PermProjectCreate), listProjectTemplates(d))
+				// 项目模板（工作空间级只读，无需项目级 RBAC）
+				ws.GET("/templates", requireWsPermission(d, auth.PermProjectCreate), listProjectTemplates(d))
 
-			// 当前用户的角色 + 权限列表（供前端菜单/按钮鉴权）
-			ws.GET("/role", requireWsPermission(d, auth.PermWorkspaceRead), getCurrentUserRole(d))
+				// 当前用户的角色 + 权限列表（供前端菜单/按钮鉴权）
+				ws.GET("/role", requireWsPermission(d, auth.PermWorkspaceRead), getCurrentUserRole(d))
 
-			// 所有角色定义列表（只读，供成员管理表单下拉）
-			ws.GET("/roles", requireWsPermission(d, auth.PermWorkspaceRead), listRoles(d))
+				// 所有角色定义列表（只读，供成员管理表单下拉）
+				ws.GET("/roles", requireWsPermission(d, auth.PermWorkspaceRead), listRoles(d))
 			}
 		}
 	}
@@ -857,4 +878,3 @@ func listRoles(d *Deps) gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{"items": roles})
 	}
 }
-

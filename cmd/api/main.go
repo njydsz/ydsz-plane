@@ -20,6 +20,7 @@ import (
 	"github.com/njydsz/ydsz-plane/internal/application/auth"
 	"github.com/njydsz/ydsz-plane/internal/application/automation"
 	"github.com/njydsz/ydsz-plane/internal/application/dashboard"
+	"github.com/njydsz/ydsz-plane/internal/application/dlq"
 	"github.com/njydsz/ydsz-plane/internal/application/intake"
 	"github.com/njydsz/ydsz-plane/internal/application/issue"
 	"github.com/njydsz/ydsz-plane/internal/application/metrics"
@@ -295,6 +296,10 @@ func run() error {
 	})
 	aiHandler := ai.NewHandler(&ai.HandlerDeps{AiSvc: aiSvc})
 
+	// ---------- DLQ 管理（死信队列监控） ----------
+	dlqSvc := dlq.NewService(pool.Pool)
+	dlqHandler := dlq.NewHandler(dlqSvc)
+
 	// ---------- HTTP Engine ----------
 	engine := httpapi.NewEngine(&httpapi.Deps{
 		Cfg:             cfg,
@@ -350,6 +355,8 @@ func run() error {
 		MetricsHandler: metricsHandler,
 		// AI domain
 		AiHandler: aiHandler,
+		// DLQ 域（死信队列管理）
+		DLQHandler: dlqHandler,
 	})
 
 	// 注册工作项路由（必须在 NewEngine 之后）
@@ -507,6 +514,15 @@ func run() error {
 		PrincipalParser: parsePrincipal,
 		WorkspaceStore:  wsStore,
 		AiHandler:       aiHandler,
+	})
+
+	// 注册 DLQ 管理路由（工作空间级）
+	httpapi.RegisterDLQRoutes(engine, &httpapi.Deps{
+		Auth:            authSvc,
+		PrincipalParser: parsePrincipal,
+		WorkspaceStore:  wsStore,
+		RBACStore:       rbacStore,
+		DLQHandler:      dlqHandler,
 	})
 
 	errCh := make(chan error, 1)

@@ -18,6 +18,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/njydsz/ydsz-plane/internal/application/automation"
+	"github.com/njydsz/ydsz-plane/internal/application/dlq"
 	"github.com/njydsz/ydsz-plane/internal/application/metrics"
 	notifApp "github.com/njydsz/ydsz-plane/internal/application/notification"
 	"github.com/njydsz/ydsz-plane/internal/application/search"
@@ -27,9 +28,9 @@ import (
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/events"
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/mail"
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/mq"
-	"github.com/njydsz/ydsz-plane/internal/infrastructure/worker"
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/persistence"
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/telemetry"
+	"github.com/njydsz/ydsz-plane/internal/infrastructure/worker"
 	"github.com/njydsz/ydsz-plane/internal/rbac"
 )
 
@@ -267,6 +268,12 @@ func run() error {
 	// 防止日志表无限膨胀（设计文档 §1.2：日志保留 30 天）。
 	go runWebhookLogCleanupCron(ctx, webhookSvc, log)
 
+	// ----- DLQ 死信持久化消费者 -----
+	//
+	// 消费 plane.dlx 交换（重试耗尽的消息），把死信元数据写入 dlq_events 表，
+	// 供管理页（/admin/dlq）查询与重试。API 侧 Retry 走 outbox 重放，不依赖 MQ。
+	go dlq.RunDLXConsumer(ctx, mqClient, pool.Pool, log.Named("dlq"))
+
 	log.Info("worker started",
 		zap.String("rabbitmq", mq.RedactedURL(cfg.RabbitMQ.URL)),
 		zap.Strings("task_queues", worker.QueueNames()),
@@ -401,7 +408,7 @@ func runMetricsSnapshotCron(ctx context.Context, svc *metrics.Service, log *zap.
 				lastRunDate = dateKey
 
 				// 时间打散：在 0~15s 窗口内按日期确定偏移
-				jitter := worker.DayJitter("metrics:" + dateKey, 15)
+				jitter := worker.DayJitter("metrics:"+dateKey, 15)
 				if jitter > 0 {
 					log.Debug("metrics snapshot cron: jitter", zap.Duration("delay", jitter))
 					time.Sleep(jitter)

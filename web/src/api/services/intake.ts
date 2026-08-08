@@ -200,10 +200,10 @@ export const intakeApi = {
       id: number; slug: string; name: string; description: string;
       default_issue_type: string; require_captcha: boolean;
       custom_fields: any; branding: any;
-    }>(http.get(`/public/intake/${wsId}/${slug}`)),
+    }>(http.get(`/public/intake/channels/${wsId}/${slug}`)),
 
   submitIssue: (wsId: number, slug: string, input: SubmitInput) =>
-    wrap<SubmitResult>(http.post(`/public/intake/${wsId}/${slug}/submit`, input)),
+    wrap<SubmitResult>(http.post(`/public/intake/channels/${wsId}/${slug}/submit`, input)),
 
   trackIssue: (trackingId: string, email: string) =>
     wrap<TrackResult>(http.get("/public/intake/track", {

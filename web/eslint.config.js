@@ -26,6 +26,15 @@ export default [
     },
   },
   {
-    ignores: ["dist", "node_modules"],
+    ignores: [
+      "dist",
+      "dist-*",
+      "_tmp_*",
+      "node_modules",
+      "coverage",
+      "playwright-report",
+      "test-results",
+      "e2e/.auth",
+    ],
   },
 ];
