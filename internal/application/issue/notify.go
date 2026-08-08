@@ -6,10 +6,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
 	notif "github.com/njydsz/ydsz-plane/internal/application/notification"
+	"github.com/njydsz/ydsz-plane/internal/infrastructure/cache"
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/ws"
 )
 
@@ -145,12 +148,27 @@ func (h *IssueHandler) notifyIssueCreated(ctx context.Context, wsID int64, assig
 	h.notifyIssueAssigned(ctx, wsID, assignees, actorID, actorName, issueTitle, issueID)
 }
 
-// notifyIssueWatchers 工作项变更后通知所有关注者（watchers）。
+// 核心通知事件类型，只有这些类型的工作项变更才会触发通知，避免噪音
+var coreEventTypes = map[string]bool{
+	"issue.created":       true,
+	"issue.assigned":      true,
+	"issue.status_changed": true,
+	"issue.priority_changed": true,
+	"issue.commented":     true,
+	"issue.attachment_added": true,
+}
+
+// notifyIssueWatchers 工作项核心变更后通知所有关注者（watchers）。
 //
-// 语义：关注者订阅了工作项的动态（状态/字段/评论变更），
-// 这里统一通过 EventIssueStatusChanged 事件发送站内通知 + 实时广播。
-func (h *IssueHandler) notifyIssueWatchers(ctx context.Context, wsID, issueID, actorID int64, actorName, issueTitle, changeDesc string) {
+// 优化点：
+// 1. 仅核心变更事件（创建、指派、状态流转等）触发通知，避免普通字段修改的噪音
+// 2. 同一用户对同一工作项5分钟内的多次变更合并为一条通知，避免通知风暴
+func (h *IssueHandler) notifyIssueWatchers(ctx context.Context, wsID, issueID, actorID int64, eventType string, actorName, issueTitle, changeDesc string) {
 	if h.d.NotificationSvc == nil || h.d.IssueSvc == nil {
+		return
+	}
+	// 校验是否是核心事件，非核心事件不触发通知
+	if !coreEventTypes[eventType] {
 		return
 	}
 	watchers, err := h.d.IssueSvc.LoadWatchers(ctx, issueID)
@@ -160,11 +178,23 @@ func (h *IssueHandler) notifyIssueWatchers(ctx context.Context, wsID, issueID, a
 
 	seen := map[int64]bool{}
 	inputs := make([]notif.CreateNotificationInput, 0, len(watchers))
+	mergeTTL := 5 * time.Minute // 5分钟合并窗口
 	for _, uid := range watchers {
 		if uid == actorID || seen[uid] {
 			continue
 		}
 		seen[uid] = true
+		
+		// 通知去重：同一用户对同一工作项5分钟内只发一次通知
+		mergeKey := fmt.Sprintf("notif:merge:%d:%d", issueID, uid)
+		// 如果key已存在，说明5分钟内已经发过通知，跳过
+		exists, _ := h.d.Cache.Exists(ctx, mergeKey)
+		if exists {
+			continue
+		}
+		// 设置key，有效期5分钟
+		_ = h.d.Cache.Set(ctx, mergeKey, "1", mergeTTL)
+		
 		title := "工作项已更新"
 		if changeDesc != "" {
 			title = changeDesc
@@ -172,7 +202,7 @@ func (h *IssueHandler) notifyIssueWatchers(ctx context.Context, wsID, issueID, a
 		inputs = append(inputs, notif.CreateNotificationInput{
 			WorkspaceID: wsID,
 			RecipientID: uid,
-			EventType:   notif.EventIssueStatusChanged,
+			EventType:   eventType,
 			EntityType:  notif.EntityIssue,
 			EntityID:    issueID,
 			Title:       title,

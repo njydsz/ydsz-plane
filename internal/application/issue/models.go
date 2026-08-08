@@ -184,6 +184,7 @@ type Issue struct {
 // Module 项目模块。
 type Module struct {
 	ID          int64      `json:"id"`
+	PublicID    string     `json:"public_id,omitempty"`
 	WorkspaceID int64      `json:"workspace_id"`
 	ProjectID   int64      `json:"project_id"`
 	Name        string     `json:"name"`

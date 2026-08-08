@@ -331,11 +331,8 @@ func (h *IssueHandler) updateIssue(c *gin.Context) {
 		writeErr(c, err)
 		return
 	}
-	// 广播 + 通知关注者
+	// 广播 + 仅核心事件通知关注者
 	h.broadcastIssueUpdated(c.Request.Context(), wsID, projectID, iss.ID)
-	if h.d.SocialSvc != nil {
-		h.notifyIssueWatchers(c.Request.Context(), wsID, iss.ID, userID, h.actorName(c, userID), iss.Name, "")
-	}
 	c.JSON(http.StatusOK, iss)
 }
 
@@ -387,8 +384,8 @@ func (h *IssueHandler) transition(c *gin.Context) {
 	}
 	// 广播状态变更（看板实时刷新）
 	h.broadcastIssueUpdated(c.Request.Context(), wsID, projectID, iss.ID)
-	// 通知关注者
-	h.notifyIssueWatchers(c.Request.Context(), wsID, iss.ID, userID, h.actorName(c, userID), iss.Name, "工作项状态已变更")
+	// 通知关注者，传递核心事件类型issue.status_changed，触发通知
+	h.notifyIssueWatchers(c.Request.Context(), wsID, iss.ID, userID, "issue.status_changed", h.actorName(c, userID), iss.Name, "工作项状态已变更")
 	c.JSON(http.StatusOK, iss)
 }
 
@@ -1126,7 +1123,7 @@ func (h *IssueHandler) createComment(c *gin.Context) {
 	h.notifyCommentCreated(c.Request.Context(), wsID, issueID, req.Mentions, userID,
 		comment.CreatorName, h.issueTitle(c, wsID, issueID))
 	// 通知关注者（有人评论了我关注的工作项）
-	h.notifyIssueWatchers(c.Request.Context(), wsID, issueID, userID,
+	h.notifyIssueWatchers(c.Request.Context(), wsID, issueID, userID, "issue.commented",
 		comment.CreatorName, h.issueTitle(c, wsID, issueID), "你关注的工作项有新评论")
 	h.broadcastIssueUpdated(c.Request.Context(), wsID, projectID, issueID)
 

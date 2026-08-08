@@ -21,7 +21,6 @@ import { issueApi, type IssueActivity, type State, type TimeLog } from "@/api/se
 import { workspaceApi } from "@/api/services/workspace";
 import { versionApi, type Version } from "@/api/services/version";
 import { AppBadge, AppCard } from "@/components";
-import { toast } from "@/lib/toast";
 
 const props = defineProps<{
   workspaceId: number;
@@ -78,15 +77,16 @@ const priorityLabel = computed(() => {
   } as Record<string, string>)[p] ?? p ?? "-";
 });
 
-const priorityVariant = computed(() => {
+const priorityVariant = computed<"default" | "success" | "info" | "warning" | "brand" | "danger">(() => {
   const p = issue.value?.priority;
-  return ({
+  const map: Record<string, "default" | "success" | "info" | "warning" | "brand" | "danger"> = {
     urgent: "danger",
     high: "warning",
     medium: "info",
     low: "default",
     none: "default",
-  } as Record<string, string>)[p] ?? "default";
+  };
+  return map[p] ?? "default";
 });
 
 const severityLabel = computed(() => {

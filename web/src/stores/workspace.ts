@@ -5,17 +5,27 @@ import { defineStore } from "pinia";
 
 import { workspaceApi, type Workspace, type MyRoleResponse, type RoleDefinition } from "@/api/services/workspace";
 
+/** 工作空间 store 状态。显式声明 state 类型，规避 Pinia 对 Set 字段的推断歧义。 */
+interface WorkspaceState {
+  list: Workspace[];
+  current: Workspace | null;
+  loaded: boolean;
+  slug: string;
+  /** 当前用户在该工作空间的权限码集合 */
+  permissions: Set<string>;
+  /** 当前用户在该工作空间的角色详情 */
+  roleDetail: RoleDefinition | null;
+}
+
 /** 工作空间 store */
 export const useWorkspaceStore = defineStore("workspace", {
-  state: () => ({
-    list: [] as Workspace[],
-    current: null as Workspace | null,
+  state: (): WorkspaceState => ({
+    list: [],
+    current: null,
     loaded: false,
-    slug: "" as string,
-    /** 当前用户在该工作空间的权限码集合 */
-    permissions: new Set<string>() as Set<string>,
-    /** 当前用户在该工作空间的角色详情 */
-    roleDetail: null as RoleDefinition | null,
+    slug: "",
+    permissions: new Set<string>(),
+    roleDetail: null,
   }),
   getters: {
     /** 当前空间 ID */
