@@ -21,6 +21,7 @@ import (
 
 	"github.com/njydsz/ydsz-plane/internal/application/apitoken"
 	"github.com/njydsz/ydsz-plane/internal/application/auth"
+	"github.com/njydsz/ydsz-plane/internal/rbac"
 	"github.com/njydsz/ydsz-plane/pkg/errs"
 )
 
@@ -98,7 +99,69 @@ func RequirePermission(store *auth.WorkspaceMembershipStore, perm string) gin.Ha
 			}
 		}
 
-		c.Set("workspace_role", string(m.Role))
+	c.Set("workspace_role", string(m.Role))
+	c.Set("workspace_is_owner", m.Role == auth.RoleOwner)
+	c.Next()
+}
+}
+
+// RequirePermissionFromDB 从 DB-backed rbac.Store 解析权限，是 RequirePermission 的 DB 版替代。
+// 校验通过后额外写入 ctx：workspace_role / workspace_is_owner / workspace_permissions（[]string）。
+func RequirePermissionFromDB(rbacStore *rbac.Store, perm string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		rawUID, _ := c.Get(CtxUserID)
+		userID, ok := rawUID.(int64)
+		if !ok || userID == 0 {
+			respondError(c, errs.ErrUnauthorized)
+			c.Abort()
+			return
+		}
+		rawWS, ok := c.Get(CtxWorkspaceID)
+		if !ok {
+			respondError(c, errs.ErrForbidden)
+			c.Abort()
+			return
+		}
+		wsID := rawWS.(int64)
+
+		role, permissions, err := rbacStore.ResolveMembership(c.Request.Context(), wsID, userID)
+		if err != nil {
+			var appErr *errs.AppError
+			if errors.As(err, &appErr) {
+				respondError(c, appErr)
+			} else {
+				respondError(c, errs.ErrForbidden)
+			}
+			c.Abort()
+			return
+		}
+		if !rbacStore.RoleHasPermission(role.Slug, perm) {
+			respondError(c, errs.ErrForbidden)
+			c.Abort()
+			return
+		}
+
+		// API Token scope 收敛防线（沿用旧逻辑）
+		if c.GetString(CtxAuthKind) == string(auth.PrincipalAPIToken) {
+			rawScopes, _ := c.Get(CtxAuthScopes)
+			owned, _ := rawScopes.([]string)
+			required, ok := apitoken.PermissionScope(perm)
+			if !ok {
+				if !apitoken.ScopeCovers(owned, apitoken.ScopeAll) {
+					respondError(c, errs.ErrForbidden)
+					c.Abort()
+					return
+				}
+			} else if !apitoken.ScopeCovers(owned, required) {
+				respondError(c, errs.ErrForbidden)
+				c.Abort()
+				return
+			}
+		}
+
+		c.Set("workspace_role", role.Slug)
+		c.Set("workspace_is_owner", role.Slug == "owner")
+		c.Set("workspace_permissions", permissions)
 		c.Next()
 	}
 }

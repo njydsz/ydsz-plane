@@ -10,7 +10,7 @@
  *  - 规则执行历史查看
  *  - 启用 / 禁用 toggle
  */
-import { computed, onMounted, reactive, ref } from "vue";
+import { onMounted, reactive, ref } from "vue";
 
 import {
   automationApi,
@@ -209,14 +209,6 @@ function formatTime(s?: string | null): string {
   return s ? s.replace("T", " ").slice(0, 19) : "-";
 }
 
-function emptyDSL(): RuleDSL {
-  return {
-    trigger: { type: "issue.created" },
-    conditions: [],
-    actions: [],
-  };
-}
-
 function buildDSL(): RuleDSL {
   const actions: RuleDSLAction[] = form.actions.map((a) => ({
     type: a.type,
@@ -408,22 +400,6 @@ function execStatus(s: string): { text: string; cls: string } {
   return EXECUTION_STATUS[s] ?? { text: s, cls: "" };
 }
 
-function actionParamsSummary(type: string, params?: Record<string, any>): string {
-  if (!params) return type;
-  switch (type) {
-    case "transition_status":
-      return `→ ${params.target_state ?? "?"}`;
-    case "assign":
-      return `→ ${params.assignee ?? "?"}`;
-    case "update_field":
-      return `${params.field ?? "?"} = ${params.value ?? "?"}`;
-    case "copy_field":
-      return `${params.source ?? "?"} → ${params.target ?? "?"}`;
-    default:
-      return type;
-  }
-}
-
 /* ------------------------------------------------------------------ */
 /* Lifecycle                                                           */
 /* ------------------------------------------------------------------ */
@@ -460,8 +436,8 @@ watch(ready, (v) => {
           <button
             class="btn btn--primary au-dropdown-toggle"
             :disabled="templateLoading"
-            @click="showTemplateMenu = !showTemplateMenu"
             title="从模板创建"
+            @click="showTemplateMenu = !showTemplateMenu"
           >
             <span class="au-caret" :class="{ open: showTemplateMenu }">▾</span>
           </button>
@@ -570,7 +546,7 @@ watch(ready, (v) => {
                 <option v-for="o in OPERATOR_OPTIONS" :key="o.value" :value="o.value">{{ o.label }}</option>
               </select>
               <input v-model="c.value" class="wh-input au-cond-val" placeholder="值" />
-              <button class="btn-sm btn-sm--danger" @click="removeCondition(idx)" title="删除条件">×</button>
+              <button class="btn-sm btn-sm--danger" title="删除条件" @click="removeCondition(idx)">×</button>
             </div>
           </div>
           <button class="btn-sm au-add-btn" @click="addCondition">＋ 添加条件</button>
@@ -586,7 +562,7 @@ watch(ready, (v) => {
                 <select v-model="a.type" class="wh-input au-act-type" @change="onActionTypeChange(idx)">
                   <option v-for="o in ACTION_OPTIONS" :key="o.value" :value="o.value">{{ o.label }}</option>
                 </select>
-                <button class="btn-sm btn-sm--danger" @click="removeAction(idx)" title="删除动作">×</button>
+                <button class="btn-sm btn-sm--danger" title="删除动作" @click="removeAction(idx)">×</button>
               </div>
               <!-- transition_status params -->
               <template v-if="a.type === 'transition_status'">

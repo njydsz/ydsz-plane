@@ -5,6 +5,7 @@
 
 import { computed, ref, watch } from "vue";
 
+import { aiApi, type ClassifyResult, type DuplicateCandidate } from "@/api/services/ai";
 import { type CreateIssueInput, type IssueType } from "@/api/services/issue";
 import { versionApi, type Version } from "@/api/services/version";
 import { useIssueStore } from "@/stores/issue";
@@ -35,7 +36,7 @@ const errorMsg = ref("");
 // 基础字段
 const name = ref("");
 const description = ref("");
-const priority = ref<string>("medium");
+const priorityRef = ref<string>("medium");
 const point = ref<number | null>(null);
 const parentId = ref<number | null>(null);
 const isDraft = ref(false);
@@ -48,6 +49,69 @@ const environment = ref("");
 const foundVersionId = ref<number | null>(null);
 const fixVersionId = ref<number | null>(null);
 const versions = ref<Version[]>([]);
+
+// ---- AI 智能辅助 ----
+const aiEnabled = ref(false);
+const classifyResult = ref<ClassifyResult | null>(null);
+const duplicates = ref<DuplicateCandidate[]>([]);
+const aiLoading = ref(false);
+let aiAbort: AbortController | null = null;
+let aiTimer: ReturnType<typeof setTimeout> | null = null;
+
+/** 检测 AI 功能是否可用 */
+async function checkAiStatus() {
+  try {
+    const status = await aiApi.getStatus(props.workspaceId, props.projectId);
+    aiEnabled.value = status.enabled;
+  } catch {
+    aiEnabled.value = false;
+  }
+}
+
+/** 防抖调用 AI 分类 + 重复检测 */
+function scheduleAiCheck() {
+  if (!aiEnabled.value || currentStep.value !== "form") return;
+  if (aiTimer) clearTimeout(aiTimer);
+  aiTimer = setTimeout(runAiCheck, 800);
+}
+
+async function runAiCheck() {
+  const title = name.value.trim();
+  if (title.length < 4) return;
+
+  aiAbort?.abort();
+  aiAbort = new AbortController();
+  aiLoading.value = true;
+
+  try {
+    const [classifyRes, dupRes] = await Promise.all([
+      aiApi.smartClassify(props.workspaceId, props.projectId, title, description.value).catch(() => null),
+      aiApi.detectDuplicates(props.workspaceId, props.projectId, title, description.value).catch(() => []),
+    ]);
+    classifyResult.value = classifyRes;
+    duplicates.value = dupRes;
+  } catch {
+    // AI 调用失败静默忽略
+  } finally {
+    aiLoading.value = false;
+  }
+}
+
+/** 采纳 AI 推荐类型 */
+function applyAiType(type: string) {
+  if (["requirement", "task", "defect"].includes(type)) {
+    selectedType.value = type as IssueType;
+    classifyResult.value = null;
+  }
+}
+
+/** 采纳 AI 推荐优先级 */
+function applyAiPriority(priority: string) {
+  if (["critical", "high", "medium", "low"].includes(priority)) {
+    priorityRef.value = priority;
+    classifyResult.value = null;
+  }
+}
 
 // ---- 派生 ----
 const requiresExtraFields = computed(() => selectedType.value === "defect");
@@ -80,7 +144,7 @@ watch(
       selectedType.value = props.presetType ?? "task";
       name.value = "";
       description.value = "";
-      priority.value = "medium";
+      priorityRef.value = "medium";
       point.value = null;
       parentId.value = null;
       isDraft.value = false;
@@ -91,10 +155,18 @@ watch(
       foundVersionId.value = null;
       fixVersionId.value = null;
       errorMsg.value = "";
+      classifyResult.value = null;
+      duplicates.value = [];
       loadVersions();
+      void checkAiStatus();
     }
   },
 );
+
+// ---- AI：标题/描述变化时触发防抖检测 ----
+watch([name, description], () => {
+  scheduleAiCheck();
+});
 
 // ---- Actions ----
 function selectType(type: IssueType) {
@@ -115,7 +187,7 @@ async function submit() {
   const input: CreateIssueInput = {
     type: selectedType.value,
     name: name.value.trim(),
-    priority: priority.value as CreateIssueInput["priority"],
+    priority: priorityRef.value as CreateIssueInput["priority"],
     is_draft: isDraft.value,
   };
 
@@ -221,6 +293,33 @@ function cancel() {
             <span class="form-hint">{{ name.length }}/500</span>
           </div>
 
+          <!-- AI 智能建议条 -->
+          <div v-if="aiEnabled && currentStep === 'form' && (classifyResult || duplicates.length > 0 || aiLoading)" class="ai-suggestions">
+            <div v-if="aiLoading" class="ai-suggestions__loading">
+              <span class="ai-spinner"></span> AI 正在分析...
+            </div>
+            <template v-else>
+              <div v-if="classifyResult" class="ai-suggestions__classify">
+                <span class="ai-tag">AI 推荐</span>
+                <span class="ai-label">类型</span>
+                <button class="ai-pill" :class="{ 'ai-pill--active': selectedType === classifyResult.type_code }" @click="applyAiType(classifyResult.type_code)">
+                  {{ ({ requirement: "需求", task: "任务", defect: "缺陷" } as Record<string, string>)[classifyResult.type_code] }}
+                </button>
+                <span class="ai-label">优先级</span>
+                <button class="ai-pill" :class="{ 'ai-pill--active': priorityRef === classifyResult.priority }" @click="applyAiPriority(classifyResult.priority)">
+                  {{ ({ critical: "紧急", high: "高", medium: "中", low: "低" } as Record<string, string>)[classifyResult.priority] }}
+                </button>
+                <span class="ai-confidence">{{ Math.round(classifyResult.confidence * 100) }}%</span>
+              </div>
+              <div v-if="duplicates.length > 0" class="ai-suggestions__dups">
+                <span class="ai-tag ai-tag--warn">可能重复</span>
+                <span v-for="dup in duplicates.slice(0, 3)" :key="dup.issue_id" class="ai-dup-item">
+                  {{ dup.identifier }} · {{ dup.title }} ({{ Math.round(dup.similarity * 100) }}%)
+                </span>
+              </div>
+            </template>
+          </div>
+
           <div class="form-group">
             <label class="form-label">描述</label>
             <textarea
@@ -234,7 +333,7 @@ function cancel() {
           <div class="form-row">
             <div class="form-group form-group--inline">
               <label class="form-label">优先级</label>
-              <select v-model="priority" class="form-select">
+              <select v-model="priorityRef" class="form-select">
                 <option value="urgent">紧急</option>
                 <option value="high">高</option>
                 <option value="medium">中</option>
@@ -660,5 +759,99 @@ function cancel() {
 
 .btn--ghost:hover:not(:disabled) {
   color: var(--brand-500);
+}
+
+/* ===== AI Suggestions ===== */
+.ai-suggestions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding: 10px 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+}
+
+.ai-suggestions__loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-tertiary);
+}
+
+.ai-spinner {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--border-subtle);
+  border-top-color: var(--brand-500);
+  border-radius: 50%;
+  animation: ai-spin 0.6s linear infinite;
+}
+
+@keyframes ai-spin {
+  to { transform: rotate(360deg); }
+}
+
+.ai-suggestions__classify,
+.ai-suggestions__dups {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.ai-tag {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 3px;
+  background: var(--brand-50);
+  color: var(--brand-600);
+}
+
+.ai-tag--warn {
+  background: var(--warning-50);
+  color: var(--warning-600);
+}
+
+.ai-label {
+  color: var(--text-tertiary);
+  font-size: 11px;
+}
+
+.ai-pill {
+  padding: 2px 8px;
+  font-size: 11px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  background: var(--surface-1);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+
+.ai-pill:hover {
+  border-color: var(--brand-500);
+  color: var(--brand-500);
+}
+
+.ai-pill--active {
+  border-color: var(--brand-500);
+  background: var(--brand-50);
+  color: var(--brand-600);
+}
+
+.ai-confidence {
+  color: var(--text-tertiary);
+  font-size: 10px;
+}
+
+.ai-dup-item {
+  color: var(--text-secondary);
+  font-size: 11px;
 }
 </style>

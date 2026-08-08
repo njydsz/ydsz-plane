@@ -178,9 +178,6 @@ function toggleTaskList() {
 function toggleCodeBlock() {
   editor.value?.chain().focus().toggleCodeBlock().run()
 }
-function insertHorizontalRule() {
-  editor.value?.chain().focus().setHorizontalRule().run()
-}
 function addLink() {
   const url = prompt("输入链接 URL:")
   if (url) {
@@ -229,14 +226,6 @@ function toggleHeaderRow() {
 /* ---- Callout ---- */
 function toggleCallout(type: "info" | "warning" | "error" | "success" = "info") {
   editor.value?.chain().focus().toggleWrap("callout", { type }).run()
-}
-
-/* ---- 颜色 ---- */
-function setTextColor(color: string) {
-  editor.value?.chain().focus().setColor(color).run()
-}
-function setHighlight(color: string) {
-  editor.value?.chain().focus().toggleHighlight({ color }).run()
 }
 
 /* ---- 文本对齐 ---- */
@@ -309,18 +298,6 @@ const toolbarGroups = computed(() => {
     ["link", "image", "table"],
   ]
 })
-
-/* ---- 颜色预设 ---- */
-const textColors = [
-  { label: "默认", value: "" },
-  { label: "红色", value: "#dc2626" },
-  { label: "橙色", value: "#ea580c" },
-  { label: "黄色", value: "#ca8a04" },
-  { label: "绿色", value: "#16a34a" },
-  { label: "蓝色", value: "#2563eb" },
-  { label: "紫色", value: "#9333ea" },
-  { label: "灰色", value: "#6b7280" },
-]
 
 /* ---- Slash Command 浮层 ---- */
 const slashMenuOpen = ref(false)

@@ -52,6 +52,11 @@ const router = createRouter({
       props: { mode: "track" as const },
     },
     {
+      path: "/settings/api-tokens",
+      name: "api-tokens",
+      component: () => import("@/views/settings/ApiTokensView.vue"),
+    },
+    {
       path: "/",
       component: () => import("@/layouts/WorkspaceLayout.vue"),
       children: [

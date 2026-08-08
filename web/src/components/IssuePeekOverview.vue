@@ -23,7 +23,8 @@ import { useRouter } from "vue-router";
 import { issueApi, type Issue, type State, type IssuePriority } from "@/api/services/issue";
 import { workspaceApi } from "@/api/services/workspace";
 import { usePeekStore } from "@/stores/peek";
-import { AppButton } from "@/components";
+import { useAuthStore } from "@/stores/auth";
+import { AppButton, IssueSocialBar } from "@/components";
 import RichTextEditor from "@/components/RichTextEditor.vue";
 import CommentList from "@/components/CommentList.vue";
 import InlineEdit from "@/components/InlineEdit.vue";
@@ -32,6 +33,8 @@ import { promiseToast } from "@/lib/toast";
 
 const router = useRouter();
 const peek = usePeekStore();
+const auth = useAuthStore();
+const currentUserId = computed(() => auth.user?.id ?? 0);
 
 // ---- 数据状态 ----
 const loading = ref(true);
@@ -337,6 +340,16 @@ onUnmounted(() => {
             </div>
           </div>
 
+          <!-- 社交反馈：投票 / 表情反应 / 关注 -->
+          <div v-if="wsId" class="peek__section peek__section--social">
+            <IssueSocialBar
+              :workspace-id="wsId"
+              :project-id="projectId"
+              :issue-id="issueId"
+              :initial-watching="issue.watchers.includes(currentUserId)"
+            />
+          </div>
+
           <!-- 描述（可切换编辑态） -->
           <div class="peek__section">
             <div class="peek__section-header">
@@ -627,6 +640,11 @@ onUnmounted(() => {
 .peek__section {
   padding: 16px 20px;
   border-bottom: 1px solid var(--border-subtle, #f3f4f6);
+}
+
+/* 社交栏区块：无标题、紧凑 */
+.peek__section--social {
+  padding: 12px 20px;
 }
 
 .peek__section-header {

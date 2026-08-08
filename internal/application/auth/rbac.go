@@ -1,7 +1,12 @@
-// Package auth — RBAC 领域模型（角色枚举 + 权限矩阵）。
+// Package auth — RBAC 领域模型（角色枚举 + 权限码常量）。
 //
-// 设计参考：GitHub / GitLab 工作空间成员模型。
-// "谁能做什么"的唯一事实来源是 Roles[role] 映射。
+// 设计参考：GitHub / GitLab / Plane / Linear 工作空间成员模型。
+// "谁能做什么"的事实来源之一是所有 PermXxx 常量；真正的矩阵由 DB role_permissions 表承载。
+//
+// 与旧版本的兼容性：
+//   - 角色枚举 WorkspaceRole 保持不变（owner/admin/member/guest 已保留；新增 pm/po/techlead/qalead/dev）
+//   - 权限点常量从 ~18 个扩展到 ~50 个，用于 DB role_permissions 表的 permission_code 列
+//   - 旧 HasPermission 方法仍然可用（走 DB 查询），便于旧调用方平滑过渡
 package auth
 
 import (
@@ -14,116 +19,137 @@ import (
 )
 
 /* ------------------------------------------------------------------ */
-/* 权限常量                                                              */
+/* 权限常量（50 个）                                                    */
 /* ------------------------------------------------------------------ */
 
 const (
-	// 工作空间管理
+	// 工作空间
 	PermWorkspaceRead   = "workspace:read"
 	PermWorkspaceUpdate = "workspace:update"
 	PermWorkspaceDelete = "workspace:delete"
-	// 成员管理
-	PermMemberInvite    = "member:invite"
-	PermMemberRemove    = "member:remove"
-	PermMemberChangeRole = "member:change_role"
-	// 项目管理
+
+	// 项目
+	PermProjectRead   = "project:read"
 	PermProjectCreate = "project:create"
+	PermProjectUpdate = "project:update"
 	PermProjectDelete = "project:delete"
-	// 审计
-	PermAuditRead = "audit:read"
-	// 工作项管理
-	PermIssueCreate = "issue:create"
-	PermIssueDelete = "issue:delete"
-	// 版本管理
-	PermVersionCreate = "version:create"
+
+	// 工作项
+	PermIssueRead          = "issue:read"
+	PermIssueCreate        = "issue:create"
+	PermIssueEditOwn       = "issue:edit_own"
+	PermIssueEditAll       = "issue:edit_all"
+	PermIssueDelete        = "issue:delete"
+	PermIssueTransition    = "issue:transition"
+	PermIssueReassign      = "issue:reassign"
+	PermIssueChangePriority = "issue:change_priority"
+	PermIssueManageSprint  = "issue:manage_sprint"
+
+	// 成员
+	PermMemberInvite     = "member:invite"
+	PermMemberRemove     = "member:remove"
+	PermMemberChangeRole = "member:change_role"
+
+	// 迭代
+	PermSprintRead      = "sprint:read"
+	PermSprintCreate    = "sprint:create"
+	PermSprintUpdate    = "sprint:update"
+	PermSprintDelete    = "sprint:delete"
+	PermSprintLifecycle = "sprint:lifecycle"
+	PermSprintPlan      = "sprint:plan"
+
+	// 版本
+	PermVersionRead    = "version:read"
+	PermVersionCreate  = "version:create"
+	PermVersionUpdate  = "version:update"
 	PermVersionRelease = "version:release"
-	PermVersionDelete = "version:delete"
-	PermVersionUpdate = "version:update"
-	// 自动化管理（S11）
-	PermProjectAutomation = "project:automation"
-	// 效能度量（S11）
-	PermProjectAnalytics = "project:analytics"
+	PermVersionDelete  = "version:delete"
+
+	// 质量
+	PermDefectCreate = "defect:create"
+	PermQAReport     = "qa:report"
+
+	// 效能
+	PermAnalyticsRead   = "analytics:read"
+	PermAnalyticsExport = "analytics:export"
+
+	// 自动化 / 集成
+	PermAutomationManage = "automation:manage"
+	PermDeployReport     = "deploy:report"
+
+	// 审计 / 收件箱 / 知识库
+	PermAuditRead       = "audit:read"
+	PermWebhookManage   = "webhook:manage"
+	PermIntakeManage    = "intake:manage"
+	PermPagesManage     = "pages:manage"
+
+	// 评论 / 关联
+	PermCommentModerate = "comment:moderate"
+	PermRelationManage  = "relation:manage"
+
+	// 字段级
+	PermFieldEditSeverity = "field:edit_severity"
+	PermFieldEditEffort   = "field:edit_effort"
+	PermFieldEditDeadline = "field:edit_deadline"
+
+	// 菜单级
+	PermMenuSettings = "menu:settings"
+	PermMenuAudit    = "menu:audit"
 )
 
 /* ------------------------------------------------------------------ */
-/* 角色枚举与排序                                                         */
+/* 角色枚举（8 个）                                                     */
 /* ------------------------------------------------------------------ */
 
-// WorkspaceRole 是成员级别。
 type WorkspaceRole string
 
 const (
-	RoleOwner  WorkspaceRole = "owner"
-	RoleAdmin  WorkspaceRole = "admin"
-	RoleMember WorkspaceRole = "member"
-	RoleGuest  WorkspaceRole = "guest"
+	RoleOwner    WorkspaceRole = "owner"
+	RoleAdmin    WorkspaceRole = "admin"
+	RolePM       WorkspaceRole = "pm"
+	RolePO       WorkspaceRole = "po"
+	RoleTechLead WorkspaceRole = "techlead"
+	RoleQALead   WorkspaceRole = "qalead"
+	RoleDev      WorkspaceRole = "dev"
+	RoleGuest    WorkspaceRole = "guest"
 )
 
-// IsValid 报告角色是否为合法枚举值。
 func (r WorkspaceRole) IsValid() bool {
 	switch r {
-	case RoleOwner, RoleAdmin, RoleMember, RoleGuest:
+	case RoleOwner, RoleAdmin, RolePM, RolePO, RoleTechLead, RoleQALead, RoleDev, RoleGuest:
 		return true
 	default:
 		return false
 	}
 }
 
+func (r WorkspaceRole) String() string { return string(r) }
+
+// Level 返回角色层级数值（用于前端比大小）。
+func (r WorkspaceRole) Level() int {
+	switch r {
+	case RoleOwner:
+		return 100
+	case RoleAdmin:
+		return 80
+	case RolePM, RolePO, RoleTechLead, RoleQALead:
+		return 50
+	case RoleDev:
+		return 30
+	case RoleGuest:
+		return 10
+	default:
+		return 0
+	}
+}
+
 // IsAtLeast 报告角色 r 是否满足最低所需角色级别 min。
 func (r WorkspaceRole) IsAtLeast(min WorkspaceRole) bool {
-	levels := map[WorkspaceRole]int{
-		RoleGuest: 0, RoleMember: 1, RoleAdmin: 2, RoleOwner: 3,
-	}
-	return levels[r] >= levels[min]
+	return r.Level() >= min.Level()
 }
 
 /* ------------------------------------------------------------------ */
-/* 权限矩阵（唯一事实来源）                                                 */
-/* ------------------------------------------------------------------ */
-
-// Roles 将每个角色映射到其被授予的权限集合。
-var Roles = map[WorkspaceRole][]string{
-	RoleOwner: {
-		PermWorkspaceRead, PermWorkspaceUpdate, PermWorkspaceDelete,
-		PermMemberInvite, PermMemberRemove, PermMemberChangeRole,
-		PermProjectCreate, PermProjectDelete,
-		PermAuditRead,
-		PermIssueCreate, PermIssueDelete,
-		PermVersionCreate, PermVersionRelease, PermVersionDelete, PermVersionUpdate,
-		PermProjectAutomation, PermProjectAnalytics,
-	},
-	RoleAdmin: {
-		PermWorkspaceRead, PermWorkspaceUpdate,
-		PermMemberInvite, PermMemberRemove,
-		PermProjectCreate, PermProjectDelete,
-		PermAuditRead,
-		PermIssueCreate, PermIssueDelete,
-		PermVersionCreate, PermVersionRelease, PermVersionDelete, PermVersionUpdate,
-		PermProjectAutomation, PermProjectAnalytics,
-	},
-	RoleMember: {
-		PermWorkspaceRead,
-		PermProjectCreate,
-		PermProjectAnalytics,
-		PermIssueCreate,
-		PermVersionCreate, PermVersionUpdate,
-	},
-	RoleGuest: {
-		PermWorkspaceRead,
-	},
-}
-
-// RolePermissionSet 返回权限集合，便于 O(1) 查找（每次调用构建）。
-func RolePermissionSet(role WorkspaceRole) map[string]struct{} {
-	set := make(map[string]struct{}, len(Roles[role]))
-	for _, p := range Roles[role] {
-		set[p] = struct{}{}
-	}
-	return set
-}
-
-/* ------------------------------------------------------------------ */
-/* WorkspaceMembership                                                  */
+/* DB-backed WorkspaceMembershipStore                                   */
 /* ------------------------------------------------------------------ */
 
 // WorkspaceMembership 记录用户与工作空间的关系。
@@ -131,13 +157,8 @@ type WorkspaceMembership struct {
 	WorkspaceID int64
 	UserID      int64
 	Role        WorkspaceRole
+	IsActive    bool
 	JoinedAt    string
-}
-
-// HasPermission 检查某角色是否携带指定权限。
-func (m WorkspaceMembership) HasPermission(perm string) bool {
-	_, ok := RolePermissionSet(m.Role)[perm]
-	return ok
 }
 
 // WorkspaceMembershipStore 从数据库解析 工作空间 → 角色 查询。
@@ -145,31 +166,32 @@ type WorkspaceMembershipStore struct {
 	db *pgxpool.Pool
 }
 
-// NewWorkspaceMembershipStore 构造该 store。
 func NewWorkspaceMembershipStore(db *pgxpool.Pool) *WorkspaceMembershipStore {
 	return &WorkspaceMembershipStore{db: db}
 }
 
-// ResolveRole 返回用户在某工作空间的成员关系；无关系时返回 ErrForbidden /
-// ErrNotFound 的 AppError（抽象 404 与 403 的区别，
-// 避免向非成员泄露工作空间是否存在）。
+// ResolveRole 返回用户在某工作空间的成员关系；无关系 / is_active=false 时返回 ErrForbidden。
 func (s *WorkspaceMembershipStore) ResolveRole(ctx context.Context, wsID, userID int64) (WorkspaceMembership, error) {
 	var (
 		role     string
 		joinedAt string
+		isActive bool
 	)
 	err := s.db.QueryRow(ctx, `
-		SELECT role, joined_at::text
+		SELECT role, joined_at::text, is_active
 		FROM workspace_members
-		WHERE workspace_id = $1 AND user_id = $2`, wsID, userID).Scan(&role, &joinedAt)
+		WHERE workspace_id = $1 AND user_id = $2`, wsID, userID).Scan(&role, &joinedAt, &isActive)
 	if err != nil {
-		// 隐藏工作空间存在性：非成员统一看到 403（ErrForbidden）
+		return WorkspaceMembership{}, errs.ErrForbidden
+	}
+	if !isActive {
 		return WorkspaceMembership{}, errs.ErrForbidden
 	}
 	return WorkspaceMembership{
 		WorkspaceID: wsID,
 		UserID:      userID,
 		Role:        WorkspaceRole(strings.ToLower(role)),
+		IsActive:    isActive,
 		JoinedAt:    joinedAt,
 	}, nil
 }

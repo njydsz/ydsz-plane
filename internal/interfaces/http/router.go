@@ -39,6 +39,7 @@ import (
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/telemetry"
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/ws"
 	"github.com/njydsz/ydsz-plane/internal/interfaces/middleware"
+	"github.com/njydsz/ydsz-plane/internal/rbac"
 	"github.com/njydsz/ydsz-plane/pkg/errs"
 )
 
@@ -50,6 +51,8 @@ type Deps struct {
 	Redis    *redis.Client
 	Auth     *auth.Service
 	ResetSvc *auth.PasswordResetService
+	// RBACStore 是 DB-backed 的 RBAC 解析器（角色 + 权限码）。
+	RBACStore *rbac.Store
 	// PrincipalParser 解析访问凭证（JWT 或 API Token）为认证主体。
 	// 由 cmd/api/main.go 装配复合解析器；未设置时回退为 JWT-only（测试环境）。
 	PrincipalParser func(token string) (auth.Principal, error)
@@ -517,8 +520,14 @@ func NewEngine(d *Deps) *gin.Engine {
 				ws.PATCH("/projects/:project_id", requireWsPermission(d, auth.PermProjectCreate), updateProject(d))
 				ws.DELETE("/projects/:project_id", requireWsPermission(d, auth.PermProjectDelete), archiveProject(d))
 
-				// 项目模板（工作空间级只读，无需项目级 RBAC）
-				ws.GET("/templates", requireWsPermission(d, auth.PermProjectCreate), listProjectTemplates(d))
+			// 项目模板（工作空间级只读，无需项目级 RBAC）
+			ws.GET("/templates", requireWsPermission(d, auth.PermProjectCreate), listProjectTemplates(d))
+
+			// 当前用户的角色 + 权限列表（供前端菜单/按钮鉴权）
+			ws.GET("/role", requireWsPermission(d, auth.PermWorkspaceRead), getCurrentUserRole(d))
+
+			// 所有角色定义列表（只读，供成员管理表单下拉）
+			ws.GET("/roles", requireWsPermission(d, auth.PermWorkspaceRead), listRoles(d))
 			}
 		}
 	}
@@ -806,4 +815,35 @@ func writeError(c *gin.Context, err error) {
 // fieldDetails —— minimal mapping；完整 validator-tag 翻译在后续迭代落地。
 func fieldDetails(err error) []errs.FieldDetail {
 	return []errs.FieldDetail{{Field: "body", Reason: err.Error()}}
+}
+
+// getCurrentUserRole 返回当前用户在工作空间的角色 + 权限码列表（供前端鉴权）。
+func getCurrentUserRole(d *Deps) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		rawUID, _ := c.Get(middleware.CtxUserID)
+		userID, _ := rawUID.(int64)
+		wsID := c.GetInt64(middleware.CtxWorkspaceID)
+
+		role, perms, err := d.RBACStore.ResolveMembership(c.Request.Context(), wsID, userID)
+		if err != nil {
+			writeError(c, err)
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"role":        role,
+			"permissions": perms,
+		})
+	}
+}
+
+// listRoles 返回全部角色定义列表（id / name / description / level / is_system / icon / sort_order）。
+func listRoles(d *Deps) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		roles, err := d.RBACStore.ListRoles(c.Request.Context())
+		if err != nil {
+			writeError(c, err)
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"items": roles})
+	}
 }

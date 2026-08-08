@@ -230,8 +230,9 @@ interface CommandGroupDef {
 
 const commandGroups = computed<CommandGroupDef[]>(() => {
   const wsId = wsStore.currentId
+  const projectId = route.params.projectId ? Number(route.params.projectId) : null
 
-  return [
+  const groups: CommandGroupDef[] = [
     {
       title: "跳转",
       commands: [
@@ -280,41 +281,77 @@ const commandGroups = computed<CommandGroupDef[]>(() => {
         },
       ],
     },
-    {
-      title: "创建",
-      commands: [
-        {
-          id: "create-issue",
-          label: "创建工作项",
-          icon: "✏️",
-          iconBg: "var(--brand-50)",
-          shortcut: "C",
-          action: () => {
-            // 如果在项目内，打开创建弹窗；否则先跳项目列表
-            const projectId = route.params.projectId
-            if (projectId) {
-              window.dispatchEvent(new CustomEvent("command:create-issue", { detail: { projectId } }))
-            }
-            router.push(`/${wsId}/projects`)
-          },
-        },
-        {
-          id: "create-project",
-          label: "创建项目",
-          icon: "📂",
-          iconBg: "var(--extended-color-emerald-50, #ecfdf5)",
-          action: () => window.dispatchEvent(new CustomEvent("command:create-project")),
-        },
-        {
-          id: "create-sprint",
-          label: "创建迭代",
-          icon: "🏃",
-          iconBg: "var(--extended-color-purple-50, #f3e8ff)",
-          action: () => window.dispatchEvent(new CustomEvent("command:create-sprint")),
-        },
-      ],
-    },
   ]
+
+  // 项目上下文命令（进入项目后展示项目级视图跳转）
+  if (projectId) {
+    groups.push({
+      title: "项目",
+      commands: [
+        { id: "pj-dashboard", label: "项目仪表盘", icon: "📊", iconBg: "var(--brand-50)", action: () => router.push(`/${wsId}/projects/${projectId}/dashboard`) },
+        { id: "pj-board", label: "看板视图", icon: "🗂️", iconBg: "var(--brand-50)", action: () => router.push(`/${wsId}/projects/${projectId}/board`) },
+        { id: "pj-list", label: "列表视图", icon: "📃", iconBg: "var(--brand-50)", action: () => router.push(`/${wsId}/projects/${projectId}/list`) },
+        { id: "pj-sprints", label: "迭代列表", icon: "🏃", iconBg: "var(--extended-color-purple-50, #f3e8ff)", action: () => router.push(`/${wsId}/projects/${projectId}/sprints`) },
+        { id: "pj-versions", label: "版本管理", icon: "🏷️", iconBg: "var(--extended-color-emerald-50, #ecfdf5)", action: () => router.push(`/${wsId}/projects/${projectId}/versions`) },
+        { id: "pj-pages", label: "项目文档", icon: "📄", iconBg: "var(--amber-50, #fffbeb)", action: () => router.push(`/${wsId}/projects/${projectId}/pages`) },
+        { id: "pj-gantt", label: "甘特图", icon: "📈", iconBg: "var(--extended-color-indigo-50, #eef2fe)", action: () => router.push(`/${wsId}/projects/${projectId}/gantt`) },
+        { id: "pj-calendar", label: "日历视图", icon: "📅", iconBg: "var(--brand-50)", action: () => router.push(`/${wsId}/projects/${projectId}/calendar`) },
+        { id: "pj-metrics", label: "效能度量", icon: "📉", iconBg: "var(--extended-color-cyan-50, #ecfeff)", action: () => router.push(`/${wsId}/projects/${projectId}/metrics`) },
+        { id: "pj-analytics", label: "缺陷分析", icon: "🐞", iconBg: "var(--danger-50, #fef2f2)", action: () => router.push(`/${wsId}/projects/${projectId}/analytics`) },
+        { id: "pj-automation", label: "自动化规则", icon: "🤖", iconBg: "var(--extended-color-purple-50, #f3e8ff)", action: () => router.push(`/${wsId}/projects/${projectId}/automation`) },
+        { id: "pj-settings", label: "项目设置", icon: "⚙️", iconBg: "var(--neutral-200)", action: () => router.push(`/${wsId}/projects/${projectId}/settings`) },
+      ],
+    })
+  }
+
+  groups.push({
+    title: "创建",
+    commands: [
+      {
+        id: "create-issue",
+        label: "创建工作项",
+        icon: "✏️",
+        iconBg: "var(--brand-50)",
+        shortcut: "C",
+        action: () => {
+          // 如果在项目内，打开创建弹窗；否则先跳项目列表
+          const projectId = route.params.projectId
+          if (projectId) {
+            window.dispatchEvent(new CustomEvent("command:create-issue", { detail: { projectId } }))
+          }
+          router.push(`/${wsId}/projects`)
+        },
+      },
+      {
+        id: "create-project",
+        label: "创建项目",
+        icon: "📂",
+        iconBg: "var(--extended-color-emerald-50, #ecfdf5)",
+        action: () => window.dispatchEvent(new CustomEvent("command:create-project")),
+      },
+      {
+        id: "create-sprint",
+        label: "创建迭代",
+        icon: "🏃",
+        iconBg: "var(--extended-color-purple-50, #f3e8ff)",
+        action: () => window.dispatchEvent(new CustomEvent("command:create-sprint")),
+      },
+    ],
+  })
+
+  // 设置分组（工作空间级设置入口）
+  groups.push({
+    title: "设置",
+    commands: [
+      { id: "st-webhooks", label: "Webhook 集成", icon: "🔗", iconBg: "var(--neutral-200)", action: () => router.push(`/${wsId}/settings/webhooks`) },
+      { id: "st-intake", label: "收件箱设置", icon: "📥", iconBg: "var(--amber-50, #fffbeb)", action: () => router.push(`/${wsId}/settings/intake`) },
+      { id: "st-notifications", label: "通知偏好", icon: "🔔", iconBg: "var(--brand-50)", action: () => router.push(`/${wsId}/settings/notifications`) },
+      { id: "st-audit", label: "审计日志", icon: "🛡️", iconBg: "var(--extended-color-indigo-50, #eef2fe)", action: () => router.push(`/${wsId}/audit-logs`) },
+      { id: "st-apikeys", label: "API Token", icon: "🗝️", iconBg: "var(--danger-50, #fef2f2)", action: () => router.push({ path: `/${wsId}/settings`, query: { tab: "api-tokens" } }) },
+    ],
+  })
+
+  return groups
 })
 
 // ---------------------------------------------------------------------------

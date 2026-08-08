@@ -137,6 +137,16 @@ function gotoList() {
   router.push("/");
 }
 
+/** 快速创建：在项目上下文中新建工作项，否则新建项目到空间根 */
+function handleQuickCreate() {
+  if (currentProjectId.value && workspaceId.value) {
+    // 注意：直接跳转到项目工作项列表页，用户可在该页新建；
+    // 后续可升级为内联创建弹层（P2）。
+    router.push(`/${workspaceId.value}/projects/${currentProjectId.value}/list?action=create`);
+  } else if (workspaceId.value) {
+    router.push(`/${workspaceId.value}/projects?action=create`);
+  }
+}
 
 onMounted(bootstrap);
 </script>
@@ -156,6 +166,17 @@ onMounted(bootstrap);
         </div>
         <span v-if="!collapsed" class="ws-switcher__caret">▾</span>
       </div>
+
+      <!-- 快速创建按钮（collapsed 时也显示为纯图标） -->
+      <button
+        class="quick-create"
+        :class="{ 'quick-create--collapsed': collapsed }"
+        :title="currentProjectId ? '新建工作项' : '新建项目'"
+        @click="handleQuickCreate"
+      >
+        <span v-if="!collapsed">＋{{ currentProjectId ? "新建工作项" : "新建项目" }}</span>
+        <span v-else>＋</span>
+      </button>
 
       <!-- 切换器下拉 -->
       <div v-if="showSwitcher" class="ws-switcher__dropdown" @click.stop>
@@ -587,6 +608,38 @@ onMounted(bootstrap);
   color: var(--text-primary);
 }
 
+/* ===== Quick Create  ===== */
+.quick-create {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 6px 8px 4px;
+  padding: 7px 10px;
+  border: 1px dashed var(--border-default);
+  border-radius: var(--radius-sm);
+  background: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--brand-600);
+  font-weight: 500;
+  transition: all 0.15s ease;
+}
+
+.quick-create:hover {
+  border-color: var(--brand-500);
+  background: var(--brand-50);
+  color: var(--brand-700);
+}
+
+.quick-create--collapsed {
+  font-size: 18px;
+  padding: 6px 0;
+  margin: 6px 4px 4px;
+  letter-spacing: 0;
+}
+
 /* ===== Nav ===== */
 .sidebar__nav {
   flex: 1;
@@ -775,24 +828,6 @@ onMounted(bootstrap);
   font-size: 12px;
   font-family: var(--font-mono);
   cursor: pointer;
-}
-
-.user {
-  color: var(--text-secondary);
-  font-size: 13px;
-}
-
-.logout {
-  border: none;
-  background: none;
-  color: var(--text-tertiary);
-  cursor: pointer;
-  font-size: 13px;
-  font-family: inherit;
-}
-
-.logout:hover {
-  color: var(--danger-500);
 }
 
 .content {
