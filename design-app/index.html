@@ -1092,6 +1092,19 @@
       document.querySelector('.content').scrollTop = 0;
     });
   });
+
+  // Webhook / Automation switches
+  document.querySelectorAll('.switch').forEach(sw=>{
+    sw.addEventListener('click',()=>sw.classList.toggle('on'));
+  });
+  // Search / Notification tabs
+  document.querySelectorAll('.search-tab').forEach(tab=>{
+    tab.addEventListener('click',()=>{
+      const group = tab.parentElement;
+      group.querySelectorAll('.search-tab').forEach(t=>t.classList.remove('active'));
+      tab.classList.add('active');
+    });
+  });
 </script>
 </body>
 </html>
