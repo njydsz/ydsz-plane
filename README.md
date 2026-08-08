@@ -21,7 +21,7 @@
 
 ---
 
-> **项目定位**：Ydsz Plane 是一款对标 [Jira](https://www.atlassian.com/software/jira)、[Linear](https://linear.app)、[云效](https://www.aliyun.com/product/yunxiao)、[TAPD](https://www.tapd.cn)、[ONES](https://ones.cn) 的开源项目管理平台，面向中国软件团队量身定制。以 **模块化单体 + 异步 Worker** 为核心架构，覆盖 **工作空间 ⟶ 项目 ⟶ 工作项（需求/任务/缺陷）** 主价值链，辅以迭代（Sprint）、版本日、看板、效能度量、全文检索、实时通知、Webhook 与自动化规则等能力。遵循 DDD 分层设计，向后兼容微服务拆分；全栈 MIT 开源，支持私有化部署与信创交付。核心模型：WBS 三层级（Epic→Feature→Story）、PDM 四类依赖、M2M 多分配人、需求/任务/缺陷独立追踪。
+> **项目定位**：Ydsz Plane 是一款对标 [Jira](https://www.atlassian.com/software/jira)、[Linear](https://linear.app)、[云效](https://www.aliyun.com/product/yunxiao)、[TAPD](https://www.tapd.cn)、[ONES](https://ones.cn) 的开源项目管理平台，面向中国软件团队量身定制。以 **模块化单体 + 异步 Worker** 为核心架构，覆盖 **工作空间 ⟶ 项目 ⟶ 工作项（需求/任务/缺陷）** 主价值链，辅以迭代（Sprint）、版本（Version）、看板、效能度量、全文检索、实时通知、Webhook 与自动化规则等能力。遵循 DDD 分层设计，向后兼容微服务拆分；全栈 MIT 开源，支持私有化部署与信创交付。核心模型：WBS 三层级（Epic→Feature→Story）、PDM 四类依赖、M2M 多分配人、需求/任务/缺陷独立追踪。
 
 ---
 
@@ -56,8 +56,8 @@
 | **需求** | 产品需求管理，WBS 三层级（Epic→Feature→Story），M2M 分配，状态机流转 |
 | **任务** | 技术任务管理，WBS 三层级（主任务→子任务→子子任务），PDM 四类依赖，支持工时估算与实际工作量 |
 | **缺陷** | 测试缺陷管理，WBS 三层级（主缺陷→子缺陷→子子缺陷），严重程度 5 级（致命/严重/一般/提示/建议），发现/修复版本追溯 |
-| **模块** | 工作项归档属性（非独立管理对象），按项目维护，可配置必填/选填，支持 Owner 与目标版本日关联 |
-| **版本日** | 产品发版里程碑容器（semver 校验），聚合 1~N 个迭代，自动生成 Release Notes、交付报告与变更日志 |
+| **模块** | 工作项归档属性（非独立管理对象），按项目维护，可配置必填/选填，支持 Owner 与目标版本关联 |
+| **版本** | 产品发版里程碑容器（semver 校验），聚合 1~N 个迭代，自动生成 Release Notes、交付报告与变更日志 |
 | **迭代** | Sprint 生命周期（规划→执行→复盘）、容量规划、燃尽/燃起图、速率趋势、迭代快照自动留存 |
 | **状态机** | 项目级自定义状态与流转规则，6 状态组（backlog/unstarted/started/completed/cancelled/triage），内置三组行业模板 |
 
@@ -162,7 +162,7 @@ internal/application/
 ├── preference/    # 用户偏好
 ├── search/        # 搜索查询编排
 ├── sprint/        # 迭代
-├── version/       # 版本日
+├── version/       # 版本（Version），版本日为其发布日期属性
 ├── webhook/       # Webhook 出站
 ├── workbench/     # 工作台
 └── workspace/     # 工作空间
@@ -350,7 +350,7 @@ make openapi
 | 缺陷管理（含子缺陷） | ● | ● | ● | ● | ● | ● |
 | 模块（=工作项归档属性） | ● | ● | ● | ● | ● | ● |
 | 迭代（Sprint） | ● | ● | ● | ● | ● | ● |
-| 版本日（=1~N 迭代） | ● | ○ | ● | ● | ● | ● |
+| 版本（=1~N 迭代） | ● | ○ | ● | ● | ● | ● |
 | 仪表盘 | ● | ● | ● | ● | ● | ● |
 | 工作台 | ● | ● | ● | ● | ● | ● |
 | 收件箱 | ● | ● | ● | ● | ● | ● |
@@ -368,7 +368,7 @@ make openapi
 - [x] S3 项目 + 工作项核心（WBS/状态机/看板）
 - [x] S4 视图（甘特/日历/表格）+ 评论体系
 - [x] S5 迭代（Sprint）生命周期
-- [x] S6 版本日 + Release Notes
+- [x] S6 版本 + Release Notes
 - [x] S7 通知管道 + 实时推送
 - [x] S8 全局搜索（JQL + ES）
 - [x] S9 仪表盘 + 效能度量（DORA）

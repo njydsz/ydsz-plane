@@ -159,13 +159,13 @@ type AuthConfig struct {
 	// 默认：12。
 	BcryptCost int `mapstructure:"bcrypt_cost"`
 
-// LoginRateLimitPer 是限流窗口内每个客户端 IP 允许的最大登录尝试次数。
-// 用于缓解撞库与暴力破解攻击。
-// 单位：每分钟请求数。
-// 范围：1-1000。过低的值可能误伤共享 NAT 网关的合法用户
-// （如企业网络）。
-// 默认：200（开发环境友好；生产环境应降低至 5-10）。
-LoginRateLimitPer int `mapstructure:"login_rate_limit_per"`
+	// LoginRateLimitPer 是限流窗口内每个客户端 IP 允许的最大登录尝试次数。
+	// 用于缓解撞库与暴力破解攻击。
+	// 单位：每分钟请求数。
+	// 范围：1-1000。过低的值可能误伤共享 NAT 网关的合法用户
+	// （如企业网络）。
+	// 默认：200（开发环境友好；生产环境应降低至 5-10）。
+	LoginRateLimitPer int `mapstructure:"login_rate_limit_per"`
 }
 
 // LogConfig 控制结构化日志行为。
