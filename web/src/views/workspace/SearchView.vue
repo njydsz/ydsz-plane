@@ -127,6 +127,63 @@ async function clearHistory() {
   history.value = [];
 }
 
+// ---- CSV 导出 ----
+
+/** CSV 单元格转义（处理逗号、引号、换行） */
+function csvCell(v: unknown): string {
+  if (v == null) return "";
+  const s = String(v);
+  if (/[",\n\r]/.test(s)) {
+    return `"${s.replace(/"/g, '""')}"`;
+  }
+  return s;
+}
+
+/** 将搜索结果下载为 CSV */
+async function exportResultsToCsv() {
+  if (!ws.value || !query.value.trim()) return;
+  try {
+    // 导出时使用更大 limit 以覆盖更多匹配项
+    const resp = await searchApi.searchWorkspace(ws.value.id, {
+      q: query.value.trim(),
+      limit: 200,
+    });
+    const rows: (string | number)[][] = [
+      ["类型", "标识符", "名称", "描述", "项目", "排名分", "链接"],
+    ];
+    const allItems: SearchResultItem[] = [
+      ...resp.results.issues.map((i) => ({ ...i, type: "工作项" })),
+      ...resp.results.sprints.map((s) => ({ ...s, type: "迭代" })),
+      ...resp.results.versions.map((v) => ({ ...v, type: "版本" })),
+      ...resp.results.projects.map((p) => ({ ...p, type: "项目" })),
+    ];
+    for (const item of allItems) {
+      rows.push([
+        item.type,
+        item.identifier ?? "",
+        item.name,
+        (item.description ?? "").replace(/\n/g, " "),
+        item.project_name ?? "",
+        item.rank.toFixed(3),
+        item.url ? `${window.location.origin}${item.url}` : "",
+      ]);
+    }
+    const csv = rows.map((r) => r.map(csvCell).join(",")).join("\r\n");
+    // BOM 头确保 Excel 正确识别 UTF-8 中文
+    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "search-" + query.value.trim().slice(0, 30) + "-" + new Date().toISOString().slice(0, 10) + ".csv";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch (e: unknown) {
+    error.value = e instanceof Error ? e.message : "导出失败";
+  }
+}
+
 // ---- Watchers ----
 watch(
   () => route.query.q,
@@ -224,12 +281,22 @@ onMounted(load);
       <AppErrorState v-else-if="error" :message="error" @retry="submitSearch" />
 
       <template v-else-if="results">
-        <p v-if="!hasResults" class="search-meta">
-          未找到与"<strong>{{ query }}</strong>"相关的结果
-        </p>
-        <p v-else class="search-meta">
-          找到 <strong>{{ results.total }}</strong> 条结果 · {{ results.time_ms }}ms
-        </p>
+        <div class="search-meta__row">
+          <p v-if="!hasResults" class="search-meta">
+            未找到与"<strong>{{ query }}</strong>"相关的结果
+          </p>
+          <p v-else class="search-meta">
+            找到 <strong>{{ results.total }}</strong> 条结果 · {{ results.time_ms }}ms
+          </p>
+          <button
+            v-if="hasResults"
+            class="export-csv-btn"
+            title="导出全部结果为 CSV（最多 200 条）"
+            @click="exportResultsToCsv"
+          >
+            ⬇ 导出 CSV
+          </button>
+        </div>
 
         <div v-if="hasResults" class="result-groups">
           <!-- Issue Group -->
@@ -486,14 +553,40 @@ onMounted(load);
   background: var(--brand-600, #2563eb);
 }
 
+.search-meta__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  gap: 12px;
+}
+
 .search-meta {
   font-size: 13px;
   color: var(--text-tertiary, #9ca3af);
-  margin: 0 0 16px;
+  margin: 0;
 }
 
 .search-meta strong {
   color: var(--text-primary, #1f2937);
+}
+
+.export-csv-btn {
+  padding: 6px 12px;
+  border: 1px solid var(--border-default, #e5e7eb);
+  border-radius: var(--radius-sm, 4px);
+  background: var(--surface-2, #f9fafb);
+  color: var(--text-secondary, #6b7280);
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.export-csv-btn:hover {
+  background: var(--brand-50);
+  border-color: var(--brand-400);
+  color: var(--brand-600);
 }
 
 /* ---- Result Groups ---- */

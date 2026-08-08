@@ -29,6 +29,22 @@ export interface Member {
   joined_at: string;
 }
 
+/** 角色定义 */
+export interface RoleDefinition {
+  slug: string;
+  name: string;
+  description: string;
+  level: number;
+  is_system: boolean;
+  icon: string;
+}
+
+/** 当前用户在某工作空间的角色 + 权限列表 */
+export interface MyRoleResponse {
+  role: RoleDefinition;
+  permissions: string[];
+}
+
 /** 工作空间邀请记录 */
 export interface Invitation {
   id: number;
@@ -94,6 +110,13 @@ export const workspaceApi = {
     wrap<void>(http.patch(`/workspaces/${wsId}/members/${userId}`, { role })),
   removeMember: (wsId: number, userId: number) =>
     wrap<void>(http.delete(`/workspaces/${wsId}/members/${userId}`)),
+
+  // --- RBAC ---
+  /** 获取当前用户在该工作空间的角色 + 权限列表 */
+  getMyRole: (wsId: number) => wrap<MyRoleResponse>(http.get(`/workspaces/${wsId}/role`)),
+  /** 获取所有角色定义列表 */
+  listRoles: (wsId: number) =>
+    wrap<{ items: RoleDefinition[] }>(http.get(`/workspaces/${wsId}/roles`)).then((r) => r.items),
 
   // --- Invitations ---
   sendInvitation: (wsId: number, input: { email: string; role: string; message?: string }) =>

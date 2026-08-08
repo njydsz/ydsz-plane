@@ -119,8 +119,17 @@ const qualityScore = computed(() => {
       <p class="subtitle">项目 DORA 指标与效能全景（近 90 天窗口）</p>
     </header>
 
+    <!-- 无数据空态 -->
+    <AppEmptyState
+      v-if="!dora && !velocity && !leadTime && !quality && !resource"
+      scenario="analytics"
+      :cta-text="''"
+      class="metrics-empty"
+    />
+
     <!-- DORA 四指标 -->
-    <section v-if="dora" class="card-grid card-grid--dora">
+    <template v-else>
+      <section v-if="dora" class="card-grid card-grid--dora">
       <AppCard
         v-for="(metric, key) in {
           deployment_frequency: dora.deployment_frequency,
@@ -218,14 +227,7 @@ const qualityScore = computed(() => {
         </div>
       </AppCard>
     </section>
-
-    <!-- 空态 -->
-    <div
-      v-if="!dora && !velocity && !leadTime && !quality && !resource"
-      class="empty"
-    >
-      暂无效能数据。完成至少一个迭代后将自动生成指标。
-    </div>
+    </template>
   </div>
 </template>
 

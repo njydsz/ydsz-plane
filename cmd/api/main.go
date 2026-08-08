@@ -40,6 +40,7 @@ import (
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/telemetry"
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/ws"
 	httpapi "github.com/njydsz/ydsz-plane/internal/interfaces/http"
+	"github.com/njydsz/ydsz-plane/internal/rbac"
 )
 
 func main() {
@@ -93,6 +94,12 @@ func run() error {
 		return err
 	}
 	defer func() { _ = rdb.Close() }()
+
+	// ---------- RBAC (DB-backed) ----------
+	rbacStore := rbac.NewStore(pool.Pool, log)
+	if err := rbacStore.InitCache(ctx); err != nil {
+		log.Warn("rbac: cache warm-up failed (will fallback to DB)", zap.Error(err))
+	}
 
 	// ---------- Services ----------
 	authSvc := auth.NewService(pool.Pool, cfg.Auth.JWTSecret, cfg.Auth.JWTIssuer,
@@ -290,6 +297,7 @@ func run() error {
 		PrincipalParser: parsePrincipal,
 		ApiTokenSvc:     apiTokenSvc,
 		WorkspaceStore:  wsStore,
+		RBACStore:       rbacStore,
 		WorkspaceSvc:    wsSvc,
 		MemberSvc:       memberSvc,
 		InvitationSvc:   invitationSvc,

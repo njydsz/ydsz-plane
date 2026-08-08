@@ -193,7 +193,7 @@ INSERT INTO public.role_permissions (role_slug, permission_code) VALUES
     ('dev','project:read'),                ('dev','issue:read'),                   ('dev','issue:create'),
     ('dev','issue:edit_own'),              ('dev','issue:transition'),
     ('dev','sprint:read'),                 ('dev','version:read'),
-    ('dev','defect:create'),               ('dev','relation:manage_own'),
+    ('dev','defect:create'),               ('dev','relation:manage'),
     ('dev','field:edit_severity'),         ('dev','field:edit_effort'),
 
     -- ============================================================

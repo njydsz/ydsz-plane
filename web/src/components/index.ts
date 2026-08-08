@@ -31,5 +31,6 @@ export { default as IssuePeekOverview } from "./IssuePeekOverview.vue";
 export { default as IssueSocialBar } from "./IssueSocialBar.vue";
 export { default as MiniGantt } from "./MiniGantt.vue";
 export { default as NotificationBell } from "./NotificationBell.vue";
+export { default as RichTextEditor } from "./RichTextEditor.vue";
 export { default as ProgressBar } from "./ProgressBar.vue";
 export { default as ThemeToggle } from "./ThemeToggle.vue";

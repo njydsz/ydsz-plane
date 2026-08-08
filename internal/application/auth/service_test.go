@@ -1,4 +1,7 @@
-// Package auth 测试：验证 RBAC 权限矩阵与 token 签发/解析行为。
+// Package auth 测试：验证 RBAC 角色枚举与 token 签发/解析行为。
+//
+// 注意：RBAC 权限矩阵已迁移至 DB-backed internal/rbac（internal/rbac/store.go），
+// 本文件不再维护硬编码权限矩阵，仅覆盖角色枚举语义与 token 往返。
 package auth
 
 import (
@@ -6,40 +9,31 @@ import (
 	"time"
 )
 
-// TestRolePermissionMatrix 验证权限矩阵中各角色被授予/拒绝的权限。
-func TestRolePermissionMatrix(t *testing.T) {
-	cases := []struct {
-		role WorkspaceRole
-		perm string
-		want bool
-	}{
-		// Owner：全部权限
-		{RoleOwner, PermWorkspaceRead, true},
-		{RoleOwner, PermWorkspaceDelete, true},
-		{RoleOwner, PermMemberChangeRole, true},
-		{RoleOwner, PermProjectCreate, true},
-		// Admin：不可删除工作空间、不可变更角色
-		{RoleAdmin, PermWorkspaceRead, true},
-		{RoleAdmin, PermMemberInvite, true},
-		{RoleAdmin, PermProjectDelete, true},
-		{RoleAdmin, PermWorkspaceDelete, false},
-		{RoleAdmin, PermMemberChangeRole, false},
-		// Member：只读 + 创建
-		{RoleMember, PermWorkspaceRead, true},
-		{RoleMember, PermProjectCreate, true},
-		{RoleMember, PermIssueCreate, true},
-		{RoleMember, PermMemberInvite, false},
-		{RoleMember, PermProjectDelete, false},
-		// Guest：仅只读
-		{RoleGuest, PermWorkspaceRead, true},
-		{RoleGuest, PermProjectCreate, false},
-		{RoleGuest, PermIssueCreate, false},
+// TestRoleValidity 验证角色枚举值合法性。
+func TestRoleValidity(t *testing.T) {
+	valid := []WorkspaceRole{RoleOwner, RoleAdmin, RolePM, RolePO, RoleTechLead, RoleQALead, RoleDev, RoleGuest}
+	for _, r := range valid {
+		if !r.IsValid() {
+			t.Errorf("role %q should be valid", r)
+		}
 	}
-	for _, c := range cases {
-		m := WorkspaceMembership{Role: c.role, WorkspaceID: 1, UserID: 1}
-		got := m.HasPermission(c.perm)
-		if got != c.want {
-			t.Errorf("role=%s perm=%s: got %v want %v", c.role, c.perm, got, c.want)
+	if WorkspaceRole("hacker").IsValid() {
+		t.Errorf("unknown role should be invalid")
+	}
+}
+
+// TestRoleLevel 验证角色层级单调递增。
+func TestRoleLevel(t *testing.T) {
+	if RoleOwner.Level() <= RoleAdmin.Level() {
+		t.Errorf("owner level must exceed admin level")
+	}
+	if RoleAdmin.Level() <= RoleGuest.Level() {
+		t.Errorf("admin level must exceed guest level")
+	}
+	// 所有角色层级非负
+	for _, r := range []WorkspaceRole{RoleOwner, RoleAdmin, RolePM, RolePO, RoleTechLead, RoleQALead, RoleDev, RoleGuest} {
+		if r.Level() < 0 {
+			t.Errorf("role %q has negative level", r)
 		}
 	}
 }
@@ -53,20 +47,14 @@ func TestRoleIsAtLeast(t *testing.T) {
 	}{
 		{RoleOwner, RoleAdmin, true},
 		{RoleAdmin, RoleAdmin, true},
-		{RoleMember, RoleAdmin, false},
-		{RoleGuest, RoleMember, false},
+		{RoleDev, RoleAdmin, false},
+		{RoleGuest, RoleDev, false},
+		{RoleOwner, RoleGuest, true},
 	}
 	for _, c := range cases {
 		if got := c.role.IsAtLeast(c.min); got != c.want {
 			t.Errorf("role=%s IsAtLeast(%s): got %v want %v", c.role, c.min, got, c.want)
 		}
-	}
-}
-
-// TestInvalidRole 验证未知角色枚举值被判定为非法。
-func TestInvalidRole(t *testing.T) {
-	if WorkspaceRole("hacker").IsValid() {
-		t.Errorf("unknown role should be invalid")
 	}
 }
 

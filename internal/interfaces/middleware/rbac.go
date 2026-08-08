@@ -134,8 +134,8 @@ func RequirePermissionFromDB(rbacStore *rbac.Store, perm string) gin.HandlerFunc
 			c.Abort()
 			return
 		}
-		hasPerm, err := rbacStore.RoleHasPermission(c.Request.Context(), role.Slug, perm)
-		if err != nil || !hasPerm {
+		hasPerm, errCheck := rbacStore.RoleHasPermission(c.Request.Context(), role.Slug, perm)
+		if errCheck != nil || !hasPerm {
 			respondError(c, errs.ErrForbidden)
 			c.Abort()
 			return

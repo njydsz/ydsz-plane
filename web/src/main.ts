@@ -18,6 +18,8 @@ import { registerSW } from "./pwa";
 
 import "./design/tokens.css";
 import { initTheme } from "./lib/theme";
+import { vPermission } from "./directives/permission";
+import Permission from "./components/Permission.vue";
 
 // 在挂载前应用主题，避免首帧闪烁（FOUC）
 initTheme();
@@ -26,6 +28,9 @@ const app = createApp(App);
 app.use(createPinia());
 app.use(i18n);
 app.use(router);
+// 全局自定义指令 + 组件
+app.directive("permission", vPermission);
+app.component("Permission", Permission);
 app.mount("#app");
 
 // 注册 Service Worker（PWA 离线支持）

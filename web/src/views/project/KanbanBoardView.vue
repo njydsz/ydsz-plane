@@ -7,6 +7,7 @@ import { computed, onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
 
 import { issueApi, type Issue, type IssuePriority } from "@/api/services/issue";
+import { preferenceApi } from "@/api/services/preference";
 import { useIssueStore } from "@/stores/issue";
 import { usePeekStore } from "@/stores/peek";
 import { prefs } from "@/lib/prefs";
@@ -24,6 +25,63 @@ const loading = ref(true);
 const error = ref("");
 const showCreateModal = ref(false);
 
+// --- 视图偏好（列宽可调 + 持久化）---
+const columnWidth = ref(280);
+const prefsReady = ref(false);
+let savePrefsTimer: ReturnType<typeof setTimeout> | null = null;
+
+/** 加载当前用户的看板偏好（列宽等） */
+async function loadViewPreferences() {
+  try {
+    const wsIdVal = Number(route.params.workspaceId);
+    const pref = await preferenceApi.get(wsIdVal, projectId.value, "kanban");
+    if (pref?.extra && typeof pref.extra === "object") {
+      const extra = pref.extra as Record<string, unknown>;
+      const w = Number(extra.column_width);
+      if (w >= 200 && w <= 480) {
+        columnWidth.value = w;
+      }
+    }
+  } catch {
+    // 偏好加载失败不阻塞看板
+  } finally {
+    prefsReady.value = true;
+  }
+}
+
+/** 防抖保存列宽到服务端（按用户 × 项目 × 看板） */
+function persistColumnWidth() {
+  if (!prefsReady.value || !wsId.value) return;
+  if (savePrefsTimer) clearTimeout(savePrefsTimer);
+  savePrefsTimer = setTimeout(async () => {
+    try {
+      await preferenceApi.save(wsId.value, projectId.value, "kanban", {
+        extra: { column_width: columnWidth.value },
+      });
+    } catch {
+      // 静默失败，下次继续尝试
+    }
+  }, 600);
+}
+
+/** 列宽拖拽调整 */
+function startColumnResize(e: PointerEvent) {
+  e.preventDefault();
+  const startX = e.clientX;
+  const startWidth = columnWidth.value;
+  const onMove = (ev: PointerEvent) => {
+    columnWidth.value = Math.min(480, Math.max(200, startWidth + (ev.clientX - startX)));
+    persistColumnWidth();
+  };
+  const onUp = () => {
+    persistColumnWidth();
+    window.removeEventListener("pointermove", onMove);
+    window.removeEventListener("pointerup", onUp);
+  };
+  window.addEventListener("pointermove", onMove);
+  window.addEventListener("pointerup", onUp);
+}
+
 // --- 拖拽状态 ---
 const dragIssue = ref<Issue | null>(null);
 const dragOverColumn = ref<number | null>(null);
@@ -36,11 +94,13 @@ async function load() {
   error.value = "";
   try {
     const wsIdVal = Number(route.params.workspaceId);
+    wsId.value = wsIdVal;
 
     await Promise.all([
       issueStore.fetchStates(wsIdVal, projectId.value),
       issueStore.fetchIssues(wsIdVal, projectId.value),
     ]);
+    void loadViewPreferences();
   } catch (e: unknown) {
     error.value = e instanceof Error ? e.message : "加载失败";
   } finally {
@@ -279,7 +339,7 @@ onMounted(() => {
       <button class="btn btn--primary" @click="showCreateModal = true">+ 创建工作项</button>
     </AppEmptyState>
 
-    <div v-else class="kanban__board">
+    <div v-else class="kanban__board" :style="{ '--column-width': columnWidth + 'px' }">
       <div
         v-for="state in issueStore.states"
         :key="state.id"
@@ -295,6 +355,12 @@ onMounted(() => {
         <div class="kanban__column-header" :style="{ borderTopColor: state.color }">
           <span class="kanban__column-name">{{ state.name }}</span>
           <span class="kanban__column-count">{{ issuesInState(state.id).length }}</span>
+          <!-- 列宽拖拽把手 -->
+          <span
+            class="kanban__col-resize"
+            title="拖拽调整列宽"
+            @pointerdown="startColumnResize"
+          >⋮</span>
         </div>
 
         <div
@@ -466,7 +532,7 @@ onMounted(() => {
 }
 
 .kanban__column {
-  flex: 0 0 280px;
+  flex: 0 0 var(--column-width, 280px);
   background: var(--surface-2);
   border-radius: var(--radius-md);
   display: flex;
@@ -510,6 +576,23 @@ onMounted(() => {
   padding: 1px 8px;
   border-radius: 10px;
   background: var(--surface-3);
+}
+
+/* 列宽拖拽把手 */
+.kanban__col-resize {
+  margin-left: 6px;
+  padding: 0 4px;
+  color: var(--text-tertiary);
+  font-size: 12px;
+  letter-spacing: 1px;
+  cursor: ew-resize;
+  border-radius: var(--radius-sm);
+  user-select: none;
+  transition: background 0.15s, color 0.15s;
+}
+.kanban__col-resize:hover {
+  background: var(--surface-3);
+  color: var(--brand-500);
 }
 
 .kanban__cards {

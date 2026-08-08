@@ -9,6 +9,7 @@ import { aiApi, type ClassifyResult, type DuplicateCandidate } from "@/api/servi
 import { type CreateIssueInput, type IssueType } from "@/api/services/issue";
 import { versionApi, type Version } from "@/api/services/version";
 import { useIssueStore } from "@/stores/issue";
+import { RichTextEditor } from "@/components";
 
 const props = defineProps<{
   workspaceId: number;
@@ -322,12 +323,12 @@ function cancel() {
 
           <div class="form-group">
             <label class="form-label">描述</label>
-            <textarea
-              v-model="description"
-              class="form-textarea"
-              placeholder="输入工作项描述（支持 Markdown）"
-              rows="4"
-            ></textarea>
+            <RichTextEditor
+              v-model:contentHtml="description"
+              variant="comment"
+              placeholder="输入工作项描述..."
+              :min-height="'80px'"
+            />
           </div>
 
           <div class="form-row">

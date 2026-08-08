@@ -110,7 +110,7 @@ func RegisterIssueRoutes(r *gin.Engine, d *Deps) {
 	projects.Use(middleware.RequireProjectParam())
 	// 读操作需要 workspace:read
 	read := projects.Group("")
-	read.Use(middleware.RequirePermission(d.WorkspaceStore, auth.PermWorkspaceRead))
+	read.Use(middleware.RequirePermissionFromDB(d.RBACStore, auth.PermWorkspaceRead))
 	d.IssueHandler.Register(read, nil, nil)
 }
 
@@ -124,7 +124,7 @@ func RegisterPreferenceRoutes(r *gin.Engine, d *Deps) {
 		middleware.RequireAuth(d.principalParser()),
 		middleware.RequireWorkspaceParam(),
 		middleware.RequireProjectParam(),
-		middleware.RequirePermission(d.WorkspaceStore, auth.PermWorkspaceRead),
+		middleware.RequirePermissionFromDB(d.RBACStore, auth.PermWorkspaceRead),
 	)
 	d.PrefHandler.Register(projects)
 }
@@ -139,7 +139,7 @@ func RegisterPagesRoutes(r *gin.Engine, d *Deps) {
 		middleware.RequireAuth(d.principalParser()),
 		middleware.RequireWorkspaceParam(),
 		middleware.RequireProjectParam(),
-		middleware.RequirePermission(d.WorkspaceStore, auth.PermWorkspaceRead),
+		middleware.RequirePermissionFromDB(d.RBACStore, auth.PermWorkspaceRead),
 	)
 	d.PagesHandler.Register(projects)
 }
@@ -186,7 +186,7 @@ func RegisterSearchRoutes(r *gin.Engine, d *Deps) {
 		middleware.RequireAuth(d.principalParser()),
 		middleware.RequireWorkspaceParam(),
 		middleware.RequireProjectParam(),
-		middleware.RequirePermission(d.WorkspaceStore, auth.PermWorkspaceRead),
+		middleware.RequirePermissionFromDB(d.RBACStore, auth.PermWorkspaceRead),
 	)
 	d.SearchHandler.Register(project)
 
@@ -195,7 +195,7 @@ func RegisterSearchRoutes(r *gin.Engine, d *Deps) {
 	wsSearch.Use(
 		middleware.RequireAuth(d.principalParser()),
 		middleware.RequireWorkspaceParam(),
-		middleware.RequirePermission(d.WorkspaceStore, auth.PermWorkspaceRead),
+		middleware.RequirePermissionFromDB(d.RBACStore, auth.PermWorkspaceRead),
 	)
 	wsSearch.GET("", d.SearchHandler.Search)
 	wsSearch.GET("/history", d.SearchHandler.ListHistory)
@@ -212,7 +212,7 @@ func RegisterSearchRoutes(r *gin.Engine, d *Deps) {
 		middleware.RequireAuth(d.principalParser()),
 		middleware.RequireWorkspaceParam(),
 		middleware.RequireProjectParam(),
-		middleware.RequirePermission(d.WorkspaceStore, auth.PermWorkspaceRead),
+		middleware.RequirePermissionFromDB(d.RBACStore, auth.PermWorkspaceRead),
 	)
 	d.WorkbenchHandler.Register(projectWb)
 
@@ -221,7 +221,7 @@ func RegisterSearchRoutes(r *gin.Engine, d *Deps) {
 	wsWb.Use(
 		middleware.RequireAuth(d.principalParser()),
 		middleware.RequireWorkspaceParam(),
-		middleware.RequirePermission(d.WorkspaceStore, auth.PermWorkspaceRead),
+		middleware.RequirePermissionFromDB(d.RBACStore, auth.PermWorkspaceRead),
 	)
 	wsWb.GET("/summary", d.WorkbenchHandler.GetSummary)
 	wsWb.GET("/config", d.WorkbenchHandler.GetConfig)
@@ -247,7 +247,7 @@ func RegisterDashboardRoutes(r *gin.Engine, d *Deps) {
 		middleware.RequireAuth(d.principalParser()),
 		middleware.RequireWorkspaceParam(),
 		middleware.RequireProjectParam(),
-		middleware.RequirePermission(d.WorkspaceStore, auth.PermWorkspaceRead),
+		middleware.RequirePermissionFromDB(d.RBACStore, auth.PermWorkspaceRead),
 	)
 	d.DashboardHandler.Register(project)
 
@@ -256,7 +256,7 @@ func RegisterDashboardRoutes(r *gin.Engine, d *Deps) {
 	ws.Use(
 		middleware.RequireAuth(d.principalParser()),
 		middleware.RequireWorkspaceParam(),
-		middleware.RequirePermission(d.WorkspaceStore, auth.PermWorkspaceRead),
+		middleware.RequirePermissionFromDB(d.RBACStore, auth.PermWorkspaceRead),
 	)
 	ws.GET("/alerts", d.DashboardHandler.ListAlerts)
 	ws.POST("/alerts/:alert_id/resolve", d.DashboardHandler.ResolveAlert)
@@ -272,7 +272,7 @@ func RegisterNotificationRoutes(r *gin.Engine, d *Deps) {
 	ws.Use(
 		middleware.RequireAuth(d.principalParser()),
 		middleware.RequireWorkspaceParam(),
-		middleware.RequirePermission(d.WorkspaceStore, auth.PermWorkspaceRead),
+		middleware.RequirePermissionFromDB(d.RBACStore, auth.PermWorkspaceRead),
 	)
 	d.NotificationHandler.RegisterRoutes(ws)
 	d.NotificationHandler.RegisterPreferenceRoutes(ws)
@@ -288,7 +288,7 @@ func RegisterAttachmentRoutes(r *gin.Engine, d *Deps) {
 		middleware.RequireAuth(d.principalParser()),
 		middleware.RequireWorkspaceParam(),
 		middleware.RequireProjectParam(),
-		middleware.RequirePermission(d.WorkspaceStore, auth.PermWorkspaceRead),
+		middleware.RequirePermissionFromDB(d.RBACStore, auth.PermWorkspaceRead),
 	)
 	d.AttachmentHandler.Register(projects)
 }
@@ -303,7 +303,7 @@ func RegisterDefectAnalyticsRoutes(r *gin.Engine, d *Deps) {
 		middleware.RequireAuth(d.principalParser()),
 		middleware.RequireWorkspaceParam(),
 		middleware.RequireProjectParam(),
-		middleware.RequirePermission(d.WorkspaceStore, auth.PermWorkspaceRead),
+		middleware.RequirePermissionFromDB(d.RBACStore, auth.PermWorkspaceRead),
 	)
 	d.DefectAnalyticsHandler.Register(projects)
 }
@@ -317,7 +317,7 @@ func RegisterWebhookRoutes(r *gin.Engine, d *Deps) {
 	ws.Use(
 		middleware.RequireAuth(d.principalParser()),
 		middleware.RequireWorkspaceParam(),
-		middleware.RequirePermission(d.WorkspaceStore, auth.PermAuditRead),
+		middleware.RequirePermissionFromDB(d.RBACStore, auth.PermAuditRead),
 	)
 	d.WebhookHandler.Register(ws)
 }
@@ -331,7 +331,7 @@ func RegisterIntakeRoutes(r *gin.Engine, d *Deps) {
 	ws.Use(
 		middleware.RequireAuth(d.principalParser()),
 		middleware.RequireWorkspaceParam(),
-		middleware.RequirePermission(d.WorkspaceStore, auth.PermAuditRead),
+		middleware.RequirePermissionFromDB(d.RBACStore, auth.PermAuditRead),
 	)
 	d.IntakeHandler.Register(ws)
 }
@@ -363,7 +363,7 @@ func RegisterAutomationRoutes(r *gin.Engine, d *Deps) {
 		middleware.RequireAuth(d.principalParser()),
 		middleware.RequireWorkspaceParam(),
 		middleware.RequireProjectParam(),
-		middleware.RequirePermission(d.WorkspaceStore, auth.PermProjectAutomation),
+		middleware.RequirePermissionFromDB(d.RBACStore, auth.PermAutomationManage),
 	)
 	d.AutomationHandler.Register(projects)
 }
@@ -381,7 +381,7 @@ func RegisterAIRoutes(r *gin.Engine, d *Deps) {
 		middleware.RequireAuth(d.principalParser()),
 		middleware.RequireWorkspaceParam(),
 		middleware.RequireProjectParam(),
-		middleware.RequirePermission(d.WorkspaceStore, auth.PermWorkspaceRead),
+		middleware.RequirePermissionFromDB(d.RBACStore, auth.PermWorkspaceRead),
 	)
 	d.AiHandler.Register(projects)
 }
@@ -399,7 +399,7 @@ func RegisterMetricsRoutes(r *gin.Engine, d *Deps) {
 		middleware.RequireAuth(d.principalParser()),
 		middleware.RequireWorkspaceParam(),
 		middleware.RequireProjectParam(),
-		middleware.RequirePermission(d.WorkspaceStore, auth.PermProjectAnalytics),
+		middleware.RequirePermissionFromDB(d.RBACStore, auth.PermAnalyticsRead),
 	)
 	d.MetricsHandler.Register(project)
 }
@@ -494,7 +494,7 @@ func NewEngine(d *Deps) *gin.Engine {
 
 			// ----- 工作空间作用域路由 -----
 			ws := authed.Group("/workspaces/:workspace_id")
-			ws.Use(middleware.RequireWorkspaceParam(), middleware.RequirePermission(d.WorkspaceStore, auth.PermWorkspaceRead))
+			ws.Use(middleware.RequireWorkspaceParam(), middleware.RequirePermissionFromDB(d.RBACStore, auth.PermWorkspaceRead))
 			{
 				ws.GET("", getWorkspace(d))
 				ws.PATCH("", requireWsPermission(d, auth.PermWorkspaceUpdate), updateWorkspace(d))
@@ -536,9 +536,9 @@ func NewEngine(d *Deps) *gin.Engine {
 	return r
 }
 
-// requireWsPermission 是组合中间件的语法糖。Gin 不支持链式式中文传递权限常量。
+// requireWsPermission 是组合中间件的语法糖，所有工作空间级路由统一使用 DB-backed 权限校验。
 func requireWsPermission(d *Deps, perm string) gin.HandlerFunc {
-	return middleware.RequirePermission(d.WorkspaceStore, perm)
+	return middleware.RequirePermissionFromDB(d.RBACStore, perm)
 }
 
 // principalParser 返回认证主体解析器。
@@ -847,3 +847,4 @@ func listRoles(d *Deps) gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{"items": roles})
 	}
 }
+
