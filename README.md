@@ -375,7 +375,12 @@ make openapi
 - [x] S11 自动化规则 + AI + 知识库
 - [x] S12 安全/性能/信创交付 + E2E 收尾
 - [ ] S13 Phase 2：OIDC/SAML、移动端适配、多语言翻译
-- [ ] S14 Phase 3：（可选）微服务拆分、原生桌面客户端
+- [x] S14 Phase 3（已完成）：原生桌面客户端 + 微服务拆分
+  - [x] 桌面客户端：Wails v2 + Vue 3，SSO/认证/看板/托盘/离线缓存/自动更新
+  - [x] Proto 契约先行：NotificationService + SearchService gRPC API
+  - [x] 通知服务独立部署（notification-svc）：独立 PG 数据库 + RabbitMQ 消费
+  - [x] 搜索服务独立部署（search-svc）：ES 读写 + PG FTS 降级
+  - [ ] Phase 4：Webhook/Metrics 服务独立（长期）
 
 ---
 

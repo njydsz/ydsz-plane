@@ -1,0 +1,80 @@
+# Ydsz Plane S14 Phase-2 — 搜索服务独立部署
+#
+# 启动方式：
+#   docker compose -f deployments/docker-compose.s14-search.yml up -d
+
+version: "3.8"
+
+services:
+  search-svc:
+    build:
+      context: ../
+      dockerfile: build/Dockerfile.search
+    container_name: ydsz-plane-search
+    restart: unless-stopped
+    ports:
+      - "9091:9091"    # gRPC
+      - "8081:8081"    # Health + Metrics HTTP
+    environment:
+      SERVICE_NAME: search-service
+      GRPC_PORT: "9091"
+      HEALTH_PORT: "8081"
+      DATABASE_URL: postgres://search_user:search_pass@search_db:5432/search_db?sslmode=disable
+      ES_URLS: "http://elasticsearch:9200"
+      ES_USERNAME: ""
+      ES_PASSWORD: ""
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      LOG_LEVEL: info
+    depends_on:
+      search_db:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_started
+      rabbitmq:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8081/ready"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          cpus: "1"
+          memory: 768M
+    networks:
+      - ydsz-plane-net
+
+  search_db:
+    image: postgres:18-alpine
+    container_name: ydsz-plane-search-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: search_user
+      POSTGRES_PASSWORD: search_pass
+      POSTGRES_DB: search_db
+    volumes:
+      - search_pg_data:/var/lib/postgresql/data
+      - ../sql/search_schema_v1.sql:/docker-entrypoint-initdb.d/01-init.sql
+    ports:
+      - "5434:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U search_user -d search_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+    networks:
+      - ydsz-plane-net
+
+volumes:
+  search_pg_data:
+
+networks:
+  ydsz-plane-net:
+    external: true

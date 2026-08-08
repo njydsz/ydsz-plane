@@ -784,12 +784,12 @@ onMounted(() => {
                   @click="startEdit('found_version_id', issue.found_version_id ?? '')"
                 >
                   <template v-if="issue.found_version_id">
-                    {{ versions.find(v => v.id === issue.found_version_id)?.name ?? '—' }}
+                    {{ versions.find(v => v.id === issue?.found_version_id)?.name ?? '—' }}
                   </template>
                   <span v-else class="add-btn" title="设置发现版本">＋</span>
                   <span class="edit-hint">✎</span>
                 </div>
-                <span v-else>{{ issue.found_version_id ? versions.find(v => v.id === issue.found_version_id)?.name ?? `#${issue.found_version_id}` : '—' }}</span>
+                <span v-else>{{ issue?.found_version_id ? versions.find(v => v.id === issue?.found_version_id)?.name ?? `#${issue?.found_version_id}` : '—' }}</span>
               </div>
             </div>
 
@@ -813,12 +813,12 @@ onMounted(() => {
                   @click="startEdit('fix_version_id', issue.fix_version_id ?? '')"
                 >
                   <template v-if="issue.fix_version_id">
-                    {{ versions.find(v => v.id === issue.fix_version_id)?.name ?? '—' }}
+                    {{ versions.find(v => v.id === issue?.fix_version_id)?.name ?? '—' }}
                   </template>
                   <span v-else class="add-btn" title="设置修复版本">＋</span>
                   <span class="edit-hint">✎</span>
                 </div>
-                <span v-else>{{ issue.fix_version_id ? versions.find(v => v.id === issue.fix_version_id)?.name ?? `#${issue.fix_version_id}` : '—' }}</span>
+                <span v-else>{{ issue?.fix_version_id ? versions.find(v => v.id === issue?.fix_version_id)?.name ?? `#${issue?.fix_version_id}` : '—' }}</span>
               </div>
             </div>
 
@@ -842,12 +842,12 @@ onMounted(() => {
                   @click="startEdit('verifier_id', issue.verifier_id ?? '')"
                 >
                   <template v-if="issue.verifier_id">
-                    {{ members.find(m => m.id === issue.verifier_id)?.display_name ?? members.find(m => m.id === issue.verifier_id)?.email ?? `用户 #${issue.verifier_id}` }}
+                    {{ members.find(m => m.id === issue?.verifier_id)?.display_name ?? members.find(m => m.id === issue?.verifier_id)?.email ?? `用户 #${issue?.verifier_id}` }}
                   </template>
                   <span v-else class="add-btn" title="设置验证人">＋</span>
                   <span class="edit-hint">✎</span>
                 </div>
-                <span v-else>{{ issue.verifier_id ? members.find(m => m.id === issue.verifier_id)?.display_name ?? `用户 #${issue.verifier_id}` : '—' }}</span>
+                <span v-else>{{ issue?.verifier_id ? members.find(m => m.id === issue?.verifier_id)?.display_name ?? `用户 #${issue?.verifier_id}` : '—' }}</span>
               </div>
             </div>
           </div>

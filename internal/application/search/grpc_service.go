@@ -9,6 +9,7 @@ package search
 
 import (
 	"context"
+	"fmt"
 
 	searchv1 "github.com/njydsz/ydsz-plane/api/proto/search/v1"
 )
@@ -32,7 +33,6 @@ func (s *GRPCService) Search(ctx context.Context, req *searchv1.SearchQuery) (*s
 		ProjectID:   req.ProjectId,
 		Query:       req.Q,
 		DocTypes:    req.IndexFilter,
-		JQL:         req.Jql,
 		Limit:       int(req.Limit),
 		Offset:      int(req.Offset),
 	}
@@ -42,21 +42,43 @@ func (s *GRPCService) Search(ctx context.Context, req *searchv1.SearchQuery) (*s
 		return nil, err
 	}
 
-	hits := make([]*searchv1.SearchHit, 0, len(resp.Hits))
-	for _, h := range resp.Hits {
+	// 将 SearchResults 按类型分组的 hits 拍平
+	hits := make([]*searchv1.SearchHit, 0)
+	for _, h := range resp.Results.Issues {
 		hits = append(hits, &searchv1.SearchHit{
-			Index:  h.DocType,
-			Id:     h.ID,
-			Score:  float32(h.Score),
-			Fields: h.Highlights,
+			Index:  "issues",
+			Id:     idFromInt(h.DocID),
+			Score:  float32(h.Rank),
+			Fields: map[string]string{"title": h.Title, "highlight": h.Highlight},
+		})
+	}
+	for _, h := range resp.Results.Sprints {
+		hits = append(hits, &searchv1.SearchHit{
+			Index:  "sprints",
+			Id:     idFromInt(h.DocID),
+			Score:  float32(h.Rank),
+			Fields: map[string]string{"title": h.Title},
+		})
+	}
+	for _, h := range resp.Results.Versions {
+		hits = append(hits, &searchv1.SearchHit{
+			Index:  "versions",
+			Id:     idFromInt(h.DocID),
+			Score:  float32(h.Rank),
+			Fields: map[string]string{"title": h.Title},
 		})
 	}
 
 	return &searchv1.SearchResult{
 		Hits:   hits,
-		Total:  resp.Total,
-		TookMs: int64(resp.TimeMs),
+		Total:  int64(resp.Total),
+		TookMs: resp.TimeMs,
 	}, nil
+}
+
+// idFromInt 将 int64 文档 ID 格式化为字符串。
+func idFromInt(id int64) string {
+	return fmt.Sprintf("%d", id)
 }
 
 // Index 索引单条文档 — 委托给 Indexer.syncInWorkspace。

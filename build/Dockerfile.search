@@ -1,0 +1,33 @@
+# Ydsz Plane · 搜索服务独立容器（S14 Phase-2）
+#
+# 构建：docker build -f build/Dockerfile.search -t ydsz-plane-search:latest .
+# 运行：docker run -e DATABASE_URL=... -e ES_URLS=... ydsz-plane-search:latest
+
+FROM golang:1.26-alpine AS builder
+
+RUN apk add --no-cache git ca-certificates tzdata gcc musl-dev
+
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+RUN CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build \
+    -ldflags="-s -w -extldflags=-static" \
+    -o /out/search-service \
+    ./cmd/search-service
+
+FROM alpine:3.21
+
+RUN apk add --no-cache ca-certificates curl tzdata && \
+    addgroup -S app && adduser -S app -G app
+
+COPY --from=builder /out/search-service /usr/local/bin/search-service
+
+USER app
+EXPOSE 9091 8081
+
+HEALTHCHECK --interval=10s --timeout=3s --retries=5 \
+  CMD curl -sf http://localhost:8081/healthz || exit 1
+
+ENTRYPOINT ["search-service"]
