@@ -2607,7 +2607,6 @@ COMMENT ON COLUMN public.sso_providers.protocol IS 'Protocol: oidc | saml';
 COMMENT ON COLUMN public.sso_providers.auto_create_user IS 'Auto-create platform user on first SSO login';
 COMMENT ON COLUMN public.sso_providers.attribute_mapping IS 'OIDC claims to platform field mapping JSON';
 COMMENT ON TABLE public.sso_sessions IS 'S13: OIDC login session state with PKCE code_verifier';
-COMMENT ON COLUMN public.sso_sessions.status IS 'Session status: pending | completed | failed | expired';
 COMMENT ON TABLE public.sso_links IS 'S13: User-SSO identity binding (one provider+subject maps to one user)';
 
 CREATE TABLE "public"."sso_sessions" (
@@ -6863,9 +6862,6 @@ CREATE TABLE IF NOT EXISTS public.roles (
 );
 
 COMMENT ON TABLE  public.roles           IS '工作空间级角色定义（全局共享，通过 role_permissions 表热更新权限映射）';
-COMMENT ON COLUMN public.roles.slug      IS '角色枚举标识：admin/owner/pm/po/techlead/qalead/dev/guest';
-COMMENT ON COLUMN public.roles.level     IS '角色层级：admin=100(系统) owner=80(空间) pm/po/techlead/qalead=50 dev=30 guest=10';
-COMMENT ON COLUMN public.roles.is_system IS '是否系统内置角色；true=不可删改 slug，仅能改 name/description/权限矩阵';
 
 -- -----------------------------------------------------------------------------
 -- 2. role_permissions 表
@@ -6883,8 +6879,6 @@ CREATE INDEX IF NOT EXISTS idx_role_permissions_role ON public.role_permissions 
 CREATE INDEX IF NOT EXISTS idx_role_permissions_perm ON public.role_permissions (permission_code);
 
 COMMENT ON TABLE  public.role_permissions                  IS '角色-权限映射表（一张表承载全部 RBAC 矩阵，支持运行时增删权限）';
-COMMENT ON COLUMN public.role_permissions.role_slug       IS '关联 roles.slug；CASCADE 删除保证一致性';
-COMMENT ON COLUMN public.role_permissions.permission_code IS '权限点标识，与 internal/auth/rbac.go 的 PermXxx 常量严格对齐';
 
 -- -----------------------------------------------------------------------------
 -- 3. workspace_members 表结构增强（追加列 + 替换 role 约束）
@@ -6902,8 +6896,6 @@ ALTER TABLE public.workspace_members
     ADD CONSTRAINT chk_workspace_member_role
     CHECK (role IN ('admin','owner','pm','po','techlead','qalead','dev','guest'));
 
-COMMENT ON COLUMN public.workspace_members.is_active  IS '成员激活状态；false=暂停访问';
-COMMENT ON COLUMN public.workspace_members.created_by IS '添加人（邀请人）';
 
 -- -----------------------------------------------------------------------------
 -- 4. 种子数据 —— 8 个系统角色 + 完整权限矩阵
@@ -7779,10 +7771,6 @@ CREATE INDEX IF NOT EXISTS idx_processed_events_consumer_time
     ON public.processed_events (consumer_id, processed_at);
 
 COMMENT ON TABLE public.processed_events IS '消费者幂等去重表（事件 at-least-once 投递下防重复处理；按 processed_at 30 天清理）';
-COMMENT ON COLUMN public.processed_events.event_id IS '领域事件 ID（引用 domain_events.id）';
-COMMENT ON COLUMN public.processed_events.consumer_id IS '消费者标识（如 notification-dispatcher / webhook-dispatcher）';
-COMMENT ON COLUMN public.processed_events.processed_at IS '上次处理时间（用于过期清理）';
-COMMENT ON COLUMN public.processed_events.retry_count IS '该事件被同一消费者累计处理次数（含重放）';
 
 
 -- ============================================================================
@@ -7810,10 +7798,6 @@ CREATE INDEX IF NOT EXISTS idx_dlq_event_unresolved   ON public.dlq_events (crea
 CREATE INDEX IF NOT EXISTS idx_dlq_event_resolved_at ON public.dlq_events (resolved_at)            WHERE resolved_at IS NOT NULL;
 
 COMMENT ON TABLE public.dlq_events IS 'DLQ 死信事件元数据表（记录 Relay 发布失败 + 消费者 NACK 路由到 DLX 的消息；管理界面展示与重放）';
-COMMENT ON COLUMN public.dlq_events.event_id IS '关联 domain_events.id（域事件主键）';
-COMMENT ON COLUMN public.dlq_events.queue IS '死信消息所在的 RabbitMQ 队列名';
-COMMENT ON COLUMN public.dlq_events.resolved_at IS '重试/清理完成后标记时间（NULL=待处理）';
-COMMENT ON COLUMN public.dlq_events.resolved_by IS '处理该死信的管理员标识';
 
 
 -- ============================================================================
@@ -8296,10 +8280,6 @@ CREATE INDEX IF NOT EXISTS idx_ks_project   ON public.knowledge_spaces(project_i
 CREATE INDEX IF NOT EXISTS idx_ks_deleted   ON public.knowledge_spaces(deleted_at) WHERE deleted_at IS NULL;
 
 COMMENT ON TABLE  public.knowledge_spaces               IS '知识库空间：可挂在工作空间或项目下';
-COMMENT ON COLUMN public.knowledge_spaces.workspace_id IS '所属工作空间（RLS 租户隔离键）';
-COMMENT ON COLUMN public.knowledge_spaces.project_id   IS '所属项目（可空 = 工作空间级空间）';
-COMMENT ON COLUMN public.knowledge_spaces.slug         IS '空间标识（URL 友好）';
-COMMENT ON COLUMN public.knowledge_spaces.deleted_at   IS '软删除时间戳（NULL = 未删除）';
 
 -- ============================================================================
 -- knowledge_pages — 文档（自引用 parent_id 实现无限层级树）
@@ -8341,15 +8321,6 @@ CREATE INDEX IF NOT EXISTS idx_kp_deleted   ON public.knowledge_pages(deleted_at
 CREATE INDEX IF NOT EXISTS idx_kp_created   ON public.knowledge_pages(created_at DESC);
 
 COMMENT ON TABLE  public.knowledge_pages               IS '知识库文档（无限层级树）';
-COMMENT ON COLUMN public.knowledge_pages.workspace_id IS '所属工作空间（RLS 租户隔离键）';
-COMMENT ON COLUMN public.knowledge_pages.space_id     IS '所属空间';
-COMMENT ON COLUMN public.knowledge_pages.parent_id    IS '父文档 ID（自引用）';
-COMMENT ON COLUMN public.knowledge_pages.lft          IS '嵌套集合左值';
-COMMENT ON COLUMN public.knowledge_pages.rgt          IS '嵌套集合右值';
-COMMENT ON COLUMN public.knowledge_pages.depth        IS '文档层级深度（0 = 根）';
-COMMENT ON COLUMN public.knowledge_pages.path         IS '完整路径（如 /features/login）';
-COMMENT ON COLUMN public.knowledge_pages.version      IS '乐观锁版本号（每次内容更新自动 +1）';
-COMMENT ON COLUMN public.knowledge_pages.deleted_at   IS '软删除时间戳';
 
 -- ============================================================================
 -- knowledge_page_versions — 版本快照（内容变更时自动记录）
@@ -8371,9 +8342,6 @@ CREATE INDEX IF NOT EXISTS idx_kpv_page     ON public.knowledge_page_versions(pa
 CREATE INDEX IF NOT EXISTS idx_kpv_version  ON public.knowledge_page_versions(page_id, version DESC);
 
 COMMENT ON TABLE  public.knowledge_page_versions               IS '文档版本快照（回滚历史）';
-COMMENT ON COLUMN public.knowledge_page_versions.page_id       IS '所属文档';
-COMMENT ON COLUMN public.knowledge_page_versions.version       IS '快照版本号';
-COMMENT ON COLUMN public.knowledge_page_versions.change_summary IS '变更摘要';
 
 -- ============================================================================
 -- knowledge_page_relations — 文档与工作项关联（issues 表已下线，由代码层维护关联完整性）
@@ -8392,9 +8360,6 @@ CREATE INDEX IF NOT EXISTS idx_kpr_page  ON public.knowledge_page_relations(page
 CREATE INDEX IF NOT EXISTS idx_kpr_issue ON public.knowledge_page_relations(issue_id);
 
 COMMENT ON TABLE  public.knowledge_page_relations            IS '文档与工作项关联表（关联 task/requirement/defect 通过 biz_entity_relations）';
-COMMENT ON COLUMN public.knowledge_page_relations.page_id    IS '文档 ID';
-COMMENT ON COLUMN public.knowledge_page_relations.issue_id   IS '关联工作项 ID（应用层维护完整性）';
-COMMENT ON COLUMN public.knowledge_page_relations.relation_type IS '关联类型（referenced=被引用 / referencing=引用方）';
 
 
 -- ============================================================================
