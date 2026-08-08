@@ -21,7 +21,7 @@
 
 ---
 
-> **项目定位**：Ydsz Plane 是一款对标 [Plane](https://plane.so)、[Jira](https://www.atlassian.com/software/jira)、[Linear](https://linear.app) 的开源项目管理平台，面向中国软件团队量身定制。以 **模块化单体 + 异步 Worker** 为核心架构，覆盖工作空间→项目→工作项（需求/任务/缺陷）主价值链，辅以迭代（Sprint）、版本日、看板、效能度量、全文检索、实时通知、Webhook 与自动化规则等能力。遵循 DDD 分层设计，向后兼容微服务拆分；全栈 MIT 开源，支持私有化部署与信创交付。
+> **项目定位**：Ydsz Plane 是一款对标 [Jira](https://www.atlassian.com/software/jira)、[Linear](https://linear.app)、[云效](https://www.aliyun.com/product/yunxiao)、[TAPD](https://www.tapd.cn)、[ONES](https://ones.cn) 的开源项目管理平台，面向中国软件团队量身定制。以 **模块化单体 + 异步 Worker** 为核心架构，覆盖 **工作空间 ⟶ 项目 ⟶ 工作项（需求/任务/缺陷）** 主价值链，辅以迭代（Sprint）、版本日、看板、效能度量、全文检索、实时通知、Webhook 与自动化规则等能力。遵循 DDD 分层设计，向后兼容微服务拆分；全栈 MIT 开源，支持私有化部署与信创交付。核心模型：WBS 三层级（Epic→Feature→Story）、PDM 四类依赖、M2M 多分配人、需求/任务/缺陷独立追踪。
 
 ---
 
@@ -51,27 +51,30 @@
 
 | 能力 | 说明 |
 |------|------|
-| **工作空间** | 多租户隔离（RLS + 应用层双保险）、成员/角色/邀请机制 |
-| **项目** | 标识符路由（投影级 slug）、模块/标签/状态/故事点配置 |
-| **工作项** | 需求/任务/缺陷统一聚合，WBS（三级）、依赖（PDM 四类）、M2M 分配 |
-| **状态机** | 项目级自定义状态与流转规则，内置三组行业模板 |
-| **看板** | 拖拽排序、列约束、组视图（分配人/状态/优先级）、快速创建 |
-| **迭代** | Sprint 生命周期、燃尽快照、冲刺回顾 |
-| **版本日** | Release Notes 模板渲染、交付报告、关联迭代聚合 |
+| **工作空间** | 多租户隔离（RLS + 应用层双保险）、4 级角色（Owner/Admin/Member/Guest）、邮箱邀请、SSO/OIDC（规划中） |
+| **项目** | 标识符路由（Identifier 唯一键）、网络类型（公开/私有/内部）、功能模块开关（Intake/Sprint/Version/Estimate） |
+| **需求** | 产品需求管理，WBS 三层级（Epic→Feature→Story），M2M 分配，状态机流转 |
+| **任务** | 技术任务管理，WBS 三层级（主任务→子任务→子子任务），PDM 四类依赖，支持工时估算与实际工作量 |
+| **缺陷** | 测试缺陷管理，WBS 三层级（主缺陷→子缺陷→子子缺陷），严重程度 5 级（致命/严重/一般/提示/建议），发现/修复版本追溯 |
+| **模块** | 工作项归档属性（非独立管理对象），按项目维护，可配置必填/选填，支持 Owner 与目标版本日关联 |
+| **版本日** | 产品发版里程碑容器（semver 校验），聚合 1~N 个迭代，自动生成 Release Notes、交付报告与变更日志 |
+| **迭代** | Sprint 生命周期（规划→执行→复盘）、容量规划、燃尽/燃起图、速率趋势、迭代快照自动留存 |
+| **状态机** | 项目级自定义状态与流转规则，6 状态组（backlog/unstarted/started/completed/cancelled/triage），内置三组行业模板 |
 
 ### 🚀 增强域（对标大厂标准）
 
 | 能力 | 说明 |
 |------|------|
-| **全局搜索** | 类 JQL 语法，ES 异步双写，IK 中文分词 |
-| **实时通知** | 站内 + 邮件 + IM，订阅矩阵 + 摘要汇总 |
-| **工作台** | 跨空间聚合（指派、收藏、最近）、聚焦模式 |
-| **仪表盘** | 可拖拽 Widget，DORA 指标、燃起/燃尽、累积流图 |
-| **收件箱** | 匿名提报 + 转正 + 自定义字段 |
-| **自动化** | JSON DSL 规则引擎，事件驱动 + DLQ 保障 |
-| **Webhook** | HMAC 签名 + 重放防护 + 投递日志 |
-| **AI 集成** | OpenAI/Claude 接口：摘要、分类、估算建议 |
-| **知识库** | 层级页面、版本历史、评论、@mention |
+| **看板** | 拖拽排序、列约束（状态组映射）、组视图（分配人/状态/优先级）、快速创建、WIP 限制 |
+| **工作台** | 跨空间聚合（指派、收藏、最近访问）、聚焦模式（当前迭代/我的待办） |
+| **全局搜索** | 类 JQL 语法，ES 异步双写，IK 中文分词，级联过滤 |
+| **实时通知** | 站内 + 邮件 + IM，订阅矩阵 + 摘要汇总（定时 Digest） |
+| **仪表盘** | 可拖拽 Widget，DORA 指标、燃起/燃尽、累积流图（CFD）、速率趋势 |
+| **收件箱** | 匿名提报（Intake）+ 转正（转为正式工作项）+ 自定义字段 |
+| **自动化** | JSON DSL 规则引擎，事件驱动（创建/更新/删除/状态变更）+ DLQ 保障 |
+| **Webhook** | HMAC 签名 + 重放防护 + 投递日志 + 手动重试 |
+| **AI 集成** | OpenAI/Claude 接口：摘要、分类、估算建议、智能标签 |
+| **知识库** | 层级页面、版本历史、评论、@mention、协同编辑 |
 
 ---
 
@@ -340,22 +343,21 @@ make openapi
 
 ## 对标竞品
 
-| 维度 | Ydsz Plane | Plane | Jira | Linear | Tapd |
-|------|-----------|-------|------|--------|------|
-| 开源协议 | MIT | AGPL-3.0 | 商业 | 商业 | 商业 |
-| 自托管 | ✅ 一键部署 | ✅ | ❌ | ❌ | ❌ |
-| 后端 | Go | Django/Django-Ninja | Java | Ruby | Java/PHP |
-| 前端 | Vue 3 + Vite | Next.js | React | React | React |
-| DDD 分层 | ✅ Interfaces→Application→Domain←Infrastructure | 部分 | 单体 | — | — |
-| 异步架构 | Outbox + RabbitMQ（事件驱动） | Celery | 内部 | — | — |
-| 信创支持 | ✅（达梦/人大金仓/国密） | ❌ | ❌ | ❌ | ❌ |
-| 等保三级 | ✅ 基线 | ❌ | ❌ | ❌ | ❌ |
-| 性能基线 | 100 万工作项 / P95 < 200ms | — | — | — | — |
-| 看板+甘特+日历 | 全部内置 | 全部内置 | 部分付费 | 看板+甘特 | 全部内置 |
-| AI 集成 | 内置（OpenAI/Claude） | 插件 | 插件 | 内置插件 | — |
-| 自动化 | JSON DSL + 动态规则 | 有限 | 付费 | 有限 | 有限 |
-| 全文检索 | ES + IK 分词 | MeiliSearch | JQL | 全文检索 | 有限 |
-| 开发者体验 | Hot Reload + Storybook + Playwright | — | — | — | — |
+| 能力域 | 云效 | TAPD | ONES | PingCode | Jira | Ydsz Plane |
+|--------|------|------|------|----------|------|------------|
+| 需求管理（含子需求） | ● | ● | ● | ● | ● | ● |
+| 任务管理（含子任务） | ● | ● | ● | ● | ● | ● |
+| 缺陷管理（含子缺陷） | ● | ● | ● | ● | ● | ● |
+| 模块（=工作项归档属性） | ● | ● | ● | ● | ● | ● |
+| 迭代（Sprint） | ● | ● | ● | ● | ● | ● |
+| 版本日（=1~N 迭代） | ● | ○ | ● | ● | ● | ● |
+| 仪表盘 | ● | ● | ● | ● | ● | ● |
+| 工作台 | ● | ● | ● | ● | ● | ● |
+| 收件箱 | ● | ● | ● | ● | ● | ● |
+| 效能度量 | ● | ○ | ● | ● | ○ | ● |
+| 开源/信创 | ✕ | ✕ | △ | △ | ✕ | ● 核心差异 |
+
+> 图例：● 已支持 / △ 部分 / ○ 不支持 / ✕ 不适用
 
 ---
 
@@ -395,6 +397,7 @@ make openapi
 ## 致谢
 
 - [Plane](https://github.com/makeplane/plane) — 视觉层设计语言参考
+- [云效](https://www.aliyun.com/product/yunxiao)、[TAPD](https://www.tapd.cn)、[ONES](https://ones.cn) — 产品设计与本土化最佳实践参考
 - [Elasticsearch IK Analyzer](https://github.com/medcl/elasticsearch-analysis-ik) — 中文分词
 - [golang-migrate](https://github.com/golang-migrate/migrate) — 数据库迁移
 - [go-chi/gin](https://github.com/gin-gonic/gin) — HTTP 框架

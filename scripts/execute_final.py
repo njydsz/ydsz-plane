@@ -261,7 +261,7 @@ def execute_sql(statements):
             err = (e.pgerror or str(e)).lower()
             should_skip = False
 
-            if code in ("42P07", "42710", "42704", "42703", "42P01", "42501", "42P16"):
+            if code in ("42P07", "42710", "42704", "42703", "42P01", "42501", "42P16", "23503"):
                 should_skip = True
             elif "depends on" in err or "dependent" in err:
                 should_skip = True
@@ -334,6 +334,17 @@ def verify():
 
     print("\n[新分表 - 必须 EXISTS]")
     for t in ['task', 'requirement', 'defect', 'task_ext', 'requirement_ext', 'defect_ext']:
+        cur.execute(
+            "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public' AND table_name=%s",
+            (t,))
+        exists = cur.fetchone()[0]
+        status = "OK" if exists else "MISSING!"
+        if not exists:
+            all_good = False
+        print(f"  {status}: {t}")
+
+    print("\n[0001-0003 新增表 - 必须 EXISTS]")
+    for t in ['document_versions', 'document_links', 'page_templates', 'page_shares', 'processed_events', 'dlq_events']:
         cur.execute(
             "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public' AND table_name=%s",
             (t,))

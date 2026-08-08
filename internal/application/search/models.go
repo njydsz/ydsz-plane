@@ -14,6 +14,7 @@
 package search
 
 import (
+	"encoding/json"
 	"time"
 )
 
@@ -59,6 +60,23 @@ type SearchResults struct {
 	Issues   []SearchHit `json:"issues"`
 	Sprints  []SearchHit `json:"sprints"`
 	Versions []SearchHit `json:"versions"`
+}
+
+// MarshalJSON 确保空结果序列化为空数组 [] 而非 null，
+// 以满足前端 TypeScript 代码和 E2E 测试的 Array.isArray 断言。
+func (r SearchResults) MarshalJSON() ([]byte, error) {
+	type alias SearchResults
+	aux := struct{ alias }{alias: alias(r)}
+	if aux.alias.Issues == nil {
+		aux.alias.Issues = []SearchHit{}
+	}
+	if aux.alias.Sprints == nil {
+		aux.alias.Sprints = []SearchHit{}
+	}
+	if aux.alias.Versions == nil {
+		aux.alias.Versions = []SearchHit{}
+	}
+	return json.Marshal(aux.alias)
 }
 
 // SearchResponse 搜索响应。
