@@ -192,7 +192,9 @@ ydsz-plane/
 ├── cmd/
 │   ├── api/        # HTTP API Server
 │   ├── worker/     # 异步 Worker（通知/ES 索引/自动化）
-│   └── migrate/    # 迁移执行入口
+│   ├── migrate/    # 迁移执行入口
+│   ├── notification-service/  # 通知服务独立部署
+│   └── search-service/        # 搜索服务独立部署
 ├── internal/       # 应用核心（Go package 隔离）
 │   ├── application/  # 应用服务层（用例编排）
 │   ├── domain/       # 领域层（实体/值对象/领域事件）
@@ -374,9 +376,8 @@ make openapi
 - [x] S10 Webhook + 开放集成
 - [x] S11 自动化规则 + AI + 知识库
 - [x] S12 安全/性能/信创交付 + E2E 收尾
-- [ ] S13 Phase 2：OIDC/SAML、移动端适配、多语言翻译
-- [x] S14 Phase 3（已完成）：原生桌面客户端 + 微服务拆分
-  - [x] 桌面客户端：Wails v2 + Vue 3，SSO/认证/看板/托盘/离线缓存/自动更新
+- [ ] S13 Phase 2：OIDC/SAML、多语言翻译
+- [x] S14 Phase 3（已完成）：微服务拆分
   - [x] Proto 契约先行：NotificationService + SearchService gRPC API
   - [x] 通知服务独立部署（notification-svc）：独立 PG 数据库 + RabbitMQ 消费
   - [x] 搜索服务独立部署（search-svc）：ES 读写 + PG FTS 降级

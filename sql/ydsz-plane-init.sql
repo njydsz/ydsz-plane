@@ -1473,6 +1473,7 @@ CACHE 1
   "delay_reason" text COLLATE "pg_catalog"."default",
   "source" text COLLATE "pg_catalog"."default",
   "point" int2,
+  "external_id" text COLLATE "pg_catalog"."default",
   "sprint_id" int8,
   "progress" int2 NOT NULL DEFAULT 0,
   "start_date" date,

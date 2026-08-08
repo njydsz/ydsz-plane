@@ -52,6 +52,7 @@ type CreateIssueInput struct {
 	Labels           []int64
 	Modules          []int64
 	Point            *int
+	ExternalID       *string
 	StartDate        *time.Time
 	TargetDate       *time.Time
 	IsDraft          bool
@@ -755,17 +756,17 @@ func (s *Service) insertIssue(ctx context.Context, in CreateIssueInput, stateID,
 		}
 
 		err := tx.QueryRow(ctx, `
-			INSERT INTO issues (workspace_id, project_id, sequence_id, type_code, parent_id, depth,
-				name, description_json, description_html, state_id, priority,
-				severity, found_phase, reproduce_steps, category, source,
-				point, start_date, target_date, is_draft, created_by,
-				found_version_id, fix_version_id, release_version_id)
-			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)
-			RETURNING id`,
+		INSERT INTO issues (workspace_id, project_id, sequence_id, type_code, parent_id, depth,
+			name, description_json, description_html, state_id, priority,
+			severity, found_phase, reproduce_steps, category, source,
+			point, external_id, start_date, target_date, is_draft, created_by,
+			found_version_id, fix_version_id, release_version_id)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25)
+		RETURNING id`,
 			in.WorkspaceID, in.ProjectID, seqID, string(in.TypeCode), parent, depth,
 			in.Name, nil, in.DescriptionHTML, stateID, string(in.Priority),
 			in.Severity, in.FoundPhase, in.ReproduceSteps, in.Category, in.Source,
-			in.Point, in.StartDate, in.TargetDate, in.IsDraft, in.CreatedBy,
+			in.Point, in.ExternalID, in.StartDate, in.TargetDate, in.IsDraft, in.CreatedBy,
 			in.FoundVersionID, in.FixVersionID, in.ReleaseVersionID).Scan(&issueID)
 		if err != nil {
 			return mapPgError(err)

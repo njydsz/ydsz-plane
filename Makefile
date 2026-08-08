@@ -106,7 +106,7 @@ fmt:
 	gofmt -w .
 	cd web && pnpm format
 
-# --- S14: 微服务独立构建 + 桌面客户端 ---
+# --- S14: 微服务独立构建 ---
 
 # 构建通知服务独立二进制
 build-notification-svc:
@@ -118,21 +118,6 @@ build-search-svc:
 
 # 同时构建两个微服务
 build-microservices: build-notification-svc build-search-svc
-
-# 构建桌面客户端（需要 wails CLI 已安装且目标平台 gcc）
-# 前置: go install github.com/wailsapp/wails/v2/cmd/wails@latest
-# Windows 前置: choco install tdm-gcc -y (cgo 需要)
-desktop-build:
-	wails build -platform windows/amd64
-
-desktop-build-darwin:
-	wails build -platform darwin/universal
-
-desktop-build-linux:
-	wails build -platform linux/amd64
-
-desktop-dev:
-	wails dev
 
 # 运行 S14 通知服务独立部署（依赖 notification_db 已初始化）
 run-notification-svc: build-notification-svc

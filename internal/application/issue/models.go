@@ -176,6 +176,7 @@ type Issue struct {
 	DelayReason       *string        `json:"delay_reason,omitempty"`
 	Source            *string        `json:"source,omitempty"`
 	Point             *int           `json:"point,omitempty"`
+	ExternalID        *string        `json:"external_id,omitempty"`
 	FoundVersionID    *int64         `json:"found_version_id,omitempty"`
 	FixVersionID      *int64         `json:"fix_version_id,omitempty"`
 	ReleaseVersionID  *int64         `json:"release_version_id,omitempty"`
