@@ -69,8 +69,10 @@ for i, line in enumerate(lines):
     cmt = re.match(r'\s*COMMENT ON COLUMN public\.(\w+)\.(\w+)\s+IS', line)
     if cmt:
         tbl, col = cmt.group(1), cmt.group(2)
-        if not truly_defined(tbl, col) or col not in seen.get(tbl, set()):
-            # 列根本不存在，或到此刻尚未定义（顺序问题）-> 删除 COMMENT
+        # 仅按文件顺序判断：到该 COMMENT 为止，列尚未被定义（CREATE TABLE 或 ALTER ADD）
+        # 则 COMMENT 运行时必然失败（列不存在或顺序在后），删除之。COMMENT 是纯元数据，
+        # 删除不影响任何表结构。
+        if col not in seen.get(tbl, set()):
             remove.add(i)
 
 kept = [l for i, l in enumerate(lines) if i not in remove]
