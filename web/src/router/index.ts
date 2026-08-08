@@ -265,6 +265,18 @@ const router = createRouter({
           name: "project-settings",
           component: () => import("@/views/project/ProjectSettingsView.vue"),
         },
+        // 模块管理（项目设置子页）
+        {
+          path: ":workspaceId(\\d+)/projects/:projectId/settings/modules",
+          name: "project-modules",
+          component: () => import("@/views/project/ModuleSettingsView.vue"),
+        },
+        // 回收站
+        {
+          path: ":workspaceId(\\d+)/projects/:projectId/trash",
+          name: "project-trash",
+          component: () => import("@/views/project/TrashView.vue"),
+        },
         // 迭代列表
         {
           path: ":workspaceId(\\d+)/projects/:projectId/sprints",

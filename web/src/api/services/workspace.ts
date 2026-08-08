@@ -88,6 +88,14 @@ export interface Project {
   created_at: string;
   updated_at: string;
   template?: string;
+  modules?: ProjectModuleToggles;
+}
+
+export interface ProjectModuleToggles {
+  intake: boolean;
+  sprint: boolean;
+  version: boolean;
+  estimate: boolean;
 }
 
 const wrap = <T>(p: Promise<{ data: T }>) => p.then((r) => r.data);
@@ -138,9 +146,9 @@ export const workspaceApi = {
   listProjects: (wsId: number) => wrap<Project[]>(http.get(`/workspaces/${wsId}/projects`)),
   getProject: (wsId: number, projectId: number) =>
     wrap<Project>(http.get(`/workspaces/${wsId}/projects/${projectId}`)),
-  createProject: (wsId: number, input: { name: string; slug?: string; identifier?: string; description?: string; network?: string; icon?: string; color?: string; template?: string }) =>
+  createProject: (wsId: number, input: { name: string; slug?: string; identifier?: string; description?: string; network?: string; icon?: string; color?: string; template?: string; modules?: ProjectModuleToggles }) =>
     wrap<Project>(http.post(`/workspaces/${wsId}/projects`, input)),
-  updateProject: (wsId: number, projectId: number, input: { name?: string; slug?: string; description?: string; network?: string; icon?: string; color?: string }) =>
+  updateProject: (wsId: number, projectId: number, input: { name?: string; slug?: string; description?: string; network?: string; icon?: string; color?: string; modules?: ProjectModuleToggles }) =>
     wrap<Project>(http.patch(`/workspaces/${wsId}/projects/${projectId}`, input)),
   archiveProject: (wsId: number, projectId: number) =>
     wrap<void>(http.delete(`/workspaces/${wsId}/projects/${projectId}`)),

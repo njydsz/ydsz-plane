@@ -64,6 +64,7 @@ func (h *IssueHandler) Register(r *gin.RouterGroup, wsMiddleware []gin.HandlerFu
 	r.POST("/issues", h.createIssue)
 	r.POST("/issues/batch", h.batchIssues)
 	r.GET("/issues/export", h.exportIssues)
+	r.GET("/issues/trash", h.listTrash)
 
 	// 模块（Module 体系，对标 Plane 的 Module 概念）
 	modHandler := NewModuleHandler(NewModuleService(h.d.IssueSvc.db))
@@ -75,6 +76,8 @@ func (h *IssueHandler) Register(r *gin.RouterGroup, wsMiddleware []gin.HandlerFu
 		issue.GET("", h.getIssue)
 		issue.PATCH("", h.updateIssue)
 		issue.DELETE("", h.deleteIssue)
+		issue.POST("/restore", h.restoreIssue)
+		issue.DELETE("/permanent", h.hardDeleteIssue)
 		issue.POST("/transition", h.transition)
 		issue.GET("/activities", h.listActivities)
 		issue.GET("/time-logs", h.listTimeLogs)
@@ -361,6 +364,98 @@ func (h *IssueHandler) deleteIssue(c *gin.Context) {
 		return
 	}
 	c.Status(http.StatusNoContent)
+}
+
+// restoreIssue 从回收站恢复工作项（REST handler）。
+//
+//	@Summary		恢复工作项
+//	@Tags			issue
+//	@Success		204
+//	@Router			/issues/{issue_id}/restore [post]
+func (h *IssueHandler) restoreIssue(c *gin.Context) {
+	wsID := c.GetInt64(middleware.CtxWorkspaceID)
+	issueID := int64Param(c, "issue_id")
+
+	if err := h.d.IssueSvc.Restore(c.Request.Context(), wsID, issueID); err != nil {
+		writeErr(c, err)
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
+
+// hardDeleteIssue 彻底删除工作项（不可恢复）。
+//
+//	@Summary		彻底删除工作项
+//	@Tags			issue
+//	@Success		204
+//	@Router			/issues/{issue_id}/permanent [delete]
+func (h *IssueHandler) hardDeleteIssue(c *gin.Context) {
+	wsID := c.GetInt64(middleware.CtxWorkspaceID)
+	issueID := int64Param(c, "issue_id")
+
+	tag, err := h.d.IssueSvc.db.Exec(c.Request.Context(),
+		`DELETE FROM issues WHERE id = $1 AND workspace_id = $2 AND deleted_at IS NOT NULL`,
+		issueID, wsID)
+	if err != nil {
+		writeErr(c, errs.ErrInternal.Wrap(err))
+		return
+	}
+	if tag.RowsAffected() == 0 {
+		writeErr(c, errs.ErrNotFound)
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
+
+// listTrash 列出工作空间内已删除的工作项（回收站）。
+//
+//	@Summary		回收站列表
+//	@Tags			issue
+//	@Produce		json
+//	@Success		200	{array}	Issue
+//	@Router			/issues/trash [get]
+func (h *IssueHandler) listTrash(c *gin.Context) {
+	wsID := c.GetInt64(middleware.CtxWorkspaceID)
+	projectID := c.GetInt64(middleware.CtxProjectID)
+
+	rows, err := h.d.IssueSvc.db.Query(c.Request.Context(), `
+		SELECT i.id, i.project_id, i.sequence_id, i.type_code, i.name,
+		       i.state_id, i.priority, i.deleted_at
+		FROM issues i
+		WHERE i.workspace_id = $1 AND i.project_id = $2 AND i.deleted_at IS NOT NULL
+		ORDER BY i.deleted_at DESC
+		LIMIT 200`, wsID, projectID)
+	if err != nil {
+		writeErr(c, errs.ErrInternal.Wrap(err))
+		return
+	}
+	defer rows.Close()
+
+	type TrashItem struct {
+		ID         int64      `json:"id"`
+		ProjectID  int64      `json:"project_id"`
+		SequenceID int64      `json:"sequence_id"`
+		TypeCode   string     `json:"type_code"`
+		Name       string     `json:"name"`
+		StateID    int64      `json:"state_id"`
+		Priority   string     `json:"priority"`
+		DeletedAt  *time.Time `json:"deleted_at"`
+	}
+
+	var items []TrashItem
+	for rows.Next() {
+		var it TrashItem
+		if err := rows.Scan(&it.ID, &it.ProjectID, &it.SequenceID, &it.TypeCode,
+			&it.Name, &it.StateID, &it.Priority, &it.DeletedAt); err != nil {
+			writeErr(c, errs.ErrInternal.Wrap(err))
+			return
+		}
+		items = append(items, it)
+	}
+	if items == nil {
+		items = []TrashItem{}
+	}
+	c.JSON(http.StatusOK, items)
 }
 
 // transition 流转工作项状态（REST handler，Swagger 注解见下）。

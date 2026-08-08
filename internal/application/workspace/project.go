@@ -121,21 +121,26 @@ func (s *ProjectService) Create(ctx context.Context, in ProjectCreateInput) (*Pr
 	}
 	slug := normalizeProjectSlug(in.Slug, in.Name)
 	identifier := normalizeIdentifier(in.Identifier, slug)
-	if in.Network != "private" {
+	if in.Network != "private" && in.Network != "internal" {
 		in.Network = "public"
 	}
 	if in.Template != "agile" && in.Template != "waterfall" {
 		in.Template = "generic"
 	}
 
+	sModules := ProjectModuleAllEnabled()
+	if in.Modules != nil {
+		sModules = *in.Modules
+	}
+
 	var p Project
 	err := s.db.QueryRow(ctx, `
-		INSERT INTO projects (workspace_id, name, slug, identifier, description, network, icon, color, template, created_by)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-		RETURNING id, workspace_id, name, slug, identifier, description, network, icon, color, template, status, sort_order, created_by, created_at, updated_at`,
-		in.WorkspaceID, in.Name, slug, identifier, in.Description, in.Network, in.Icon, in.Color, in.Template, in.CreatedBy).
+		INSERT INTO projects (workspace_id, name, slug, identifier, description, network, icon, color, template, modules, created_by)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+		RETURNING id, workspace_id, name, slug, identifier, description, network, icon, color, template, status, sort_order, modules, created_by, created_at, updated_at`,
+		in.WorkspaceID, in.Name, slug, identifier, in.Description, in.Network, in.Icon, in.Color, in.Template, sModules, in.CreatedBy).
 		Scan(&p.ID, &p.WorkspaceID, &p.Name, &p.Slug, &p.Identifier, &p.Description,
-			&p.Network, &p.Icon, &p.Color, &p.Template, &p.Status, &p.SortOrder, &p.CreatedBy, &p.CreatedAt, &p.UpdatedAt)
+			&p.Network, &p.Icon, &p.Color, &p.Template, &p.Status, &p.SortOrder, &p.Modules, &p.CreatedBy, &p.CreatedAt, &p.UpdatedAt)
 	if err != nil {
 		if strings.Contains(err.Error(), "projects_workspace_id_slug") ||
 			strings.Contains(err.Error(), "projects_workspace_id_identifier") {
@@ -152,11 +157,11 @@ func (s *ProjectService) Create(ctx context.Context, in ProjectCreateInput) (*Pr
 func (s *ProjectService) Get(ctx context.Context, wsID, projectID int64) (*Project, error) {
 	var p Project
 	err := s.db.QueryRow(ctx, `
-		SELECT id, workspace_id, name, slug, identifier, description, network, icon, color, template, status, sort_order, created_by, created_at, updated_at
+		SELECT id, workspace_id, name, slug, identifier, description, network, icon, color, template, status, sort_order, modules, created_by, created_at, updated_at
 		FROM projects WHERE id = $1 AND workspace_id = $2 AND deleted_at IS NULL`,
 		projectID, wsID).
 		Scan(&p.ID, &p.WorkspaceID, &p.Name, &p.Slug, &p.Identifier, &p.Description,
-			&p.Network, &p.Icon, &p.Color, &p.Template, &p.Status, &p.SortOrder, &p.CreatedBy, &p.CreatedAt, &p.UpdatedAt)
+			&p.Network, &p.Icon, &p.Color, &p.Template, &p.Status, &p.SortOrder, &p.Modules, &p.CreatedBy, &p.CreatedAt, &p.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, errs.ErrNotFound
@@ -169,7 +174,7 @@ func (s *ProjectService) Get(ctx context.Context, wsID, projectID int64) (*Proje
 // ListByWorkspace 列出工作空间下的全部项目。
 func (s *ProjectService) ListByWorkspace(ctx context.Context, wsID int64) ([]Project, error) {
 	rows, err := s.db.Query(ctx, `
-		SELECT id, workspace_id, name, slug, identifier, description, network, icon, color, template, status, sort_order, created_by, created_at, updated_at
+		SELECT id, workspace_id, name, slug, identifier, description, network, icon, color, template, status, sort_order, modules, created_by, created_at, updated_at
 		FROM projects WHERE workspace_id = $1 AND deleted_at IS NULL
 		ORDER BY sort_order, created_at ASC`, wsID)
 	if err != nil {
@@ -181,7 +186,7 @@ func (s *ProjectService) ListByWorkspace(ctx context.Context, wsID int64) ([]Pro
 	for rows.Next() {
 		var p Project
 		if err := rows.Scan(&p.ID, &p.WorkspaceID, &p.Name, &p.Slug, &p.Identifier, &p.Description,
-			&p.Network, &p.Icon, &p.Color, &p.Template, &p.Status, &p.SortOrder, &p.CreatedBy, &p.CreatedAt, &p.UpdatedAt); err != nil {
+			&p.Network, &p.Icon, &p.Color, &p.Template, &p.Status, &p.SortOrder, &p.Modules, &p.CreatedBy, &p.CreatedAt, &p.UpdatedAt); err != nil {
 			return nil, errs.ErrInternal.Wrap(err)
 		}
 		out = append(out, p)
@@ -214,7 +219,7 @@ func (s *ProjectService) Update(ctx context.Context, wsID, projectID int64, in P
 		arg++
 	}
 	if in.Network != nil {
-		if *in.Network != "private" {
+		if *in.Network != "private" && *in.Network != "internal" {
 			*in.Network = "public"
 		}
 		sets = append(sets, "network = $"+strconv.Itoa(arg))
@@ -231,6 +236,11 @@ func (s *ProjectService) Update(ctx context.Context, wsID, projectID int64, in P
 		args = append(args, *in.Color)
 		arg++
 	}
+	if in.Modules != nil {
+		sets = append(sets, "modules = $"+strconv.Itoa(arg))
+		args = append(args, *in.Modules)
+		arg++
+	}
 
 	if len(sets) == 0 {
 		return s.Get(ctx, wsID, projectID)
@@ -243,7 +253,7 @@ func (s *ProjectService) Update(ctx context.Context, wsID, projectID int64, in P
 	var p Project
 	err := s.db.QueryRow(ctx, query, args...).
 		Scan(&p.ID, &p.WorkspaceID, &p.Name, &p.Slug, &p.Identifier, &p.Description,
-			&p.Network, &p.Icon, &p.Color, &p.Status, &p.SortOrder, &p.CreatedBy, &p.CreatedAt, &p.UpdatedAt)
+			&p.Network, &p.Icon, &p.Color, &p.Status, &p.SortOrder, &p.Modules, &p.CreatedBy, &p.CreatedAt, &p.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, errs.ErrNotFound

@@ -86,14 +86,21 @@ type CreateProjectRequest struct {
 	Identifier string `json:"identifier" binding:"omitempty,max=6"`
 	// Description 项目简介，最长 500 字符。
 	Description string `json:"description" binding:"omitempty,max=500"`
-	// Network 可见性：public（空间内默认可见） / private（仅成员可见）。默认 public。
-	Network string `json:"network" binding:"omitempty,oneof=public private"`
+	// Network 可见性：public（空间内默认可见） / private（仅成员可见） / internal（仅项目成员可见）。默认 public。
+	Network string `json:"network" binding:"omitempty,oneof=public private internal"`
 	// Icon Emoji 或图标标识，最长 32 字符。
 	Icon string `json:"icon" binding:"omitempty,max=32"`
 	// Color Hex 主题色（如 `#2563eb`），7 字符定长。
 	Color string `json:"color" binding:"omitempty,hexcolor,len=7"`
 	// Template 项目模板代码：agile（敏捷） / waterfall（瀑布） / generic（通用看板），默认 generic。
 	Template string `json:"template" binding:"omitempty,oneof=agile waterfall generic"`
+	// Modules 功能模块开关；null 表示全部启用。
+	Modules *struct {
+		Intake   *bool `json:"intake,omitempty"`
+		Sprint   *bool `json:"sprint,omitempty"`
+		Version  *bool `json:"version,omitempty"`
+		Estimate *bool `json:"estimate,omitempty"`
+	} `json:"modules,omitempty"`
 }
 
 // UpdateProjectRequest 更新项目的请求体（指针字段 = 可选更新）。
@@ -105,9 +112,16 @@ type UpdateProjectRequest struct {
 	// Description 新简介；nil 表示不更新。
 	Description *string `json:"description,omitempty"`
 	// Network 新可见性；nil 表示不更新。
-	Network *string `json:"network,omitempty" binding:"omitempty,oneof=public private"`
+	Network *string `json:"network,omitempty" binding:"omitempty,oneof=public private internal"`
 	// Icon 新图标；nil 表示不更新。
 	Icon *string `json:"icon,omitempty"`
 	// Color 新主题色；nil 表示不更新。
 	Color *string `json:"color,omitempty" binding:"omitempty,hexcolor,len=7"`
+	// Modules 功能模块开关；null 表示不更新（非 nil 则整体替换）。
+	Modules *struct {
+		Intake   *bool `json:"intake,omitempty"`
+		Sprint   *bool `json:"sprint,omitempty"`
+		Version  *bool `json:"version,omitempty"`
+		Estimate *bool `json:"estimate,omitempty"`
+	} `json:"modules,omitempty"`
 }

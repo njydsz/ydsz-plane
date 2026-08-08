@@ -19,6 +19,8 @@ const props = defineProps<{
   presetType?: IssueType;
   /** 从哪个工作项提缺陷（可选，用于一键从需求提缺陷） */
   sourceIssueId?: number;
+  /** 父工作项 ID（可选，用于 WBS 子工作项创建） */
+  parentId?: number;
 }>();
 
 const emit = defineEmits<{
@@ -46,9 +48,13 @@ const isDraft = ref(false);
 const severity = ref<number>(3);
 const foundPhase = ref("");
 const reproduceSteps = ref("");
+const reproduceExpected = ref("");
+const reproduceActual = ref("");
 const environment = ref("");
 const foundVersionId = ref<number | null>(null);
 const fixVersionId = ref<number | null>(null);
+const rootCauseCategory = ref("");
+const verifierId = ref("");
 const versions = ref<Version[]>([]);
 
 // ---- AI 智能辅助 ----
@@ -148,14 +154,18 @@ watch(
       description.value = "";
       priorityRef.value = "medium";
       point.value = null;
-      parentId.value = null;
+      parentId.value = props.parentId ?? null;
       isDraft.value = false;
       severity.value = 3;
       foundPhase.value = "";
       reproduceSteps.value = "";
+      reproduceExpected.value = "";
+      reproduceActual.value = "";
       environment.value = "";
       foundVersionId.value = null;
       fixVersionId.value = null;
+      rootCauseCategory.value = "";
+      verifierId.value = "";
       errorMsg.value = "";
       classifyResult.value = null;
       duplicates.value = [];
@@ -209,8 +219,16 @@ async function submit() {
     if (foundPhase.value.trim()) {
       input.found_phase = foundPhase.value.trim();
     }
-    if (reproduceSteps.value.trim()) {
-      input.reproduce_steps = { steps: reproduceSteps.value.trim() };
+    // reproduce_steps 拆分为三个字段
+    const rsSteps = reproduceSteps.value.trim();
+    const rsExpected = reproduceExpected.value.trim();
+    const rsActual = reproduceActual.value.trim();
+    if (rsSteps || rsExpected || rsActual) {
+      input.reproduce_steps = {
+        steps: rsSteps,
+        expected: rsExpected,
+        actual: rsActual,
+      };
     }
     if (environment.value.trim()) {
       input.environment = { value: environment.value.trim() };
@@ -220,6 +238,15 @@ async function submit() {
     }
     if (fixVersionId.value != null) {
       input.fix_version_id = fixVersionId.value;
+    }
+    if (rootCauseCategory.value) {
+      input.root_cause_category = rootCauseCategory.value;
+    }
+    if (verifierId.value.trim()) {
+      const vid = Number(verifierId.value.trim());
+      if (!isNaN(vid) && vid > 0) {
+        input.verifier_id = vid;
+      }
     }
   }
 
@@ -398,8 +425,51 @@ function cancel() {
                 v-model="reproduceSteps"
                 class="form-input form-input--textarea"
                 rows="3"
-                placeholder="描述缺陷的复现路径：1. 操作步骤 2. 预期结果 3. 实际结果"
+                placeholder="描述缺陷的复现操作路径（1. 步骤A 2. 步骤B 3. ...）"
               ></textarea>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">期望结果</label>
+              <textarea
+                v-model="reproduceExpected"
+                class="form-input form-input--textarea"
+                rows="2"
+                placeholder="描述正常情况下应该出现的结果"
+              ></textarea>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">实际结果</label>
+              <textarea
+                v-model="reproduceActual"
+                class="form-input form-input--textarea"
+                rows="2"
+                placeholder="描述实际出现的异常/错误结果"
+              ></textarea>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group form-group--inline">
+                <label class="form-label">根因分类</label>
+                <select v-model="rootCauseCategory" class="form-select">
+                  <option value="">-- 请选择 --</option>
+                  <option value="requirement">需求问题</option>
+                  <option value="technical">技术问题</option>
+                  <option value="environment">环境问题</option>
+                  <option value="data">数据问题</option>
+                  <option value="other">其他</option>
+                </select>
+              </div>
+              <div class="form-group form-group--inline">
+                <label class="form-label">验证人</label>
+                <input
+                  v-model="verifierId"
+                  type="text"
+                  class="form-input"
+                  placeholder="输入验证人用户ID"
+                />
+              </div>
             </div>
 
             <div class="form-group">

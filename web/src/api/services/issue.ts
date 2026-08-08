@@ -205,6 +205,8 @@ export interface CreateIssueInput {
   is_draft?: boolean;
   found_version_id?: number;
   fix_version_id?: number;
+  root_cause_category?: string;
+  verifier_id?: number;
 }
 // 注意：创建时state_id不需要传，后端会默认使用项目的初始状态
 
@@ -422,4 +424,23 @@ export const issueApi = {
     wrap<void>(http.post(`/workspaces/${wsId}/projects/${projectId}/issues/${issueId}/watch`)),
   unwatch: (wsId: number, projectId: number, issueId: number) =>
     wrap<void>(http.delete(`/workspaces/${wsId}/projects/${projectId}/issues/${issueId}/watch`)),
+
+  // --- 回收站 ---
+  listTrash: (wsId: number, projectId: number) =>
+    wrap<TrashItem[]>(http.get(`/workspaces/${wsId}/projects/${projectId}/issues/trash`)),
+  restoreIssue: (wsId: number, projectId: number, issueId: number) =>
+    wrap<void>(http.post(`/workspaces/${wsId}/projects/${projectId}/issues/${issueId}/restore`)),
+  permanentDelete: (wsId: number, projectId: number, issueId: number) =>
+    wrap<void>(http.delete(`/workspaces/${wsId}/projects/${projectId}/issues/${issueId}/permanent`)),
 };
+
+export interface TrashItem {
+  id: number;
+  project_id: number;
+  sequence_id: number;
+  type_code: IssueType;
+  name: string;
+  state_id: number;
+  priority: IssuePriority;
+  deleted_at: string;
+}

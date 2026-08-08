@@ -6,7 +6,7 @@
  */
 import { onMounted, ref } from "vue";
 
-import { issueApi, type IssueRelation } from "@/api/services/issue";
+import { issueApi, type IssueRelation, type IssueDependency } from "@/api/services/issue";
 import { AppLoadingState, AppErrorState } from "@/components";
 
 const props = defineProps<{
@@ -34,6 +34,24 @@ const relationLabels: Record<string, string> = {
 };
 
 const typeOptions = Object.entries(relationLabels).map(([k, v]) => ({ value: k, label: v }));
+
+// ---- 任务依赖 ----
+const dependencies = ref<{ predecessors: IssueDependency[]; successors: IssueDependency[] }>({ predecessors: [], successors: [] });
+const depsLoading = ref(false);
+const showDepForm = ref(false);
+const depPredecessorId = ref<number | null>(null);
+const depSuccessorId = ref<number | null>(null);
+const depType = ref("FS");
+const depLagDays = ref(0);
+const depError = ref("");
+const depSubmitting = ref(false);
+
+const dependencyTypeLabels: Record<string, string> = {
+  FS: "完成→开始 (FS)",
+  SS: "开始→开始 (SS)",
+  FF: "完成→完成 (FF)",
+  SF: "开始→完成 (SF)",
+};
 
 async function load() {
   loading.value = true;
@@ -76,7 +94,53 @@ async function removeRel(relationId: number) {
   }
 }
 
-onMounted(load);
+async function loadDeps() {
+  depsLoading.value = true;
+  try {
+    dependencies.value = await issueApi.listDependencies(props.workspaceId, props.projectId, props.issueId);
+  } catch {
+    // 非关键模块
+  } finally {
+    depsLoading.value = false;
+  }
+}
+
+async function createDep() {
+  if (!depPredecessorId.value || !depSuccessorId.value || depSubmitting.value) return;
+  depSubmitting.value = true;
+  depError.value = "";
+  try {
+    await issueApi.createDependency(props.workspaceId, props.projectId, props.issueId, {
+      predecessor_id: depPredecessorId.value,
+      successor_id: depSuccessorId.value,
+      dependency_type: depType.value,
+      lag_days: depLagDays.value,
+    });
+    showDepForm.value = false;
+    depPredecessorId.value = null;
+    depSuccessorId.value = null;
+    depLagDays.value = 0;
+    await loadDeps();
+  } catch (e: unknown) {
+    depError.value = e instanceof Error ? e.message : "添加依赖失败";
+  } finally {
+    depSubmitting.value = false;
+  }
+}
+
+async function removeDep(depId: number) {
+  try {
+    await issueApi.deleteDependency(props.workspaceId, props.projectId, props.issueId, depId);
+    await loadDeps();
+  } catch {
+    // 静默失败
+  }
+}
+
+onMounted(() => {
+  load();
+  loadDeps();
+});
 </script>
 
 <template>
@@ -131,6 +195,82 @@ onMounted(load);
       </div>
     </div>
     <div v-else-if="!showForm" class="text-muted">暂无关联关系</div>
+
+    <!-- 任务依赖 -->
+    <h3 style="margin-top: 24px">任务依赖</h3>
+    <button v-if="!showDepForm" class="btn btn--outline" @click="showDepForm = true">
+      ＋ 添加依赖
+    </button>
+
+    <!-- 添加依赖表单 -->
+    <div v-if="showDepForm" class="relation-form">
+      <div v-if="depError" class="form-error">{{ depError }}</div>
+      <div class="relation-form__row">
+        <input
+          v-model.number="depPredecessorId"
+          type="number"
+          class="relation-input"
+          placeholder="前置任务 ID"
+          min="1"
+        />
+        <select v-model="depType" class="relation-select">
+          <option v-for="(label, key) in dependencyTypeLabels" :key="key" :value="key">
+            {{ label }}
+          </option>
+        </select>
+      </div>
+      <div class="relation-form__row">
+        <input
+          v-model.number="depSuccessorId"
+          type="number"
+          class="relation-input"
+          placeholder="后置任务 ID"
+          min="1"
+        />
+        <input
+          v-model.number="depLagDays"
+          type="number"
+          class="relation-input"
+          placeholder="滞后天数"
+          min="0"
+          style="max-width: 100px"
+        />
+      </div>
+      <div class="relation-form__actions">
+        <button class="btn btn--sm" :disabled="depSubmitting" @click="showDepForm = false">取消</button>
+        <button class="btn btn--sm btn--primary" :disabled="!depPredecessorId || !depSuccessorId || depSubmitting" @click="createDep">
+          {{ depSubmitting ? "添加中..." : "确认" }}
+        </button>
+      </div>
+    </div>
+
+    <!-- 依赖列表 -->
+    <AppLoadingState v-if="depsLoading" text="加载依赖关系..." />
+    <div v-else-if="dependencies.predecessors.length > 0 || dependencies.successors.length > 0" class="relation-list">
+      <template v-if="dependencies.predecessors.length > 0">
+        <div class="dep-section-label">前置任务</div>
+        <div v-for="dep in dependencies.predecessors" :key="'pre-' + dep.id" class="relation-item">
+          <div class="relation-item__info">
+            <span class="relation-item__type">{{ dependencyTypeLabels[dep.dependency_type] ?? dep.dependency_type }}</span>
+            <span class="relation-item__target">#{{ dep.predecessor_id }}</span>
+            <span v-if="dep.lag_days > 0" class="dep-lag">+{{ dep.lag_days }}天</span>
+          </div>
+          <button class="relation-item__remove" title="移除依赖" @click="removeDep(dep.id)">✕</button>
+        </div>
+      </template>
+      <template v-if="dependencies.successors.length > 0">
+        <div class="dep-section-label">后置任务</div>
+        <div v-for="dep in dependencies.successors" :key="'suc-' + dep.id" class="relation-item">
+          <div class="relation-item__info">
+            <span class="relation-item__type">{{ dependencyTypeLabels[dep.dependency_type] ?? dep.dependency_type }}</span>
+            <span class="relation-item__target">#{{ dep.successor_id }}</span>
+            <span v-if="dep.lag_days > 0" class="dep-lag">+{{ dep.lag_days }}天</span>
+          </div>
+          <button class="relation-item__remove" title="移除依赖" @click="removeDep(dep.id)">✕</button>
+        </div>
+      </template>
+    </div>
+    <div v-else-if="!showDepForm" class="text-muted">暂无任务依赖</div>
   </div>
 </template>
 
@@ -291,5 +431,19 @@ h3 {
 
 .relation-item__remove:hover {
   color: var(--danger-500);
+}
+
+.dep-section-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  padding: 4px 0 2px;
+}
+
+.dep-lag {
+  font-size: 11px;
+  color: var(--warning-500);
+  margin-left: 4px;
 }
 </style>

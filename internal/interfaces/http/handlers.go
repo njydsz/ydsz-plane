@@ -302,6 +302,62 @@ func listProjects(d *Deps) gin.HandlerFunc {
 	}
 }
 
+// --- project modules DTO ↔ domain 转换 ---
+
+// modulesDTOToDomain 将创建请求中的 Modules DTO 转换为域模型指针。
+// nil 输入表示使用默认值（全部启用）。
+func modulesDTOToDomain(m *struct {
+	Intake   *bool `json:"intake,omitempty"`
+	Sprint   *bool `json:"sprint,omitempty"`
+	Version  *bool `json:"version,omitempty"`
+	Estimate *bool `json:"estimate,omitempty"`
+}) *workspace.ProjectModuleToggles {
+	if m == nil {
+		return nil
+	}
+	t := workspace.ProjectModuleAllEnabled()
+	if m.Intake != nil {
+		t.Intake = *m.Intake
+	}
+	if m.Sprint != nil {
+		t.Sprint = *m.Sprint
+	}
+	if m.Version != nil {
+		t.Version = *m.Version
+	}
+	if m.Estimate != nil {
+		t.Estimate = *m.Estimate
+	}
+	return &t
+}
+
+// modulesDTOToUpdateDomain 将更新请求中的 Modules DTO 转换为域模型指针。
+// nil 输入表示不更新（返回 nil）。
+func modulesDTOToUpdateDomain(m *struct {
+	Intake   *bool `json:"intake,omitempty"`
+	Sprint   *bool `json:"sprint,omitempty"`
+	Version  *bool `json:"version,omitempty"`
+	Estimate *bool `json:"estimate,omitempty"`
+}) *workspace.ProjectModuleToggles {
+	if m == nil {
+		return nil
+	}
+	t := workspace.ProjectModuleAllEnabled()
+	if m.Intake != nil {
+		t.Intake = *m.Intake
+	}
+	if m.Sprint != nil {
+		t.Sprint = *m.Sprint
+	}
+	if m.Version != nil {
+		t.Version = *m.Version
+	}
+	if m.Estimate != nil {
+		t.Estimate = *m.Estimate
+	}
+	return &t
+}
+
 // createProject 在工作空间下创建项目并初始化状态模板，记录审计日志。
 func createProject(d *Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -322,6 +378,7 @@ func createProject(d *Deps) gin.HandlerFunc {
 			Color:       req.Color,
 			Template:    req.Template,
 			CreatedBy:   c.GetInt64(middleware.CtxUserID),
+			Modules:     modulesDTOToDomain(req.Modules),
 		})
 		if err != nil {
 			writeError(c, err)
@@ -367,7 +424,7 @@ func getProject(d *Deps) gin.HandlerFunc {
 	}
 }
 
-// updateProject 更新项目名称/描述/网络/图标/颜色等信息。
+// updateProject 更新项目名称/描述/网络/图标/颜色/模块开关等信息。
 func updateProject(d *Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		wsID := c.GetInt64(middleware.CtxWorkspaceID)
@@ -378,8 +435,13 @@ func updateProject(d *Deps) gin.HandlerFunc {
 			return
 		}
 		p, err := d.ProjectSvc.Update(c.Request.Context(), wsID, projectID, workspace.ProjectUpdateInput{
-			Name: req.Name, Slug: req.Slug, Description: req.Description,
-			Network: req.Network, Icon: req.Icon, Color: req.Color,
+			Name:    req.Name,
+			Slug:    req.Slug,
+			Description: req.Description,
+			Network: req.Network,
+			Icon:    req.Icon,
+			Color:   req.Color,
+			Modules: modulesDTOToUpdateDomain(req.Modules),
 		})
 		if err != nil {
 			writeError(c, err)

@@ -139,6 +139,57 @@ async function handleDescPasteImage(file: File) {
 // 一键提缺陷
 const showDefectModal = ref(false);
 
+// --- 子工作项 ---
+const subIssues = ref<Issue[]>([]);
+const subIssuesLoading = ref(false);
+const showSubIssueModal = ref(false);
+const subIssueParentId = ref(0);
+const expandedSubIssues = ref<Set<number>>(new Set());
+
+async function loadSubIssues() {
+  if (!ws.value) return;
+  subIssuesLoading.value = true;
+  try {
+    const res = await issueApi.listIssues(ws.value.id, props.projectId, {
+      parent_id: props.issueId,
+    });
+    subIssues.value = res.results;
+    // 初始展开第一层
+    expandedSubIssues.value = new Set(subIssues.value.map((s) => s.id));
+  } catch {
+    // 非关键模块静默忽略
+  } finally {
+    subIssuesLoading.value = false;
+  }
+}
+
+function toggleSubIssue(id: number) {
+  const next = new Set(expandedSubIssues.value);
+  if (next.has(id)) {
+    next.delete(id);
+  } else {
+    next.add(id);
+  }
+  expandedSubIssues.value = next;
+}
+
+function openSubIssue(parentId: number) {
+  subIssueParentId.value = parentId;
+  showSubIssueModal.value = true;
+}
+
+function formatSubIssueState(stateId: number): string {
+  return states.value.find((s) => s.id === stateId)?.name ?? "未知";
+}
+
+function formatSubIssueColor(stateId: number): string {
+  return states.value.find((s) => s.id === stateId)?.color ?? "#8DA2C2";
+}
+
+function navigateToIssue(issueId: number) {
+  router.push(`/${props.workspaceId}/projects/${props.projectId}/issues/${issueId}`);
+}
+
 async function load() {
   loading.value = true;
   error.value = "";
@@ -368,6 +419,7 @@ async function saveEdit() {
 onMounted(() => {
   load();
   loadTimeLogs();
+  loadSubIssues();
 });
 </script>
 
@@ -516,17 +568,35 @@ onMounted(() => {
         <div v-if="issue.type_code === 'defect'" class="issue-detail__section">
           <h3>缺陷信息</h3>
           <div class="issue-detail__fields">
-            <div v-if="issue.reproduce_steps" class="field-row">
-              <span class="field-label">复现步骤:</span>
-              <span class="field-value">{{ JSON.stringify(issue.reproduce_steps) }}</span>
+            <div v-if="issue.reproduce_steps" class="defect-info">
+              <div v-if="issue.reproduce_steps.steps" class="field-row">
+                <span class="field-label">复现步骤:</span>
+                <span class="field-value">{{ issue.reproduce_steps.steps }}</span>
+              </div>
+              <div v-if="issue.reproduce_steps.expected" class="field-row">
+                <span class="field-label">期望结果:</span>
+                <span class="field-value">{{ issue.reproduce_steps.expected }}</span>
+              </div>
+              <div v-if="issue.reproduce_steps.actual" class="field-row">
+                <span class="field-label">实际结果:</span>
+                <span class="field-value">{{ issue.reproduce_steps.actual }}</span>
+              </div>
             </div>
-            <div v-if="issue.environment" class="field-row">
+            <div v-if="issue.environment && issue.environment.value" class="field-row">
               <span class="field-label">环境:</span>
-              <span class="field-value">{{ JSON.stringify(issue.environment) }}</span>
+              <span class="field-value">{{ issue.environment.value }}</span>
             </div>
             <div v-if="issue.root_cause_category" class="field-row">
               <span class="field-label">根因分类:</span>
-              <span class="field-value">{{ issue.root_cause_category }}</span>
+              <span class="field-value">{{ ({ requirement: "需求问题", technical: "技术问题", environment: "环境问题", data: "数据问题", other: "其他" } as Record<string, string>)[issue.root_cause_category] ?? issue.root_cause_category }}</span>
+            </div>
+            <div v-if="issue.fix_version_id" class="field-row">
+              <span class="field-label">修复版本:</span>
+              <span class="field-value">#{{ issue.fix_version_id }}</span>
+            </div>
+            <div v-if="issue.verifier_id" class="field-row">
+              <span class="field-label">验证人:</span>
+              <span class="field-value">用户 #{{ issue.verifier_id }}</span>
             </div>
           </div>
         </div>
@@ -635,6 +705,59 @@ onMounted(() => {
         </div>
         <div v-else-if="!showTimeLogForm" class="text-muted">暂无工时记录</div>
 
+        <!-- 子工作项 -->
+        <div class="sub-issues-section" style="margin-top: 24px">
+          <div class="sub-issues-header">
+            <h3>子工作项</h3>
+            <button
+              v-if="canEditIssue"
+              class="btn btn--sm btn--outline"
+              @click="openSubIssue(props.issueId)"
+            >
+              ＋ 添加子工作项
+            </button>
+          </div>
+
+          <div v-if="subIssuesLoading" class="text-muted">加载中...</div>
+          <div v-else-if="subIssues.length === 0" class="text-muted">暂无子工作项</div>
+          <div v-else class="sub-issues-tree">
+            <div v-for="child in subIssues" :key="child.id" class="sub-issue-node">
+              <div class="sub-issue-node__row">
+                <button
+                  class="sub-issue-node__toggle"
+                  :class="{ 'sub-issue-node__toggle--collapsed': !expandedSubIssues.has(child.id) }"
+                  @click="toggleSubIssue(child.id)"
+                >
+                  ▶
+                </button>
+                <span
+                  class="sub-issue-node__identifier"
+                  @click="navigateToIssue(child.id)"
+                >{{ child.identifier }}</span>
+                <span class="sub-issue-node__type" :class="`sub-issue-node__type--${child.type_code}`">
+                  {{ typeLabel(child.type_code) }}
+                </span>
+                <span
+                  class="sub-issue-node__state"
+                  :style="{ backgroundColor: formatSubIssueColor(child.state_id) }"
+                >{{ formatSubIssueState(child.state_id) }}</span>
+              </div>
+              <div class="sub-issue-node__title" @click="navigateToIssue(child.id)">
+                {{ child.name }}
+              </div>
+              <div class="sub-issue-node__actions">
+                <button
+                  v-if="canEditIssue"
+                  class="btn btn--sm btn--ghost"
+                  @click="openSubIssue(child.id)"
+                >
+                  ＋ 子项
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- 关联关系 -->
         <RelationPanel
           v-if="ws"
@@ -654,6 +777,17 @@ onMounted(() => {
       preset-type="defect"
       @close="showDefectModal = false"
       @created="showDefectModal = false"
+    />
+
+    <!-- 子工作项创建弹窗 -->
+    <IssueCreateModal
+      v-if="ws && showSubIssueModal"
+      :workspace-id="ws.id"
+      :project-id="props.projectId"
+      :visible="showSubIssueModal"
+      :parent-id="subIssueParentId"
+      @close="showSubIssueModal = false"
+      @created="showSubIssueModal = false; loadSubIssues()"
     />
   </div>
 </template>
@@ -1095,5 +1229,111 @@ onMounted(() => {
 }
 .timelog-item__delete:hover {
   color: var(--danger-500);
+}
+
+/* ===== 子工作项树 ===== */
+.sub-issues-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.sub-issues-header h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.sub-issues-tree {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sub-issue-node {
+  padding: 8px 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+
+.sub-issue-node__row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sub-issue-node__toggle {
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  font-size: 8px;
+  padding: 0;
+  transition: transform 0.15s;
+}
+
+.sub-issue-node__toggle--collapsed {
+  transform: rotate(0deg);
+}
+
+.sub-issue-node__toggle:not(.sub-issue-node__toggle--collapsed) {
+  transform: rotate(90deg);
+}
+
+.sub-issue-node__identifier {
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--brand-500);
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.sub-issue-node__identifier:hover {
+  text-decoration: underline;
+}
+
+.sub-issue-node__type {
+  font-size: 10px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-weight: 500;
+}
+
+.sub-issue-node__type--requirement { background: var(--brand-50); color: var(--brand-600); }
+.sub-issue-node__type--task { background: var(--success-50); color: var(--success-600); }
+.sub-issue-node__type--defect { background: var(--danger-50); color: var(--danger-600); }
+
+.sub-issue-node__state {
+  font-size: 10px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  color: var(--text-on-brand);
+  margin-left: auto;
+}
+
+.sub-issue-node__title {
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  margin-top: 4px;
+  line-height: 1.4;
+}
+
+.sub-issue-node__title:hover {
+  color: var(--brand-500);
+}
+
+.sub-issue-node__actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 4px;
 }
 </style>

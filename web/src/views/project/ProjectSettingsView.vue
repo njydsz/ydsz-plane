@@ -7,7 +7,7 @@
 import { onMounted, reactive, ref } from "vue";
 import { useRoute } from "vue-router";
 
-import { workspaceApi, type Project } from "@/api/services/workspace";
+import { workspaceApi, type Project, type ProjectModuleToggles } from "@/api/services/workspace";
 import { ApiError } from "@/api/client";
 import { AppLoadingState, AppErrorState } from "@/components";
 
@@ -22,16 +22,29 @@ const error = ref("");
 const form = reactive({
   name: "",
   description: "",
-  network: "open",
+  network: "public",
   color: "#3f63f1",
+  modules: {
+    intake: true,
+    sprint: true,
+    version: true,
+    estimate: true,
+  } as ProjectModuleToggles,
+});
+
+const moduleToggles = reactive({
+  intake: true,
+  sprint: true,
+  version: true,
+  estimate: true,
 });
 const saving = ref(false);
 const saveError = ref("");
 const saveSuccess = ref("");
 
 const networkOptions = [
-  { value: "open", label: "公开 — 空间内所有成员可见" },
-  { value: "restricted", label: "受限 — 仅项目成员可见" },
+  { value: "public", label: "公开 — 空间内所有成员可见" },
+  { value: "internal", label: "内部 — 仅项目成员可见（对外隐藏）" },
   { value: "private", label: "私有 — 仅 Owner/Admin 可见" },
 ];
 
@@ -51,6 +64,12 @@ async function loadProject() {
     form.description = project.value.description ?? "";
     form.network = project.value.network ?? "open";
     form.color = project.value.color ?? "#3f63f1";
+    if (project.value.modules) {
+      moduleToggles.intake = project.value.modules.intake;
+      moduleToggles.sprint = project.value.modules.sprint;
+      moduleToggles.version = project.value.modules.version;
+      moduleToggles.estimate = project.value.modules.estimate;
+    }
   } catch (e: any) {
     error.value = e.message ?? "加载失败";
   } finally {
@@ -74,6 +93,12 @@ async function save() {
       description: form.description.trim() || undefined,
       network: form.network,
       color: form.color,
+      modules: {
+        intake: moduleToggles.intake,
+        sprint: moduleToggles.sprint,
+        version: moduleToggles.version,
+        estimate: moduleToggles.estimate,
+      },
     });
     project.value = updated;
     saveSuccess.value = "保存成功";
@@ -97,6 +122,19 @@ onMounted(loadProject);
       <h1>{{ project.name }} 设置</h1>
       <p class="meta">#{{ project.identifier }} · 项目配置与管理</p>
     </header>
+
+    <nav class="settings-tabs">
+      <router-link
+        :to="`/${route.params.workspaceId}/projects/${route.params.projectId}/settings`"
+        class="tab"
+        exact-active-class="tab--active"
+      >基本信息</router-link>
+      <router-link
+        :to="`/${route.params.workspaceId}/projects/${route.params.projectId}/settings/modules`"
+        class="tab"
+        active-class="tab--active"
+      >模块管理</router-link>
+    </nav>
 
     <section class="panel">
       <h2 class="panel__title">基本信息</h2>
@@ -164,14 +202,53 @@ onMounted(loadProject);
         </div>
       </div>
 
-      <div class="actions">
-        <p v-if="saveError" class="msg error">{{ saveError }}</p>
-        <p v-if="saveSuccess" class="msg success">{{ saveSuccess }}</p>
-        <button class="btn btn--primary" :disabled="saving" @click="save">
-          {{ saving ? "保存中..." : "保存修改" }}
-        </button>
       </div>
     </section>
+
+    <!-- 功能模块开关 -->
+    <section class="panel" style="margin-top: 24px">
+      <h2 class="panel__title">功能模块开关</h2>
+      <p class="panel__desc">启用或禁用项目中的功能模块，关闭后在导航中隐藏对应入口。</p>
+      <div class="toggle-grid">
+        <label class="toggle-item">
+          <div class="toggle-info">
+            <span class="toggle-name">收件箱 (Intake)</span>
+            <span class="toggle-desc">外部反馈收集与审核通道</span>
+          </div>
+          <input type="checkbox" v-model="moduleToggles.intake" class="toggle-switch" />
+        </label>
+        <label class="toggle-item">
+          <div class="toggle-info">
+            <span class="toggle-name">迭代 (Sprint)</span>
+            <span class="toggle-desc">敏捷迭代规划与进度管理</span>
+          </div>
+          <input type="checkbox" v-model="moduleToggles.sprint" class="toggle-switch" />
+        </label>
+        <label class="toggle-item">
+          <div class="toggle-info">
+            <span class="toggle-name">版本日 (Version)</span>
+            <span class="toggle-desc">发布里程碑与迭代聚合管理</span>
+          </div>
+          <input type="checkbox" v-model="moduleToggles.version" class="toggle-switch" />
+        </label>
+        <label class="toggle-item">
+          <div class="toggle-info">
+            <span class="toggle-name">估算 (Estimate)</span>
+            <span class="toggle-desc">故事点与工时估算体系</span>
+          </div>
+          <input type="checkbox" v-model="moduleToggles.estimate" class="toggle-switch" />
+        </label>
+      </div>
+    </section>
+
+    <!-- 保存 -->
+    <div class="actions" style="margin-top: 20px">
+      <p v-if="saveError" class="msg error">{{ saveError }}</p>
+      <p v-if="saveSuccess" class="msg success">{{ saveSuccess }}</p>
+      <button class="btn btn--primary" :disabled="saving" @click="save">
+        {{ saving ? "保存中..." : "保存所有变更" }}
+      </button>
+    </div>
   </div>
   </div>
 </template>
@@ -189,7 +266,35 @@ onMounted(loadProject);
 .settings { max-width: 700px; }
 
 .settings__header {
-  margin-bottom: 24px;
+  margin-bottom: 16px;
+}
+
+/* ---------- Tab 导航 ---------- */
+.settings-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 2px solid var(--border-subtle);
+  margin-bottom: 20px;
+}
+
+.tab {
+  padding: 8px 18px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  text-decoration: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.tab:hover {
+  color: var(--text-primary);
+}
+
+.tab--active {
+  color: var(--brand-500);
+  border-bottom-color: var(--brand-500);
 }
 
 .settings__header h1 {
@@ -216,6 +321,12 @@ onMounted(loadProject);
   margin: 0 0 20px;
   padding-bottom: 12px;
   border-bottom: 1px solid var(--border-subtle);
+}
+
+.panel__desc {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin: -12px 0 16px;
 }
 
 .form-grid {
@@ -368,6 +479,81 @@ onMounted(loadProject);
 .btn--primary:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+/* ===== Toggle Grid ===== */
+.toggle-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.toggle-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.toggle-item:hover {
+  border-color: var(--border-default);
+}
+
+.toggle-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.toggle-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.toggle-desc {
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+/* Toggle switch */
+.toggle-switch {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  appearance: none;
+  background: var(--surface-3);
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+  flex-shrink: 0;
+}
+
+.toggle-switch:checked {
+  background: var(--brand-500);
+  border-color: var(--brand-500);
+}
+
+.toggle-switch::before {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--text-on-brand);
+  transition: transform 0.2s;
+}
+
+.toggle-switch:checked::before {
+  transform: translateX(20px);
 }
 
 @media (max-width: 600px) {
