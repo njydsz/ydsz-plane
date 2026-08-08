@@ -1162,6 +1162,7 @@
   items.forEach(it=>{
     it.addEventListener('click',()=>{
       const target = it.getAttribute('data-screen');
+      if(target==='soon'){ openModal('settings'); return; }
       items.forEach(n=>n.classList.remove('active'));
       it.classList.add('active');
       screens.forEach(s=>s.classList.remove('active'));
@@ -1171,15 +1172,375 @@
     });
   });
 
-  // Webhook / Automation switches
-  document.querySelectorAll('.switch').forEach(sw=>{
-    sw.addEventListener('click',()=>sw.classList.toggle('on'));
+  // ===== helpers =====
+  function esc(s){ return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+  function ini(s){ return (s||'我').trim().charAt(0)||'我'; }
+  function goScreen(id){ const nav=document.querySelector('.nav-item[data-screen="'+id+'"]'); if(nav) nav.click(); }
+  function currentScreenId(){ const a=document.querySelector('.screen.active'); return a?a.id:''; }
+
+  // ===== Toast =====
+  function toast(msg){
+    const w=document.getElementById('toastWrap');
+    const t=document.createElement('div');
+    t.className='toast';
+    t.innerHTML='<span class="ok">✓</span>'+esc(msg);
+    w.appendChild(t);
+    setTimeout(()=>{ t.style.opacity='0'; t.style.transition='opacity .2s'; setTimeout(()=>t.remove(),200); }, 2200);
+  }
+
+  // ===== Overlay / Modal =====
+  const overlay=document.getElementById('overlay');
+  function openOverlay(html){ overlay.className='overlay open'; overlay.innerHTML=html; }
+  function closeOverlay(){ overlay.classList.remove('open'); overlay.innerHTML=''; }
+  overlay.addEventListener('click',e=>{ if(e.target===overlay) closeOverlay(); });
+  document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ closeOverlay(); closePopover(); } });
+
+  // switches (delegated so dynamically-added ones work)
+  document.addEventListener('click',e=>{ if(e.target.classList.contains('switch')) e.target.classList.toggle('on'); });
+
+  const PRI={'紧急':'urgent','高':'high','中':'mid','低':'low'};
+  const ST={'待办':'todo','进行中':'inprogress','已完成':'done','已取消':'cancelled'};
+  const DEFST={'待验':'triage','处理中':'inprogress','已确认':'todo','已关闭':'done','重新打开':'cancelled'};
+  const LAYOUT={'看板':'inprogress','列表':'inprogress','甘特':'low'};
+  const PEOPLE=['李雷','韩梅梅','王强','赵敏','孙琳','周婷'];
+  const MODULES=['用户模块','报表模块','权限模块','移动端','文档模块'];
+
+  function fieldHTML(f,val){
+    const id='f_'+f.name; let ctrl;
+    if(f.type==='select'){
+      const opts=(f.options||[]).map(o=>`<option ${o===val?'selected':''}>${o}</option>`).join('');
+      ctrl=`<select class="form-select" id="${id}">${opts}</select>`;
+    } else if(f.type==='textarea'){
+      ctrl=`<textarea class="form-textarea" id="${id}" placeholder="${f.placeholder||''}">${val||''}</textarea>`;
+    } else if(f.type==='date'){
+      ctrl=`<input class="form-input" type="date" id="${id}" value="${val||''}">`;
+    } else {
+      ctrl=`<input class="form-input" type="text" id="${id}" placeholder="${f.placeholder||''}" value="${val||''}">`;
+    }
+    const req=f.required?'<span class="req">*</span>':'';
+    return `<div class="form-field ${f.span2?'span2':''}"><label class="form-label" for="${id}">${f.label}${req}</label>${ctrl}</div>`;
+  }
+
+  const MODALS={
+    requirement:{title:'新建需求',sub:'Requirement',submit:'创建需求',toast:'已创建需求',
+      fields:[
+        {name:'title',label:'标题',type:'text',required:true,span2:true,placeholder:'简要描述需求'},
+        {name:'priority',label:'优先级',type:'select',options:['紧急','高','中','低']},
+        {name:'severity',label:'严重程度',type:'select',options:['S1','S2','S3','S4']},
+        {name:'assignee',label:'负责人',type:'select',options:PEOPLE},
+        {name:'module',label:'模块',type:'select',options:MODULES},
+        {name:'due',label:'截止日期',type:'date'},
+        {name:'desc',label:'描述',type:'textarea',span2:true,placeholder:'补充背景、验收标准…'}
+      ],
+      insert:(v,s)=> s==='f05'
+        ? `<div class="work-card"><span class="work-id">YDSZ-NEW</span><div class="work-card-title">${esc(v.title)}</div><div class="work-card-meta"><span class="pill pill-${PRI[v.priority]||'mid'}">${v.priority||'中'}</span><div class="avatar-stack"><span class="av av-blue">${ini(v.assignee)}</span></div></div></div>`
+        : null
+    },
+    workspace:{title:'新建工作空间',sub:'Workspace',submit:'创建工作空间',toast:'已创建工作空间',
+      fields:[
+        {name:'name',label:'名称',type:'text',required:true,span2:true,placeholder:'例如：数据中台工作区'},
+        {name:'key',label:'标识',type:'text',placeholder:'WS-101'},
+        {name:'region',label:'区域',type:'select',options:['华东','华北','华南','海外']},
+        {name:'desc',label:'描述',type:'textarea',span2:true,placeholder:'工作空间用途说明'}
+      ], insert:null
+    },
+    project:{title:'新建项目',sub:'Project',submit:'创建项目',toast:'已创建项目',
+      fields:[
+        {name:'name',label:'名称',type:'text',required:true,span2:true,placeholder:'项目名称'},
+        {name:'key',label:'项目标识',type:'text',placeholder:'PRJ-105'},
+        {name:'status',label:'状态',type:'select',options:['未开始','进行中','已完成','已取消']},
+        {name:'lead',label:'负责人',type:'select',options:PEOPLE},
+        {name:'desc',label:'描述',type:'textarea',span2:true,placeholder:'项目目标与范围'}
+      ],
+      insert:(v)=>`<tr><td class="mono">PRJ-NEW</td><td>${esc(v.name)}</td><td><span class="pill pill-${v.status==='已完成'?'done':v.status==='进行中'?'inprogress':v.status==='已取消'?'cancelled':'notstarted'}">${v.status||'未开始'}</span></td><td>${esc(v.lead)||'—'}</td><td>0%</td><td>刚刚</td></tr>`
+    },
+    version:{title:'规划版本',sub:'Version',submit:'创建版本',toast:'已规划版本',
+      fields:[
+        {name:'name',label:'版本名称',type:'text',required:true,span2:true,placeholder:'例如：权限中心 2.0 基础能力'},
+        {name:'versionId',label:'版本号',type:'text',placeholder:'VER-2.6'},
+        {name:'status',label:'状态',type:'select',options:['规划中','进行中','已发布']},
+        {name:'owner',label:'负责人',type:'select',options:PEOPLE},
+        {name:'due',label:'目标日期',type:'date'},
+        {name:'desc',label:'描述',type:'textarea',span2:true,placeholder:'版本范围与里程碑'}
+      ],
+      insert:(v,s)=> s==='f04'
+        ? `<div class="work-card"><span class="work-id">${esc(v.versionId)||'VER-NEW'}</span><div class="work-card-title">${esc(v.name)}</div><div class="work-card-meta"><span class="pill pill-mid">中</span><div class="avatar-stack"><span class="av av-blue">${ini(v.owner)}</span></div></div></div>`
+        : null
+    },
+    task:{title:'新建任务',sub:'Task',submit:'创建任务',toast:'已创建任务',
+      fields:[
+        {name:'title',label:'标题',type:'text',required:true,span2:true,placeholder:'任务标题'},
+        {name:'priority',label:'优先级',type:'select',options:['紧急','高','中','低']},
+        {name:'status',label:'状态',type:'select',options:['待办','进行中','已完成','已取消']},
+        {name:'assignee',label:'负责人',type:'select',options:PEOPLE},
+        {name:'due',label:'截止日期',type:'date'},
+        {name:'desc',label:'描述',type:'textarea',span2:true,placeholder:'实现要点'}
+      ],
+      insert:(v)=>`<tr><td class="mono">TSK-NEW</td><td>${esc(v.title)}</td><td><span class="pill pill-${PRI[v.priority]||'mid'}">${v.priority||'中'}</span></td><td><span class="pill pill-${ST[v.status]||'todo'}">${v.status||'待办'}</span></td><td>${esc(v.assignee)||'—'}</td><td>${v.due||'—'}</td></tr>`
+    },
+    defect:{title:'新建缺陷',sub:'Defect',submit:'创建缺陷',toast:'已创建缺陷',
+      fields:[
+        {name:'title',label:'标题',type:'text',required:true,span2:true,placeholder:'缺陷标题'},
+        {name:'severity',label:'严重程度',type:'select',options:['S1','S2','S3','S4']},
+        {name:'priority',label:'优先级',type:'select',options:['紧急','高','中','低']},
+        {name:'status',label:'状态',type:'select',options:['待验','处理中','已确认','已关闭']},
+        {name:'assignee',label:'指派给',type:'select',options:PEOPLE},
+        {name:'module',label:'模块',type:'select',options:MODULES},
+        {name:'desc',label:'复现步骤',type:'textarea',span2:true,placeholder:'步骤 / 期望 / 实际'}
+      ],
+      insert:(v)=>`<tr><td class="mono">YDSZ-NEW</td><td>${esc(v.title)}</td><td><span class="pill pill-sev-${v.severity||'S3'}">${v.severity||'S3'}</span></td><td><span class="pill pill-${PRI[v.priority]||'mid'}">${v.priority||'中'}</span></td><td><span class="pill pill-${DEFST[v.status]||'triage'}">${v.status||'待验'}</span></td><td>${esc(v.assignee)||'—'}</td><td>${esc(v.module)||'—'}</td></tr>`
+    },
+    doc:{title:'新建文档',sub:'Document',submit:'创建文档',toast:'已创建文档',
+      fields:[
+        {name:'name',label:'名称',type:'text',required:true,span2:true,placeholder:'文档标题'},
+        {name:'type',label:'类型',type:'select',options:['产品文档','工程文档','会议纪要']},
+        {name:'space',label:'空间',type:'select',options:['核心平台','数据中台','移动端']},
+        {name:'owner',label:'编辑者',type:'select',options:PEOPLE},
+        {name:'desc',label:'摘要',type:'textarea',span2:true,placeholder:'文档摘要'}
+      ],
+      insert:(v)=>`<tr><td>${esc(v.name)}</td><td>刚刚</td><td>${esc(v.owner)||'我'}</td><td><span class="pill pill-todo">待评审</span></td></tr>`
+    },
+    article:{title:'新建文章',sub:'Knowledge Article',submit:'发布文章',toast:'已发布文章',
+      fields:[
+        {name:'title',label:'标题',type:'text',required:true,span2:true,placeholder:'文章标题'},
+        {name:'category',label:'分类',type:'select',options:['工程实践','故障复盘','产品百科','新人手册','安全合规','FAQ']},
+        {name:'author',label:'作者',type:'text',placeholder:'Marvin'},
+        {name:'desc',label:'摘要',type:'textarea',span2:true,placeholder:'文章摘要'}
+      ],
+      insert:(v,s)=> s==='f10'
+        ? `<div class="card kb-card"><div class="kb-icon">📝</div><div class="kb-title">${esc(v.title)}</div><div class="kb-count">0 篇文章</div></div>`
+        : null
+    },
+    view:{title:'新建视图',sub:'View',submit:'创建视图',toast:'已创建视图',
+      fields:[
+        {name:'name',label:'视图名称',type:'text',required:true,span2:true,placeholder:'例如：我的待办'},
+        {name:'layout',label:'布局',type:'select',options:['看板','列表','甘特']},
+        {name:'filter',label:'过滤条件',type:'text',span2:true,placeholder:'负责人 = 我，状态 = 待办 / 进行中'},
+        {name:'desc',label:'描述',type:'textarea',span2:true,placeholder:'视图用途'}
+      ],
+      insert:(v)=>`<div class="view-row"><div><div class="vname">${esc(v.name)}</div><div class="vmeta">过滤：${esc(v.filter)||'自定义条件'}</div></div><span class="pill pill-${LAYOUT[v.layout]||'inprogress'}">${v.layout||'列表'}</span></div>`
+    },
+    webhook:{title:'新建 Webhook',sub:'Webhook',submit:'创建 Webhook',toast:'已创建 Webhook',
+      fields:[
+        {name:'event',label:'事件',type:'select',options:['需求创建','状态变更','评论新增','缺陷新建','文档更新']},
+        {name:'url',label:'回调 URL',type:'text',required:true,span2:true,placeholder:'https://hooks.example.com/...'},
+        {name:'secret',label:'签名密钥',type:'text',placeholder:'可选'},
+        {name:'active',label:'状态',type:'select',options:['启用','停用']}
+      ],
+      insert:(v)=>`<div class="rule-row"><div class="rule-main"><div class="rule-title">${esc(v.event)||'自定义事件'}</div><div class="url-mono">${esc(v.url)}</div></div><span class="switch ${v.active==='停用'?'':'on'}"></span></div>`
+    },
+    rule:{title:'新建规则',sub:'Automation Rule',submit:'创建规则',toast:'已创建规则',
+      fields:[
+        {name:'when',label:'当（触发条件）',type:'text',required:true,span2:true,placeholder:'当…'},
+        {name:'then',label:'则（执行动作）',type:'text',required:true,span2:true,placeholder:'则…'},
+        {name:'active',label:'状态',type:'select',options:['启用','停用']}
+      ],
+      insert:(v)=>`<div class="rule-row"><div class="rule-main"><div class="rule-title">${esc(v.when)}</div><div class="rule-desc">则 ${esc(v.then)}</div></div><span class="switch ${v.active==='停用'?'':'on'}"></span></div>`
+    },
+    export:{title:'导出报表',sub:'Export Report',submit:'导出',toast:'已导出报表',
+      fields:[
+        {name:'range',label:'时间范围',type:'select',options:['本月','本季度','Sprint 20–24','自定义']},
+        {name:'format',label:'格式',type:'select',options:['CSV','Excel','PDF']},
+        {name:'include',label:'包含',type:'text',span2:true,placeholder:'需求 / 缺陷 / 任务 / 文档'},
+        {name:'note',label:'备注',type:'textarea',span2:true,placeholder:'备注（可选）'}
+      ],
+      download:(v)=>{ const c='Ydsz Plane 效能度量报表\n范围：'+(v.range||'')+'\n格式：'+(v.format||''); const b=new Blob([c],{type:'text/plain;charset=utf-8'}); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download='ydsz-metrics.'+((v.format==='Excel'||v.format==='PDF')?'csv':(v.format||'csv').toLowerCase()); a.click(); URL.revokeObjectURL(a.href); }
+    },
+    editRequirement:{title:'编辑需求',sub:'Edit Requirement',submit:'保存',toast:'已保存修改',
+      prefill:()=>{ const el=document.querySelector('#f06 .page-title'); return {title: el?el.textContent.trim():''}; },
+      fields:[
+        {name:'title',label:'标题',type:'text',required:true,span2:true},
+        {name:'status',label:'状态',type:'select',options:['待验','处理中','已确认','已关闭','重新打开']},
+        {name:'priority',label:'优先级',type:'select',options:['紧急','高','中','低']},
+        {name:'severity',label:'严重程度',type:'select',options:['S1','S2','S3','S4']},
+        {name:'assignee',label:'负责人',type:'select',options:PEOPLE},
+        {name:'desc',label:'描述',type:'textarea',span2:true,placeholder:'补充背景、验收标准…'}
+      ], insert:null
+    },
+    settings:{title:'设置',sub:'Settings',submit:'保存设置',toast:'设置已保存',
+      prefill:()=>({ theme: document.body.classList.contains('dark')?'暗色':'亮色' }),
+      fields:[
+        {name:'theme',label:'主题',type:'select',options:['亮色','暗色']},
+        {name:'density',label:'密度',type:'select',options:['舒适','紧凑']},
+        {name:'lang',label:'语言',type:'select',options:['简体中文','English']}
+      ],
+      onsubmit:(v)=>{ if(v.theme==='暗色'&&!document.body.classList.contains('dark')) toggleTheme(); else if(v.theme==='亮色'&&document.body.classList.contains('dark')) toggleTheme(); }
+    }
+  };
+
+  function openModal(type){
+    const m=MODALS[type]; if(!m) return;
+    const prefill=m.prefill?m.prefill():{};
+    const rows=m.fields.map(f=>fieldHTML(f,prefill[f.name])).join('');
+    const html=`<div class="modal">
+      <div class="modal-head"><div><div class="modal-title">${m.title}</div><div class="modal-sub">${m.sub||''}</div></div>
+        <button class="modal-close" data-close>×</button></div>
+      <form class="modal-body" id="modalForm"><div class="form-grid">${rows}</div></form>
+      <div class="modal-foot"><button class="btn-ghost" data-close>取消</button><button class="btn-primary" id="modalSubmit">${m.submit||'确定'}</button></div>
+    </div>`;
+    openOverlay(html);
+    overlay.querySelector('[data-close]').addEventListener('click',closeOverlay);
+    overlay.querySelector('#modalSubmit').addEventListener('click',()=>submitModal(type,m));
+  }
+
+  function submitModal(type,m){
+    const v={}; m.fields.forEach(f=>{ const el=overlay.querySelector('#f_'+f.name); v[f.name]=el?el.value.trim():''; });
+    for(const f of m.fields){ if(f.required && !v[f.name]){ toast('请填写必填项：'+f.label); return; } }
+    if(m.onsubmit) m.onsubmit(v);
+    const sid=currentScreenId();
+    if(m.insert){ const h=m.insert(v,sid); if(h) insertInto(sid,h); }
+    if(m.download) m.download(v);
+    closeOverlay();
+    toast(m.toast+(v.title||v.name?('：'+(v.title||v.name)):''));
+  }
+
+  function insertInto(sid,html){
+    if(!html) return; const sec=document.getElementById(sid); if(!sec) return;
+    let host=sec.querySelector('table tbody'); if(host){ host.insertAdjacentHTML('afterbegin',html); return; }
+    host=sec.querySelector('.kanban-col'); if(host){ host.insertAdjacentHTML('afterbegin',html); return; }
+    host=sec.querySelector('.view-row,.rule-row,.kb-card,.ws-card'); if(host){ host.parentElement.insertAdjacentHTML('afterbegin',html); return; }
+  }
+
+  // ===== Primary buttons =====
+  const BTN={
+    '新建需求':'requirement','新建工作空间':'workspace','新建项目':'project','规划版本':'version',
+    '编辑':'editRequirement','新建任务':'task','新建缺陷':'defect','新建文档':'doc','新建文章':'article',
+    '新建视图':'view','新建 Webhook':'webhook','新建规则':'rule','导出报表':'export'
+  };
+  document.querySelectorAll('.btn-primary').forEach(btn=>{
+    const t=btn.textContent.trim(); const type=BTN[t];
+    if(!type) return;
+    btn.addEventListener('click',()=>openModal(type));
   });
+  // 全部标为已读
+  document.querySelectorAll('.btn-primary').forEach(btn=>{
+    if(btn.textContent.trim()==='全部标为已读') btn.addEventListener('click',markAllRead);
+  });
+  function markAllRead(){
+    const sub=document.querySelector('#f11 .page-sub'); if(sub) sub.textContent='收件箱 · 无未读';
+    toast('已将全部标记为已读');
+  }
+
+  // ===== Popover =====
+  const pop=document.getElementById('popover');
+  function openPopover(anchor,opts,onPick){
+    pop.innerHTML=opts.map(it=> it==='—'
+      ? '<div class="pop-sep"></div>'
+      : `<div class="pop-item">${esc(it)}<span class="chk">✓</span></div>`).join('');
+    const r=anchor.getBoundingClientRect();
+    pop.style.top=(r.bottom+6)+'px'; pop.style.left=Math.max(8,r.left)+'px';
+    pop.classList.add('open');
+    pop.querySelectorAll('.pop-item').forEach(el=>{
+      el.addEventListener('click',()=>{ closePopover(); onPick(el.textContent.trim()); });
+    });
+  }
+  function closePopover(){ pop.classList.remove('open'); }
+
+  // Filter chips
+  const FILTER_OPTS={
+    '状态':['全部状态','待办','进行中','已完成','已取消','待验','处理中'],
+    '严重程度':['全部严重程度','S1','S2','S3','S4'],
+    '优先级':['全部优先级','紧急','高','中','低'],
+    '负责人':['全部负责人','李雷','韩梅梅','王强','赵敏','孙琳','周婷'],
+    '标签':['全部标签','缺陷','回归','性能','文档'],
+    '类型':['全部类型','需求','缺陷','任务','文档'],
+    '最近编辑':['最近编辑','今天','本周','本月']
+  };
+  document.querySelectorAll('.filter-chip').forEach(chip=>{
+    chip.addEventListener('click',e=>{
+      e.stopPropagation();
+      const key=chip.textContent.replace('全部','').replace(' ▾','');
+      const opts=FILTER_OPTS[key]||['选项一','选项二'];
+      openPopover(chip,opts,label=>{ chip.textContent=label+' ▾'; });
+    });
+  });
+
+  // Workspace switcher
+  const wsSwitcher=document.querySelector('.ws-switcher');
+  wsSwitcher.addEventListener('click',()=>{
+    openPopover(wsSwitcher,['核心平台工作区','数据中台工作区','移动端体验组','—','新建工作空间'],label=>{
+      if(label==='新建工作空间') openModal('workspace');
+      else toast('已切换到 '+label);
+    });
+  });
+
+  // Quick create
+  const qc=document.querySelector('.quick-create');
+  const QC_MAP={'新建项目':'project','新建需求':'requirement','新建任务':'task','新建缺陷':'defect','新建文档':'doc','新建文章':'article','新建视图':'view','新建 Webhook':'webhook','新建规则':'rule'};
+  qc.addEventListener('click',()=>{
+    const keys=Object.keys(QC_MAP);
+    openPopover(qc,keys,label=>openModal(QC_MAP[label]));
+  });
+
+  // User menu
+  const userMenu=document.querySelector('.user-menu');
+  userMenu.addEventListener('click',()=>{
+    openPopover(userMenu,['个人资料','偏好设置','—','主题：切换明暗','退出登录'],label=>{
+      if(label==='主题：切换明暗') toggleTheme();
+      else if(label==='退出登录') toast('已退出登录（原型）');
+      else toast(label+'（原型）');
+    });
+  });
+
+  // ===== Theme =====
+  function toggleTheme(){ document.body.classList.toggle('dark'); toast(document.body.classList.contains('dark')?'已切换到暗色主题':'已切换到亮色主题'); }
+  const themeBtn=document.querySelectorAll('.topbar-actions .icon-btn')[0];
+  const notifBtn=document.querySelectorAll('.topbar-actions .icon-btn')[1];
+  if(themeBtn) themeBtn.addEventListener('click',toggleTheme);
+  if(notifBtn) notifBtn.addEventListener('click',()=>goScreen('f13'));
+
+  // ===== Command palette =====
+  const cmdkBtn=document.querySelector('.topbar-actions .cmdk');
+  if(cmdkBtn) cmdkBtn.addEventListener('click',openCmdk);
+  document.addEventListener('keydown',e=>{ if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){ e.preventDefault(); openCmdk(); } });
+  function openCmdk(){
+    const cmds=[
+      {label:'跳转到 工作台',ico:'▦',screen:'f12'},
+      {label:'跳转到 收件箱',ico:'✉',screen:'f11'},
+      {label:'跳转到 通知',ico:'🔔',screen:'f13'},
+      {label:'新建需求',ico:'＋',action:'requirement'},
+      {label:'新建项目',ico:'＋',action:'project'},
+      {label:'规划版本',ico:'＋',action:'version'},
+      {label:'新建任务',ico:'＋',action:'task'},
+      {label:'新建缺陷',ico:'＋',action:'defect'},
+      {label:'切换到暗色主题',ico:'🌙',theme:true},
+      {label:'导出效能报表',ico:'⤓',action:'export'}
+    ];
+    let active=0;
+    const html=`<div class="modal cmdk-modal">
+      <div class="cmdk-input-row"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
+      <input class="cmdk-input" id="cmdkInput" placeholder="输入命令或搜索…" autocomplete="off"></div>
+      <div class="cmdk-list" id="cmdkList"></div></div>`;
+    openOverlay(html);
+    const input=overlay.querySelector('#cmdkInput');
+    const list=overlay.querySelector('#cmdkList');
+    function filtered(){ return cmds.filter(c=>c.label.toLowerCase().includes(input.value.trim().toLowerCase())); }
+    function render(){
+      const f=filtered();
+      list.innerHTML=(f.length?f.map((c,i)=>`<div class="cmdk-item ${i===active?'active':''}" data-i="${i}"><span class="cmdk-ico">${c.ico}</span>${esc(c.label)}</div>`).join(''):'<div class="cmdk-item">无匹配结果</div>');
+      list.querySelectorAll('.cmdk-item[data-i]').forEach(el=>el.addEventListener('click',()=>run(f[+el.dataset.i])));
+    }
+    function run(c){ if(!c) return; if(c.screen) goScreen(c.screen); else if(c.theme) toggleTheme(); else if(c.action) openModal(c.action); closeOverlay(); }
+    input.addEventListener('input',()=>{ active=0; render(); });
+    input.addEventListener('keydown',e=>{
+      const f=filtered();
+      if(e.key==='ArrowDown'){ active=Math.min(active+1,f.length-1); render(); e.preventDefault(); }
+      else if(e.key==='ArrowUp'){ active=Math.max(active-1,0); render(); e.preventDefault(); }
+      else if(e.key==='Enter'){ run(f[active]); e.preventDefault(); }
+    });
+    render(); input.focus();
+  }
+
   // Search / Notification tabs
   document.querySelectorAll('.search-tab').forEach(tab=>{
     tab.addEventListener('click',()=>{
-      const group = tab.parentElement;
-      group.querySelectorAll('.search-tab').forEach(t=>t.classList.remove('active'));
+      tab.parentElement.querySelectorAll('.search-tab').forEach(t=>t.classList.remove('active'));
+      tab.classList.add('active');
+    });
+  });
+  document.querySelectorAll('.nt-tab').forEach(tab=>{
+    tab.addEventListener('click',()=>{
+      tab.parentElement.querySelectorAll('.nt-tab').forEach(t=>t.classList.remove('active'));
       tab.classList.add('active');
     });
   });

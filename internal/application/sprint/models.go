@@ -57,6 +57,8 @@ type SprintProgress struct {
 	TotalIssues     int                `json:"total_issues"`
 	DoneIssues      int                `json:"done_issues"`
 	ByStateGroup    map[string]float64 `json:"by_state_group,omitempty"`
+	AddedPoints     float64            `json:"added_points"`          // 中途加入的故事点（added_midway = true）
+	RemovedPoints   float64            `json:"removed_points"`        // 中途移除的故事点
 	Saturation      float64            `json:"saturation,omitempty"` // capacity > 0 时：total_points / capacity
 }
 

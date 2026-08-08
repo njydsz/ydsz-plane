@@ -276,11 +276,12 @@ watch(ready, (r) => {
       <section class="issues-card">
         <h2>工作项 ({{ issues.length }})</h2>
         <div class="issues-list">
-          <div v-for="iss in issues" :key="iss.issue_id" class="issue-row">
+          <div v-for="iss in issues" :key="iss.issue_id" class="issue-row" :class="{ 'issue-row--midway': iss.added_midway }">
             <span class="type-badge" :class="`type-${iss.type_code}`">
               {{ typeLabel[iss.type_code] ?? "?" }}
             </span>
             <span class="name">{{ iss.name }}</span>
+            <span v-if="iss.added_midway" class="midway-badge" title="迭代启动后中途加入">中途加入</span>
             <span :style="{ color: iss.state_color }" class="state">{{ iss.state_name }}</span>
             <span v-if="iss.point != null" class="point">{{ iss.point }}pt</span>
           </div>

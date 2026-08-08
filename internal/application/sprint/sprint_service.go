@@ -1107,11 +1107,13 @@ func (s *Service) computeProgress(ctx context.Context, wsID int64, sp *Sprint) S
 	}
 
 	progress := SprintProgress{
-		TotalPoints:  totalPoints.Float64,
-		DonePoints:   donePoints.Float64,
-		TotalIssues:  totalIssues,
-		DoneIssues:   doneIssues,
-		ByStateGroup: byState,
+		TotalPoints:   totalPoints.Float64,
+		DonePoints:    donePoints.Float64,
+		TotalIssues:   totalIssues,
+		DoneIssues:    doneIssues,
+		ByStateGroup:  byState,
+		AddedPoints:   addedPoints.Float64,
+		RemovedPoints: 0,
 	}
 	if sp.Capacity != nil && *sp.Capacity > 0 {
 		progress.Saturation = math.Min(totalPoints.Float64 / (*sp.Capacity), 999)
