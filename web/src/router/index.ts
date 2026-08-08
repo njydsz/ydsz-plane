@@ -301,6 +301,16 @@ const router = createRouter({
             projectId: Number(route.params.projectId),
           }),
         },
+        // WBS 树形视图
+        {
+          path: ":workspaceId(\\d+)/projects/:projectId/wbs",
+          name: "wbs-tree",
+          component: () => import("@/views/project/WbsTreeView.vue"),
+          props: (route) => ({
+            workspaceId: Number(route.params.workspaceId),
+            projectId: Number(route.params.projectId),
+          }),
+        },
         // 项目设置
         {
           path: ":workspaceId(\\d+)/projects/:projectId/settings",

@@ -41,7 +41,7 @@ const name = ref("");
 const description = ref("");
 const priorityRef = ref<string>("medium");
 const point = ref<number | null>(null);
-const parentId = ref<number | null>(null);
+const parentIdInput = ref<number | null>(null);
 const isDraft = ref(false);
 
 // 缺陷专属字段
@@ -154,7 +154,7 @@ watch(
       description.value = "";
       priorityRef.value = "medium";
       point.value = null;
-      parentId.value = props.parentId ?? null;
+      parentIdInput.value = props.parentId ?? null;
       isDraft.value = false;
       severity.value = 3;
       foundPhase.value = "";
@@ -209,8 +209,8 @@ async function submit() {
   if (point.value != null) {
     input.point = point.value;
   }
-  if (parentId.value != null) {
-    input.parent_id = parentId.value;
+  if (parentIdInput.value != null) {
+    input.parent_id = parentIdInput.value;
   }
 
   // 缺陷专属字段
@@ -490,7 +490,7 @@ function cancel() {
               <div class="form-group form-group--inline">
                 <label class="form-label">父工作项 ID</label>
                 <input
-                  v-model.number="parentId"
+                  v-model.number="parentIdInput"
                   type="number"
                   class="form-input form-input--sm"
                   placeholder="父级ID"

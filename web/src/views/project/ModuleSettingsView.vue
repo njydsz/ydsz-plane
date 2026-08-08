@@ -235,16 +235,20 @@ onMounted(() => {
           <div class="form-item">
             <span class="form-item__label">负责人</span>
             <div class="member-picker">
-              <div class="picker-input" tabindex="0" @focus="showMemberDropdown = 1"
-                @blur="setTimeout(() => showMemberDropdown = null, 200)">
+              <div
+class="picker-input" tabindex="0" @focus="showMemberDropdown = 1"
+                @blur="setTimeout(() => showMemberDropdown = null, 200)"
+>
                 <span v-if="createForm.lead_id" class="selected-member">{{ getMemberName(createForm.lead_id) }}</span>
                 <input v-else v-model="memberSearch" type="text" placeholder="搜索成员..." @focus="showMemberDropdown = 1" />
                 <button v-if="createForm.lead_id" type="button" class="clear-btn" @click="clearLead('create')">&times;</button>
               </div>
               <div v-if="showMemberDropdown === 1" class="picker-dropdown">
                 <div v-if="filteredMembers.length === 0" class="dropdown-empty">无匹配成员</div>
-                <button v-for="m in filteredMembers" :key="m.id" type="button" class="dropdown-item"
-                  :class="{ active: createForm.lead_id === m.id }" @mousedown.prevent="selectMember('create', m)">
+                <button
+v-for="m in filteredMembers" :key="m.id" type="button" class="dropdown-item"
+                  :class="{ active: createForm.lead_id === m.id }" @mousedown.prevent="selectMember('create', m)"
+>
                   <span class="member-avatar">{{ m.display_name.charAt(0) }}</span>
                   <span class="member-name">{{ m.display_name }}</span>
                   <span class="member-email">{{ m.email }}</span>
@@ -312,16 +316,20 @@ onMounted(() => {
                   </td>
                   <td>
                     <div class="member-picker">
-                      <div class="picker-input" tabindex="0" @focus="showMemberDropdown = 2"
-                        @blur="setTimeout(() => showMemberDropdown = null, 200)">
+                      <div
+class="picker-input" tabindex="0" @focus="showMemberDropdown = 2"
+                        @blur="setTimeout(() => showMemberDropdown = null, 200)"
+>
                         <span v-if="editForm.lead_id" class="selected-member">{{ getMemberName(editForm.lead_id) }}</span>
                         <input v-else v-model="memberSearch" type="text" placeholder="搜索..." @focus="showMemberDropdown = 2" />
                         <button v-if="editForm.lead_id" type="button" class="clear-btn" @click="clearLead('edit')">&times;</button>
                       </div>
                       <div v-if="showMemberDropdown === 2" class="picker-dropdown">
                         <div v-if="filteredMembers.length === 0" class="dropdown-empty">无匹配成员</div>
-                        <button v-for="m in filteredMembers" :key="m.id" type="button" class="dropdown-item"
-                          :class="{ active: editForm.lead_id === m.id }" @mousedown.prevent="selectMember('edit', m)">
+                        <button
+v-for="m in filteredMembers" :key="m.id" type="button" class="dropdown-item"
+                          :class="{ active: editForm.lead_id === m.id }" @mousedown.prevent="selectMember('edit', m)"
+>
                           <span class="member-avatar">{{ m.display_name.charAt(0) }}</span>
                           <span class="member-name">{{ m.display_name }}</span>
                           <span class="member-email">{{ m.email }}</span>

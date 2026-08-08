@@ -430,11 +430,11 @@ onMounted(loadAll);
               <div v-else class="logo-placeholder">{{ ws.name?.[0]?.toUpperCase() }} </div>
             </div>
             <input
+              ref="logoInput"
               type="file"
               accept="image/*"
-              @change="onLogoChange"
-              ref="logoInput"
               style="display: none"
+              @change="onLogoChange"
             />
             <div class="logo-actions">
               <button
@@ -449,7 +449,9 @@ onMounted(loadAll);
                 v-if="canManageMembers && ws.logo_url"
                 class="btn btn--sm btn--ghost"
                 @click="handleRemoveLogo"
-              >移除</button>
+              >
+移除
+</button>
             </div>
             <p v-if="logoError" class="form-error">{{ logoError }}</p>
           </div>

@@ -179,7 +179,9 @@ onMounted(load);
           <router-link
             :to="`/${workspaceId}/knowledge`"
             class="space-detail__back"
-          >← 返回空间列表</router-link>
+          >
+← 返回空间列表
+</router-link>
           <h1 v-if="space">{{ space.name }}</h1>
           <h1 v-else>...</h1>
           <p v-if="space?.description" class="hint">{{ space.description }}</p>

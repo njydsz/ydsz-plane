@@ -287,22 +287,30 @@ onMounted(() => {
           v-if="page.status !== 'published'"
           class="btn btn--sm"
           @click="changeStatus('published')"
-        >发布</button>
+        >
+发布
+</button>
         <button
           v-if="page.status !== 'draft'"
           class="btn btn--sm"
           @click="changeStatus('draft')"
-        >转为草稿</button>
+        >
+转为草稿
+</button>
         <button
           v-if="page.status !== 'archived'"
           class="btn btn--sm"
           @click="changeStatus('archived')"
-        >归档</button>
+        >
+归档
+</button>
         <button
           v-if="page.status === 'archived'"
           class="btn btn--sm"
           @click="changeStatus('published')"
-        >重新发布</button>
+        >
+重新发布
+</button>
       </div>
       <div class="kpage__actions">
         <span v-if="saving" class="kpage__saving">保存中...</span>
@@ -310,7 +318,9 @@ onMounted(() => {
           class="btn btn--sm btn--primary"
           :disabled="saving || !dirty"
           @click="savePage"
-        >{{ saving ? "保存中..." : "保存" }}</button>
+        >
+{{ saving ? "保存中..." : "保存" }}
+</button>
       </div>
     </div>
 
@@ -322,47 +332,65 @@ onMounted(() => {
           class="km-toolbar__btn"
           title="粗体"
           @click="editor.chain().focus().toggleBold().run()"
-        ><strong>B</strong></button>
+        >
+<strong>B</strong>
+</button>
         <button
           class="km-toolbar__btn"
           title="斜体"
           @click="editor.chain().focus().toggleItalic().run()"
-        ><em>I</em></button>
+        >
+<em>I</em>
+</button>
         <button
           class="km-toolbar__btn"
           title="标题 2"
           @click="editor.chain().focus().toggleHeading({ level: 2 }).run()"
-        >H2</button>
+        >
+H2
+</button>
         <button
           class="km-toolbar__btn"
           title="标题 3"
           @click="editor.chain().focus().toggleHeading({ level: 3 }).run()"
-        >H3</button>
+        >
+H3
+</button>
         <button
           class="km-toolbar__btn"
           title="无序列表"
           @click="editor.chain().focus().toggleBulletList().run()"
-        >•≡</button>
+        >
+•≡
+</button>
         <button
           class="km-toolbar__btn"
           title="有序列表"
           @click="editor.chain().focus().toggleOrderedList().run()"
-        >1≡</button>
+        >
+1≡
+</button>
         <button
           class="km-toolbar__btn"
           title="任务列表"
           @click="editor.chain().focus().toggleTaskList().run()"
-        >☑</button>
+        >
+☑
+</button>
         <button
           class="km-toolbar__btn"
           title="代码块"
           @click="editor.chain().focus().toggleCodeBlock().run()"
-        >&lt;/&gt;</button>
+        >
+&lt;/&gt;
+</button>
         <button
           class="km-toolbar__btn"
           title="引用"
           @click="editor.chain().focus().toggleBlockquote().run()"
-        >❝</button>
+        >
+❝
+</button>
       </div>
 
       <!-- 预览模式标题栏 -->
@@ -383,6 +411,7 @@ onMounted(() => {
           :editor="editor"
           class="km-editor__tiptap"
         />
+        <!-- eslint-disable-next-line vue/no-v-html -->
         <div
           v-else
           class="km-editor__preview"
@@ -398,12 +427,16 @@ onMounted(() => {
           class="kpage__tab"
           :class="{ 'kpage__tab--active': activeTab === 'history' }"
           @click="activeTab = 'history'"
-        >历史版本</button>
+        >
+历史版本
+</button>
         <button
           class="kpage__tab"
           :class="{ 'kpage__tab--active': activeTab === 'relations' }"
           @click="activeTab = 'relations'"
-        >关联工作项</button>
+        >
+关联工作项
+</button>
       </div>
 
       <!-- 历史版本 -->
@@ -424,7 +457,9 @@ onMounted(() => {
             <button
               class="btn btn--sm btn--ghost"
               @click="revertToVersion(v)"
-            >回滚</button>
+            >
+回滚
+</button>
           </div>
         </div>
       </div>
@@ -458,7 +493,9 @@ onMounted(() => {
               class="btn btn--sm btn--primary"
               :disabled="addingRelation"
               @click="addRelation(r.id)"
-            >＋</button>
+            >
+＋
+</button>
           </div>
         </div>
 

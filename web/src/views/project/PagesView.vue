@@ -670,6 +670,7 @@ onMounted(load);
                 <span>版本 v{{ viewingVersion }} {{ new Date(viewingVersionContent.created_at).toLocaleString() }}</span>
                 <button class="btn btn--sm" @click="closeViewVersion">关闭</button>
               </div>
+              <!-- eslint-disable-next-line vue/no-v-html -->
               <div class="version-preview__content" v-html="viewingVersionContent.content_html || '<p>（空内容）</p>'"></div>
             </div>
           </div>
@@ -728,7 +729,9 @@ onMounted(load);
             class="btn btn--sm btn--primary"
             :disabled="creatingFromTemplate || !tmpl.content_html"
             @click="createFromTemplate(tmpl)"
-          >使用此模板</button>
+          >
+使用此模板
+</button>
         </div>
       </div>
     </div>

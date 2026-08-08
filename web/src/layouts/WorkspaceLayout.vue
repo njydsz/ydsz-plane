@@ -355,6 +355,14 @@ watch(
               <span v-if="!collapsed">列表</span>
             </router-link>
             <router-link
+              :to="`/${wsStore.currentId}/projects/${currentProjectId}/wbs`"
+              class="nav-item nav-item--sub"
+              active-class="is-active"
+            >
+              <span class="nav-icon">🌳</span>
+              <span v-if="!collapsed">WBS 树</span>
+            </router-link>
+            <router-link
               :to="`/${wsStore.currentId}/projects/${currentProjectId}/pages`"
               class="nav-item nav-item--sub"
               active-class="is-active"

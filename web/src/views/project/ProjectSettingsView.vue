@@ -188,17 +188,23 @@ onMounted(loadProject);
         :to="`/${route.params.workspaceId}/projects/${route.params.projectId}/settings`"
         class="tab"
         exact-active-class="tab--active"
-      >基本信息</router-link>
+      >
+基本信息
+</router-link>
       <router-link
         :to="`/${route.params.workspaceId}/projects/${route.params.projectId}/settings/members`"
         class="tab"
         active-class="tab--active"
-      >成员管理</router-link>
+      >
+成员管理
+</router-link>
       <router-link
         :to="`/${route.params.workspaceId}/projects/${route.params.projectId}/settings/modules`"
         class="tab"
         active-class="tab--active"
-      >模块管理</router-link>
+      >
+模块管理
+</router-link>
     </nav>
 
     <section class="panel">
@@ -266,8 +272,7 @@ onMounted(loadProject);
           <span class="form-item__value">{{ project.created_at.slice(0, 10) }}</span>
         </div>
       </div>
-
-    </section>
+</section>
 
     <!-- 封面图 -->
     <section class="panel" style="margin-top: 24px">
@@ -312,28 +317,28 @@ onMounted(loadProject);
             <span class="toggle-name">收件箱 (Intake)</span>
             <span class="toggle-desc">外部反馈收集与审核通道</span>
           </div>
-          <input type="checkbox" v-model="moduleToggles.intake" class="toggle-switch" />
+          <input v-model="moduleToggles.intake" type="checkbox" class="toggle-switch" />
         </label>
         <label class="toggle-item">
           <div class="toggle-info">
             <span class="toggle-name">迭代 (Sprint)</span>
             <span class="toggle-desc">敏捷迭代规划与进度管理</span>
           </div>
-          <input type="checkbox" v-model="moduleToggles.sprint" class="toggle-switch" />
+          <input v-model="moduleToggles.sprint" type="checkbox" class="toggle-switch" />
         </label>
         <label class="toggle-item">
           <div class="toggle-info">
             <span class="toggle-name">版本 (Version)</span>
             <span class="toggle-desc">发布里程碑与迭代聚合管理</span>
           </div>
-          <input type="checkbox" v-model="moduleToggles.version" class="toggle-switch" />
+          <input v-model="moduleToggles.version" type="checkbox" class="toggle-switch" />
         </label>
         <label class="toggle-item">
           <div class="toggle-info">
             <span class="toggle-name">估算 (Estimate)</span>
             <span class="toggle-desc">故事点与工时估算体系</span>
           </div>
-          <input type="checkbox" v-model="moduleToggles.estimate" class="toggle-switch" />
+          <input v-model="moduleToggles.estimate" type="checkbox" class="toggle-switch" />
         </label>
       </div>
     </section>

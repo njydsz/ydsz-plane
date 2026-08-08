@@ -129,8 +129,8 @@ export interface WbsNode {
         v-if="hasChildren"
         class="wbs-caret"
         :class="{ 'wbs-caret--open': isExpanded }"
-        @click.stop="emit('toggle', node.issue.id)"
         :title="isExpanded ? '折叠' : '展开'"
+        @click.stop="emit('toggle', node.issue.id)"
       >▶</span>
       <span v-else class="wbs-caret wbs-caret--placeholder" />
 

@@ -978,8 +978,8 @@ onMounted(() => {
                 <button
                   class="sub-issue-node__toggle"
                   :class="{ 'sub-issue-node__toggle--collapsed': !expandedSubIssues.has(child.id) }"
-                  @click="toggleSubIssue(child.id)"
                   :aria-expanded="expandedSubIssues.has(child.id)"
+                  @click="toggleSubIssue(child.id)"
                 >
                   ▶
                 </button>
@@ -1028,8 +1028,8 @@ onMounted(() => {
                     <button
                       class="sub-issue-node__toggle"
                       :class="{ 'sub-issue-node__toggle--collapsed': !expandedSubIssues.has(gc.id) }"
-                      @click="toggleSubIssue(gc.id)"
                       :aria-expanded="expandedSubIssues.has(gc.id)"
+                      @click="toggleSubIssue(gc.id)"
                     >
                       ▶
                     </button>

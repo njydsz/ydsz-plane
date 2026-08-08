@@ -205,7 +205,9 @@ onMounted(loadMembers);
               v-if="canManage"
               class="btn btn--ghost btn--xs btn--danger"
               @click="removeMember(m.id, displayName(m))"
-            >移除</button>
+            >
+移除
+</button>
           </div>
         </div>
         <p v-if="members.length === 0" class="panel__desc">
