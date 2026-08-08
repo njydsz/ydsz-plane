@@ -4,12 +4,13 @@
  *
  * 展示并编辑项目基本信息（名称、描述、标识、网络类型等）。
  */
-import { onMounted, reactive, ref } from "vue";
-import { useRoute } from "vue-router";
+import { computed, onMounted, reactive, ref } from "vue";
+import { useRoute, useRouter } from "vue-router";
 
 import { workspaceApi, type Project, type ProjectModuleToggles } from "@/api/services/workspace";
 import { ApiError } from "@/api/client";
 import { AppLoadingState, AppErrorState } from "@/components";
+import { useWorkspaceStore } from "@/stores/workspace";
 
 const route = useRoute();
 const workspaceId = Number(route.params.workspaceId);

@@ -365,6 +365,23 @@ def verify():
             all_good = False
         print(f"  {status}: {t}")
 
+    print("\n[知识库全文检索 - 必须 EXISTS]")
+    cur.execute(
+        "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='knowledge_pages' AND column_name='tsv'")
+    exists = cur.fetchone()[0]
+    status = "OK" if exists else "MISSING!"
+    if not exists:
+        all_good = False
+    print(f"  {status}: knowledge_pages.tsv")
+
+    cur.execute(
+        "SELECT COUNT(*) FROM pg_indexes WHERE schemaname='public' AND tablename='knowledge_pages' AND indexname='idx_kp_tsv'")
+    exists = cur.fetchone()[0]
+    status = "OK" if exists else "MISSING!"
+    if not exists:
+        all_good = False
+    print(f"  {status}: idx_kp_tsv (GIN)")
+
     print("\n[通知模块 - 必须 EXISTS]")
     for t in ['notifications', 'notification_deliveries', 'notification_digests', 'notification_preferences']:
         cur.execute(

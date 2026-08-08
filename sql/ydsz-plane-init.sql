@@ -8539,6 +8539,27 @@ ON CONFLICT DO NOTHING;
 
 
 -- ============================================================================
+-- 迁移脚本整合：knowledge-migrations-v2.sql（知识库全文检索 tsvector + GIN）
+-- ============================================================================
+
+ALTER TABLE public.knowledge_pages ADD COLUMN IF NOT EXISTS tsv tsvector;
+
+CREATE OR REPLACE FUNCTION public.knowledge_pages_tsv_trigger_fn() RETURNS trigger AS $$
+BEGIN
+  NEW.tsv := to_tsvector('simple', coalesce(NEW.title,'') || ' ' || coalesce(NEW.content_md,''));
+  RETURN NEW;
+END
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS knowledge_pages_tsv_trigger ON public.knowledge_pages;
+CREATE TRIGGER knowledge_pages_tsv_trigger
+  BEFORE INSERT OR UPDATE OF title, content_md ON public.knowledge_pages
+  FOR EACH ROW EXECUTE FUNCTION public.knowledge_pages_tsv_trigger_fn();
+
+CREATE INDEX IF NOT EXISTS idx_kp_tsv ON public.knowledge_pages USING GIN (tsv);
+
+
+-- ============================================================================
 -- 全部迁移脚本整合完毕。
 -- 至此 sql/ 目录下仅保留 ydsz-plane-init.sql 一个文件。
 -- ============================================================================
