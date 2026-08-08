@@ -13,6 +13,8 @@ import StackedBarWidget from "./StackedBarWidget.vue";
 import ListTableWidget from "./ListTableWidget.vue";
 import ActivityTimelineWidget from "./ActivityTimelineWidget.vue";
 import RiskAlertWidget from "./RiskAlertWidget.vue";
+import VersionBurndownWidget from "./VersionBurndownWidget.vue";
+import ModuleDistributionWidget from "./ModuleDistributionWidget.vue";
 
 import type { WidgetType } from "@/api/services/dashboard";
 
@@ -28,6 +30,8 @@ export const WIDGET_NAME_MAP: Record<WidgetType, string> = {
   risk_alert: "风险告警",
   recent_activity: "最近动态",
   team_workload: "团队负载",
+  version_burndown: "版本燃尽",
+  module_distribution: "模块分布",
 };
 
 /** Widget 类型 → 渲染组件映射（用于 DashboardView 的动态组件） */
@@ -42,4 +46,6 @@ export const WIDGET_COMPONENTS: Record<WidgetType, Component> = {
   risk_alert: RiskAlertWidget,
   recent_activity: ActivityTimelineWidget,
   team_workload: StackedBarWidget,
+  version_burndown: VersionBurndownWidget,
+  module_distribution: ModuleDistributionWidget,
 };

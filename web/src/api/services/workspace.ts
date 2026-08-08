@@ -152,4 +152,15 @@ export const workspaceApi = {
     wrap<Project>(http.patch(`/workspaces/${wsId}/projects/${projectId}`, input)),
   archiveProject: (wsId: number, projectId: number) =>
     wrap<void>(http.delete(`/workspaces/${wsId}/projects/${projectId}`)),
+
+  // --- Project Members ---
+  /** 项目成员 */
+  listProjectMembers: (wsId: number, projectId: number) =>
+    wrap<Member[]>(http.get(`/workspaces/${wsId}/projects/${projectId}/members`)),
+  addProjectMember: (wsId: number, projectId: number, input: { user_id: number; role: string }) =>
+    wrap<void>(http.post(`/workspaces/${wsId}/projects/${projectId}/members`, input)),
+  changeProjectMemberRole: (wsId: number, projectId: number, userId: number, role: string) =>
+    wrap<void>(http.patch(`/workspaces/${wsId}/projects/${projectId}/members/${userId}`, { role })),
+  removeProjectMember: (wsId: number, projectId: number, userId: number) =>
+    wrap<void>(http.delete(`/workspaces/${wsId}/projects/${projectId}/members/${userId}`)),
 };

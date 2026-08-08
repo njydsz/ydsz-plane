@@ -70,6 +70,11 @@ const router = createRouter({
       component: () => import("@/views/settings/ApiTokensView.vue"),
     },
     {
+      path: "/settings/profile",
+      name: "profile",
+      component: () => import("@/views/settings/ProfileView.vue"),
+    },
+    {
       path: "/",
       component: () => import("@/layouts/WorkspaceLayout.vue"),
       children: [
@@ -270,6 +275,12 @@ const router = createRouter({
           path: ":workspaceId(\\d+)/projects/:projectId/settings/modules",
           name: "project-modules",
           component: () => import("@/views/project/ModuleSettingsView.vue"),
+        },
+        // 成员管理（项目设置子页）
+        {
+          path: ":workspaceId(\\d+)/projects/:projectId/settings/members",
+          name: "project-members",
+          component: () => import("@/views/project/ProjectMembersView.vue"),
         },
         // 回收站
         {

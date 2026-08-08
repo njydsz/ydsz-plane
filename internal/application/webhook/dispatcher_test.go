@@ -84,7 +84,16 @@ func TestAllEvents(t *testing.T) {
 		seen[e] = true
 	}
 	// 验证关键事件存在
-	required := []string{EventIssueCreated, EventSprintCompleted, EventVersionReleased}
+	required := []string{
+		EventIssueCreated, EventIssueCommentUpdated, EventIssueAttachmentAdded,
+		EventProjectCreated, EventProjectMemberAdded,
+		EventStateCreated, EventModuleCreated, EventLabelCreated,
+		EventSprintIssueAdded,
+		EventUserInvited, EventUserRoleUpdated,
+		EventVersionDeleted,
+		EventIntakeMerged,
+		EventSprintCompleted, EventVersionReleased,
+	}
 	for _, r := range required {
 		found := false
 		for _, e := range events {

@@ -19,7 +19,9 @@ export type WidgetType =
   | "blocked_list"
   | "risk_alert"
   | "recent_activity"
-  | "team_workload";
+  | "team_workload"
+  | "version_burndown"
+  | "module_distribution";
 
 /** 仪表盘 Widget 实体（位置、尺寸、配置、显隐状态）。 */
 export interface DashboardWidget {

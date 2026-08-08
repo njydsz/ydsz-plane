@@ -68,6 +68,7 @@ type UpdateIssueInput struct {
 	Name              *string
 	DescriptionHTML   *string
 	Priority          *IssuePriority
+	TypeCode          *IssueTypeCode
 	ParentID          *int64 // nil=不更新, 设置值=更新
 	Severity          *int
 	FoundPhase        *string
@@ -77,6 +78,9 @@ type UpdateIssueInput struct {
 	Labels            []int64
 	Modules           []int64
 	Source            *string
+	Point             *int
+	TargetDate        *time.Time
+	Progress          *int
 	Version           int
 	FoundVersionID    *int64
 	FixVersionID      *int64
@@ -1353,6 +1357,26 @@ func buildUpdateSet(in UpdateIssueInput, current *Issue) ([]string, []interface{
 	if in.ReleaseVersionID != nil {
 		sets = append(sets, "release_version_id = $"+strconv.Itoa(arg))
 		args = append(args, *in.ReleaseVersionID)
+		arg++
+	}
+	if in.TypeCode != nil {
+		sets = append(sets, "type_code = $"+strconv.Itoa(arg))
+		args = append(args, string(*in.TypeCode))
+		arg++
+	}
+	if in.Point != nil {
+		sets = append(sets, "point = $"+strconv.Itoa(arg))
+		args = append(args, *in.Point)
+		arg++
+	}
+	if in.TargetDate != nil {
+		sets = append(sets, "target_date = $"+strconv.Itoa(arg))
+		args = append(args, *in.TargetDate)
+		arg++
+	}
+	if in.Progress != nil {
+		sets = append(sets, "progress = $"+strconv.Itoa(arg))
+		args = append(args, *in.Progress)
 		arg++
 	}
 

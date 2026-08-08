@@ -188,6 +188,8 @@ watch(
   { immediate: true },
 );
 
+</script>
+
 <template>
   <div class="ws-layout">
     <aside class="sidebar" :class="{ collapsed }">
@@ -432,6 +434,14 @@ watch(
             >
               <span class="nav-icon">🔔</span>
               <span v-if="!collapsed">通知设置</span>
+            </router-link>
+            <router-link
+              to="/settings/profile"
+              class="nav-item nav-item--sub"
+              active-class="is-active"
+            >
+              <span class="nav-icon">👤</span>
+              <span v-if="!collapsed">个人资料</span>
             </router-link>
             <router-link
               to="/settings/api-tokens"

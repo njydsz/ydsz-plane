@@ -23,6 +23,11 @@ const auth = useAuthStore();
 const wsStore = useWorkspaceStore();
 const router = useRouter();
 
+function goToProfile() {
+  close();
+  router.push({ name: "profile" });
+}
+
 const open = ref(false);
 const triggerRef = ref<HTMLElement | null>(null);
 
@@ -82,6 +87,13 @@ onBeforeUnmount(() => document.removeEventListener("mousedown", onClickOutside))
         </div>
       </div>
       <div class="user-menu__divider" />
+      <button class="user-menu__item" role="menuitem" @click="goToProfile">
+        <span class="user-menu__item-icon">👤</span>
+        <span class="user-menu__item-text">
+          <span class="user-menu__item-label">个人设置</span>
+          <span class="user-menu__item-desc">编辑个人资料与偏好</span>
+        </span>
+      </button>
       <button class="user-menu__item" role="menuitem" @click="goToApiTokens">
         <span class="user-menu__item-icon">🔑</span>
         <span class="user-menu__item-text">

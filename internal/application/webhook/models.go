@@ -22,34 +22,93 @@ import (
 
 // 完整事件目录（与 domain_events、RabbitMQ routing key 对齐）。
 const (
-	EventIssueCreated       = "issue.created"
-	EventIssueUpdated       = "issue.updated"
-	EventIssueDeleted       = "issue.deleted"
-	EventIssueStatusChanged = "issue.status_changed"
-	EventIssueCommented     = "issue.commented"
-	EventSprintCreated      = "sprint.created"
-	EventSprintStarted      = "sprint.started"
-	EventSprintCompleted    = "sprint.completed"
-	EventSprintDeleted      = "sprint.deleted"
-	EventVersionCreated     = "version.created"
-	EventVersionUpdated     = "version.updated"
-	EventVersionReleased    = "version.released"
-	EventMemberAdded        = "member.added"
-	EventMemberRemoved      = "member.removed"
-	EventMemberRoleChanged  = "member.role_changed"
-	EventIntakeSubmitted    = "intake.submitted"
-	EventIntakeConverted    = "intake.converted"
+	// --- Issue 事件 ---
+	EventIssueCreated         = "issue.created"
+	EventIssueUpdated         = "issue.updated"
+	EventIssueDeleted         = "issue.deleted"
+	EventIssueStatusChanged   = "issue.status_changed"
+	EventIssueCommented       = "issue.commented"
+	EventIssueCommentUpdated  = "issue.comment_updated"
+	EventIssueCommentDeleted  = "issue.comment_deleted"
+	EventIssueAttachmentAdded = "issue.attachment_added"
+	EventIssueAttachmentRemoved = "issue.attachment_removed"
+
+	// --- Project 事件 ---
+	EventProjectCreated      = "project.created"
+	EventProjectUpdated      = "project.updated"
+	EventProjectDeleted      = "project.deleted"
+	EventProjectMemberAdded  = "project.member_added"
+	EventProjectMemberRemoved = "project.member_removed"
+
+	// --- State / Module / Label 事件 ---
+	EventStateCreated = "state.created"
+	EventStateUpdated = "state.updated"
+	EventStateDeleted = "state.deleted"
+	EventModuleCreated = "module.created"
+	EventModuleUpdated = "module.updated"
+	EventModuleDeleted = "module.deleted"
+	EventLabelCreated = "label.created"
+	EventLabelUpdated = "label.updated"
+	EventLabelDeleted = "label.deleted"
+
+	// --- Sprint 事件 ---
+	EventSprintCreated     = "sprint.created"
+	EventSprintStarted     = "sprint.started"
+	EventSprintCompleted   = "sprint.completed"
+	EventSprintDeleted     = "sprint.deleted"
+	EventSprintIssueAdded  = "sprint.issue_added"
+	EventSprintIssueRemoved = "sprint.issue_removed"
+
+	// --- Attachment 事件（Issue 维度已在上方声明） ---
+
+	// --- User / Member 事件 ---
+	EventMemberAdded       = "member.added"
+	EventMemberRemoved     = "member.removed"
+	EventMemberRoleChanged = "member.role_changed"
+	EventUserInvited       = "user.invited"
+	EventUserRemoved       = "user.removed"
+	EventUserRoleUpdated   = "user.role_updated"
+
+	// --- Version 事件 ---
+	EventVersionCreated  = "version.created"
+	EventVersionUpdated  = "version.updated"
+	EventVersionDeleted  = "version.deleted"
+	EventVersionReleased = "version.released"
+
+	// --- Intake 事件 ---
+	EventIntakeSubmitted = "intake.submitted"
+	EventIntakeConverted = "intake.converted"
+	EventIntakeCreated   = "intake.created"
+	EventIntakeDeleted   = "intake.deleted"
+	EventIntakeMerged    = "intake.merged"
 )
 
 // AllEvents 返回完整事件目录（用于前端多选框或全订阅）。
 func AllEvents() []string {
 	return []string{
+		// Issue
 		EventIssueCreated, EventIssueUpdated, EventIssueDeleted,
 		EventIssueStatusChanged, EventIssueCommented,
+		EventIssueCommentUpdated, EventIssueCommentDeleted,
+		EventIssueAttachmentAdded, EventIssueAttachmentRemoved,
+		// Project
+		EventProjectCreated, EventProjectUpdated, EventProjectDeleted,
+		EventProjectMemberAdded, EventProjectMemberRemoved,
+		// State / Module / Label
+		EventStateCreated, EventStateUpdated, EventStateDeleted,
+		EventModuleCreated, EventModuleUpdated, EventModuleDeleted,
+		EventLabelCreated, EventLabelUpdated, EventLabelDeleted,
+		// Sprint
 		EventSprintCreated, EventSprintStarted, EventSprintCompleted, EventSprintDeleted,
-		EventVersionCreated, EventVersionUpdated, EventVersionReleased,
+		EventSprintIssueAdded, EventSprintIssueRemoved,
+		// User / Member
 		EventMemberAdded, EventMemberRemoved, EventMemberRoleChanged,
+		EventUserInvited, EventUserRemoved, EventUserRoleUpdated,
+		// Version
+		EventVersionCreated, EventVersionUpdated, EventVersionDeleted, EventVersionReleased,
+		// Intake
 		EventIntakeSubmitted, EventIntakeConverted,
+		EventIntakeCreated, EventIntakeDeleted, EventIntakeMerged,
 	}
 }
 

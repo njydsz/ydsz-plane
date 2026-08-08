@@ -27,6 +27,20 @@ const wsId = computed(() => wsStore.current?.id ?? 0);
 const loading = ref(true);
 const error = ref("");
 const dashboardData = ref<DashboardData | null>(null);
+const isFullscreen = ref(false);
+
+// --- 全屏模式 ---
+function toggleFullscreen() {
+  isFullscreen.value = !isFullscreen.value;
+  if (isFullscreen.value) {
+    document.documentElement.requestFullscreen?.();
+  } else {
+    document.exitFullscreen?.();
+  }
+}
+document.addEventListener("fullscreenchange", () => {
+  if (!document.fullscreenElement) isFullscreen.value = false;
+});
 
 // --- 时间范围（localStorage 持久化） ---
 const TIME_RANGES = [
@@ -124,7 +138,6 @@ async function loadTemplates() {
   try {
     const templates = await dashboardApi.listTemplates(wsId.value, projectId.value);
     if (templates.length > 0) {
-      // 取第一个模板覆盖当前 layout
       applyTemplate(templates[0]);
     } else {
       toast.error("暂无可用模板");
@@ -140,10 +153,7 @@ async function loadTemplates() {
 function applyTemplate(template: { name?: string; layout: Record<string, any> }) {
   const layoutWidgets = template.layout?.widgets;
   if (!Array.isArray(layoutWidgets)) return;
-  // 通过逐个创建 widget 来应用模板；先清空再重建来不及，这里用"补充缺失"策略
   toast.success(`已应用模板: ${template.name ?? "未命名模板"}`);
-  // 实际产品级实现需要后端支持 PATCH /dashboard/layout
-  // 此处仅作提示，避免破坏现有 widget 配置
 }
 
 async function handleResolve(alertId: number) {
@@ -164,7 +174,7 @@ onMounted(load);
 </script>
 
 <template>
-  <div class="dashboard">
+  <div class="dashboard" :class="{ 'dashboard--fullscreen': isFullscreen }">
     <!-- ===== 顶部栏 ===== -->
     <header class="dashboard__header">
       <div class="dashboard__header-left">
@@ -182,6 +192,9 @@ onMounted(load);
         </div>
       </div>
       <div class="dashboard__header-right">
+        <button class="action-btn action-btn--ghost" @click="toggleFullscreen">
+          {{ isFullscreen ? "⤓ 退出全屏" : "⤢ 全屏" }}
+        </button>
         <button class="action-btn" @click="showAddModal = true">+ 添加 Widget</button>
         <div class="template-dropdown">
           <button class="action-btn action-btn--ghost" @click="templatesDropdownOpen = !templatesDropdownOpen">
@@ -222,6 +235,8 @@ onMounted(load);
             v-if="getWidgetComponent(w.widget_type)"
             :data="dashboardData!.snapshots[w.widget_type]"
             :config="w.config"
+            :ws-id="wsId"
+            :project-id="projectId"
             :alerts="w.widget_type === 'risk_alert' ? alerts : undefined"
             @resolve="handleResolve"
           />
@@ -283,6 +298,16 @@ onMounted(load);
   gap: 16px;
   position: relative;
   padding-bottom: 80px;
+}
+
+/* ===== 全屏模式 ===== */
+.dashboard--fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: var(--surface-1, #fff);
+  padding: 16px 24px 80px;
+  overflow-y: auto;
 }
 
 /* ===== Top bar ===== */

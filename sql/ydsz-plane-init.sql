@@ -2451,6 +2451,15 @@ COMMENT ON COLUMN public.states.deleted_at IS '软删除时间戳';
 -- Records of states
 -- ----------------------------
 
+-- Plane default state groups: unstarted / triage / backlog / started / completed / cancelled
+-- Seed unstarted + triage states as workspace-level templates (project_id = 0)
+INSERT INTO "public"."states" (workspace_id, project_id, name, "group", color, sequence, is_default) VALUES (1, 0, '未开始', 'unstarted', '#9ca3af', 100, true);
+INSERT INTO "public"."states" (workspace_id, project_id, name, "group", color, sequence, is_default) VALUES (1, 0, '待分类', 'triage', '#f59e0b', 200, true);
+INSERT INTO "public"."states" (workspace_id, project_id, name, "group", color, sequence, is_default) VALUES (2, 0, '未开始', 'unstarted', '#9ca3af', 100, true);
+INSERT INTO "public"."states" (workspace_id, project_id, name, "group", color, sequence, is_default) VALUES (2, 0, '待分类', 'triage', '#f59e0b', 200, true);
+INSERT INTO "public"."states" (workspace_id, project_id, name, "group", color, sequence, is_default) VALUES (3, 0, '未开始', 'unstarted', '#9ca3af', 100, true);
+INSERT INTO "public"."states" (workspace_id, project_id, name, "group", color, sequence, is_default) VALUES (3, 0, '待分类', 'triage', '#f59e0b', 200, true);
+
 -- ----------------------------
 -- Table structure for time_logs
 -- ----------------------------
@@ -4852,7 +4861,7 @@ ALTER TABLE "public"."projects" ADD CONSTRAINT "projects_public_id_key" UNIQUE (
 -- ----------------------------
 -- Checks structure for table projects
 -- ----------------------------
-ALTER TABLE "public"."projects" ADD CONSTRAINT "projects_network_check" CHECK (network = ANY (ARRAY['public'::text, 'private'::text]));
+ALTER TABLE "public"."projects" ADD CONSTRAINT "projects_network_check" CHECK (network = ANY (ARRAY['public'::text, 'private'::text, 'internal'::text]));
 ALTER TABLE "public"."projects" ADD CONSTRAINT "projects_status_check" CHECK (status = ANY (ARRAY['active'::text, 'archived'::text]));
 ALTER TABLE "public"."projects" ADD CONSTRAINT "projects_template_check" CHECK (template = ANY (ARRAY['agile'::text, 'waterfall'::text, 'generic'::text]));
 
@@ -5307,7 +5316,7 @@ EXECUTE PROCEDURE "public"."set_updated_at"();
 -- ----------------------------
 -- Checks structure for table states
 -- ----------------------------
-ALTER TABLE "public"."states" ADD CONSTRAINT "states_group_check" CHECK ("group" = ANY (ARRAY['backlog'::text, 'started'::text, 'completed'::text, 'cancelled'::text]));
+ALTER TABLE "public"."states" ADD CONSTRAINT "states_group_check" CHECK ("group" = ANY (ARRAY['backlog'::text, 'unstarted'::text, 'triage'::text, 'started'::text, 'completed'::text, 'cancelled'::text]));
 ALTER TABLE "public"."states" ADD CONSTRAINT "states_template_set_check" CHECK (template_set = ANY (ARRAY['dev_flow'::text, 'defect_flow'::text, 'requirement_flow'::text, 'custom'::text]));
 
 -- ----------------------------

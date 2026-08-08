@@ -341,6 +341,31 @@ func (h *IssueHandler) updateIssue(c *gin.Context) {
 	if req.ReleaseVersionID != nil {
 		in.ReleaseVersionID = req.ReleaseVersionID
 	}
+	if req.TypeCode != nil {
+		tc := IssueTypeCode(*req.TypeCode)
+		in.TypeCode = &tc
+	}
+	if req.Point != nil {
+		in.Point = req.Point
+	}
+	if req.TargetDate != nil {
+		if *req.TargetDate != "" {
+			t, err := time.Parse("2006-01-02", *req.TargetDate)
+			if err != nil {
+				middleware.AbortWithError(c, errs.ErrValidation.WithDetails(errs.FieldDetail{
+					Field: "target_date", Reason: "日期格式无效",
+				}))
+				return
+			}
+			in.TargetDate = &t
+		} else {
+			empty := time.Time{}
+			in.TargetDate = &empty
+		}
+	}
+	if req.Progress != nil {
+		in.Progress = req.Progress
+	}
 
 	iss, err := h.d.IssueSvc.Update(c.Request.Context(), wsID, issueID, in)
 	if err != nil {
@@ -1024,6 +1049,7 @@ type updateIssueRequest struct {
 	Name              *string `json:"name"`
 	DescriptionHTML   *string `json:"description_html"`
 	Priority          *string `json:"priority"`
+	TypeCode          *string `json:"type_code"`
 	ParentID          *int64  `json:"parent_id"`
 	Severity          *int    `json:"severity"`
 	FoundPhase        *string `json:"found_phase"`
@@ -1033,6 +1059,9 @@ type updateIssueRequest struct {
 	Labels            []int64 `json:"labels"`
 	Modules           []int64 `json:"modules"`
 	Source            *string `json:"source"`
+	Point             *int    `json:"point"`
+	TargetDate        *string `json:"target_date"`
+	Progress          *int    `json:"progress"`
 	Version           int     `json:"version" binding:"required"`
 	FoundVersionID    *int64  `json:"found_version_id"`
 	FixVersionID      *int64  `json:"fix_version_id"`

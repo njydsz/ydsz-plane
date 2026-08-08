@@ -16,7 +16,12 @@
  *   - Jira 列表视图增强版
  */
 import { ref, computed, onMounted, onUnmounted } from "vue";
-import type { Issue } from "@/api/services/issue";
+import { useRoute } from "vue-router";
+
+import { issueApi, type Issue } from "@/api/services/issue";
+import { workspaceApi } from "@/api/services/workspace";
+import { ApiError } from "@/api/client";
+
 
 // --- State ---
 
@@ -33,20 +38,26 @@ const defaultColumns: Column[] = [
   { key: "identifier", label: "编号", width: 100, visible: true, editable: false, type: "text" },
   { key: "name", label: "标题", width: 300, visible: true, editable: true, type: "text" },
   { key: "type_code", label: "类型", width: 100, visible: true, editable: true, type: "select" },
-  { key: "state_name", label: "状态", width: 100, visible: true, editable: true, type: "select" },
+  { key: "state_name", label: "状态", width: 100, visible: true, editable: false, type: "select" },
   { key: "priority", label: "优先级", width: 80, visible: true, editable: true, type: "select" },
-  { key: "assignee_name", label: "指派人", width: 120, visible: true, editable: true, type: "user" },
-  { key: "module_name", label: "模块", width: 120, visible: false, editable: true, type: "select" },
-  { key: "sprint_name", label: "迭代", width: 120, visible: false, editable: true, type: "select" },
+  { key: "assignees", label: "指派人", width: 120, visible: true, editable: false, type: "user" },
+  { key: "modules", label: "模块", width: 120, visible: false, editable: false, type: "select" },
+  { key: "sprint_id", label: "迭代", width: 120, visible: false, editable: false, type: "select" },
   { key: "target_date", label: "截止日期", width: 120, visible: false, editable: true, type: "date" },
-  { key: "story_points", label: "故事点", width: 80, visible: false, editable: true, type: "number" },
+  { key: "point", label: "故事点", width: 80, visible: false, editable: true, type: "number" },
+  { key: "progress", label: "进度 %", width: 80, visible: false, editable: true, type: "number" },
   { key: "created_at", label: "创建时间", width: 150, visible: false, editable: false, type: "date" },
   { key: "updated_at", label: "更新时间", width: 150, visible: false, editable: false, type: "date" },
 ];
 
+const route = useRoute();
+const workspaceId = Number(route.params.workspaceId);
+const projectId = Number(route.params.projectId);
+
 const columns = ref<Column[]>(JSON.parse(JSON.stringify(defaultColumns)));
 const issues = ref<Issue[]>([]);
 const loading = ref(false);
+const error = ref("");
 const selectedIds = ref<Set<number>>(new Set());
 const editingCell = ref<{ row: number; col: string } | null>(null);
 const editValue = ref("");
@@ -64,11 +75,13 @@ const isAllSelected = computed(() =>
 
 async function loadIssues() {
   loading.value = true;
+  error.value = "";
   try {
-    // 模拟加载数据（实际项目中调用 issue service API）
-    // const resp = await issueService.list(projectId, { limit: 200 });
-    // issues.value = resp.results;
-    issues.value = [];
+    const ws = await workspaceApi.get(workspaceId);
+    const res = await issueApi.listIssues(ws.id, projectId, { limit: 200, sort: "sequence_id" });
+    issues.value = res.results;
+  } catch (e: unknown) {
+    error.value = e instanceof ApiError ? e.message : "加载失败";
   } finally {
     loading.value = false;
   }
@@ -101,11 +114,41 @@ function startEdit(rowIndex: number, colKey: string, value: string) {
 async function commitEdit() {
   if (!editingCell.value) return;
   const { row, col } = editingCell.value;
-  // 实际项目中调用 API 更新字段
-  // await issueService.update(issues.value[row].id, { [col]: editValue.value });
-  issues.value[row] = { ...issues.value[row], [col]: editValue.value };
+  const issue = issues.value[row];
+  const originalValue = String(issue?.[col as keyof Issue] ?? "");
+
+  // 先更新本地（乐观更新）
+  issues.value[row] = { ...issue, [col]: editValue.value } as Issue;
   editingCell.value = null;
+
+  // 如果值没有变化，跳过 API 调用
+  if (editValue.value === originalValue) {
+    editValue.value = "";
+    return;
+  }
+
+  // 映射列 key → 后端 PATCH 字段
+  const patch: Record<string, unknown> = {};
+  if (col === "name") patch.name = editValue.value;
+  else if (col === "priority") patch.priority = editValue.value;
+  else if (col === "type_code") patch.type_code = editValue.value;
+  else if (col === "target_date") patch.target_date = editValue.value || null;
+  else if (col === "point") patch.point = Number(editValue.value) || 0;
+  else if (col === "progress") patch.progress = Number(editValue.value) || 0;
+
   editValue.value = "";
+
+  if (Object.keys(patch).length === 0) return;
+
+  try {
+    const ws = await workspaceApi.get(workspaceId);
+    const updated = await issueApi.updateIssue(ws.id, projectId, issue.id, patch);
+    issues.value[row] = updated;
+  } catch (e: unknown) {
+    // 失败时回滚本地值
+    issues.value[row] = issue;
+    alert(e instanceof ApiError ? e.message : "更新失败");
+  }
 }
 
 function cancelEdit() {
@@ -202,6 +245,22 @@ function toggleColumnVisibility(colKey: string) {
 // --- Cell Rendering ---
 
 function getCellValue(issue: Issue, colKey: string): string {
+  // 处理嵌套字段
+  if (colKey === "state_name") {
+    return issue.state?.name ?? "";
+  }
+  if (colKey === "assignees") {
+    return issue.assignees.length > 0 ? `${issue.assignees.length} 人` : "—";
+  }
+  if (colKey === "modules") {
+    return issue.modules.length > 0 ? `${issue.modules.length} 个` : "—";
+  }
+  if (colKey === "sprint_id") {
+    return issue.sprint_id ? String(issue.sprint_id) : "—";
+  }
+  if (colKey === "point") {
+    return issue.point != null ? String(issue.point) : "";
+  }
   const val = issue[colKey as keyof Issue];
   if (val === null || val === undefined) return "";
   return String(val);
@@ -389,11 +448,22 @@ onUnmounted(() => {
         </tbody>
       </table>
 
-      <!-- 空状态 -->
-      <div v-if="!loading && issues.length === 0" class="empty-state">
-        <p>暂无数据</p>
-        <p class="empty-hint">在工作项列表中选择"电子表格视图"开始使用</p>
-      </div>
+    <!-- 加载状态 -->
+    <div v-if="loading" class="empty-state">
+      <p>加载中...</p>
+    </div>
+
+    <!-- 错误状态 -->
+    <div v-else-if="error" class="empty-state">
+      <p>{{ error }}</p>
+      <button class="toolbar-btn" style="margin-top:8px" @click="loadIssues">重试</button>
+    </div>
+
+    <!-- 空状态 -->
+    <div v-else-if="issues.length === 0" class="empty-state">
+      <p>暂无数据</p>
+      <p class="empty-hint">在工作项列表中选择"电子表格视图"开始使用</p>
+    </div>
     </div>
 
     <!-- 底部状态栏 -->

@@ -130,6 +130,11 @@ onMounted(loadProject);
         exact-active-class="tab--active"
       >基本信息</router-link>
       <router-link
+        :to="`/${route.params.workspaceId}/projects/${route.params.projectId}/settings/members`"
+        class="tab"
+        active-class="tab--active"
+      >成员管理</router-link>
+      <router-link
         :to="`/${route.params.workspaceId}/projects/${route.params.projectId}/settings/modules`"
         class="tab"
         active-class="tab--active"
