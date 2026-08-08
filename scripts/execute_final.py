@@ -44,7 +44,6 @@ def preprocess(content):
         r'DROP POLICY IF EXISTS \1 ON \2; CREATE POLICY \1 ON \2',
         content, flags=re.IGNORECASE
     )
-    content = re.sub(r';(\s*CREATE\s+POLICY)', r'\1', content)
 
     # DROP 语句加上 CASCADE（Navicat 默认不带，会导致 depends-on 错误）
     content = re.sub(
