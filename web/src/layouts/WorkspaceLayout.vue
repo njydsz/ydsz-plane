@@ -27,6 +27,7 @@ import NotificationBell from "@/components/NotificationBell.vue";
 import { IssuePeekOverview } from "@/components";
 import ThemeToggle from "@/components/ThemeToggle.vue";
 import SidebarUserMenu from "@/components/SidebarUserMenu.vue";
+import { WORKSPACE_MENU } from "@/types/permission";
 
 const route = useRoute();
 const router = useRouter();
@@ -62,9 +63,24 @@ const sidebarFavorites = computed(() => favoritesStore.favorites.slice(0, 8));
 
 
 function roleLabel(role?: string): string {
-  const map: Record<string, string> = { owner: "所有者", admin: "管理员", member: "成员", guest: "访客" };
+  const map: Record<string, string> = {
+    admin: "系统管理员",
+    owner: "空间管理员",
+    pm: "项目经理",
+    po: "产品经理",
+    techlead: "技术经理",
+    qalead: "测试经理",
+    dev: "开发",
+    guest: "访客",
+    member: "成员",
+  };
   return map[role ?? ""] ?? "";
 }
+
+/** 过滤后的侧边栏主菜单（不含项目内子菜单） */
+const visibleMainMenu = computed(() =>
+  WORKSPACE_MENU.filter((item) => wsStore.canSeeMenu(item)),
+);
 
 /* ===== 初始化与 WebSocket ===== */
 
@@ -227,40 +243,18 @@ onMounted(bootstrap);
           </div>
         </template>
 
-        <!-- 核心导航 -->
+        <!-- 核心导航（权限驱动） -->
         <div class="nav-group">
           <router-link
-            :to="`/${wsStore.currentId}/workbench`"
-            class="nav-item"
-            active-class="is-active"
-          >
-            <span class="nav-icon">📊</span>
-            <span v-if="!collapsed">工作台</span>
-          </router-link>
-          <router-link
-            :to="`/${wsStore.currentId}/search`"
-            class="nav-item"
-            active-class="is-active"
-          >
-            <span class="nav-icon">🔍</span>
-            <span v-if="!collapsed">搜索</span>
-          </router-link>
-          <router-link
-            :to="`/${wsStore.currentId}/projects`"
+            v-for="item in visibleMainMenu"
+            :key="item.name"
+            :to="`/${wsStore.currentId}/${item.path}`"
             class="nav-item"
             active-class="is-active"
             exact-active-class="is-active"
           >
-            <span class="nav-icon">▦</span>
-            <span v-if="!collapsed">项目</span>
-          </router-link>
-          <router-link
-            :to="`/${wsStore.currentId}/dashboard`"
-            class="nav-item"
-            active-class="is-active"
-          >
-            <span class="nav-icon">🛡</span>
-            <span v-if="!collapsed">空间概览</span>
+            <span class="nav-icon">▸</span>
+            <span v-if="!collapsed">{{ item.titleKey }}</span>
           </router-link>
         </div>
 
@@ -344,35 +338,47 @@ onMounted(bootstrap);
         </template>
 
         <!-- 设置分组（可折叠） -->
-        <div class="nav-group nav-group--collapsible">
+        <div v-if="wsStore.canManage" class="nav-group nav-group--collapsible">
           <button
             class="nav-group__toggle"
             @click="settingsGroupCollapsed = !settingsGroupCollapsed"
           >
             <span class="nav-icon">⚙</span>
-            <span v-if="!collapsed" class="nav-group__label">设置</span>
+            <span v-if="!collapsed" class="nav-group__label">管理</span>
             <span v-if="!collapsed" class="nav-group__chevron">
               {{ settingsGroupCollapsed ? "▸" : "▾" }}
             </span>
           </button>
           <div v-if="!settingsGroupCollapsed" class="nav-group__items">
             <router-link
+              v-if="wsStore.hasPermission('workspace:update')"
               :to="`/${wsStore.currentId}/settings`"
               class="nav-item nav-item--sub"
               active-class="is-active"
             >
               <span class="nav-icon">⚙</span>
-              <span v-if="!collapsed">工作空间</span>
+              <span v-if="!collapsed">工作空间设置</span>
             </router-link>
             <router-link
-              :to="`/${wsStore.currentId}/settings/notifications`"
+              v-if="wsStore.hasPermission('member:change_role')"
+              :to="`/${wsStore.currentId}/members`"
               class="nav-item nav-item--sub"
               active-class="is-active"
             >
-              <span class="nav-icon">🔔</span>
-              <span v-if="!collapsed">通知设置</span>
+              <span class="nav-icon">👥</span>
+              <span v-if="!collapsed">成员管理</span>
             </router-link>
             <router-link
+              v-if="wsStore.hasPermission('intake:manage')"
+              :to="`/${wsStore.currentId}/settings/intake`"
+              class="nav-item nav-item--sub"
+              active-class="is-active"
+            >
+              <span class="nav-icon">📥</span>
+              <span v-if="!collapsed">收件箱</span>
+            </router-link>
+            <router-link
+              v-if="wsStore.hasPermission('webhook:manage')"
               :to="`/${wsStore.currentId}/settings/webhooks`"
               class="nav-item nav-item--sub"
               active-class="is-active"
@@ -381,12 +387,30 @@ onMounted(bootstrap);
               <span v-if="!collapsed">Webhook</span>
             </router-link>
             <router-link
-              :to="`/${wsStore.currentId}/settings/intake`"
+              v-if="wsStore.hasPermission('audit:read')"
+              :to="`/${wsStore.currentId}/audit-logs`"
               class="nav-item nav-item--sub"
               active-class="is-active"
             >
-              <span class="nav-icon">📥</span>
-              <span v-if="!collapsed">收件箱</span>
+              <span class="nav-icon">📜</span>
+              <span v-if="!collapsed">审计日志</span>
+            </router-link>
+            <router-link
+              v-if="wsStore.hasPermission('automation:manage')"
+              :to="`/${wsStore.currentId}/projects/${currentProjectId}/automation`"
+              class="nav-item nav-item--sub"
+              active-class="is-active"
+            >
+              <span class="nav-icon">⚡</span>
+              <span v-if="!collapsed">自动化</span>
+            </router-link>
+            <router-link
+              :to="`/${wsStore.currentId}/settings/notifications`"
+              class="nav-item nav-item--sub"
+              active-class="is-active"
+            >
+              <span class="nav-icon">🔔</span>
+              <span v-if="!collapsed">通知设置</span>
             </router-link>
             <router-link
               to="/settings/api-tokens"

@@ -324,7 +324,7 @@ function cancel() {
           <div class="form-group">
             <label class="form-label">描述</label>
             <RichTextEditor
-              v-model:contentHtml="description"
+              v-model:content-html="description"
               variant="comment"
               placeholder="输入工作项描述..."
               :min-height="'80px'"

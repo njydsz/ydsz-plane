@@ -206,6 +206,7 @@ function fmtTime(iso: string): string {
 </script>
 
 <template>
+  <!-- eslint-disable vue/no-v-html -- description_html 由服务端 bluemonday 白名单清洗后落库，属受信输出 -->
   <div class="focus-mode">
     <!-- 顶部工具栏 -->
     <header class="focus-mode__toolbar">

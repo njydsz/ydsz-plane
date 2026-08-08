@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
 
 	notif "github.com/njydsz/ydsz-plane/internal/application/notification"
 	"github.com/njydsz/ydsz-plane/internal/application/auth"
@@ -34,6 +35,8 @@ type HandlerDeps struct {
 	// 通知与实时推送（可为 nil，未配置时静默跳过）
 	NotificationSvc *notif.Service
 	WSHub           *ws.Hub
+	// Redis客户端，用于通知去重
+	Redis *redis.Client
 	// UserNameQuery 按用户 ID 查展示名（用于通知 actor 文案；nil 时回退 "用户"）
 	UserNameQuery func(ctx context.Context, userID int64) string
 }
@@ -61,6 +64,10 @@ func (h *IssueHandler) Register(r *gin.RouterGroup, wsMiddleware []gin.HandlerFu
 	r.POST("/issues", h.createIssue)
 	r.POST("/issues/batch", h.batchIssues)
 	r.GET("/issues/export", h.exportIssues)
+
+	// 模块（Module 体系，对标 Plane 的 Module 概念）
+	modHandler := NewModuleHandler(NewModuleService(h.d.IssueSvc.db))
+	modHandler.Register(r)
 
 	// 单资源
 	issue := r.Group("/issues/:issue_id")
@@ -276,7 +283,6 @@ func (h *IssueHandler) updateIssue(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	projectID := c.GetInt64(middleware.CtxProjectID)
 	issueID := int64Param(c, "issue_id")
-	userID := c.GetInt64(middleware.CtxUserID)
 
 	var req updateIssueRequest
 	if err := c.ShouldBindJSON(&req); err != nil {

@@ -12,6 +12,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/njydsz/ydsz-plane/internal/interfaces/middleware"
 	"github.com/njydsz/ydsz-plane/pkg/errs"
 )
 
@@ -116,12 +117,12 @@ func (h *ModuleHandler) createModule(c *gin.Context) {
 		SortOrder: req.SortOrder, CreatedBy: userID,
 	}
 	if req.StartDate != nil {
-		if d, err := parseDate(*req.StartDate); err == nil {
+		if d := parseDate(*req.StartDate); !d.IsZero() {
 			in.StartDate = &d
 		}
 	}
 	if req.TargetDate != nil {
-		if d, err := parseDate(*req.TargetDate); err == nil {
+		if d := parseDate(*req.TargetDate); !d.IsZero() {
 			in.TargetDate = &d
 		}
 	}
@@ -164,12 +165,12 @@ func (h *ModuleHandler) updateModule(c *gin.Context) {
 		Status: req.Status, SortOrder: req.SortOrder,
 	}
 	if req.StartDate != nil {
-		if d, err := parseDate(*req.StartDate); err == nil {
+		if d := parseDate(*req.StartDate); !d.IsZero() {
 			in.StartDate = &d
 		}
 	}
 	if req.TargetDate != nil {
-		if d, err := parseDate(*req.TargetDate); err == nil {
+		if d := parseDate(*req.TargetDate); !d.IsZero() {
 			in.TargetDate = &d
 		}
 	}
@@ -252,11 +253,11 @@ func extractModuleID(c *gin.Context) int64 {
 }
 
 func extractWsID(c *gin.Context) int64 {
-	return c.GetInt64("ws_id")
+	return c.GetInt64(middleware.CtxWorkspaceID)
 }
 
 func extractProjectID(c *gin.Context) int64 {
-	return c.GetInt64("project_id")
+	return c.GetInt64(middleware.CtxProjectID)
 }
 
 func extractProjectParams(c *gin.Context) (int64, int64) {
@@ -264,27 +265,15 @@ func extractProjectParams(c *gin.Context) (int64, int64) {
 }
 
 func extractActorID(c *gin.Context) int64 {
-	id, _ := c.Get("user_id")
-	if id == nil {
-		return 0
-	}
-	if v, ok := id.(int64); ok {
-		return v
-	}
-	return 0
-}
-
-func parseDate(s string) (time.Time, error) {
-	return time.Parse("2006-01-02", s)
+	id := c.GetInt64(middleware.CtxUserID)
+	return id
 }
 
 func handleModuleErr(c *gin.Context, err error) {
-	switch {
-	case errs.IsNotFound(err):
-		c.JSON(http.StatusNotFound, gin.H{"error": err})
-	case errs.IsValidation(err):
-		c.JSON(http.StatusBadRequest, gin.H{"error": err})
-	default:
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err})
+	var appErr *errs.AppError
+	if errs.As(err, &appErr) {
+		middleware.AbortWithError(c, appErr)
+		return
 	}
+	middleware.AbortWithError(c, errs.ErrInternal)
 }

@@ -3,6 +3,7 @@
  * 工作空间内全文搜索，支持键盘导航、分组展示，服务端 ts_headline 高亮。
  */
 <template>
+  <Teleport to="body">
     <div v-if="open" class="search-overlay" @click.self="close">
       <div class="search-dialog">
         <div class="search-input-wrap">

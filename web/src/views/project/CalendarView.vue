@@ -56,6 +56,8 @@ const viewRange = computed(() => {
       return { start: base.startOf('week'), end: base.endOf('week') };
     case 'day':
       return { start: base.startOf('day'), end: base.endOf('day') };
+    default:
+      return { start: base.startOf('month'), end: base.endOf('month') };
   }
 });
 
@@ -181,6 +183,7 @@ const viewTitle = computed(() => {
     case 'month': return currentDate.value.format('YYYY 年 MM 月');
     case 'week': return `${viewRange.value.start.format('MM/DD')} - ${viewRange.value.end.format('MM/DD')}`;
     case 'day': return currentDate.value.format('YYYY 年 MM 月 DD 日');
+    default: return currentDate.value.format('YYYY 年 MM 月');
   }
 });
 

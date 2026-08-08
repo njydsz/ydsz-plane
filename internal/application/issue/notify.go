@@ -6,13 +6,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
 
 	notif "github.com/njydsz/ydsz-plane/internal/application/notification"
-	"github.com/njydsz/ydsz-plane/internal/infrastructure/cache"
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/ws"
 )
 
@@ -188,12 +186,12 @@ func (h *IssueHandler) notifyIssueWatchers(ctx context.Context, wsID, issueID, a
 		// 通知去重：同一用户对同一工作项5分钟内只发一次通知
 		mergeKey := fmt.Sprintf("notif:merge:%d:%d", issueID, uid)
 		// 如果key已存在，说明5分钟内已经发过通知，跳过
-		exists, _ := h.d.Cache.Exists(ctx, mergeKey)
-		if exists {
+		count, _ := h.d.Redis.Exists(ctx, mergeKey).Result()
+		if count > 0 {
 			continue
 		}
 		// 设置key，有效期5分钟
-		_ = h.d.Cache.Set(ctx, mergeKey, "1", mergeTTL)
+		_ = h.d.Redis.Set(ctx, mergeKey, "1", mergeTTL).Err()
 		
 		title := "工作项已更新"
 		if changeDesc != "" {
@@ -202,7 +200,7 @@ func (h *IssueHandler) notifyIssueWatchers(ctx context.Context, wsID, issueID, a
 		inputs = append(inputs, notif.CreateNotificationInput{
 			WorkspaceID: wsID,
 			RecipientID: uid,
-			EventType:   eventType,
+			EventType:   notif.EventType(eventType),
 			EntityType:  notif.EntityIssue,
 			EntityID:    issueID,
 			Title:       title,

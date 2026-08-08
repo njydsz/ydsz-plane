@@ -4,11 +4,21 @@
  * 约定：
  *  - meta.public=true 表示公开路由（无需登录，如登录/注册/邀请预览）；
  *  - 其余路由要求已登录，未登录跳转 /login 并携带 redirect 回跳参数；
- *  - 已登录用户访问认证页（login/register 等）会被重定向到首页。
+ *  - 已登录用户访问认证页（login/register 等）会被重定向到首页；
+ *  - meta.permission 表示该路由需要的工作空间权限，缺失时重定向到 403 页。
  */
 import { createRouter, createWebHistory } from "vue-router";
 
 import { useAuthStore } from "@/stores/auth";
+import { useWorkspaceStore } from "@/stores/workspace";
+
+/** 需要工作空间级鉴权的路由（:workspaceId 前缀）及其最低权限 */
+const WORKSPACE_PERMISSIOND_ROUTES: Record<string, string> = {
+  "workspace-settings": "workspace:update",
+  "webhook-settings": "webhook:manage",
+  "intake-settings": "intake:manage",
+  "audit-logs": "audit:read",
+};
 
 const router = createRouter({
   history: createWebHistory(),
@@ -350,12 +360,19 @@ const router = createRouter({
       component: () => import("@/views/NotFoundView.vue"),
       meta: { public: true },
     },
+    // 403 工作空间权限不足（放在通配符兜底之前）
+    {
+      path: "/forbidden",
+      name: "forbidden",
+      component: () => import("@/views/ForbiddenView.vue"),
+    },
   ],
 });
 
-/** 全局前置守卫：恢复会话、强制登录、登录态下禁止访问认证页 */
+/** 全局前置守卫：恢复会话、强制登录、登录态下禁止访问认证页、工作空间级权限检查 */
 router.beforeEach(async (to) => {
   const auth = useAuthStore();
+  const wsStore = useWorkspaceStore();
 
   // 仅在需要认证时才恢复会话：避免公开路由（如 /login）上
   // 因 fetchMe 失败触发拦截器 redirect 导致循环刷新
@@ -377,6 +394,21 @@ router.beforeEach(async (to) => {
   if (isAuthPage && auth.isAuthenticated) {
     return { name: "home" };
   }
+
+  // 工作空间级权限守卫：进入含 :workspaceId 的路由时确保权限已加载，
+  // 若目标路由有 meta.permission 要求，则校验。
+  const wsId = Number(to.params.workspaceId ?? 0);
+  if (wsId > 0 && auth.isAuthenticated) {
+    // 确保工作空间已加载（含权限集合）
+    if ((!wsStore.current || wsStore.current.id !== wsId) || wsStore.permissions.size === 0) {
+      await wsStore.resolveById(wsId);
+    }
+    const required = WORKSPACE_PERMISSIOND_ROUTES[String(to.name ?? "")];
+    if (required && !wsStore.hasPermission(required)) {
+      return { name: "forbidden" };
+    }
+  }
+
   return true;
 });
 
