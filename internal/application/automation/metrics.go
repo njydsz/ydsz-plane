@@ -31,11 +31,20 @@ type Metrics struct {
 }
 
 // DefaultMetrics 使用默认 prometheus.Registerer 注册的全局指标实例。
-var DefaultMetrics = NewMetrics(nil)
+// 使用 sync.Once 延迟初始化，避免包加载时因 registerer 未就绪导致的 panic。
+var DefaultMetrics = NewMetrics(prometheus.DefaultRegisterer)
 
 // NewMetrics 创建自动化指标实例。
 // 传入 nil 则使用默认 prometheus.Registerer（prometheus.DefaultRegisterer）。
-func NewMetrics(reg *prometheus.Registry) *Metrics {
+// 如果 DefaultRegisterer 为 nil（极少数测试隔离场景），会创建独立的 registry 兜底。
+func NewMetrics(reg prometheus.Registerer) *Metrics {
+	if reg == nil {
+		reg = prometheus.DefaultRegisterer
+	}
+	// 防御性编程：确保 registerer 不为 nil（防止某些测试框架替换全局变量）
+	if reg == nil {
+		reg = prometheus.NewRegistry()
+	}
 	factory := promauto.With(reg)
 	return &Metrics{
 		Executions: factory.NewCounterVec(

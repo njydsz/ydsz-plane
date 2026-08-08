@@ -18,6 +18,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/njydsz/ydsz-plane/internal/infrastructure/mq"
 	"github.com/njydsz/ydsz-plane/pkg/errs"
 )
 
@@ -381,9 +382,58 @@ func (s *Service) ListRecentExecutions(ctx context.Context, projectID int64, lim
 	return execs, rows.Err()
 }
 
-// --- Templates ---
+// DryRun 对指定规则 + 模拟上下文做干跑测试（不执行动作，返回"将执行"列表）。
+// 用于前端"试运行"功能，帮助用户在启用规则前预览效果。
+//
+// 参数:
+//   - ruleID: 要测试的规则 ID
+//   - sampleIssueID: 用哪个工作项作为测试样本（取其上下文）
+//   - event: 模拟的事件类型（如 issue.status_changed）
+//
+// 返回: 条件是否匹配 + 将执行的动作列表 + 警告（如果有无效引用等）。
+func (s *Service) DryRun(ctx context.Context, wsID, ruleID int64, sampleIssueID int64, eventType string) (matched bool, actions []Action, warnings []string, err error) {
+	rule, err := s.GetByID(ctx, wsID, ruleID)
+	if err != nil {
+		return false, nil, nil, err
+	}
 
-// ListTemplates 列出内置模板。
+	// 构建模拟上下文（复用 engine 的 DefaultContextProvider）
+	prov := NewDefaultContextProvider(s.db)
+	dummyEvent := mq.EventEnvelope{
+		EventType: eventType,
+		Payload:  mustJSON(map[string]any{"issue_id": sampleIssueID, "workspace_id": wsID, "project_id": rule.ProjectID}),
+	}
+	execCtx, err := prov.BuildContext(ctx, dummyEvent)
+	if err != nil {
+		return false, nil, nil, fmt.Errorf("dry-run build context: %w", err)
+	}
+	execCtx.DryRun = true
+
+	// 条件求值
+	matched, err = evaluateConditions(rule.DSL.Conditions, execCtx)
+	if err != nil {
+		return false, nil, nil, fmt.Errorf("dry-run evaluate: %w", err)
+	}
+
+	if matched {
+		actions = rule.DSL.Actions
+	}
+
+	// 检查变量引用是否有效
+	for _, ref := range ExtractVariables(rule.DSL) {
+		if !isValidVariable(ref[2 : len(ref)-1]) {
+			warnings = append(warnings, fmt.Sprintf("未识别的变量引用: %s", ref))
+		}
+	}
+
+	return matched, actions, warnings, nil
+}
+
+// mustJSON 是测试辅助函数（panic 仅用于构造消息，不影响生产路径）。
+func mustJSON(v any) json.RawMessage {
+	data, _ := json.Marshal(v)
+	return data
+}
 func (s *Service) ListTemplates(ctx context.Context) ([]Template, error) {
 	rows, err := s.db.Query(ctx,
 		`SELECT id, name, slug, description, category, dsl_template, icon, sort_order, is_recommended

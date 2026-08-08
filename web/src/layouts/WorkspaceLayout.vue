@@ -3,10 +3,15 @@
  * 工作空间布局组件 — 登录后应用的主框架。
  *
  * 职责：
- *  - 左侧边栏：工作空间切换器（支持搜索过滤）、导航菜单、用户区；
- *  - 顶部栏：页面标题/操作区；
- *  - 主内容区：路由出口（项目列表/看板/迭代/版本等子页面）。
- *  - 挂载时按 URL slug 解析并切换当前工作空间。
+ *  - 左侧边栏：工作空间切换器（支持搜索过滤）、收藏区、导航菜单（分组折叠）、用户区
+ *  - 顶部栏：页面标题/操作区
+ *  - 主内容区：路由出口（项目列表/看板/迭代/版本等子页面）
+ *  - 挂载时按 URL slug 解析并切换当前工作空间
+ *
+ * P2 增强：
+ *  - 收藏区（Favorites）：可按 ★ 收藏项目/侧栏快捷入口
+ *  - 分组折叠：设置分组可折叠，减少视觉噪音
+ *  - 空间切换器：最近访问 + 收藏置顶
  */
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
@@ -15,6 +20,7 @@ import type { Workspace } from "@/api/services/workspace";
 import { useAuthStore } from "@/stores/auth";
 import { useSearchStore } from "@/stores/search";
 import { useWorkspaceStore } from "@/stores/workspace";
+import { useFavoritesStore } from "@/stores/favorites";
 import { useNotificationStore } from "@/stores/notification";
 import { wsClient } from "@/lib/ws-client";
 import NotificationBell from "@/components/NotificationBell.vue";
@@ -25,17 +31,19 @@ const route = useRoute();
 const router = useRouter();
 const auth = useAuthStore();
 const wsStore = useWorkspaceStore();
+const favoritesStore = useFavoritesStore();
 const notifStore = useNotificationStore();
 const searchStore = useSearchStore();
 
 const collapsed = ref(false);
 const showSwitcher = ref(false);
 const switcherFilter = ref("");
+/** 设置分组是否折叠 */
+const settingsGroupCollapsed = ref(true);
 
 const workspaceId = computed(() => Number(route.params.workspaceId ?? 0));
 const workspaceList = computed(() => wsStore.list);
 const currentWs = computed(() => wsStore.current);
-/** 当路由中存在 projectId 参数时返回该 ID，用于项目子导航展示 */
 const currentProjectId = computed(() => {
   const pid = route.params.projectId;
   return pid ? Number(pid) : null;
@@ -48,56 +56,49 @@ const filteredWorkspaces = computed(() => {
   );
 });
 
-/** 角色 → 中文展示名映射 */
+/** 当前侧边栏渲染的 fav 条目（仅展示前 8 条） */
+const sidebarFavorites = computed(() => favoritesStore.favorites.slice(0, 8));
+
+
 function roleLabel(role?: string): string {
   const map: Record<string, string> = { owner: "所有者", admin: "管理员", member: "成员", guest: "访客" };
   return map[role ?? ""] ?? "";
 }
 
-/** 初始化：加载空间列表并按 URL ID 切换当前空间 */
+/* ===== 初始化与 WebSocket ===== */
+
 async function bootstrap() {
   await wsStore.load();
   if (workspaceId.value) {
     await wsStore.resolveById(workspaceId.value);
   }
-  // 注意：在根路由（工作空间列表页）不主动 redirect，由用户自主点击
 }
 
-/* ===== WebSocket 实时通知 ===== */
-
-/** 当前空间 ID（number 时建立连接） */
-const currentWsId = computed(() => currentWs.value?.id ?? null);
-
-/** 新通知到达时刷新未读数 */
 function handleNotification() {
-  if (!currentWsId.value) return;
-  void notifStore.fetchUnreadCount(currentWsId.value);
-  // 若铃铛面板已打开（items 非空），同步列表
+  if (!wsStore.currentId) return;
+  void notifStore.fetchUnreadCount(wsStore.currentId);
   if (notifStore.items.length > 0) {
-    void notifStore.fetchList(currentWsId.value, { limit: 20 });
+    void notifStore.fetchList(wsStore.currentId, { limit: 20 });
   }
 }
 
-/** 工作项/迭代/版本变更也会刷新未读数（可能伴随新通知） */
 function handleAnyChange() {
-  if (!currentWsId.value) return;
-  void notifStore.fetchUnreadCount(currentWsId.value);
+  if (!wsStore.currentId) return;
+  void notifStore.fetchUnreadCount(wsStore.currentId);
 }
 
-/** 断线重连补偿：重新拉取未读数 + 通知列表 */
 function handleReconnectCompensation() {
-  if (!currentWsId.value) return
-  const since = wsClient.lastDisconnectTimestamp
-  void notifStore.fetchUnreadCount(currentWsId.value)
-  // 断线期间可能有漏掉的通知，拉取列表补齐
-  void notifStore.fetchList(currentWsId.value, { limit: 20, since: since || undefined })
+  if (!wsStore.currentId) return;
+  const since = wsClient.lastDisconnectTimestamp;
+  void notifStore.fetchUnreadCount(wsStore.currentId);
+  void notifStore.fetchList(wsStore.currentId, { limit: 20, since: since || undefined });
 }
 
 watch(
-  currentWsId,
+  () => wsStore.currentId,
   (id) => {
-    // 切换空间：断开旧连接，建立新连接
     wsClient.disconnect();
+    favoritesStore.setWorkspace(id ?? null);
     if (id != null) {
       wsClient.connect(id, auth.user?.id);
       wsClient.on("notification.created", handleNotification);
@@ -107,9 +108,7 @@ watch(
       wsClient.on("comment.created", handleAnyChange);
       wsClient.on("sprint.started", handleAnyChange);
       wsClient.on("version.released", handleAnyChange);
-      // 注册断线重连补偿回调
       wsClient.onReconnect(handleReconnectCompensation);
-      // 初始拉取未读数
       void notifStore.fetchUnreadCount(id);
     }
   },
@@ -120,23 +119,23 @@ onUnmounted(() => {
   wsClient.disconnect();
 });
 
-/** 选中工作空间：关闭切换器并跳转到该项目列表 */
+/* ===== 空间切换器 ===== */
+
 function selectWs(ws: Workspace) {
   showSwitcher.value = false;
   router.push(`/${ws.id}/projects`);
 }
 
-/** 跳转创建空间页（工作空间列表页） */
 function gotoCreate() {
   showSwitcher.value = false;
   router.push("/");
 }
 
-/** 跳转工作空间列表页 */
 function gotoList() {
   showSwitcher.value = false;
   router.push("/");
 }
+
 
 onMounted(bootstrap);
 </script>
@@ -188,140 +187,182 @@ onMounted(bootstrap);
 
       <!-- ===== 侧边导航 ===== -->
       <nav class="sidebar__nav">
-        <router-link
-          :to="`/${wsStore.currentId}/workbench`"
-          class="nav-item"
-          active-class="is-active"
-        >
-          <span class="nav-icon">📊</span>
-          <span v-if="!collapsed">工作台</span>
-        </router-link>
-        <router-link
-          :to="`/${wsStore.currentId}/search`"
-          class="nav-item"
-          active-class="is-active"
-        >
-          <span class="nav-icon">🔍</span>
-          <span v-if="!collapsed">搜索</span>
-        </router-link>
-        <router-link
-          :to="`/${wsStore.currentId}/projects`"
-          class="nav-item"
-          active-class="is-active"
-          exact-active-class="is-active"
-        >
-          <span class="nav-icon">▦</span>
-          <span v-if="!collapsed">项目</span>
-        </router-link>
-        <!-- 项目子导航：仅在当前有 projectId 时显示 -->
-        <template v-if="currentProjectId">
-          <router-link
-            :to="`/${wsStore.currentId}/projects/${currentProjectId}/dashboard`"
-            class="nav-item nav-item--sub"
-            active-class="is-active"
-          >
-            <span class="nav-icon">📈</span>
-            <span v-if="!collapsed">项目仪表盘</span>
-          </router-link>
-          <router-link
-            :to="`/${wsStore.currentId}/projects/${currentProjectId}/board`"
-            class="nav-item nav-item--sub"
-            active-class="is-active"
-          >
-            <span class="nav-icon">▥</span>
-            <span v-if="!collapsed">项目看板</span>
-          </router-link>
-          <router-link
-            :to="`/${wsStore.currentId}/projects/${currentProjectId}/list`"
-            class="nav-item nav-item--sub"
-            active-class="is-active"
-          >
-            <span class="nav-icon">☰</span>
-            <span v-if="!collapsed">工作项列表</span>
-          </router-link>
-          <router-link
-            :to="`/${wsStore.currentId}/projects/${currentProjectId}/pages`"
-            class="nav-item nav-item--sub"
-            active-class="is-active"
-          >
-            <span class="nav-icon">📄</span>
-            <span v-if="!collapsed">文档</span>
-          </router-link>
-          <router-link
-            :to="`/${wsStore.currentId}/projects/${currentProjectId}/metrics`"
-            class="nav-item nav-item--sub"
-            active-class="is-active"
-          >
-            <span class="nav-icon">📉</span>
-            <span v-if="!collapsed">效能度量</span>
-          </router-link>
-          <router-link
-            :to="`/${wsStore.currentId}/projects/${currentProjectId}/automation`"
-            class="nav-item nav-item--sub"
-            active-class="is-active"
-          >
-            <span class="nav-icon">⚡</span>
-            <span v-if="!collapsed">自动化</span>
-          </router-link>
-          <router-link
-            :to="`/${wsStore.currentId}/projects/${currentProjectId}/analytics`"
-            class="nav-item nav-item--sub"
-            active-class="is-active"
-          >
-            <span class="nav-icon">📋</span>
-            <span v-if="!collapsed">缺陷分析</span>
-          </router-link>
-          <router-link
-            :to="`/${wsStore.currentId}/projects/${currentProjectId}/gantt`"
-            class="nav-item nav-item--sub"
-            active-class="is-active"
-          >
-            <span class="nav-icon">📅</span>
-            <span v-if="!collapsed">甘特图</span>
-          </router-link>
-          <router-link
-            :to="`/${wsStore.currentId}/projects/${currentProjectId}/calendar`"
-            class="nav-item nav-item--sub"
-            active-class="is-active"
-          >
-            <span class="nav-icon">🗓</span>
-            <span v-if="!collapsed">日历</span>
-          </router-link>
+        <!-- 收藏区 -->
+        <template v-if="!collapsed && sidebarFavorites.length > 0">
+          <div class="nav-group">
+            <span class="nav-group__label">收藏</span>
+            <router-link
+              v-for="fav in sidebarFavorites"
+              :key="fav.id"
+              :to="fav.path"
+              class="nav-item nav-item--fav"
+              active-class="is-active"
+              :title="fav.label"
+            >
+              <span class="nav-icon">{{ fav.icon }}</span>
+              <span class="nav-label">{{ fav.label }}</span>
+            </router-link>
+          </div>
         </template>
-        <router-link
-          :to="`/${wsStore.currentId}/settings`"
-          class="nav-item"
-          active-class="is-active"
-        >
-          <span class="nav-icon">⚙</span>
-          <span v-if="!collapsed">设置</span>
-        </router-link>
-        <router-link
-          :to="`/${wsStore.currentId}/settings/notifications`"
-          class="nav-item"
-          active-class="is-active"
-        >
-          <span class="nav-icon">🔔</span>
-          <span v-if="!collapsed">通知设置</span>
-        </router-link>
-        <router-link
-          :to="`/${wsStore.currentId}/settings/webhooks`"
-          class="nav-item"
-          active-class="is-active"
-        >
-          <span class="nav-icon">🔗</span>
-          <span v-if="!collapsed">Webhook</span>
-        </router-link>
-        <router-link
-          :to="`/${wsStore.currentId}/settings/intake`"
-          class="nav-item"
-          active-class="is-active"
-        >
-          <span class="nav-icon">📥</span>
-          <span v-if="!collapsed">收件箱</span>
-        </router-link>
+
+        <!-- 核心导航 -->
+        <div class="nav-group">
+          <router-link
+            :to="`/${wsStore.currentId}/workbench`"
+            class="nav-item"
+            active-class="is-active"
+          >
+            <span class="nav-icon">📊</span>
+            <span v-if="!collapsed">工作台</span>
+          </router-link>
+          <router-link
+            :to="`/${wsStore.currentId}/search`"
+            class="nav-item"
+            active-class="is-active"
+          >
+            <span class="nav-icon">🔍</span>
+            <span v-if="!collapsed">搜索</span>
+          </router-link>
+          <router-link
+            :to="`/${wsStore.currentId}/projects`"
+            class="nav-item"
+            active-class="is-active"
+            exact-active-class="is-active"
+          >
+            <span class="nav-icon">▦</span>
+            <span v-if="!collapsed">项目</span>
+          </router-link>
+        </div>
+
+        <!-- 项目子导航 -->
+        <template v-if="currentProjectId">
+          <div class="nav-group">
+            <span v-if="!collapsed" class="nav-group__label">项目</span>
+            <router-link
+              :to="`/${wsStore.currentId}/projects/${currentProjectId}/dashboard`"
+              class="nav-item nav-item--sub"
+              active-class="is-active"
+            >
+              <span class="nav-icon">📈</span>
+              <span v-if="!collapsed">仪表盘</span>
+            </router-link>
+            <router-link
+              :to="`/${wsStore.currentId}/projects/${currentProjectId}/board`"
+              class="nav-item nav-item--sub"
+              active-class="is-active"
+            >
+              <span class="nav-icon">▥</span>
+              <span v-if="!collapsed">看板</span>
+            </router-link>
+            <router-link
+              :to="`/${wsStore.currentId}/projects/${currentProjectId}/list`"
+              class="nav-item nav-item--sub"
+              active-class="is-active"
+            >
+              <span class="nav-icon">☰</span>
+              <span v-if="!collapsed">列表</span>
+            </router-link>
+            <router-link
+              :to="`/${wsStore.currentId}/projects/${currentProjectId}/pages`"
+              class="nav-item nav-item--sub"
+              active-class="is-active"
+            >
+              <span class="nav-icon">📄</span>
+              <span v-if="!collapsed">文档</span>
+            </router-link>
+            <router-link
+              :to="`/${wsStore.currentId}/projects/${currentProjectId}/metrics`"
+              class="nav-item nav-item--sub"
+              active-class="is-active"
+            >
+              <span class="nav-icon">📉</span>
+              <span v-if="!collapsed">效能</span>
+            </router-link>
+            <router-link
+              :to="`/${wsStore.currentId}/projects/${currentProjectId}/analytics`"
+              class="nav-item nav-item--sub"
+              active-class="is-active"
+            >
+              <span class="nav-icon">📋</span>
+              <span v-if="!collapsed">分析</span>
+            </router-link>
+            <router-link
+              :to="`/${wsStore.currentId}/projects/${currentProjectId}/gantt`"
+              class="nav-item nav-item--sub"
+              active-class="is-active"
+            >
+              <span class="nav-icon">📅</span>
+              <span v-if="!collapsed">甘特图</span>
+            </router-link>
+            <router-link
+              :to="`/${wsStore.currentId}/projects/${currentProjectId}/calendar`"
+              class="nav-item nav-item--sub"
+              active-class="is-active"
+            >
+              <span class="nav-icon">🗓</span>
+              <span v-if="!collapsed">日历</span>
+            </router-link>
+            <router-link
+              :to="`/${wsStore.currentId}/projects/${currentProjectId}/automation`"
+              class="nav-item nav-item--sub"
+              active-class="is-active"
+            >
+              <span class="nav-icon">⚡</span>
+              <span v-if="!collapsed">自动化</span>
+            </router-link>
+          </div>
+        </template>
+
+        <!-- 设置分组（可折叠） -->
+        <div class="nav-group nav-group--collapsible">
+          <button
+            class="nav-group__toggle"
+            @click="settingsGroupCollapsed = !settingsGroupCollapsed"
+          >
+            <span class="nav-icon">⚙</span>
+            <span v-if="!collapsed" class="nav-group__label">设置</span>
+            <span v-if="!collapsed" class="nav-group__chevron">
+              {{ settingsGroupCollapsed ? "▸" : "▾" }}
+            </span>
+          </button>
+          <div v-if="!settingsGroupCollapsed" class="nav-group__items">
+            <router-link
+              :to="`/${wsStore.currentId}/settings`"
+              class="nav-item nav-item--sub"
+              active-class="is-active"
+            >
+              <span class="nav-icon">⚙</span>
+              <span v-if="!collapsed">工作空间</span>
+            </router-link>
+            <router-link
+              :to="`/${wsStore.currentId}/settings/notifications`"
+              class="nav-item nav-item--sub"
+              active-class="is-active"
+            >
+              <span class="nav-icon">🔔</span>
+              <span v-if="!collapsed">通知设置</span>
+            </router-link>
+            <router-link
+              :to="`/${wsStore.currentId}/settings/webhooks`"
+              class="nav-item nav-item--sub"
+              active-class="is-active"
+            >
+              <span class="nav-icon">🔗</span>
+              <span v-if="!collapsed">Webhook</span>
+            </router-link>
+            <router-link
+              :to="`/${wsStore.currentId}/settings/intake`"
+              class="nav-item nav-item--sub"
+              active-class="is-active"
+            >
+              <span class="nav-icon">📥</span>
+              <span v-if="!collapsed">收件箱</span>
+            </router-link>
+          </div>
+        </div>
       </nav>
 
+      <!-- 折叠按钮 -->
       <button class="sidebar__collapse" @click="collapsed = !collapsed">
         {{ collapsed ? "»" : "«" }}
       </button>
@@ -544,10 +585,66 @@ onMounted(bootstrap);
 /* ===== Nav ===== */
 .sidebar__nav {
   flex: 1;
+  overflow-y: auto;
   padding: 8px;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
+}
+
+.nav-group {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin-bottom: 6px;
+}
+
+.nav-group__label {
+  padding: 6px 10px 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Collapsible group */
+.nav-group--collapsible {
+  margin-bottom: 0;
+}
+
+.nav-group__toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--text-secondary);
+  text-align: left;
+}
+
+.nav-group__toggle:hover {
+  background: var(--surface-3);
+  color: var(--text-primary);
+}
+
+.nav-group__chevron {
+  margin-left: auto;
+  font-size: 10px;
+  color: var(--text-tertiary);
+}
+
+.nav-group__items {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  overflow: hidden;
 }
 
 .nav-item {
@@ -577,9 +674,24 @@ onMounted(bootstrap);
   font-size: 12px;
 }
 
+.nav-item--fav {
+  position: relative;
+}
+
+.nav-item--fav .nav-icon {
+  color: var(--warning-500);
+}
+
 .nav-icon {
   width: 18px;
   text-align: center;
+}
+
+.nav-label {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .sidebar__collapse {

@@ -7,7 +7,6 @@ import { computed, onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
 
 import { type IssueType, type IssuePriority, type ListIssuesParams, type State, issueApi } from "@/api/services/issue";
-import { workspaceApi } from "@/api/services/workspace";
 import { useIssueStore } from "@/stores/issue";
 import { usePeekStore } from "@/stores/peek";
 import { prefs } from "@/lib/prefs";
@@ -66,15 +65,7 @@ async function load() {
   loading.value = true;
   error.value = "";
   try {
-    const wsId = Number(route.params.workspaceId ?? "");
-    let wsIdVal: number;
-    if (wsId) {
-      const ws = await workspaceApi.get(wsId);
-      wsIdVal = ws.id;
-    } else {
-      wsIdVal = Number(route.params.wsId);
-    }
-    wsId.value = wsIdVal;
+    const wsIdVal = Number(route.params.workspaceId);
 
     const params: ListIssuesParams = {
       ...currentFilter.value,
@@ -306,7 +297,7 @@ const showExportDropdown = ref(false);
     <!-- 过滤器 -->
     <IssueFilter
       :project-id="projectId"
-      :workspace-slug="Number(route.params.workspaceId)"
+      :workspace-id="Number(route.params.workspaceId)"
       @filter-change="onFilterChange"
     />
 

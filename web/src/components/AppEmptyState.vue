@@ -33,6 +33,12 @@ export type EmptyScenario =
   | "api-token"
   | "webhooks"
   | "error"
+  | "gantt"
+  | "calendar"
+  | "pages"
+  | "cycles"
+  | "automation"
+  | "comments"
 
 /** 插画尺寸（sm/md/lg）。 */
 export type IllustrationSize = "sm" | "md" | "lg"
@@ -121,6 +127,30 @@ const scenarioMap: Record<Exclude<EmptyScenario, "default" | "error">, { title: 
   webhooks: {
     title: "还没有 Webhook",
     description: "配置 Webhook 将事件推送到外部系统。",
+  },
+  gantt: {
+    title: "甘特图暂无数据",
+    description: "为工作项设置开始和结束时间后，这里将展示甘特视图。",
+  },
+  calendar: {
+    title: "日历暂无安排",
+    description: "设置工作项的截止日期，日程将显示在日历上。",
+  },
+  pages: {
+    title: "还没有文档",
+    description: "创建项目文档、设计笔记或团队知识库。",
+  },
+  cycles: {
+    title: "还没有周期",
+    description: "设置固定长度的时间盒，迭代推进项目。",
+  },
+  automation: {
+    title: "还没有自动化规则",
+    description: "创建规则以在特定触发条件下自动执行操作。",
+  },
+  comments: {
+    title: "暂无评论",
+    description: "开始对话，评论将显示在此。",
   },
 }
 
@@ -264,6 +294,57 @@ const illustrationPx = computed(() => sizeMap[props.illustrationSize])
         <circle cx="52" cy="48" r="4" fill="var(--brand-default, #3b82f6)" opacity="0.4" />
       </g>
 
+      <!-- Gantt: 时间轴 -->
+      <g v-else-if="scenario === 'gantt'">
+        <rect x="12" y="24" width="72" height="8" rx="4" fill="var(--brand-default, #3b82f6)" opacity="0.7" />
+        <rect x="12" y="40" width="48" height="8" rx="4" fill="var(--brand-default, #3b82f6)" opacity="0.4" />
+        <rect x="12" y="56" width="60" height="8" rx="4" fill="var(--success-default, #10b981)" opacity="0.5" />
+        <rect x="12" y="72" width="32" height="8" rx="4" fill="var(--warning-default, #f59e0b)" opacity="0.4" />
+        <line x1="12" y1="18" x2="12" y2="84" stroke="var(--neutral-300, #d1d5db)" stroke-width="1.5" />
+      </g>
+
+      <!-- Calendar: 日历 -->
+      <g v-else-if="scenario === 'calendar'">
+        <rect x="18" y="20" width="60" height="56" rx="6" fill="var(--neutral-200, #e5e7eb)" />
+        <rect x="18" y="20" width="60" height="16" rx="6" fill="var(--brand-default, #3b82f6)" opacity="0.6" />
+        <circle cx="32" cy="50" r="4" fill="var(--neutral-300, #d1d5db)" />
+        <circle cx="48" cy="50" r="4" fill="var(--neutral-300, #d1d5db)" />
+        <circle cx="64" cy="50" r="4" fill="var(--neutral-300, #d1d5db)" />
+        <circle cx="40" cy="64" r="4" fill="var(--neutral-300, #d1d5db)" />
+        <circle cx="56" cy="64" r="4" fill="var(--brand-300, #93c5fd)" />
+      </g>
+
+      <!-- Pages: 文档/书 -->
+      <g v-else-if="scenario === 'pages'">
+        <path d="M24 20h24l8 8v44a4 4 0 01-4 4H24a4 4 0 01-4-4V24a4 4 0 014-4z" fill="var(--neutral-200, #e5e7eb)" />
+        <path d="M48 20v8h8" fill="var(--brand-200, #bfdbfe)" />
+        <rect x="28" y="36" width="24" height="3" rx="1.5" fill="var(--neutral-500, #9ca3af)" opacity="0.6" />
+        <rect x="28" y="44" width="18" height="2" rx="1" fill="var(--neutral-400, #d1d5db)" opacity="0.4" />
+        <rect x="28" y="50" width="22" height="2" rx="1" fill="var(--neutral-400, #d1d5db)" opacity="0.4" />
+      </g>
+
+      <!-- Cycles: 循环/时间盒 -->
+      <g v-else-if="scenario === 'cycles'">
+        <circle cx="48" cy="48" r="28" stroke="var(--neutral-300, #d1d5db)" stroke-width="4" fill="none" stroke-dasharray="8 4" />
+        <path d="M48 28v20l12 8" stroke="var(--brand-default, #3b82f6)" stroke-width="3" stroke-linecap="round" />
+        <circle cx="48" cy="48" r="4" fill="var(--brand-default, #3b82f6)" />
+      </g>
+
+      <!-- Automation: 闪电/齿轮 -->
+      <g v-else-if="scenario === 'automation'">
+        <circle cx="48" cy="48" r="20" stroke="var(--neutral-300, #d1d5db)" stroke-width="3" fill="none" />
+        <circle cx="48" cy="48" r="10" stroke="var(--brand-default, #3b82f6)" stroke-width="2" fill="none" />
+        <path d="M44 28l4-4 4 4M52 68l-4 4-4-4M28 44l-4 4 4 4M68 52l4-4-4-4" stroke="var(--neutral-400, #d1d5db)" stroke-width="2" stroke-linecap="round" />
+        <path d="M48 36v8h6l-6 12v-8h-6l6-12z" fill="var(--brand-default, #3b82f6)" opacity="0.7" />
+      </g>
+
+      <!-- Comments: 对话气泡 -->
+      <g v-else-if="scenario === 'comments'">
+        <path d="M22 24h44a4 4 0 014 4v28a4 4 0 01-4 4H36l-14 12V28a4 4 0 014-4z" fill="var(--neutral-200, #e5e7eb)" />
+        <rect x="28" y="34" width="24" height="3" rx="1.5" fill="var(--neutral-400, #d1d5db)" opacity="0.5" />
+        <rect x="28" y="42" width="16" height="2" rx="1" fill="var(--neutral-300, #d1d5db)" opacity="0.4" />
+      </g>
+
       <!-- Default fallback: simple box -->
       <g v-else>
         <circle cx="48" cy="48" r="32" fill="var(--neutral-200, #e5e7eb)" />
@@ -330,6 +411,16 @@ const illustrationPx = computed(() => sizeMap[props.illustrationSize])
 .app-empty--sm { padding: 32px 16px; }
 .app-empty--md { padding: 48px 24px; }
 .app-empty--lg { padding: 64px 32px; }
+
+/* ---- 入场动画 ---- */
+@keyframes emptyFadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.app-empty {
+  animation: emptyFadeIn 0.35s ease-out;
+}
 
 .app-empty__emoji {
   font-size: 48px;

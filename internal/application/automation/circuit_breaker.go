@@ -89,6 +89,8 @@ func (cb *CircuitBreaker) Allow() bool {
 			cb.state = CircuitHalfOpen
 			cb.halfOpenAttempt = 0
 			cb.halfOpenSuccess = 0
+			// 转入后放行第一次探测
+			cb.halfOpenAttempt++
 			return true
 		}
 		return false

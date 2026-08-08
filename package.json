@@ -1,0 +1,11 @@
+{
+	"devDependencies": {
+		"storybook": "^10.5.7",
+		"@storybook/vue3-vite": "^10.5.7",
+		"@storybook/addon-essentials": "^8.6.14",
+		"@storybook/addon-interactions": "^8.6.14",
+		"@storybook/addon-links": "^10.5.7",
+		"@storybook/test": "^8.6.15",
+		"@vitejs/plugin-vue": "^6.0.8"
+	}
+}

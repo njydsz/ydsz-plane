@@ -17,10 +17,11 @@ import {
   type BurndownPoint,
   type Sprint,
   type SprintIssueView,
+  type SprintVelocity,
 } from "@/api/services/sprint";
 import { useWorkspaceContext } from "@/composables/useWorkspaceContext";
 import SprintStatusBadge from "@/components/sprint/SprintStatusBadge.vue";
-import BurndownChart from "./BurndownChart.vue";
+import SprintAnalyticsView from "./SprintAnalyticsView.vue";
 import { AppLoadingState, AppErrorState, AppEmptyState } from "@/components";
 
 /* ------------------------------------------------------------------ */
@@ -42,6 +43,8 @@ const { wsId, ready } = useWorkspaceContext();
 const sprint = ref<Sprint | null>(null);
 const issues = ref<SprintIssueView[]>([]);
 const burndown = ref<BurndownPoint[]>([]);
+const velocity = ref<SprintVelocity[]>([]);
+const velocityAvg = ref(0);
 const loading = ref(true);
 const error = ref("");
 const busy = ref(false);
@@ -57,14 +60,17 @@ async function load() {
   loading.value = true;
   error.value = "";
   try {
-    const [spRes, issRes, bdRes] = await Promise.all([
+    const [spRes, issRes, bdRes, velRes] = await Promise.all([
       sprintApi.getSprint(wsId.value, projectId.value, sprintId.value),
       sprintApi.listSprintIssues(wsId.value, projectId.value, sprintId.value),
       sprintApi.burndown(wsId.value, projectId.value, sprintId.value).catch(() => ({ points: [] as BurndownPoint[] })),
+      sprintApi.suggestCapacity(wsId.value, projectId.value).catch(() => ({ avg_points: 0, avg_issues: 0, p50: 0, recent_sprints: [] as SprintVelocity[], count: 0 })),
     ]);
     sprint.value = spRes;
     issues.value = issRes.results;
     burndown.value = bdRes.points;
+    velocity.value = velRes.recent_sprints || [];
+    velocityAvg.value = velRes.avg_points || 0;
 
     // 加载 planned 迭代（用于 next_sprint 联动）
     const listRes = await sprintApi.listSprints(wsId.value, projectId.value, { status: "planned" });
@@ -193,12 +199,6 @@ async function saveEdit() {
 /* ------------------------------------------------------------------ */
 
 const typeLabel: Record<string, string> = { requirement: "需", task: "任", defect: "缺" };
-const groupLabel: Record<string, string> = {
-  backlog: "待办",
-  started: "进行中",
-  completed: "已完成",
-  cancelled: "取消",
-};
 
 function fmtDate(s?: string) {
   return s ? s.slice(0, 10) : "?";
@@ -262,42 +262,13 @@ watch(ready, (r) => {
     </AppEmptyState>
 
     <div v-else class="content">
-      <!-- 进度卡片 -->
-      <section class="progress-card">
-        <h2>进度</h2>
-        <div v-if="sprint.progress" class="progress-stats">
-          <div class="stat">
-            <span class="num">{{ sprint.progress.done_issues }}/{{ sprint.progress.total_issues }}</span>
-            <span class="label">已完成工作项</span>
-          </div>
-          <div class="stat">
-            <span class="num">{{ sprint.progress.done_points }}/{{ sprint.progress.total_points }}</span>
-            <span class="label">已完成故事点</span>
-          </div>
-          <div v-if="sprint.progress.saturation != null" class="stat">
-            <span class="num" :class="{ over: sprint.progress.saturation > 1 }">{{ Math.round(sprint.progress.saturation * 100) }}%</span>
-            <span class="label">饱和度</span>
-          </div>
-        </div>
-        <div v-if="sprint.progress?.by_state_group" class="state-bars">
-          <div v-for="(pts, group) in sprint.progress.by_state_group" :key="group" class="bar-row">
-            <span class="grp">{{ groupLabel[group] ?? group }}</span>
-            <div class="bar">
-              <div class="fill" :class="`fill-${group}`" :style="{ width: sprint.progress!.total_points > 0 ? (pts / sprint.progress!.total_points) * 100 + '%' : '0%' }"></div>
-            </div>
-            <span class="val">{{ pts }}pt</span>
-          </div>
-        </div>
-      </section>
-
-      <!-- 燃尽图 -->
-      <section class="burndown-card">
-        <h2>燃尽图</h2>
-        <BurndownChart
-          :points="burndown"
-          :start-date="sprint.start_date"
-          :end-date="sprint.end_date"
-          :loading="loading"
+      <!-- 迭代效能分析面板（指标 + 燃尽/燃起 + 速率 + 状态分布） -->
+      <section class="analytics-section">
+        <SprintAnalyticsView
+          :sprint="sprint"
+          :burndown="burndown"
+          :velocity="velocity"
+          :velocity-avg="velocityAvg"
         />
       </section>
 

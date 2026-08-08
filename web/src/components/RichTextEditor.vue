@@ -1,14 +1,16 @@
 <script setup lang="ts">
 /**
- * RichTextEditor — 基于 TipTap 3 的通用富文本编辑器组件 v2
+ * RichTextEditor — 基于 TipTap 3 的通用富文本编辑器组件 v3
  *
- * 变化：
- *   — 扩展改用拆分模块（@/lib/editor/extensions）
- *   — 支持 variant：full / comment / compact 适配不同场景
+ * v3 增强：
+ *   — 斜杠命令浮层（slash commands）
+ *   — Callout 提示框工具
+ *   — 表格插入 + 列/行操作工具栏
+ *   — 颜色选择器（文本颜色 + 高亮）
  *
  * 特性：
  *   - v-model:contentHTML / v-model:contentJSON 双向绑定
- *   - 菜单栏（粗体/斜体/链接/图片/代码/标题/列表）
+ *   - 菜单栏（粗体/斜体/链接/图片/代码/标题/列表/表格/颜色/callout）
  *   - @提及 扩展（需传入 mentionSuggestions）
  *   - 图片粘贴回调 @paste-image
  */
@@ -18,8 +20,11 @@ import {
   completeExtensions,
   commentExtensions,
   compactExtensions,
+  slashItems,
+  type SlashCommandItem,
 } from "@/lib/editor/extensions"
-import { computed, onBeforeUnmount, watch } from "vue"
+import { computed, onBeforeUnmount, onMounted, onUnmounted, ref, watch } from "vue"
+import Mention from "@tiptap/extension-mention"
 
 const props = withDefaults(
   defineProps<{
@@ -64,8 +69,6 @@ const mentionItems = computed(() => {
 })
 
 /* ---- 根据 variant 选择扩展 ---- */
-import Mention from "@tiptap/extension-mention"
-
 const editorExtensions = computed(() => {
   let exts: any[]
   switch (props.variant) {
@@ -96,108 +99,194 @@ const editor = useEditor({
   extensions: editorExtensions.value,
   editorProps: {
     handlePaste(_view, event) {
-      const items = event.clipboardData?.items;
-      if (!items) return false;
+      const items = event.clipboardData?.items
+      if (!items) return false
       for (const item of Array.from(items)) {
         if (item.type.startsWith("image/")) {
-          const file = item.getAsFile();
+          const file = item.getAsFile()
           if (file) {
-            emit("paste-image", file);
-            return true;
+            emit("paste-image", file)
+            return true
           }
         }
       }
-      return false;
+      return false
     },
   },
   onUpdate({ editor: ed }) {
-    const html = ed.getHTML();
-    const json = ed.getJSON();
-    emit("update:contentHtml", html);
-    emit("update:contentJson", JSON.stringify(json));
+    const html = ed.getHTML()
+    const json = ed.getJSON()
+    emit("update:contentHtml", html)
+    emit("update:contentJson", JSON.stringify(json))
   },
-});
+})
 
 /* ---- 外部内容变化时同步到编辑器 ---- */
 watch(
   () => props.contentHtml,
   (val) => {
-    if (!editor.value) return;
-    const current = editor.value.getHTML();
+    if (!editor.value) return
+    const current = editor.value.getHTML()
     if (val !== current) {
-      editor.value.commands.setContent(val || "");
+      editor.value.commands.setContent(val || "")
     }
   },
-);
+)
 
 watch(
   () => props.editable,
   (val) => {
-    editor.value?.setEditable(val);
+    editor.value?.setEditable(val)
   },
-);
+)
 
 onBeforeUnmount(() => {
-  editor.value?.destroy();
-});
+  editor.value?.destroy()
+})
 
 /* ---- 菜单命令 ---- */
 function toggleBold() {
-  editor.value?.chain().focus().toggleBold().run();
+  editor.value?.chain().focus().toggleBold().run()
 }
 function toggleItalic() {
-  editor.value?.chain().focus().toggleItalic().run();
+  editor.value?.chain().focus().toggleItalic().run()
 }
 function toggleUnderline() {
-  editor.value?.chain().focus().toggleUnderline().run();
+  editor.value?.chain().focus().toggleUnderline().run()
 }
 function toggleStrike() {
-  editor.value?.chain().focus().toggleStrike().run();
+  editor.value?.chain().focus().toggleStrike().run()
 }
 function toggleCode() {
-  editor.value?.chain().focus().toggleCode().run();
+  editor.value?.chain().focus().toggleCode().run()
 }
 function setHeading(level: 2 | 3) {
-  editor.value?.chain().focus().toggleHeading({ level }).run();
+  editor.value?.chain().focus().toggleHeading({ level }).run()
 }
 function toggleBulletList() {
-  editor.value?.chain().focus().toggleBulletList().run();
+  editor.value?.chain().focus().toggleBulletList().run()
 }
 function toggleOrderedList() {
-  editor.value?.chain().focus().toggleOrderedList().run();
+  editor.value?.chain().focus().toggleOrderedList().run()
 }
 function toggleBlockquote() {
-  editor.value?.chain().focus().toggleBlockquote().run();
+  editor.value?.chain().focus().toggleBlockquote().run()
 }
 function toggleTaskList() {
-  editor.value?.chain().focus().toggleTaskList().run();
+  editor.value?.chain().focus().toggleTaskList().run()
+}
+function toggleCodeBlock() {
+  editor.value?.chain().focus().toggleCodeBlock().run()
+}
+function insertHorizontalRule() {
+  editor.value?.chain().focus().setHorizontalRule().run()
 }
 function addLink() {
-  const url = prompt("输入链接 URL:");
+  const url = prompt("输入链接 URL:")
   if (url) {
-    editor.value?.chain().focus().setLink({ href: url }).run();
+    editor.value?.chain().focus().setLink({ href: url }).run()
   }
 }
 function insertImage() {
-  const url = prompt("输入图片 URL:");
+  const url = prompt("输入图片 URL:")
   if (url) {
-    editor.value?.chain().focus().setImage({ src: url }).run();
+    editor.value?.chain().focus().setImage({ src: url }).run()
   }
 }
 
+/* ---- 表格 ---- */
+function insertTable() {
+  editor.value?.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()
+}
+function addColumnBefore() {
+  editor.value?.chain().focus().addColumnBefore().run()
+}
+function addColumnAfter() {
+  editor.value?.chain().focus().addColumnAfter().run()
+}
+function deleteColumn() {
+  editor.value?.chain().focus().deleteColumn().run()
+}
+function addRowBefore() {
+  editor.value?.chain().focus().addRowBefore().run()
+}
+function addRowAfter() {
+  editor.value?.chain().focus().addRowAfter().run()
+}
+function deleteRow() {
+  editor.value?.chain().focus().deleteRow().run()
+}
+function deleteTable() {
+  editor.value?.chain().focus().deleteTable().run()
+}
+function toggleHeaderColumn() {
+  editor.value?.chain().focus().toggleHeaderColumn().run()
+}
+function toggleHeaderRow() {
+  editor.value?.chain().focus().toggleHeaderRow().run()
+}
+
+/* ---- Callout ---- */
+function toggleCallout(type: "info" | "warning" | "error" | "success" = "info") {
+  editor.value?.chain().focus().toggleWrap("callout", { type }).run()
+}
+
+/* ---- 颜色 ---- */
+function setTextColor(color: string) {
+  editor.value?.chain().focus().setColor(color).run()
+}
+function setHighlight(color: string) {
+  editor.value?.chain().focus().toggleHighlight({ color }).run()
+}
+
+/* ---- 文本对齐 ---- */
+function alignLeft() {
+  editor.value?.chain().focus().setTextAlign("left").run()
+}
+function alignCenter() {
+  editor.value?.chain().focus().setTextAlign("center").run()
+}
+function alignRight() {
+  editor.value?.chain().focus().setTextAlign("right").run()
+}
+
 /* ---- 激活状态 ---- */
-const isActiveBold = computed(() => editor.value?.isActive("bold") ?? false);
-const isActiveItalic = computed(() => editor.value?.isActive("italic") ?? false);
-const isActiveUnderline = computed(() => editor.value?.isActive("underline") ?? false);
-const isActiveStrike = computed(() => editor.value?.isActive("strike") ?? false);
-const isActiveCode = computed(() => editor.value?.isActive("code") ?? false);
-const isActiveHeading2 = computed(() => editor.value?.isActive("heading", { level: 2 }) ?? false);
-const isActiveHeading3 = computed(() => editor.value?.isActive("heading", { level: 3 }) ?? false);
-const isActiveBulletList = computed(() => editor.value?.isActive("bulletList") ?? false);
-const isActiveOrderedList = computed(() => editor.value?.isActive("orderedList") ?? false);
-const isActiveBlockquote = computed(() => editor.value?.isActive("blockquote") ?? false);
-const isActiveTaskList = computed(() => editor.value?.isActive("taskList") ?? false);
-const isActiveLink = computed(() => editor.value?.isActive("link") ?? false);
+const isActiveBold = computed(() => editor.value?.isActive("bold") ?? false)
+const isActiveItalic = computed(() => editor.value?.isActive("italic") ?? false)
+const isActiveUnderline = computed(() => editor.value?.isActive("underline") ?? false)
+const isActiveStrike = computed(() => editor.value?.isActive("strike") ?? false)
+const isActiveCode = computed(() => editor.value?.isActive("code") ?? false)
+const isActiveHeading2 = computed(() => editor.value?.isActive("heading", { level: 2 }) ?? false)
+const isActiveHeading3 = computed(() => editor.value?.isActive("heading", { level: 3 }) ?? false)
+const isActiveBulletList = computed(() => editor.value?.isActive("bulletList") ?? false)
+const isActiveOrderedList = computed(() => editor.value?.isActive("orderedList") ?? false)
+const isActiveTaskList = computed(() => editor.value?.isActive("taskList") ?? false)
+const isActiveBlockquote = computed(() => editor.value?.isActive("blockquote") ?? false)
+const isActiveCodeBlock = computed(() => editor.value?.isActive("codeBlock") ?? false)
+const isActiveLink = computed(() => editor.value?.isActive("link") ?? false)
+const isActiveTable = computed(() => editor.value?.isActive("table") ?? false)
+const isActiveCallout = computed(() => editor.value?.isActive("callout") ?? false)
+
+/* ---- Emoji Picker ---- */
+const emojiPickerOpen = ref(false)
+
+const emojiCategories: { name: string; emojis: string[] }[] = [
+  { name: "常用", emojis: ["😀", "😂", "😊", "🥰", "😎", "🤔", "👍", "👎", "❤️", "🔥", "✅", "❌", "⭐", "💡", "📝", "🚀"] },
+  { name: "工作项", emojis: ["🐛", "✨", "🔧", "📋", "🎯", "📌", "🔴", "🟡", "🟢", "🔵", "⚫", "⚪", "🟣", "🟠", "📁", "📂"] },
+  { name: "符号", emojis: ["⭐", "💫", "💥", "💯", "❗", "❓", "⚠️", "⛔", "✅", "❌", "🔄", "➡️", "⬆️", "➕", "➖", "📎"] },
+  { name: "面孔", emojis: ["😀", "😃", "😄", "😁", "😆", "😅", "🤣", "😂", "🙂", "😉", "😊", "😇", "🥰", "😍", "🤩", "😘"] },
+]
+
+function toggleEmojiPicker() {
+  emojiPickerOpen.value = !emojiPickerOpen.value
+  if (emojiPickerOpen.value) slashMenuOpen.value = false
+}
+
+function insertEmoji(emoji: string) {
+  if (!editor.value) return
+  editor.value.chain().focus().insertContent(emoji).run()
+  emojiPickerOpen.value = false
+}
 
 /* ---- 工具栏配置（按 variant） ---- */
 const toolbarGroups = computed(() => {
@@ -213,12 +302,116 @@ const toolbarGroups = computed(() => {
   return [
     ["bold", "italic", "underline", "strike", "code"],
     ["heading2", "heading3"],
-    ["bulletList", "orderedList", "taskList", "blockquote"],
-    ["link", "image"],
+    ["bulletList", "orderedList", "taskList", "blockquote", "codeBlock"],
+    ["emoji"],
+    ["alignLeft", "alignCenter", "alignRight"],
+    ["calloutInfo", "calloutWarning", "calloutError", "calloutSuccess"],
+    ["link", "image", "table"],
   ]
 })
 
-defineExpose({ editor });
+/* ---- 颜色预设 ---- */
+const textColors = [
+  { label: "默认", value: "" },
+  { label: "红色", value: "#dc2626" },
+  { label: "橙色", value: "#ea580c" },
+  { label: "黄色", value: "#ca8a04" },
+  { label: "绿色", value: "#16a34a" },
+  { label: "蓝色", value: "#2563eb" },
+  { label: "紫色", value: "#9333ea" },
+  { label: "灰色", value: "#6b7280" },
+]
+
+/* ---- Slash Command 浮层 ---- */
+const slashMenuOpen = ref(false)
+const slashFilter = ref("")
+const slashSelectedIdx = ref(0)
+
+const filteredSlashItems = computed(() => {
+  const q = slashFilter.value.trim().toLowerCase()
+  if (!q) return slashItems
+  return slashItems.filter(
+    (item) =>
+      item.label.toLowerCase().includes(q) ||
+      item.description.toLowerCase().includes(q) ||
+      item.id.toLowerCase().includes(q),
+  )
+})
+
+function openSlashMenu() {
+  slashMenuOpen.value = true
+  slashFilter.value = ""
+  slashSelectedIdx.value = 0
+}
+
+function closeSlashMenu() {
+  slashMenuOpen.value = false
+  slashFilter.value = ""
+}
+
+function executeSlashCommand(item: SlashCommandItem) {
+  if (!editor.value) return
+  item.execute(editor.value)
+  closeSlashMenu()
+}
+
+function handleSlashKeydown(e: KeyboardEvent) {
+  if (!slashMenuOpen.value) return
+  const items = filteredSlashItems.value
+  if (e.key === "ArrowDown") {
+    e.preventDefault()
+    slashSelectedIdx.value = (slashSelectedIdx.value + 1) % items.length
+  } else if (e.key === "ArrowUp") {
+    e.preventDefault()
+    slashSelectedIdx.value = (slashSelectedIdx.value - 1 + items.length) % items.length
+  } else if (e.key === "Enter") {
+    e.preventDefault()
+    if (items[slashSelectedIdx.value]) {
+      executeSlashCommand(items[slashSelectedIdx.value])
+    }
+  } else if (e.key === "Escape") {
+    closeSlashMenu()
+  }
+}
+
+function handleEditorInput() {
+  if (!editor.value) return
+  const { from } = editor.value.state.selection
+  const textBefore = editor.value.state.doc.textBetween(
+    Math.max(0, from - 50),
+    from,
+    undefined,
+    "\ufffc",
+  )
+  // 检测 "/" 前面是空格或段首
+  const match = textBefore.match(/(?:^|\s)\/$/)
+  if (match && !slashMenuOpen.value) {
+    openSlashMenu()
+  }
+}
+
+function onSlashCommandOpen() {
+  openSlashMenu()
+}
+
+function onEmojiShortcutOpen() {
+  toggleEmojiPicker()
+}
+
+onMounted(() => {
+  // slash-command 插件派发 window 级事件
+  window.addEventListener("slash-command:open", onSlashCommandOpen)
+  window.addEventListener("slash-command:close", closeSlashMenu)
+  window.addEventListener("rich-editor:open-emoji", onEmojiShortcutOpen)
+})
+
+onUnmounted(() => {
+  window.removeEventListener("slash-command:open", onSlashCommandOpen)
+  window.removeEventListener("slash-command:close", closeSlashMenu)
+  window.removeEventListener("rich-editor:open-emoji", onEmojiShortcutOpen)
+})
+
+defineExpose({ editor })
 </script>
 
 <template>
@@ -232,9 +425,9 @@ defineExpose({ editor });
   >
     <!-- 菜单栏 -->
     <div v-if="editable && variant !== 'compact' && !compact" class="rich-editor__toolbar">
-      <!-- 格式按钮 -->
       <template v-for="(group, gi) in toolbarGroups" :key="gi">
         <template v-for="action in group" :key="action">
+          <!-- 格式按钮 (bold/italic/underline/strike/code) -->
           <button
             v-if="action === 'bold'"
             class="rich-editor__btn"
@@ -324,7 +517,7 @@ defineExpose({ editor });
             v-else-if="action === 'taskList'"
             class="rich-editor__btn"
             :class="{ 'rich-editor__btn--active': isActiveTaskList }"
-            title="任务列表"
+            title="任务列表 (Ctrl+Shift+9)"
             @click="toggleTaskList"
           >
             ☑
@@ -337,6 +530,87 @@ defineExpose({ editor });
             @click="toggleBlockquote"
           >
             ❝
+          </button>
+          <button
+            v-else-if="action === 'codeBlock'"
+            class="rich-editor__btn"
+            :class="{ 'rich-editor__btn--active': isActiveCodeBlock }"
+            title="代码块"
+            @click="toggleCodeBlock"
+          >
+            &lt;/&gt;
+          </button>
+
+          <!-- Emoji -->
+          <button
+            v-else-if="action === 'emoji'"
+            class="rich-editor__btn"
+            :class="{ 'rich-editor__btn--active': emojiPickerOpen }"
+            title="插入 Emoji"
+            @click="toggleEmojiPicker"
+          >
+            😊
+          </button>
+
+          <!-- 对齐 -->
+          <button
+            v-else-if="action === 'alignLeft'"
+            class="rich-editor__btn"
+            title="左对齐"
+            @click="alignLeft"
+          >
+            ≡‹
+          </button>
+          <button
+            v-else-if="action === 'alignCenter'"
+            class="rich-editor__btn"
+            title="居中"
+            @click="alignCenter"
+          >
+            ≡≡
+          </button>
+          <button
+            v-else-if="action === 'alignRight'"
+            class="rich-editor__btn"
+            title="右对齐"
+            @click="alignRight"
+          >
+            ›≡
+          </button>
+
+          <!-- Callout 提示框 -->
+          <button
+            v-else-if="action === 'calloutInfo'"
+            class="rich-editor__btn"
+            :class="{ 'rich-editor__btn--active': isActiveCallout }"
+            title="信息提示框 💡"
+            @click="toggleCallout('info')"
+          >
+            💡
+          </button>
+          <button
+            v-else-if="action === 'calloutWarning'"
+            class="rich-editor__btn"
+            title="警告提示框 ⚠️"
+            @click="toggleCallout('warning')"
+          >
+            ⚠
+          </button>
+          <button
+            v-else-if="action === 'calloutError'"
+            class="rich-editor__btn"
+            title="错误提示框 🚫"
+            @click="toggleCallout('error')"
+          >
+            🚫
+          </button>
+          <button
+            v-else-if="action === 'calloutSuccess'"
+            class="rich-editor__btn"
+            title="成功提示框 ✅"
+            @click="toggleCallout('success')"
+          >
+            ✅
           </button>
 
           <!-- 链接/图片 -->
@@ -357,10 +631,81 @@ defineExpose({ editor });
           >
             🖼
           </button>
+
+          <!-- 表格 -->
+          <button
+            v-else-if="action === 'table'"
+            class="rich-editor__btn"
+            :class="{ 'rich-editor__btn--active': isActiveTable }"
+            title="插入表格"
+            @click="insertTable"
+          >
+            ⊞
+          </button>
         </template>
 
         <span v-if="gi < toolbarGroups.length - 1" class="rich-editor__divider"></span>
       </template>
+
+      <!-- Table operations dropdown (shown when in table) -->
+      <template v-if="editable && isActiveTable">
+        <span class="rich-editor__divider"></span>
+        <span class="rich-editor__btn-group">
+          <button class="rich-editor__btn" title="在前面插入列" @click="addColumnBefore">+←</button>
+          <button class="rich-editor__btn" title="在后面插入列" @click="addColumnAfter">+→</button>
+          <button class="rich-editor__btn" title="删除列" @click="deleteColumn">−⊞</button>
+          <button class="rich-editor__btn" title="在前面插入行" @click="addRowBefore">+↑</button>
+          <button class="rich-editor__btn" title="在后面插入行" @click="addRowAfter">+↓</button>
+          <button class="rich-editor__btn" title="删除行" @click="deleteRow">−≡</button>
+          <button class="rich-editor__btn" title="表头行" @click="toggleHeaderRow">H≡</button>
+          <button class="rich-editor__btn" title="表头列" @click="toggleHeaderColumn">V≡</button>
+          <button class="rich-editor__btn rich-editor__btn--danger" title="删除表格" @click="deleteTable">🗑⊞</button>
+        </span>
+      </template>
+    </div>
+
+    <!-- Slash 命令浮层 -->
+    <div v-if="slashMenuOpen" class="rich-editor__slash-menu" @keydown="handleSlashKeydown">
+      <div class="rich-editor__slash-header">快捷命令</div>
+      <div
+        v-for="(item, idx) in filteredSlashItems"
+        :key="item.id"
+        class="rich-editor__slash-item"
+        :class="{ 'rich-editor__slash-item--selected': idx === slashSelectedIdx }"
+        @click="executeSlashCommand(item)"
+        @mouseenter="slashSelectedIdx = idx"
+      >
+        <span class="rich-editor__slash-icon">{{ item.icon }}</span>
+        <div class="rich-editor__slash-info">
+          <span class="rich-editor__slash-label">{{ item.label }}</span>
+          <span class="rich-editor__slash-desc">{{ item.description }}</span>
+        </div>
+        <span class="rich-editor__slash-cat">{{ item.category }}</span>
+      </div>
+      <div v-if="filteredSlashItems.length === 0" class="rich-editor__slash-empty">
+        没有匹配的命令
+      </div>
+    </div>
+
+    <!-- Emoji 选择面板 -->
+    <div v-if="emojiPickerOpen" class="rich-editor__emoji-panel">
+      <div
+        v-for="cat in emojiCategories"
+        :key="cat.name"
+        class="rich-editor__emoji-cat"
+      >
+        <div class="rich-editor__emoji-cat-name">{{ cat.name }}</div>
+        <div class="rich-editor__emoji-grid">
+          <button
+            v-for="e in cat.emojis"
+            :key="e"
+            class="rich-editor__emoji-item"
+            @click="insertEmoji(e)"
+          >
+            {{ e }}
+          </button>
+        </div>
+      </div>
     </div>
 
     <!-- 编辑区域 -->
@@ -368,6 +713,7 @@ defineExpose({ editor });
       :editor="editor"
       class="rich-editor__content"
       :style="{ minHeight: variant === 'compact' ? '40px' : variant === 'comment' ? '80px' : minHeight }"
+      @input="handleEditorInput"
     />
   </div>
 </template>
@@ -378,7 +724,7 @@ defineExpose({ editor });
   border-radius: var(--radius-md, 8px);
   background: var(--bg-surface-1, var(--surface-1, #fff));
   overflow: hidden;
-
+  position: relative;
   transition: border-color 0.15s;
 }
 
@@ -466,11 +812,114 @@ defineExpose({ editor });
   border-color: var(--border-accent-subtle, var(--brand-200, #bfdbfe));
 }
 
+.rich-editor__btn--danger {
+  color: var(--danger-500, #ef4444);
+}
+
+.rich-editor__btn--danger:hover {
+  background: var(--bg-danger-subtle, var(--danger-50));
+  border-color: var(--border-danger-subtle);
+}
+
 .rich-editor__divider {
   width: 1px;
   height: 18px;
   background: var(--border-subtle, #e5e7eb);
   margin: 0 4px;
+}
+
+.rich-editor__btn-group {
+  display: inline-flex;
+  gap: 1px;
+}
+
+/* ---- Slash Command Menu ---- */
+.rich-editor__slash-menu {
+  position: absolute;
+  top: 40px;
+  left: 8px;
+  right: 8px;
+  max-height: 300px;
+  overflow-y: auto;
+  background: var(--bg-surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md, 8px);
+  box-shadow: var(--shadow-overlay-100);
+  z-index: 100;
+  padding: 4px;
+}
+
+.rich-editor__slash-header {
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--txt-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.rich-editor__slash-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm, 6px);
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.rich-editor__slash-item:hover,
+.rich-editor__slash-item--selected {
+  background: var(--bg-accent-subtle, var(--brand-50, #eef2fe));
+}
+
+.rich-editor__slash-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  background: var(--bg-surface-2);
+  border: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+
+.rich-editor__slash-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.rich-editor__slash-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--txt-primary);
+}
+
+.rich-editor__slash-desc {
+  font-size: 11px;
+  color: var(--txt-tertiary);
+}
+
+.rich-editor__slash-cat {
+  font-size: 10px;
+  color: var(--txt-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  background: var(--bg-layer-1);
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+.rich-editor__slash-empty {
+  padding: 16px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--txt-tertiary);
 }
 
 /* ---- Content ---- */
@@ -606,5 +1055,142 @@ defineExpose({ editor });
   color: var(--txt-warning-primary);
   padding: 1px 3px;
   border-radius: 3px;
+}
+
+/* Callout */
+.rich-editor__content :deep(.ProseMirror div[data-type="callout"]) {
+  border-radius: var(--radius-md, 8px);
+  padding: 12px 16px;
+  margin: 8px 0;
+  border-left: 3px solid;
+  display: flex;
+  gap: 8px;
+}
+
+.rich-editor__content :deep(.ProseMirror div[data-type="callout"][data-callout-type="info"]) {
+  background: var(--brand-50, #eef2fe);
+  border-color: var(--brand-default, #3b82f6);
+}
+
+.rich-editor__content :deep(.ProseMirror div[data-type="callout"][data-callout-type="warning"]) {
+  background: var(--warning-50, #fffbeb);
+  border-color: var(--warning-500, #f59e0b);
+}
+
+.rich-editor__content :deep(.ProseMirror div[data-type="callout"][data-callout-type="error"]) {
+  background: var(--danger-50, #fef2f2);
+  border-color: var(--danger-500, #ef4444);
+}
+
+.rich-editor__content :deep(.ProseMirror div[data-type="callout"][data-callout-type="success"]) {
+  background: var(--success-50, #ecfdf5);
+  border-color: var(--success-500, #10b981);
+}
+
+/* Table */
+.rich-editor__content :deep(.ProseMirror table) {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 8px 0;
+  table-layout: fixed;
+}
+
+.rich-editor__content :deep(.ProseMirror th),
+.rich-editor__content :deep(.ProseMirror td) {
+  border: 1px solid var(--border-subtle);
+  padding: 8px 12px;
+  position: relative;
+  vertical-align: top;
+  min-width: 60px;
+}
+
+.rich-editor__content :deep(.ProseMirror th) {
+  background: var(--bg-surface-2);
+  font-weight: 600;
+  text-align: left;
+}
+
+.rich-editor__content :deep(.ProseMirror .selectedCell:after) {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--bg-accent-subtle);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.rich-editor__content :deep(.ProseMirror .column-resize-handle) {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: -2px;
+  width: 4px;
+  background: var(--brand-default);
+  pointer-events: none;
+}
+
+/* Text align */
+.rich-editor__content :deep(.ProseMirror .is-editor-empty):first-child::before {
+  color: var(--txt-placeholder);
+}
+
+/* Text color (TipTap Color extension uses mark) */
+.rich-editor__content :deep(.ProseMirror span[style*="color"]) {
+  display: inline;
+}
+
+/* ---- Emoji Picker ---- */
+.rich-editor__emoji-panel {
+  position: absolute;
+  top: 40px;
+  right: 8px;
+  width: 280px;
+  max-height: 200px;
+  overflow-y: auto;
+  background: var(--bg-surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md, 8px);
+  box-shadow: var(--shadow-overlay-100);
+  z-index: 100;
+  padding: 8px;
+}
+
+.rich-editor__emoji-cat {
+  margin-bottom: 6px;
+}
+
+.rich-editor__emoji-cat-name {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--txt-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  margin-bottom: 4px;
+  padding: 0 2px;
+}
+
+.rich-editor__emoji-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 2px;
+}
+
+.rich-editor__emoji-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  aspect-ratio: 1;
+  font-size: 16px;
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm, 4px);
+  cursor: pointer;
+  transition: background 0.1s;
+  padding: 0;
+}
+
+.rich-editor__emoji-item:hover {
+  background: var(--bg-surface-3, var(--surface-3, #f3f4f6));
 }
 </style>

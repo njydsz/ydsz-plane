@@ -78,6 +78,8 @@ type Engine struct {
 	execDeps  ActionExecutor
 	ctxProv   ExecutionContextProvider
 	log       *zap.Logger
+	metrics   *Metrics
+	breakers  *CircuitBreakerRegistry
 	// db 供引擎内部 DB 查询使用（assignees / tech_lead / least_loaded）。
 	// 由 newEngine 注入；NewEngine 构造时可为 nil（不执行需 DB 的动作）。
 	db *pgxpool.Pool
@@ -93,7 +95,21 @@ func NewEngine(svc *Service, deps ActionExecutor, prov ExecutionContextProvider,
 		execDeps: deps,
 		ctxProv:  prov,
 		log:      log,
+		metrics:  &Metrics{}, // nil-safe（内部判断 nil 后跳过）
+		breakers: NewCircuitBreakerRegistry(DefaultCircuitBreakerConfig),
 	}
+}
+
+// WithMetrics 注入 Prometheus 指标收集器（链式调用，可选）。
+func (e *Engine) WithMetrics(m *Metrics) *Engine {
+	e.metrics = m
+	return e
+}
+
+// WithCircuitBreaker 注入自定义熔断器注册表（链式调用，可选）。
+func (e *Engine) WithCircuitBreaker(b *CircuitBreakerRegistry) *Engine {
+	e.breakers = b
+	return e
 }
 
 // EvaluateEvent 消费一条领域事件并触发匹配的自动化规则。
@@ -121,6 +137,7 @@ func (e *Engine) EvaluateEvent(ctx context.Context, event mq.EventEnvelope) erro
 		e.log.Warn("automation: execution depth exceeded, skipping",
 			zap.String("event", event.EventType),
 			zap.Int("depth", execCtx.Depth))
+		e.metrics.AntiLoopDropCount.Inc()
 		return nil
 	}
 
@@ -142,7 +159,16 @@ func (e *Engine) EvaluateEvent(ctx context.Context, event mq.EventEnvelope) erro
 
 	// 逐条规则评估
 	for _, rule := range rules {
+		// 熔断器前置检查
+		breaker := e.breakers.GetOrCreate(rule.ID)
+		if !breaker.Allow() {
+			e.log.Debug("automation: rule circuit breaker open, skipping",
+			zap.Int64("rule", rule.ID))
+			continue
+		}
+
 		if err := e.evaluateRule(ctx, &rule, execCtx, event); err != nil {
+			breaker.RecordFailure()
 			e.log.Warn("automation: rule evaluation failed",
 				zap.Int64("rule", rule.ID),
 				zap.Error(err))
@@ -158,6 +184,9 @@ func (e *Engine) EvaluateEvent(ctx context.Context, event mq.EventEnvelope) erro
 				TriggerDepth:   execCtx.Depth,
 				ViaAutomation:  execCtx.ViaAutomation,
 			})
+			e.metrics.ObserveExecution("failed", 0)
+		} else {
+			breaker.RecordSuccess()
 		}
 	}
 
@@ -209,6 +238,18 @@ func (e *Engine) evaluateRule(ctx context.Context, rule *Rule, execCtx *Executio
 	}
 
 	duration := int(time.Since(start).Milliseconds())
+
+	// 记录指标
+	resultLabel := "success"
+	switch status {
+	case ExecFailed:
+		resultLabel = "failed"
+	case ExecDryRun:
+		resultLabel = "dry_run"
+	case ExecSkipped:
+		resultLabel = "skipped"
+	}
+	e.metrics.ObserveExecution(resultLabel, duration)
 
 	// 3. 写审计日志
 	contextJSON := map[string]any{

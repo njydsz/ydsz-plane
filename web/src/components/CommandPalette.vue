@@ -31,6 +31,23 @@
           <div class="cp-body">
             <!-- 命令模式 (无搜索词) -->
             <template v-if="!query.trim() && mode === 'command'">
+              <!-- 最近访问分组 -->
+              <div v-if="recentItemsInWs.length > 0" class="cp-group">
+                <div class="cp-group-title">最近访问</div>
+                <div
+                  v-for="(item, idx) in recentItemsInWs.slice(0, 5)"
+                  :key="'recent-' + item.type + '-' + item.id"
+                  class="cp-item"
+                  :class="{ 'cp-item--selected': selectedGroup === 'recent' && selectedIdx === idx }"
+                  @click="goToRecent(item)"
+                  @mousemove="selectedGroup = 'recent'; selectedIdx = idx"
+                >
+                  <span class="cp-item-icon">{{ item.icon }}</span>
+                  <span class="cp-item-label">{{ item.name }}</span>
+                  <span class="cp-item-meta">{{ item.projectName || typeLabel(item.type) }}</span>
+                </div>
+              </div>
+
               <div v-for="group in commandGroups" :key="group.title" class="cp-group">
                 <div class="cp-group-title">{{ group.title }}</div>
                 <div
@@ -144,6 +161,7 @@ import { ref, computed, watch, nextTick, onMounted, onUnmounted } from "vue"
 import { useRouter, useRoute } from "vue-router"
 import { useSearchStore } from "@/stores/search"
 import { useWorkspaceStore } from "@/stores/workspace"
+import { useRecentVisitedStore } from "@/stores/recent-visited"
 
 // ---------------------------------------------------------------------------
 //  Router / Store
@@ -152,8 +170,23 @@ const router = useRouter()
 const route = useRoute()
 const store = useSearchStore()
 const wsStore = useWorkspaceStore()
+const recentStore = useRecentVisitedStore()
 
 const open = computed(() => store.open)
+
+// ---------------------------------------------------------------------------
+//  Context-aware: 当前是否在项目内
+// ---------------------------------------------------------------------------
+/** 当前路由的 projectId（如果在项目内） */
+const currentProjectId = computed(() => {
+  const pid = route.params.projectId
+  return pid ? Number(pid) : null
+})
+
+/** 当前工作空间内的最近访问 */
+const recentItemsInWs = computed(() =>
+  wsStore.currentId ? recentStore.getByWorkspace(wsStore.currentId) : [],
+)
 
 // ---------------------------------------------------------------------------
 //  Local state
@@ -217,21 +250,21 @@ const commandGroups = computed<CommandGroupDef[]>(() => {
           label: "通知中心",
           icon: "🔔",
           iconBg: "var(--amber-50, #fffbeb)",
-          action: () => router.push(`/${slug}/notifications`),
+          action: () => router.push(`/${wsId}/notifications`),
         },
         {
           id: "go-workbench",
           label: "我的工作台",
           icon: "📋",
           iconBg: "var(--extended-color-indigo-50, #eef2fe)",
-          action: () => router.push(`/${slug}/workbench`),
+          action: () => router.push(`/${wsId}/workbench`),
         },
         {
           id: "go-settings",
           label: "工作空间设置",
           icon: "⚙️",
           iconBg: "var(--neutral-200)",
-          action: () => router.push(`/${slug}/settings`),
+          action: () => router.push(`/${wsId}/settings`),
         },
       ],
     },
@@ -250,7 +283,7 @@ const commandGroups = computed<CommandGroupDef[]>(() => {
             if (projectId) {
               window.dispatchEvent(new CustomEvent("command:create-issue", { detail: { projectId } }))
             }
-            router.push(`/${slug}/projects`)
+            router.push(`/${wsId}/projects`)
           },
         },
         {
@@ -380,10 +413,69 @@ function execute(cmd: CommandDef) {
 
 function goTo(type: string, item: any) {
   const wsId = wsStore.currentId
-  if (type === 'issue') router.push(`/${wsId}/projects/${item.project_id}/issues/${item.id}`)
-  else if (type === 'sprint') router.push(`/${wsId}/projects/${item.project_id}/sprints/${item.id}`)
-  else if (type === 'version') router.push(`/${wsId}/projects/${item.project_id}/versions/${item.id}`)
+  if (type === 'issue') {
+    router.push(`/${wsId}/projects/${item.project_id}/issues/${item.id}`)
+    recentStore.add({
+      id: item.id,
+      type: "issue",
+      name: item.name,
+      projectName: item.project_name,
+      workspaceId: wsId,
+      href: `/${wsId}/projects/${item.project_id}/issues/${item.id}`,
+      icon: "#",
+    })
+  }
+  else if (type === 'sprint') {
+    router.push(`/${wsId}/projects/${item.project_id}/sprints/${item.id}`)
+    recentStore.add({
+      id: item.id,
+      type: "sprint",
+      name: item.name,
+      projectName: item.project_name,
+      workspaceId: wsId,
+      href: `/${wsId}/projects/${item.project_id}/sprints/${item.id}`,
+      icon: "🏃",
+    })
+  }
+  else if (type === 'version') {
+    router.push(`/${wsId}/projects/${item.project_id}/versions/${item.id}`)
+    recentStore.add({
+      id: item.id,
+      type: "version",
+      name: item.name,
+      projectName: item.project_name,
+      workspaceId: wsId,
+      href: `/${wsId}/projects/${item.project_id}/versions/${item.id}`,
+      icon: "🚀",
+    })
+  }
   close()
+}
+
+/** 跳转到最近访问记录 */
+function goToRecent(item: import("@/stores/recent-visited").RecentItem) {
+  router.push(item.href)
+  recentStore.add({
+    id: item.id,
+    type: item.type,
+    name: item.name,
+    projectName: item.projectName,
+    workspaceId: item.workspaceId,
+    href: item.href,
+    icon: item.icon,
+  })
+  close()
+}
+
+/** 类型 → 中文标签 */
+function typeLabel(type: string): string {
+  const map: Record<string, string> = {
+    issue: "工作项",
+    sprint: "迭代",
+    version: "版本",
+    project: "项目",
+  }
+  return map[type] ?? type
 }
 
 function handleEnter() {

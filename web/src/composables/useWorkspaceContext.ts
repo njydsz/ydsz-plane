@@ -1,4 +1,4 @@
-/**
+﻿/**
  * useWorkspaceContext — 从路由解析 workspace/project 上下文的通用 composable。
  *
  * 解决 4 个 Sprint 视图（及其他项目域视图）重复实现 resolveWsId() 的问题：
@@ -7,20 +7,20 @@
  *  3) 暴露 ready 信号，供 watchEffect 驱动按需加载
  */
 
-import { computed, ref, watchEffect } from "vue";
+import { computed, ref, watchEffect, type Ref } from "vue";
 import { useRoute } from "vue-router";
 import { workspaceApi } from "@/api/services/workspace";
 
 /** Workspace/project 上下文结构体（含 wsId / projectId / ready / resolve）。 */
 export interface WorkspaceContext {
   /** 工作空间 ID ref（解析成功后 > 0） */
-  wsId: Readonly<import("vue").Ref<number>>;
+  wsId: Readonly<Ref<number>>;
   /** 项目 ID ref（从路由解析） */
-  projectId: Readonly<import("vue").Ref<number>>;
+  projectId: Readonly<Ref<number>>;
   /** 上下文是否已就绪（workspaceId 有效且 projectId 有效） */
-  ready: Readonly<import("vue").Ref<boolean>>;
+  ready: Readonly<Ref<boolean>>;
   /** 解析失败的错误信息 */
-  error: Readonly<import("vue").Ref<string | null>;
+  error: Readonly<Ref<string | null>>;
   /** 手动强制重新解析 */
   resolve: () => Promise<void>;
 }

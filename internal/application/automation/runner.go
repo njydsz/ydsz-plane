@@ -72,13 +72,14 @@ func RunConsumer(ctx context.Context, mqClient *mq.Client, db *pgxpool.Pool, log
 	}
 }
 
-// newEngine 创建默认的执行引擎（含内置 SPI 实现）。
+// newEngine 创建默认的执行引擎（含内置 SPI 实现 + Prometheus 指标 + 熔断器）。
 func newEngine(db *pgxpool.Pool, log *zap.Logger) *Engine {
 	svc := NewService(db)
 	prov := NewDefaultContextProvider(db)
 	exec := newActionExecutor(db)
 	eng := NewEngine(svc, exec, prov, log)
 	eng.db = db
+	eng.metrics = DefaultMetrics // 注入全局 Prometheus 指标
 	return eng
 }
 

@@ -498,7 +498,7 @@ onMounted(async () => {
       <!-- ========== Defects Tab ========== -->
       <div v-if="activeTab === 'defects'" class="tab-content">
         <DefectPanel
-          :workspace-slug="workspaceId"
+          :workspace-id="workspaceId"
           :project-id="projectId"
           :version-id="versionId"
         />

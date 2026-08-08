@@ -6,7 +6,6 @@
 import { computed, onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
 
-import { workspaceApi } from "@/api/services/workspace";
 import { issueApi, type Issue, type IssuePriority } from "@/api/services/issue";
 import { useIssueStore } from "@/stores/issue";
 import { usePeekStore } from "@/stores/peek";
@@ -36,15 +35,8 @@ async function load() {
   loading.value = true;
   error.value = "";
   try {
-    const wsId = Number(route.params.workspaceId ?? "");
-    let wsIdVal: number;
-    if (wsId) {
-      const ws = await workspaceApi.get(wsId);
-      wsIdVal = ws.id;
-    } else {
-      wsIdVal = Number(route.params.wsId);
-    }
-    wsId.value = wsIdVal;
+    const wsIdVal = Number(route.params.workspaceId);
+
     await Promise.all([
       issueStore.fetchStates(wsIdVal, projectId.value),
       issueStore.fetchIssues(wsIdVal, projectId.value),

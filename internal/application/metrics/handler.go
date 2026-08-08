@@ -26,6 +26,9 @@ type MetricsHandler struct {
 	d *HandlerDeps
 }
 
+// Handler 是 MetricsHandler 的类型别名，供 CachedHandler 嵌入使用。
+type Handler = MetricsHandler
+
 // NewMetricsHandler 构造 handler。
 func NewMetricsHandler(d *HandlerDeps) *MetricsHandler {
 	return &MetricsHandler{d: d}
@@ -39,8 +42,14 @@ func (h *MetricsHandler) Register(r *gin.RouterGroup) {
 	r.GET("/quality", h.GetQualityMetrics)
 	r.GET("/dora", h.GetDORA)
 	r.GET("/resource-load", h.GetResourceLoad)
+	r.GET("/resource-load/detail", h.GetResourceLoadDetail)
 	r.POST("/deployments", h.RecordDeployment)
 	r.GET("/snapshots", h.ListSnapshots)
+
+	// P1: 高级效能指标（CFD/控制图/周吞吐量）
+	r.GET("/cfd", h.GetCFD)
+	r.GET("/control-chart", h.GetControlChart)
+	r.GET("/throughput", h.GetWeeklyThroughput)
 }
 
 // GetVelocity 查询项目速率统计。
@@ -295,4 +304,115 @@ func writeErr(c *gin.Context, err error) {
 		return
 	}
 	c.JSON(http.StatusInternalServerError, errs.ErrInternal.Wrap(err))
+}
+
+// --- P1: Advanced Metrics Handlers ---
+
+// cfdQuery CFD 查询参数。
+type cfdQuery struct {
+	Days int `form:"days" binding:"max=365"`
+}
+
+// GetCFD 查询项目累积流图数据。
+//
+//	@Summary		累积流图（CFD）
+//	@Description	按日期分桶统计各状态组工作项数量，用于绘制堆叠面积图
+//	@Tags			metrics
+//	@Produce		json
+//	@Param			days	query	int	false	"天数（默认 30，最大 365）"
+//	@Success		200		{object}	[]CFDDataPoint
+//	@Router			/metrics/cfd [get]
+func (h *MetricsHandler) GetCFD(c *gin.Context) {
+	wsID := c.GetInt64(middleware.CtxWorkspaceID)
+	projectID := c.GetInt64(middleware.CtxProjectID)
+
+	var q cfdQuery
+	if err := c.ShouldBindQuery(&q); err != nil {
+		writeErr(c, errs.ErrValidation.WithDetails(
+			errs.FieldDetail{Field: "days", Reason: "必须在 1-365 之间"},
+		))
+		return
+	}
+	if q.Days <= 0 {
+		q.Days = 30
+	}
+
+	fromDate := time.Now().AddDate(0, 0, -q.Days)
+	toDate := time.Now()
+
+	calc := NewCFDCalculator(h.d.Svc.db)
+	points, err := calc.Calculate(c.Request.Context(), wsID, projectID, fromDate, toDate)
+	if err != nil {
+		writeErr(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, points)
+}
+
+// GetControlChart 查询前置时间控制图数据。
+//
+//	@Summary		前置时间控制图
+//	@Description	按完成日期排序的前置时间散点图 + P50/P85/P95 控制线
+//	@Tags			metrics
+//	@Produce		json
+//	@Param			days	query	int	false	"天数（默认 90）"
+//	@Success		200		{object}	ControlChartResult
+//	@Router			/metrics/control-chart [get]
+func (h *MetricsHandler) GetControlChart(c *gin.Context) {
+	wsID := c.GetInt64(middleware.CtxWorkspaceID)
+	projectID := c.GetInt64(middleware.CtxProjectID)
+	days, _ := strconv.Atoi(c.DefaultQuery("days", "90"))
+	if days > 365 {
+		days = 365
+	}
+
+	calc := NewControlChartCalculator(h.d.Svc.db)
+	result, err := calc.Calculate(c.Request.Context(), wsID, projectID, days)
+	if err != nil {
+		writeErr(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, result)
+}
+
+// GetWeeklyThroughput 查询周吞吐量。
+//
+//	@Summary		周吞吐量
+//	@Description	近 N 周每周完成的需求数与故事点数
+//	@Tags			metrics
+//	@Produce		json
+//	@Param			weeks	query	int	false	"周数（默认 12）"
+//	@Success		200		{object}	[]WeeklyThroughput
+//	@Router			/metrics/throughput [get]
+func (h *MetricsHandler) GetWeeklyThroughput(c *gin.Context) {
+	wsID := c.GetInt64(middleware.CtxWorkspaceID)
+	projectID := c.GetInt64(middleware.CtxProjectID)
+	weeks, _ := strconv.Atoi(c.DefaultQuery("weeks", "12"))
+
+	result, err := h.d.Svc.GetWeeklyThroughput(c.Request.Context(), wsID, projectID, weeks)
+	if err != nil {
+		writeErr(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, result)
+}
+
+// GetResourceLoadDetail 查询项目成员级资源负载明细。
+//
+//	@Summary		资源负载明细
+//	@Description	每位成员当前 WIP 数量与故事点负载
+//	@Tags			metrics
+//	@Produce		json
+//	@Success		200	{object}	ResourceLoadDetail
+//	@Router			/metrics/resource-load/detail [get]
+func (h *MetricsHandler) GetResourceLoadDetail(c *gin.Context) {
+	wsID := c.GetInt64(middleware.CtxWorkspaceID)
+	projectID := c.GetInt64(middleware.CtxProjectID)
+
+	result, err := h.d.Svc.GetResourceLoadDetail(c.Request.Context(), wsID, projectID)
+	if err != nil {
+		writeErr(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, result)
 }

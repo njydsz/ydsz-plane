@@ -69,7 +69,7 @@ async function resolveWorkspace(slug: string): Promise<number> {
     return asNumber;
   }
   // 否则当作 slug 查询
-  const ws = await workspaceApi.get(slug);
+  const ws = await workspaceApi.getBySlug(slug);
   workspace.value = ws;
   return ws.id;
 }

@@ -32,7 +32,6 @@ const states = ref<State[]>([]);
 const wsId = ref<number | null>(null);
 
 // ---- 派生 ----
-const wsId = computed(() => peek.target?.workspaceId ?? 0);
 const projectId = computed(() => peek.target?.projectId ?? 0);
 const issueId = computed(() => peek.target?.issueId ?? 0);
 

@@ -23,10 +23,10 @@ import { useAuthStore } from "@/stores/auth";
 const route = useRoute();
 const auth = useAuthStore();
 
-const wsId = computed(() => Number(route.params.workspaceId));
+const routeWsId = computed(() => Number(route.params.workspaceId));
 const activeTab = ref<"info" | "members" | "invitations" | "api-tokens">("info");
 
-const wsId = ref(0); // 拿到 ID 后设置
+// workspace ID 直接从路由读取
 const ws = ref<Workspace | null>(null);
 const members = ref<Member[]>([]);
 const invitations = ref<Invitation[]>([]);
@@ -74,21 +74,20 @@ async function loadAll() {
   error.value = "";
   try {
     // 先根据 slug 拿 ID
-    const wsData = await workspaceApi.get(wsId.value);
+    const wsData = await workspaceApi.get(routeWsId.value);
     ws.value = wsData;
-    wsId.value = wsData.id;
-    editForm.name = wsData.name;
+        editForm.name = wsData.name;
     editForm.timezone = wsData.timezone;
     editForm.language = wsData.language;
 
     const [mems, tokens] = await Promise.all([
-      workspaceApi.listMembers(wsId.value),
+      workspaceApi.listMembers(routeWsId.value),
       apiTokenApi.list(),
     ]);
     members.value = mems;
     apiTokens.value = tokens;
     if (canManageMembers.value) {
-      invitations.value = await workspaceApi.listInvitations(wsId.value);
+      invitations.value = await workspaceApi.listInvitations(routeWsId.value);
     }
   } catch (e: any) {
     error.value = e.message ?? "加载失败";
@@ -226,7 +225,7 @@ async function saveEdit() {
 
   editSaving.value = true;
   try {
-    const updated = await workspaceApi.update(wsId.value, {
+    const updated = await workspaceApi.update(routeWsId.value, {
       name: editForm.name.trim(),
       timezone: editForm.timezone,
       language: editForm.language,
@@ -253,7 +252,7 @@ async function sendInvite() {
   }
   inviteSending.value = true;
   try {
-    await workspaceApi.sendInvitation(wsId.value, {
+    await workspaceApi.sendInvitation(routeWsId.value, {
       email: inviteEmail.value.trim(),
       role: inviteRole.value,
       message: inviteMessage.value || undefined,
@@ -262,7 +261,7 @@ async function sendInvite() {
     inviteEmail.value = "";
     inviteMessage.value = "";
     // 刷新邀请列表
-    invitations.value = await workspaceApi.listInvitations(wsId.value);
+    invitations.value = await workspaceApi.listInvitations(routeWsId.value);
   } catch (e: any) {
     inviteError.value = e.message ?? "发送失败";
   } finally {
@@ -275,7 +274,7 @@ async function changeRole(m: Member, role: string) {
   const oldRole = m.role;
   m.role = role; // 乐观更新
   try {
-    await workspaceApi.changeRole(wsId.value, m.id, role);
+    await workspaceApi.changeRole(routeWsId.value, m.id, role);
   } catch (e: any) {
     m.role = oldRole; // 回滚
     alert(`角色修改失败：${e.message}`);
@@ -285,7 +284,7 @@ async function changeRole(m: Member, role: string) {
 async function removeMember(m: Member) {
   if (!confirm(`确定要移除成员 ${m.display_name} (${m.email}) 吗？`)) return;
   try {
-    await workspaceApi.removeMember(wsId.value, m.id);
+    await workspaceApi.removeMember(routeWsId.value, m.id);
     members.value = members.value.filter((x) => x.id !== m.id);
   } catch (e: any) {
     alert(`移除失败：${e.message}`);
@@ -295,7 +294,7 @@ async function removeMember(m: Member) {
 async function revokeInvitation(inv: Invitation) {
   if (!confirm(`撤销对 ${inv.email} 的邀请？`)) return;
   try {
-    await workspaceApi.revokeInvitation(wsId.value, inv.id);
+    await workspaceApi.revokeInvitation(routeWsId.value, inv.id);
     invitations.value = invitations.value.filter((x) => x.id !== inv.id);
   } catch (e: any) {
     alert(`撤销失败：${e.message}`);

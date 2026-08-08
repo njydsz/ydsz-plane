@@ -6,9 +6,14 @@ import { baseWithPlaceholder } from "./base"
 import { formattingBasic, formattingExtensions } from "./formatting"
 import { blockBasic, blockExtensions } from "./block"
 import { inlineExtensions } from "./inline"
+import { tableExtensions } from "./table"
+import { mediaExtensions } from "./media"
+import Callout from "./callout"
+import SlashCommand, { slashItems } from "./slash-command"
 
 /**
  * 完整编辑器扩展集 — 用于 Issue 描述、文档编辑等富文本场景
+ * 包含格式、块级、表格、任务列表、文本对齐、颜色、高亮等全套能力
  */
 export function completeExtensions(placeholder = "输入内容...") {
   return [
@@ -16,8 +21,15 @@ export function completeExtensions(placeholder = "输入内容...") {
     ...formattingExtensions,
     ...blockExtensions,
     ...inlineExtensions,
+    ...tableExtensions,
+    ...mediaExtensions,
+    Callout,
+    SlashCommand,
   ]
 }
+
+/** 导出斜杠命令项列表（供 UI 浮层使用） */
+export { slashItems }
 
 /**
  * 评论编辑器扩展集 — 精简版，仅基础格式

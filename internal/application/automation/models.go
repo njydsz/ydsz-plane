@@ -259,11 +259,12 @@ type ExecutionResult struct {
 
 // --- Built-in Rule Templates (7 条) ---
 
-// BuiltInTemplates 返回 PRD §9.7 预置的 7 条模板（用于前端"添加模板"面板）。
+// BuiltInTemplates 返回 PRD §9.7 预置的规则模板（共 15 条，覆盖质量/效率/通知/管理场景）。
 // 注：这些模板同时存在于 DB automation_templates 表中，
 // 此处以 Go 常量形式提供方便单元测试与代码引用。
 func BuiltInTemplates() []Template {
 	return []Template{
+		// --- 质量类 ---
 		{
 			Slug:        "auto-complete-parent",
 			Name:        "子项全部完成后自动完成父项",
@@ -283,20 +284,84 @@ func BuiltInTemplates() []Template {
 			IsRecommended: true,
 		},
 		{
-			Slug:        "overdue-reminder",
-			Name:        "逾期提醒",
-			Description: "工作项到期前 1 天自动提醒负责人",
-			Category:    "notification",
+			Slug:        "defect-notify-tech-lead",
+			Name:        "新缺陷通知技术负责人",
+			Description: "项目里新建高优缺陷时，自动通知项目技术负责人",
+			Category:    "quality",
 			DSLTemplate: RuleDSL{
-				Trigger:    Trigger{Type: "scheduled", Cron: "0 9 * * *", Filter: map[string]any{"due_within_hours": 24}},
-				Conditions: []Condition{{Field: "state.group", Op: "ne", Value: "completed"}},
+				Trigger:    Trigger{Type: "issue.created", Filter: map[string]any{"type_code": "defect", "priority": "urgent"}},
+				Conditions: []Condition{},
 				Actions: []Action{
-					{Type: ActionNotify, Config: map[string]any{"channel": "in_app", "target": "${issue.assignees}", "template": "工作项 {{issue.identifier}} 即将到期"}},
+					{Type: ActionNotify, Config: map[string]any{"channel": "in_app", "target": "${project.tech_lead}", "template": "🚨 新建紧急缺陷: [{{issue.identifier}}] {{issue.name}}"}},
 				},
 			},
-			Icon:          "clock",
+			Icon:          "alert-triangle",
 			SortOrder:     2,
 			IsRecommended: true,
+		},
+		{
+			Slug:        "defect-assign-verifier",
+			Name:        "缺陷修复后自动指派验证人",
+			Description: "缺陷修复后自动将验证任务指派给创建者",
+			Category:    "quality",
+			DSLTemplate: RuleDSL{
+				Trigger:    Trigger{Type: "issue.status_changed", Filter: map[string]any{"type_code": "defect", "to_group": "completed"}},
+				Conditions: []Condition{},
+				Actions: []Action{
+					{Type: ActionNotify, Config: map[string]any{"channel": "in_app", "target": "${issue.created_by}", "template": "缺陷 {{issue.identifier}} 已修复，请验证"}},
+				},
+			},
+			Icon:      "check-circle",
+			SortOrder: 3,
+		},
+		// --- 效率类 ---
+		{
+			Slug:        "auto-start-date",
+			Name:        "进入'进行中'时自动填写开始日期",
+			Description: "工作项首次进入进行中状态时，自动记录开始时间",
+			Category:    "efficiency",
+			DSLTemplate: RuleDSL{
+				Trigger: Trigger{Type: "issue.status_changed", Filter: map[string]any{"to_group": "started"}},
+				Conditions: []Condition{{Field: "started_at", Op: "is_empty"}},
+				Actions: []Action{
+					{Type: ActionUpdateField, Field: "started_at", Value: "${now}"},
+				},
+			},
+			Icon:          "play",
+			SortOrder:     4,
+			IsRecommended: true,
+		},
+		{
+			Slug:        "auto-assign-least-loaded",
+			Name:        "最闲人自动指派",
+			Description: "新建工作项时自动分配给当前负载最轻的成员",
+			Category:    "efficiency",
+			DSLTemplate: RuleDSL{
+				Trigger:    Trigger{Type: "issue.created"},
+				Conditions: []Condition{{Field: "assignees", Op: "is_empty"}},
+				Actions: []Action{
+					{Type: ActionAssign, Config: map[string]any{"strategy": "least_loaded", "role": "member", "scope": "project"}},
+				},
+			},
+			Icon:      "user-plus",
+			SortOrder: 5,
+		},
+		{
+			Slug:        "auto-set-priority",
+			Name:        "高优需求自动标记",
+			Description: "根据关键词自动设置工作项优先级",
+			Category:    "efficiency",
+			DSLTemplate: RuleDSL{
+				Trigger: Trigger{Type: "issue.created"},
+				Conditions: []Condition{
+					{Field: "issue.name", Op: "contains", Value: "紧急"},
+				},
+				Actions: []Action{
+					{Type: ActionUpdateField, Field: "priority", Value: "urgent"},
+				},
+			},
+			Icon:      "zap",
+			SortOrder: 6,
 		},
 		{
 			Slug:        "version-release-transition",
@@ -313,7 +378,7 @@ func BuiltInTemplates() []Template {
 				},
 			},
 			Icon:      "rocket",
-			SortOrder: 3,
+			SortOrder: 7,
 		},
 		{
 			Slug:        "epic-points-rollup",
@@ -328,54 +393,118 @@ func BuiltInTemplates() []Template {
 				},
 			},
 			Icon:      "layers",
-			SortOrder: 4,
+			SortOrder: 8,
 		},
+		// --- 通知类 ---
 		{
-			Slug:        "auto-start-date",
-			Name:        "进入'进行中'时自动填写开始日期",
-			Description: "工作项首次进入进行中状态时，自动记录开始时间",
-			Category:    "efficiency",
+			Slug:        "overdue-reminder",
+			Name:        "逾期提醒",
+			Description: "工作项到期前 1 天自动提醒负责人",
+			Category:    "notification",
 			DSLTemplate: RuleDSL{
-				Trigger: Trigger{Type: "issue.status_changed", Filter: map[string]any{"to_group": "started"}},
-				Conditions: []Condition{{Field: "started_at", Op: "is_empty"}},
+				Trigger:    Trigger{Type: "scheduled", Cron: "0 9 * * *", Filter: map[string]any{"due_within_hours": 24}},
+				Conditions: []Condition{{Field: "state.group", Op: "ne", Value: "completed"}},
 				Actions: []Action{
-					{Type: ActionUpdateField, Field: "started_at", Value: "${now}"},
+					{Type: ActionNotify, Config: map[string]any{"channel": "in_app", "target": "${issue.assignees}", "template": "工作项 {{issue.identifier}} 即将到期"}},
 				},
 			},
-			Icon:          "play",
-			SortOrder:     5,
+			Icon:          "clock",
+			SortOrder:     9,
 			IsRecommended: true,
 		},
 		{
-			Slug:        "auto-assign-least-loaded",
-			Name:        "最闲人自动指派",
-			Description: "新建工作项时自动分配给当前负载最轻的成员",
-			Category:    "efficiency",
+			Slug:        "status-change-notify-watchers",
+			Name:        "状态变更通知关注人",
+			Description: "工作项状态变更时通知所有关注人",
+			Category:    "notification",
+			DSLTemplate: RuleDSL{
+				Trigger:    Trigger{Type: "issue.status_changed"},
+				Conditions: []Condition{},
+				Actions: []Action{
+					{Type: ActionNotify, Config: map[string]any{"channel": "in_app", "target": "${issue.watchers}", "template": "{{issue.identifier}} 状态变更为 {{issue.state_name}}"}},
+				},
+			},
+			Icon:      "bell",
+			SortOrder: 10,
+		},
+		{
+			Slug:        "sprint-complete-summary",
+			Name:        "迭代完成自动通知团队",
+			Description: "迭代完成时自动通知所有成员并发送总结",
+			Category:    "notification",
+			DSLTemplate: RuleDSL{
+				Trigger:    Trigger{Type: "sprint.completed"},
+				Conditions: []Condition{},
+				Actions: []Action{
+					{Type: ActionNotify, Config: map[string]any{"channel": "in_app", "target": "${project.members}", "template": "迭代 {{sprint.name}} 已完成"}},
+				},
+			},
+			Icon:      "flag",
+			SortOrder: 11,
+		},
+		// --- 管理类 ---
+		{
+			Slug:        "sprint-auto-start-issues",
+			Name:        "迭代启动后自动开始工作项",
+			Description: "迭代启动后，自动将所有待办工作项流转到进行中",
+			Category:    "management",
+			DSLTemplate: RuleDSL{
+				Trigger:    Trigger{Type: "sprint.started"},
+				Conditions: []Condition{{Field: "state.group", Op: "eq", Value: "todo"}},
+				Actions: []Action{
+					{Type: ActionTransition, Value: "started"},
+				},
+			},
+			Icon:      "play-circle",
+			SortOrder: 12,
+		},
+		{
+			Slug:        "auto-archive-old-issues",
+			Name:        "长期未更新工作项自动归档",
+			Description: "超过 30 天未更新的已完成工作项自动归档",
+			Category:    "management",
+			DSLTemplate: RuleDSL{
+				Trigger: Trigger{Type: "scheduled", Cron: "0 2 * * *"},
+				Conditions: []Condition{
+					{Field: "state.group", Op: "eq", Value: "completed"},
+					{Field: "issue.updated_at", Op: "lt", Value: "now-30d"},
+				},
+				Actions: []Action{
+					{Type: ActionUpdateField, Field: "is_archived", Value: "true"},
+				},
+			},
+			Icon:      "archive",
+			SortOrder: 13,
+		},
+		{
+			Slug:        "duplicate-issue-check",
+			Name:        "重复工作项提醒",
+			Description: "新建工作项时检测可能的重复项并提醒",
+			Category:    "management",
 			DSLTemplate: RuleDSL{
 				Trigger:    Trigger{Type: "issue.created"},
-				Conditions: []Condition{{Field: "assignees", Op: "is_empty"}},
+				Conditions: []Condition{},
 				Actions: []Action{
-					{Type: ActionAssign, Config: map[string]any{"strategy": "least_loaded", "role": "member", "scope": "project"}},
+					{Type: ActionNotify, Config: map[string]any{"channel": "in_app", "target": "${issue.created_by}", "template": "⚠️ 检测到可能的重复工作项请确认"}},
+				},
+			},
+			Icon:      "copy",
+			SortOrder: 14,
+		},
+		{
+			Slug:        "new-member-welcome",
+			Name:        "新成员加入通知",
+			Description: "工作空间有新成员加入时通知所有成员",
+			Category:    "management",
+			DSLTemplate: RuleDSL{
+				Trigger:    Trigger{Type: "member.added"},
+				Conditions: []Condition{},
+				Actions: []Action{
+					{Type: ActionNotify, Config: map[string]any{"channel": "in_app", "target": "${workspace.members}", "template": "欢迎 {{actor.user_name}} 加入工作空间"}},
 				},
 			},
 			Icon:      "user-plus",
-			SortOrder: 6,
-		},
-		{
-			Slug:        "defect-notify-tech-lead",
-			Name:        "新缺陷通知技术负责人",
-			Description: "项目里新建高优缺陷时，自动通知项目技术负责人",
-			Category:    "notification",
-			DSLTemplate: RuleDSL{
-				Trigger:    Trigger{Type: "issue.created", Filter: map[string]any{"type_code": "defect", "priority": "urgent"}},
-				Conditions: []Condition{},
-				Actions: []Action{
-					{Type: ActionNotify, Config: map[string]any{"channel": "in_app", "target": "${project.tech_lead}", "template": "🚨 新建紧急缺陷: [{{issue.identifier}}] {{issue.name}}"}},
-				},
-			},
-			Icon:          "alert-triangle",
-			SortOrder:     7,
-			IsRecommended: true,
+			SortOrder: 15,
 		},
 	}
 }
