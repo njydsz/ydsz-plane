@@ -10,6 +10,8 @@ package searchv1
 
 import (
 	context "context"
+
+	"google.golang.org/grpc"
 )
 
 // ============== 领域消息 ==============
@@ -96,7 +98,7 @@ func (UnimplementedSearchServiceServer) ReindexAll(context.Context, *SearchQuery
 func (UnimplementedSearchServiceServer) MustEmbedUnimplementedSearchServiceServer() {}
 
 // RegisterSearchServiceServer 注册 gRPC 服务实现。
-func RegisterSearchServiceServer(s interface{ RegisterService(desc interface{}, impl interface{}) }, srv SearchServiceServer) {
+func RegisterSearchServiceServer(s grpc.ServiceRegistrar, srv SearchServiceServer) {
 	// stub: 真实实现由 buf generate 生成后替换
 	_ = srv
 }

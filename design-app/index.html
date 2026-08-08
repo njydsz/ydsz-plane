@@ -284,6 +284,79 @@
 
   /* sidebar scroll */
   .sidebar{overflow-y:auto;}
+
+  /* ===== Modal / Popover system ===== */
+  .overlay{
+    position:fixed; inset:0; background:rgba(20,22,26,.45); z-index:1000;
+    display:none; align-items:flex-start; justify-content:center; padding:64px 16px;
+  }
+  .overlay.open{display:flex;}
+  .modal{
+    width:520px; max-width:100%; max-height:calc(100vh - 128px); background:var(--surface);
+    border:1px solid var(--border); border-radius:var(--r-lg); box-shadow:0 12px 40px rgba(0,0,0,.18);
+    display:flex; flex-direction:column; animation:pop .16s ease-out;
+  }
+  @keyframes pop{from{opacity:0;transform:translateY(8px) scale(.98);}to{opacity:1;transform:none;}}
+  .modal-head{display:flex; align-items:flex-start; justify-content:space-between; padding:18px 20px; border-bottom:1px solid var(--border);}
+  .modal-title{font-size:16px; font-weight:700; color:var(--text-1);}
+  .modal-sub{font-size:12px; color:var(--text-3); margin-top:2px;}
+  .modal-close{width:28px; height:28px; border-radius:var(--r-sm); border:none; background:transparent; color:var(--text-3); cursor:pointer; font-size:18px; line-height:1; display:flex; align-items:center; justify-content:center;}
+  .modal-close:hover{background:var(--hover); color:var(--text-1);}
+  .modal-body{padding:18px 20px; overflow:auto; display:flex; flex-direction:column; gap:14px;}
+  .form-grid{display:grid; grid-template-columns:1fr 1fr; gap:14px;}
+  .form-field{display:flex; flex-direction:column; gap:6px;}
+  .form-field.span2{grid-column:1 / -1;}
+  .form-label{font-size:12px; font-weight:600; color:var(--text-2);}
+  .form-label .req{color:var(--danger); margin-left:2px;}
+  .form-input, .form-select, .form-textarea{
+    width:100%; border:1px solid var(--border-2); border-radius:var(--r-sm);
+    padding:8px 10px; font-family:var(--font); font-size:13px; color:var(--text-1);
+    background:var(--surface); outline:none;
+  }
+  .form-input:focus, .form-select:focus, .form-textarea:focus{border-color:var(--brand); box-shadow:0 0 0 3px var(--brand-soft);}
+  .form-textarea{resize:vertical; min-height:72px; line-height:1.6;}
+  .form-select{appearance:none; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238A8E95' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 10px center; padding-right:28px;}
+  .modal-foot{display:flex; justify-content:flex-end; gap:10px; padding:14px 20px; border-top:1px solid var(--border);}
+  .btn-ghost{background:transparent; color:var(--text-2); border:1px solid var(--border-2); border-radius:var(--r-sm); padding:8px 14px; font-family:var(--font); font-size:13px; font-weight:600; cursor:pointer;}
+  .btn-ghost:hover{background:var(--hover);}
+
+  /* Popover / dropdown */
+  .popover{
+    position:absolute; z-index:1100; min-width:180px; background:var(--surface);
+    border:1px solid var(--border); border-radius:var(--r-md); box-shadow:0 8px 24px rgba(0,0,0,.14);
+    padding:6px; display:none; flex-direction:column;
+  }
+  .popover.open{display:flex;}
+  .pop-item{padding:8px 10px; border-radius:var(--r-sm); font-size:13px; color:var(--text-2); cursor:pointer; display:flex; align-items:center; gap:8px;}
+  .pop-item:hover{background:var(--hover); color:var(--text-1);}
+  .pop-item .chk{margin-left:auto; color:var(--brand); font-weight:700;}
+  .pop-sep{height:1px; background:var(--border); margin:4px 2px;}
+  .pop-label{font-size:11px; font-weight:600; color:var(--text-3); padding:6px 10px 2px;}
+
+  /* Command palette */
+  .cmdk-modal{width:600px; max-width:100%; max-height:420px;}
+  .cmdk-input-row{display:flex; align-items:center; gap:10px; padding:14px 16px; border-bottom:1px solid var(--border);}
+  .cmdk-input-row svg{width:18px;height:18px;color:var(--text-3);flex:0 0 18px;}
+  .cmdk-input{flex:1; border:none; outline:none; background:transparent; font-family:var(--font); font-size:15px; color:var(--text-1);}
+  .cmdk-list{padding:8px; overflow:auto; max-height:320px; display:flex; flex-direction:column; gap:2px;}
+  .cmdk-item{padding:10px 12px; border-radius:var(--r-sm); display:flex; align-items:center; gap:10px; cursor:pointer; font-size:14px; color:var(--text-2);}
+  .cmdk-item:hover, .cmdk-item.active{background:var(--brand-soft); color:var(--brand);}
+  .cmdk-item .k{margin-left:auto; font-family:var(--mono); font-size:11px; color:var(--text-3);}
+  .cmdk-ico{width:18px;height:18px;display:flex;align-items:center;justify-content:center;}
+
+  /* Toast */
+  .toast-wrap{position:fixed; left:50%; bottom:28px; transform:translateX(-50%); z-index:1200; display:flex; flex-direction:column; gap:8px; align-items:center;}
+  .toast{background:var(--text-1); color:var(--surface); padding:10px 16px; border-radius:var(--r-md); font-size:13px; box-shadow:0 8px 24px rgba(0,0,0,.2); animation:pop .16s ease-out; display:flex; align-items:center; gap:8px;}
+  .toast .ok{color:#7CE0A8; font-weight:700;}
+
+  /* Dark theme */
+  body.dark{
+    --canvas:#191B1F; --surface:#26282D; --surface-2:#202327; --hover:#2E3137;
+    --border:#34373D; --border-2:#3A3D44; --border-3:#4A4E56;
+    --text-1:#ECEEF1; --text-2:#A9ADB5; --text-3:#7A7E87;
+    --brand-soft:#22324D; --brand:#5B8AE8;
+  }
+  body.dark .overlay{background:rgba(0,0,0,.6);}
 </style>
 </head>
 <body>
@@ -1070,6 +1143,11 @@
     </div>
   </div>
 </div>
+
+<!-- ===================== Modal / Popover / Toast ===================== -->
+<div class="overlay" id="overlay"></div>
+<div class="popover" id="popover"></div>
+<div class="toast-wrap" id="toastWrap"></div>
 
 <script>
   const crumbMap = {

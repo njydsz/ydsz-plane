@@ -40,12 +40,12 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
+	"go.uber.org/zap"
 
 	notificationv1 "github.com/njydsz/ydsz-plane/api/proto/notification/v1"
 	"github.com/njydsz/ydsz-plane/internal/application/notification"
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/mq"
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/telemetry"
-	"github.com/njydsz/ydsz-plane/internal/infrastructure/worker"
 )
 
 const (
@@ -85,11 +85,13 @@ func main() {
 	log.SetPrefix(fmt.Sprintf("[%s] ", cfg.Service_name))
 
 	// 1. 初始化结构化日志
-	logger, err := telemetry.NewLogger(cfg.LogLevel)
+	logger, err := telemetry.NewLogger(cfg.LogLevel, "console")
 	if err != nil {
 		log.Fatalf("init logger: %v", err)
 	}
-	logger.Info("notification-service starting", "grpc_port", cfg.GRPCPort, "db", maskDB(cfg.DatabaseURL))
+	logger.Info("notification-service starting",
+		zap.String("grpc_port", cfg.GRPCPort),
+		zap.String("db", maskDB(cfg.DatabaseURL)))
 
 	// 2. 建立上下文（捕获 OS 信号 → 优雅关闭）
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -98,23 +100,20 @@ func main() {
 	// 3. 初始化 DB 连接池
 	// TODO: 复用 internal/infrastructure/persistence 的 pool 工厂
 	// pool, err := persistence.NewPool(cfg.DatabaseURL)
-	// 此处为占位：
-	_ = cfg.DatabaseURL
+	// 此处为占位：notifSvc 在 DB 接入后由 notification.NewService(pool) 构造
 	var notifSvc *notification.Service // = notification.NewService(pool)
+	_ = cfg.DatabaseURL
 
 	// 4. 启动 RabbitMQ Consumer（后台 Goroutine）
-	consumer, err := mq.NewEventConsumer(cfg.RabbitURL, logger)
+	// 使用 mq.Client 建立连接并在后台消费；连接失败时后台重连。
+	client, err := mq.NewClient(cfg.RabbitURL, mq.WithLogger(logger))
 	if err != nil {
-		logger.Error("failed to connect RabbitMQ", "error", err)
-		// RabbitMQ 不可用时不立即退出 → 重试连接
+		logger.Error("failed to connect RabbitMQ, will retry in background",
+			zap.String("error", err.Error()))
 		go retryConnectRabbit(ctx, cfg.RabbitURL, logger)
-	}
-	if consumer != nil {
-		go func() {
-			if err := consumer.Start(ctx, notifSvc); err != nil {
-				logger.Error("consumer exited", "error", err)
-			}
-		}()
+	} else {
+		// TODO: 声明通知事件队列并启动消费，handler 将投递写入 notification.Service
+		_ = client
 	}
 
 	// 5. 组装 gRPC Server
@@ -127,7 +126,7 @@ func main() {
 
 	lis, err := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%s", cfg.GRPCPort))
 	if err != nil {
-		logger.Error("gRPC listen failed", "error", err)
+		logger.Error("gRPC listen failed", zap.String("error", err.Error()))
 		os.Exit(1)
 	}
 
@@ -147,9 +146,9 @@ func main() {
 
 	httpServer := &http.Server{Addr: fmt.Sprintf("0.0.0.0:%s", cfg.HealthPort), Handler: mux}
 	go func() {
-		logger.Info("health server listening", "port", cfg.HealthPort)
+		logger.Info("health server listening", zap.String("port", cfg.HealthPort))
 		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			logger.Error("health server error", "error", err)
+			logger.Error("health server error", zap.String("error", err.Error()))
 		}
 	}()
 
@@ -168,15 +167,15 @@ func main() {
 		logger.Info("notification-service stopped")
 	}()
 
-	logger.Info("notification-service ready", "grpc_port", cfg.GRPCPort)
+	logger.Info("notification-service ready", zap.String("grpc_port", cfg.GRPCPort))
 	if err := grpcServer.Serve(lis); err != nil {
-		logger.Error("gRPC server serve error", "error", err)
+		logger.Error("gRPC server serve error", zap.String("error", err.Error()))
 		os.Exit(1)
 	}
 }
 
 // newGRPCServer 创建注册了 NotificationService 的 gRPC Server。
-func newGRPCServer(notifSvc *notification.Service, logger *telemetry.Logger) *grpc.Server {
+func newGRPCServer(notifSvc *notification.Service, logger *zap.Logger) *grpc.Server {
 	opts := []grpc.ServerOption{
 		// TODO: 添加拦截器（logging / metrics / auth recovery）
 		// grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(...))
@@ -193,16 +192,20 @@ func newGRPCServer(notifSvc *notification.Service, logger *telemetry.Logger) *gr
 }
 
 // retryConnectRabbit 后台重连 RabbitMQ。
-func retryConnectRabbit(ctx context.Context, url string, logger *telemetry.Logger) {
-	backoff := worker.NewJitterBackoff(1*time.Second, 30*time.Second)
+func retryConnectRabbit(ctx context.Context, url string, logger *zap.Logger) {
+	backoff := time.Second
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case <-time.After(backoff.Next()):
+		case <-time.After(backoff):
 			logger.Info("retrying RabbitMQ connection...")
-			// 实际实现：mq.NewEventConsumer(url, logger)
-			return // placeholder - 直到实现后才退出
+			if client, err := mq.NewClient(url, mq.WithLogger(logger)); err != nil {
+				backoff = min(backoff*2, 30*time.Second)
+			} else {
+				_ = client // TODO: 启动消费循环
+				return
+			}
 		}
 	}
 }

@@ -193,7 +193,6 @@ function barColor(issue: Issue): string {
 
 // --- ECharts 选项 ---
 function buildOption(): echarts.EChartsOption {
-  const bounds = dateBounds.value;
   const [zoomLo, zoomHi] = zoomRange.value;
   const dateFormat = (ms: number) => dayjs(ms).format("YYYY-MM-DD");
 
@@ -266,6 +265,18 @@ function buildOption(): echarts.EChartsOption {
       {
         type: "custom",
         name: "timeline",
+        label: showLabels.value
+          ? {
+              show: true,
+              position: "inside",
+              formatter: (p: any) => {
+                const i = datedIssues.value[p.dataIndex];
+                return i && i.name.length <= 12 ? i.name : "";
+              },
+              fontSize: 10,
+              color: "#fff",
+            }
+          : undefined,
         renderItem(params: any, api: any) {
           const idx = params.dataIndex;
           const issue = datedIssues.value[idx];
@@ -294,19 +305,7 @@ function buildOption(): echarts.EChartsOption {
         },
         encode: { x: [0, 1], y: 0 },
         data: seriesData,
-        label: showLabels.value
-          ? {
-              show: true,
-              position: "inside",
-              formatter: (p: any) => {
-                const i = datedIssues.value[p.dataIndex];
-                return i && i.name.length <= 12 ? i.name : "";
-              },
-              fontSize: 10,
-              color: "#fff",
-            }
-          : undefined,
-      },
+      } as echarts.CustomSeriesOption,
     ],
     dataZoom: [
       { type: "inside", xAxisIndex: 0, filterMode: "none" },

@@ -13,7 +13,6 @@ import { computed, ref, watch } from "vue";
 import {
   type ImportColumnMapping,
   type ImportResult,
-  IMPORT_FIELD_LABELS,
   IMPORT_FIELD_OPTIONS,
   issueApi,
 } from "@/api/services/issue";
@@ -32,7 +31,7 @@ const emit = defineEmits<{
 
 // ---------- 步骤状态 ----------
 const STEP = { SELECT: 1, MAPPING: 2, RESULT: 3 } as const;
-const step = ref<number>(typeof STEP.SELECT);
+const step = ref<number>(STEP.SELECT);
 
 // 文件 / 解析
 const file = ref<File | null>(null);
@@ -206,7 +205,7 @@ async function submit() {
   submitting.value = true;
   result.value = null;
 
-  const activeMappings: ImportColumnMappings[] = mappings.value
+  const activeMappings: ImportColumnMapping[] = mappings.value
     .filter((m) => m.field !== "")
     .map((m) => ({ column_name: m.column_name, field: m.field }));
 
@@ -259,7 +258,7 @@ function selectFieldName(row: MappingRow, event: Event) {
         :disabled="parsing"
         @click="triggerFileInput"
       >
-        {{ parsing ? "解析中..." : (file ? file.value?.name || "重新选择文件" : "选择文件") }}
+        {{ parsing ? "解析中..." : (file ? file.name || "重新选择文件" : "选择文件") }}
       </button>
       <p v-if="parseError" class="import-error">{{ parseError }}</p>
       <p v-if="file && !parseError" class="import-info">

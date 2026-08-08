@@ -445,7 +445,7 @@ watch(
             </router-link>
             <router-link
               v-if="wsStore.hasPermission('member:change_role')"
-              :to="`/${wsStore.currentId}/members`"
+              :to="`/${wsStore.currentId}/settings`"
               class="nav-item nav-item--sub"
               active-class="is-active"
             >

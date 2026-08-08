@@ -10,6 +10,8 @@ package notificationv1
 
 import (
 	context "context"
+
+	"google.golang.org/grpc"
 )
 
 // ============== 领域消息（Plain Structs）==============
@@ -128,7 +130,7 @@ func (UnimplementedNotificationServiceServer) MustEmbedUnimplementedNotification
 //
 // 注意：本 stub 使用 interface{} 避免强依赖 grpc（未安装时可编译）。
 // 真实实现由 buf generate 生成后使用 grpc.ServiceRegistrar。
-func RegisterNotificationServiceServer(s interface{ RegisterService(desc interface{}, impl interface{}) }, srv NotificationServiceServer) {
+func RegisterNotificationServiceServer(s grpc.ServiceRegistrar, srv NotificationServiceServer) {
 	// stub: 真实实现由 buf generate 生成后替换
 	_ = srv
 }

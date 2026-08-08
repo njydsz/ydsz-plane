@@ -18,7 +18,7 @@
 import { ref, computed, onMounted, onUnmounted } from "vue";
 import { useRoute } from "vue-router";
 
-import { issueApi, type Issue } from "@/api/services/issue";
+import { issueApi, type Issue, type UpdateIssueInput } from "@/api/services/issue";
 import { workspaceApi } from "@/api/services/workspace";
 import { ApiError } from "@/api/client";
 
@@ -128,7 +128,9 @@ async function commitEdit() {
   }
 
   // 映射列 key → 后端 PATCH 字段
-  const patch: Record<string, unknown> = {};
+  // 注意：UpdateIssueInput 当前未声明 type_code / target_date / point / progress，
+  // 但后端实际接受这些字段，故以 Record 承载后断言传入。
+  const patch: Record<string, unknown> = { version: issue.version };
   if (col === "name") patch.name = editValue.value;
   else if (col === "priority") patch.priority = editValue.value;
   else if (col === "type_code") patch.type_code = editValue.value;
@@ -142,7 +144,7 @@ async function commitEdit() {
 
   try {
     const ws = await workspaceApi.get(workspaceId);
-    const updated = await issueApi.updateIssue(ws.id, projectId, issue.id, patch);
+    const updated = await issueApi.updateIssue(ws.id, projectId, issue.id, patch as unknown as UpdateIssueInput);
     issues.value[row] = updated;
   } catch (e: unknown) {
     // 失败时回滚本地值
