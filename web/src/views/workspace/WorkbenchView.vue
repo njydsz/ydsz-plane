@@ -15,6 +15,7 @@ import {
   type WorkbenchSummary,
   type IssueDigest,
   type SprintOverview,
+  type EfficiencyReport,
 } from "@/api/services/workbench";
 import { workspaceApi, type Workspace } from "@/api/services/workspace";
 
@@ -24,6 +25,7 @@ const props = defineProps<{
 
 const ws = ref<Workspace | null>(null);
 const summary = ref<WorkbenchSummary | null>(null);
+const efficiency = ref<EfficiencyReport | null>(null);
 const loading = ref(true);
 const error = ref("");
 
@@ -32,7 +34,12 @@ async function load() {
   error.value = "";
   try {
     ws.value = await workspaceApi.get(props.workspaceId);
-    summary.value = await workbenchApi.getSummary(ws.value.id);
+    const [sumRes, effRes] = await Promise.all([
+      workbenchApi.getSummary(ws.value.id),
+      workbenchApi.getEfficiency(ws.value.id).catch(() => null),
+    ]);
+    summary.value = sumRes;
+    efficiency.value = effRes;
   } catch (e: unknown) {
     error.value = e instanceof Error ? e.message : "加载工作台失败";
   } finally {
