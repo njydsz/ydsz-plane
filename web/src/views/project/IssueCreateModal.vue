@@ -305,7 +305,7 @@ function cancel() {
                 <span class="ai-tag">AI 推荐</span>
                 <span class="ai-label">类型</span>
                 <button class="ai-pill" :class="{ 'ai-pill--active': selectedType === classifyResult.type_code }" @click="applyAiType(classifyResult.type_code)">
-                  {{ ({ requirement: "需求", task: "任务", defect: "缺陷" } as Record<string, string>)[classifyResult.type_code] }}
+                  {{ ({ epic: "史诗", requirement: "需求", task: "任务", defect: "缺陷" } as Record<string, string>)[classifyResult.type_code] }}
                 </button>
                 <span class="ai-label">优先级</span>
                 <button class="ai-pill" :class="{ 'ai-pill--active': priorityRef === classifyResult.priority }" @click="applyAiPriority(classifyResult.priority)">

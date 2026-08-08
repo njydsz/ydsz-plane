@@ -179,6 +179,22 @@ func (s *Service) Create(ctx context.Context, in CreateIssueInput) (*Issue, erro
 
 // GetByID 获取工作项详情。
 func (s *Service) GetByID(ctx context.Context, wsID, issueID int64) (*Issue, error) {
+	// 先查询工作项类型，判断在新旧表的哪个位置
+	var typeCode string
+	err := s.db.QueryRow(ctx, `
+		SELECT type_code FROM issues WHERE id = $1 AND workspace_id = $2 AND deleted_at IS NULL
+		UNION ALL
+		SELECT 'task' FROM task WHERE id = $1 AND workspace_id = $2 AND deleted_at IS NULL
+		UNION ALL
+		SELECT 'requirement' FROM requirement WHERE id = $1 AND workspace_id = $2 AND deleted_at IS NULL
+		UNION ALL
+		SELECT 'defect' FROM defect WHERE id = $1 AND workspace_id = $2 AND deleted_at IS NULL
+		LIMIT 1
+	`, issueID, wsID).Scan(&typeCode)
+	if err != nil {
+		return nil, errs.ErrNotFound
+	}
+
 	var iss Issue
 	var parentID sql.NullInt64
 	var severity sql.NullInt64
@@ -190,31 +206,109 @@ func (s *Service) GetByID(ctx context.Context, wsID, issueID int64) (*Issue, err
 
 	var foundVerID, fixVerID, releaseVerID sql.NullInt64
 	var sprintID sql.NullInt64
-	err := s.db.QueryRow(ctx, `
-		SELECT i.id, i.public_id, i.workspace_id, i.project_id, i.sequence_id,
-		       i.type_code, i.parent_id, i.depth, i.name,
-		       i.description_json, i.description_html,
-		       i.state_id, s.name, s.color, s."group",
-		       i.priority, i.severity, i.found_phase, i.category, i.point,
-		       i.start_date, i.target_date, i.completed_at, i.progress,
-		       i.is_draft, i.version, i.created_by, i.created_at, i.updated_at,
-		       p.identifier,
-		       i.found_version_id, i.fix_version_id, i.release_version_id,
-		       i.sprint_id
-		FROM issues i
-		JOIN states s ON s.id = i.state_id
-		JOIN projects p ON p.id = i.project_id
-		WHERE i.id = $1 AND i.workspace_id = $2 AND i.deleted_at IS NULL`,
-		issueID, wsID).Scan(
-		&iss.ID, &iss.PublicID, &iss.WorkspaceID, &iss.ProjectID, &iss.SequenceID,
-		&iss.TypeCode, &parentID, &iss.Depth, &iss.Name,
-		&iss.DescriptionJSON, &iss.DescriptionHTML,
-		&iss.StateID, &stateName, &stateColor, &stateGroup,
-		&iss.Priority, &severity, &foundPhase, &category, &point,
-		&iss.StartDate, &targetDate, &completedAt, &iss.Progress,
-		&iss.IsDraft, &iss.Version, &iss.CreatedBy, &iss.CreatedAt, &iss.UpdatedAt,
-		&identifier,
-		&foundVerID, &fixVerID, &releaseVerID, &sprintID)
+		// 根据类型调用不同表的查询，兼容旧表迁移过渡期
+	switch typeCode {
+	case "task":
+		err = s.db.QueryRow(ctx, `
+			SELECT t.id, t.public_id, t.workspace_id, t.project_id, t.sequence_id,
+			       'task' as type_code, t.parent_id, t.depth, t.name,
+			       t.description_json, t.description_html,
+			       t.state_id, s.name, s.color, s."group",
+			       t.priority, NULL as severity, NULL as found_phase, t.category, t.point,
+			       t.start_date, t.target_date, t.completed_at, t.progress,
+			       t.is_draft, t.version, t.created_by, t.created_at, t.updated_at,
+			       p.identifier,
+			       NULL as found_version_id, NULL as fix_version_id, NULL as release_version_id,
+			       t.sprint_id
+			FROM task t
+			JOIN states s ON s.id = t.state_id
+			JOIN projects p ON p.id = t.project_id
+			WHERE t.id = $1 AND t.workspace_id = $2 AND t.deleted_at IS NULL`,
+			issueID, wsID).Scan(
+			&iss.ID, &iss.PublicID, &iss.WorkspaceID, &iss.ProjectID, &iss.SequenceID,
+			&iss.TypeCode, &parentID, &iss.Depth, &iss.Name, 
+			&iss.DescriptionJSON, &iss.DescriptionHTML,
+			&iss.StateID, &stateName, &stateColor, &stateGroup,
+			&iss.Priority, &severity, &foundPhase, &category, &point,
+			&iss.StartDate, &targetDate, &completedAt, &iss.Progress,
+			&iss.IsDraft, &iss.Version, &iss.CreatedBy, &iss.CreatedAt, &iss.UpdatedAt,
+			&identifier, &foundVerID, &fixVerID, &releaseVerID, &sprintID)
+	case "requirement":
+		err = s.db.QueryRow(ctx, `
+			SELECT r.id, r.public_id, r.workspace_id, r.project_id, r.sequence_id,
+			       'requirement' as type_code, r.parent_id, r.depth, r.name,
+			       r.description_json, r.description_html,
+			       r.state_id, s.name, s.color, s."group",
+			       r.priority, NULL as severity, NULL as found_phase, NULL as category, r.point,
+			       r.start_date, r.target_date, r.completed_at, r.progress,
+			       r.is_draft, r.version, r.created_by, r.created_at, r.updated_at,
+			       p.identifier,
+			       NULL as found_version_id, NULL as fix_version_id, NULL as release_version_id,
+			       r.sprint_id
+			FROM requirement r
+			JOIN states s ON s.id = r.state_id
+			JOIN projects p ON p.id = r.project_id
+			WHERE r.id = $1 AND r.workspace_id = $2 AND r.deleted_at IS NULL`,
+			issueID, wsID).Scan(
+			&iss.ID, &iss.PublicID, &iss.WorkspaceID, &iss.ProjectID, &iss.SequenceID,
+			&iss.TypeCode, &parentID, &iss.Depth, &iss.Name, 
+			&iss.DescriptionJSON, &iss.DescriptionHTML,
+			&iss.StateID, &stateName, &stateColor, &stateGroup,
+			&iss.Priority, &severity, &foundPhase, &category, &point,
+			&iss.StartDate, &targetDate, &completedAt, &iss.Progress,
+			&iss.IsDraft, &iss.Version, &iss.CreatedBy, &iss.CreatedAt, &iss.UpdatedAt,
+			&identifier, &foundVerID, &fixVerID, &releaseVerID, &sprintID)
+	case "defect":
+		err = s.db.QueryRow(ctx, `
+			SELECT d.id, d.public_id, d.workspace_id, d.project_id, d.sequence_id,
+			       'defect' as type_code, d.parent_id, d.depth, d.name,
+			       d.description_json, d.description_html,
+			       d.state_id, s.name, s.color, s."group",
+			       d.priority, d.severity, d.found_phase, NULL as category, d.point,
+			       d.start_date, d.target_date, d.completed_at, d.progress,
+			       d.is_draft, d.version, d.created_by, d.created_at, d.updated_at,
+			       p.identifier,
+			       d.found_version_id, d.fix_version_id, NULL as release_version_id,
+			       d.sprint_id
+			FROM defect d
+			JOIN states s ON s.id = d.state_id
+			JOIN projects p ON p.id = d.project_id
+			WHERE d.id = $1 AND d.workspace_id = $2 AND d.deleted_at IS NULL`,
+			issueID, wsID).Scan(
+			&iss.ID, &iss.PublicID, &iss.WorkspaceID, &iss.ProjectID, &iss.SequenceID,
+			&iss.TypeCode, &parentID, &iss.Depth, &iss.Name, 
+			&iss.DescriptionJSON, &iss.DescriptionHTML,
+			&iss.StateID, &stateName, &stateColor, &stateGroup,
+			&iss.Priority, &severity, &foundPhase, &category, &point,
+			&iss.StartDate, &targetDate, &completedAt, &iss.Progress,
+			&iss.IsDraft, &iss.Version, &iss.CreatedBy, &iss.CreatedAt, &iss.UpdatedAt,
+			&identifier, &foundVerID, &fixVerID, &releaseVerID, &sprintID)
+	default: // 兼容旧表未迁移的数据
+		err = s.db.QueryRow(ctx, `
+			SELECT i.id, i.public_id, i.workspace_id, i.project_id, i.sequence_id,
+			       i.type_code, i.parent_id, i.depth, i.name,
+			       i.description_json, i.description_html,
+			       i.state_id, s.name, s.color, s."group",
+			       i.priority, i.severity, i.found_phase, i.category, i.point,
+			       i.start_date, i.target_date, i.completed_at, i.progress,
+			       i.is_draft, i.version, i.created_by, i.created_at, i.updated_at,
+			       p.identifier,
+			       i.found_version_id, i.fix_version_id, i.release_version_id,
+			       i.sprint_id
+			FROM issues i
+			JOIN states s ON s.id = i.state_id
+			JOIN projects p ON p.id = i.project_id
+			WHERE i.id = $1 AND i.workspace_id = $2 AND i.deleted_at IS NULL`,
+			issueID, wsID).Scan(
+			&iss.ID, &iss.PublicID, &iss.WorkspaceID, &iss.ProjectID, &iss.SequenceID,
+			&iss.TypeCode, &parentID, &iss.Depth, &iss.Name,
+			&iss.DescriptionJSON, &iss.DescriptionHTML,
+			&iss.StateID, &stateName, &stateColor, &stateGroup,
+			&iss.Priority, &severity, &foundPhase, &category, &point,
+			&iss.StartDate, &targetDate, &completedAt, &iss.Progress,
+			&iss.IsDraft, &iss.Version, &iss.CreatedBy, &iss.CreatedAt, &iss.UpdatedAt,
+			&identifier, &foundVerID, &fixVerID, &releaseVerID, &sprintID)
+	}
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, errs.ErrNotFound
@@ -222,6 +316,7 @@ func (s *Service) GetByID(ctx context.Context, wsID, issueID int64) (*Issue, err
 		return nil, errs.ErrInternal.Wrap(err)
 	}
 
+	iss.Identifier = identifier
 	iss.State = &State{ID: iss.StateID, Name: stateName, Color: stateColor, Group: stateGroup}
 	if parentID.Valid {
 		v := parentID.Int64
