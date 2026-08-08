@@ -1298,4 +1298,46 @@ const isCurrentPageAllSelected = computed(() => {
   gap: 8px;
   margin-top: 16px;
 }
+
+/* ===== S13 P1: 移动端响应式 ===== */
+@media (max-width: 768px) {
+  .table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .table {
+    min-width: 100%;
+    font-size: 13px;
+  }
+  .table th,
+  .table td {
+    padding: 8px 6px;
+    min-height: 44px;
+  }
+  /* 小屏隐藏非核心列 */
+  .table th:nth-child(n+5),
+  .table td:nth-child(n+5) {
+    display: none;
+  }
+  .issue-key {
+    font-size: 11px;
+  }
+  /* 触控友好 */
+  .table button,
+  .table .clickable {
+    min-width: 44px;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  /* 列表操作条 */
+  .list-toolbar,
+  .bulk-actions {
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 8px;
+  }
+}
+
 </style>

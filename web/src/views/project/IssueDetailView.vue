@@ -1739,4 +1739,55 @@ onMounted(() => {
   justify-content: flex-end;
   margin-top: 4px;
 }
+
+/* ===== S13 P1: 移动端响应式 ===== */
+@media (max-width: 768px) {
+  .issue-detail {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    width: 100% !important;
+    max-width: 100% !important;
+    border-radius: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .issue-detail__header {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    padding: 12px 16px;
+  }
+  .issue-detail__actions {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .issue-detail__actions button {
+    min-height: 44px;
+    min-width: 44px;
+    flex: 1 1 auto;
+    font-size: 13px;
+  }
+  .issue-detail__body {
+    flex-direction: column;
+    padding: 12px;
+  }
+  .issue-detail__main {
+    width: 100%;
+  }
+  .issue-detail__sidebar {
+    width: 100% !important;
+    border-left: none !important;
+    border-top: 1px solid var(--border-subtle, #e4e4e7);
+    margin-top: 16px;
+    padding-top: 16px;
+  }
+  /* 触控友好的交互元素 */
+  .issue-detail input,
+  .issue-detail select,
+  .issue-detail textarea {
+    font-size: 16px; /* 避免 iOS 自动缩放 */
+  }
+}
+
 </style>

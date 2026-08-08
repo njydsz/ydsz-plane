@@ -144,7 +144,7 @@ func uploadLogo(d *Deps) gin.HandlerFunc {
 		}
 
 		wsID := c.GetInt64(middleware.CtxWorkspaceID)
-		file, header, err := c.FormFile("file")
+		header, err := c.FormFile("file")
 		if err != nil {
 			middleware.AbortWithError(c, errs.ErrValidation.WithDetails(errs.FieldDetail{
 				Field: "file", Reason: "请上传文件（form 字段名 'file'）",
@@ -152,7 +152,7 @@ func uploadLogo(d *Deps) gin.HandlerFunc {
 			return
 		}
 
-		f, err := file.Open()
+		f, err := header.Open()
 		if err != nil {
 			middleware.AbortWithError(c, errs.ErrInternal.Wrap(err))
 			return

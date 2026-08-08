@@ -871,4 +871,49 @@ function handleRemoteIssueUpdate(data: { project_id?: number; issue_id?: number;
   background: var(--success-500);
   transition: width 0.3s;
 }
+
+/* ===== S13 P1: 移动端响应式 ===== */
+@media (max-width: 768px) {
+  .kanban__header {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 12px 0;
+  }
+  .kanban__header-left,
+  .kanban__header-right {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+  .kanban__header .search-input,
+  .kanban__header .filter-bar {
+    width: 100%;
+    min-width: 0;
+  }
+  .kanban__board {
+    padding: 8px;
+    gap: 8px;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x mandatory;
+  }
+  .kanban__column {
+    scroll-snap-align: start;
+    min-width: 75vw;
+    max-width: 85vw;
+  }
+  .kanban__column-header {
+    font-size: 14px;
+    padding: 8px;
+  }
+  .column-card {
+    min-height: 48px;
+    padding: 10px 8px;
+  }
+  /* 触控友好 */
+  .kanban__header button,
+  .kanban__column-header button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
 </style>
