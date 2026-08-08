@@ -173,12 +173,22 @@ func (r *Relay) publishBatch(ctx context.Context) error {
 	for _, e := range events {
 		envelope := e.toEnvelope()
 		if err := r.mq.PublishEvent(ctx, envelope); err != nil {
-			return fmt.Errorf("events: publish %d (%s): %w", e.ID, e.EventType, err)
+			// 错误隔离：单条发布失败不中断整批
+			r.log.Warn("outbox publish single event failed (skipping)",
+				zap.Int64("event_id", e.ID),
+				zap.String("event_type", e.EventType),
+				zap.Error(err))
+			if r.OnPublishFailed != nil {
+				r.OnPublishFailed(ctx, e, err)
+			}
+			continue
 		}
 		if _, err := r.db.Exec(ctx,
 			`UPDATE domain_events SET published_at = now() WHERE id = $1`,
 			e.ID); err != nil {
-			return fmt.Errorf("events: mark published %d: %w", e.ID, err)
+			r.log.Warn("outbox mark published failed",
+				zap.Int64("event_id", e.ID),
+				zap.Error(err))
 		}
 	}
 
@@ -196,11 +206,19 @@ func (r *Relay) Close() error {
 }
 
 // IsEventProcessed 查询某消费者是否已成功处理该事件。
-func IsEventProcessed(ctx context.Context, db Querier, eventID int64, consumerID string) (bool, error) {
-	const q = `SELECT EXISTS(SELECT 1 FROM processed_events WHERE event_id = $1 AND consumer_id = $2)`
-	var exists bool
-	err := db.QueryRow(ctx, q, eventID, consumerID).Scan(&exists) //nolint:errcheck
-	return exists, err
+func IsEventProcessed(ctx context.Context, eventID int64, consumerID string, db interface {
+	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
+}) (bool, error) {
+	const q = `SELECT 1 FROM processed_events WHERE event_id = $1 AND consumer_id = $2 LIMIT 1`
+	rows, err := db.Query(ctx, q, eventID, consumerID)
+	if err != nil {
+		return false, fmt.Errorf("events: query processed: %w", err)
+	}
+	defer rows.Close()
+	if rows.Next() {
+		return true, nil
+	}
+	return false, rows.Err()
 }
 
 // EnqueueTask 向 TaskExchange 发布后台任务信封。
