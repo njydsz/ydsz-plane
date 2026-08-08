@@ -102,6 +102,14 @@ func seedDashboardData(t *testing.T, ctx context.Context, pool *persistence.Pool
 	t.Helper()
 	// slug 唯一：避免并发/重复运行冲突
 	suffix := fmt.Sprintf("%d", time.Now().UnixNano())
+	// 确保 FK 引用的测试用户（id=1）存在；GENERATED ALWAYS 需 OVERRIDING SYSTEM VALUE。
+	if _, err := pool.Pool.Exec(ctx, `
+		INSERT INTO users (id, public_id, email, password_hash, display_name, is_active, timezone, created_at, updated_at)
+		OVERRIDING SYSTEM VALUE
+		VALUES (1, gen_random_uuid(), 'dash-int-test-user@ydsz.dev', 'seed', 'Dash Test User', true, 'Asia/Shanghai', now(), now())
+		ON CONFLICT (id) DO NOTHING`); err != nil {
+		t.Fatalf("seed user: %v", err)
+	}
 	var wsID, projID, stateID int64
 	if err := pool.Pool.QueryRow(ctx, `
 		INSERT INTO workspaces (name, slug, owner_id) VALUES ('dash-int-test', $1, 1)
