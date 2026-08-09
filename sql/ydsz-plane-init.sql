@@ -8353,6 +8353,19 @@ CREATE INDEX IF NOT EXISTS idx_kp_tsv ON public.knowledge_pages USING GIN (tsv);
 
 
 -- ============================================================================
+-- 迁移脚本整合：_sprint_issues.sql
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS "public"."sprint_issues" (
+  "sprint_id" int8 NOT NULL,
+  "issue_id" int8 NOT NULL,
+  "added_midway" bool NOT NULL DEFAULT false,
+  "sort_order" float8 NOT NULL DEFAULT 65535,
+  "added_at" timestamptz(6) NOT NULL DEFAULT now(),
+  "added_by" int8
+);
+
+
+-- ============================================================================
 -- 全部迁移脚本整合完毕。
 -- 至此 sql/ 目录下仅保留 ydsz-plane-init.sql 一个文件。
 -- ============================================================================
