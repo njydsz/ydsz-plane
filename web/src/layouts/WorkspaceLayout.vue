@@ -930,13 +930,13 @@ watch(
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: var(--brand-500);
-  color: var(--text-on-brand);
-  font-weight: 700;
-  font-size: 12px;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-accent-subtle);
+  color: var(--txt-accent-primary);
+  font-weight: 600;
+  font-size: 13px;
 }
 
 .main {

@@ -18,6 +18,7 @@ export default {
     filter: "Filter",
     reset: "Reset",
     close: "Close",
+    clear: "Clear",
     back: "Back",
     next: "Next",
     submit: "Submit",
@@ -514,6 +515,10 @@ export default {
 
   knowledge: {
     title: "Knowledge Base",
+    search: "Search",
+    searchPlaceholder: "Search knowledge base documents...",
+    searchResults: "Search results",
+    searchEmpty: "No matching documents found",
     newSpace: "New Space",
     createSpace: "Create Space",
     spaceName: "Space name",

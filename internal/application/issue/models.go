@@ -1,6 +1,9 @@
-// Package issue — 工作项领域（Issue Aggregate：需求/任务/缺陷统一模型）。
+// Package issue — 工作项领域（Requirement / Task / Defect 各自为独立聚合根，无公共基类）。
 //
 // 参考: Plane / Linear / Jira 的工作项模型；状态机见 docs/architecture/07。
+//
+// 设计原则：每个聚合根携带自身完整字段，不抽取 BaseWorkitem 之类公共封装。
+// 字段重复是聚合根独立性的代价，换取类型边界清晰、改动互不干扰。
 package issue
 
 import "time"
@@ -63,8 +66,53 @@ type State struct {
 	UpdatedAt       time.Time  `json:"updated_at"`
 }
 
-// BaseWorkitem 所有工作项的公共基类
-type BaseWorkitem struct {
+// --- 需求 ---
+
+// Requirement 需求工作项（独立聚合根）。
+type Requirement struct {
+	ID                 int64          `json:"id"`
+	PublicID           string         `json:"public_id"`
+	WorkspaceID        int64          `json:"workspace_id"`
+	ProjectID          int64          `json:"project_id"`
+	SequenceID         int64          `json:"sequence_id"`
+	Identifier         string         `json:"identifier"`
+	TypeCode           IssueTypeCode  `json:"type_code"`
+	ParentID           *int64         `json:"parent_id,omitempty"`
+	Depth              int            `json:"depth"`
+	Name               string         `json:"name"`
+	DescriptionJSON    map[string]any `json:"description_json,omitempty"`
+	DescriptionHTML    string         `json:"description_html,omitempty"`
+	StateID            int64          `json:"state_id"`
+	State              *State         `json:"state,omitempty"`
+	Priority           IssuePriority  `json:"priority"`
+	Point              *int           `json:"point,omitempty"`
+	SprintID           *int64         `json:"sprint_id,omitempty"`
+	VersionID          *int64         `json:"version_id,omitempty"`
+	Progress           int            `json:"progress"`
+	StartDate          *time.Time     `json:"start_date,omitempty"`
+	TargetDate         *time.Time     `json:"target_date,omitempty"`
+	CompletedAt        *time.Time     `json:"completed_at,omitempty"`
+	IsDraft            bool           `json:"is_draft"`
+	SortOrder          float64        `json:"sort_order"`
+	Version            int            `json:"version"`
+	Assignees          []int64        `json:"assignees,omitempty"`
+	Labels             []int64        `json:"labels,omitempty"`
+	Modules            []int64        `json:"modules,omitempty"`
+	Watchers           []int64        `json:"watchers,omitempty"`
+	CreatedBy          int64          `json:"created_by"`
+	CreatedAt          time.Time      `json:"created_at"`
+	UpdatedAt          time.Time      `json:"updated_at"`
+	// 需求专属字段
+	Source             *string        `json:"source,omitempty"`
+	AcceptanceCriteria map[string]any `json:"acceptance_criteria,omitempty"`
+	BusinessValue      string         `json:"business_value,omitempty"`
+	ReviewStatus       *string        `json:"review_status,omitempty"`
+}
+
+// --- 任务 ---
+
+// Task 任务工作项（独立聚合根）。
+type Task struct {
 	ID                int64          `json:"id"`
 	PublicID          string         `json:"public_id"`
 	WorkspaceID       int64          `json:"workspace_id"`
@@ -97,29 +145,50 @@ type BaseWorkitem struct {
 	CreatedBy         int64          `json:"created_by"`
 	CreatedAt         time.Time      `json:"created_at"`
 	UpdatedAt         time.Time      `json:"updated_at"`
-}
-
-// Task 任务工作项
-type Task struct {
-	BaseWorkitem
+	// 任务专属字段
 	Category          *string  `json:"category,omitempty"`
 	ActualEffort      *float64 `json:"actual_effort,omitempty"`
 	RemainingEffort   *float64 `json:"remaining_effort,omitempty"`
 	DelayReason       *string  `json:"delay_reason,omitempty"`
 }
 
-// Requirement 需求工作项
-type Requirement struct {
-	BaseWorkitem
-	Source            *string        `json:"source,omitempty"`
-	AcceptanceCriteria map[string]any `json:"acceptance_criteria,omitempty"`
-	BusinessValue      string         `json:"business_value,omitempty"`
-	ReviewStatus       *string        `json:"review_status,omitempty"`
-}
+// --- 缺陷 ---
 
-// Defect 缺陷工作项
+// Defect 缺陷工作项（独立聚合根）。
 type Defect struct {
-	BaseWorkitem
+	ID                int64          `json:"id"`
+	PublicID          string         `json:"public_id"`
+	WorkspaceID       int64          `json:"workspace_id"`
+	ProjectID         int64          `json:"project_id"`
+	SequenceID        int64          `json:"sequence_id"`
+	Identifier        string         `json:"identifier"`
+	TypeCode          IssueTypeCode  `json:"type_code"`
+	ParentID          *int64         `json:"parent_id,omitempty"`
+	Depth             int            `json:"depth"`
+	Name              string         `json:"name"`
+	DescriptionJSON   map[string]any `json:"description_json,omitempty"`
+	DescriptionHTML   string         `json:"description_html,omitempty"`
+	StateID           int64          `json:"state_id"`
+	State             *State         `json:"state,omitempty"`
+	Priority          IssuePriority  `json:"priority"`
+	Point             *int           `json:"point,omitempty"`
+	SprintID          *int64         `json:"sprint_id,omitempty"`
+	VersionID         *int64         `json:"version_id,omitempty"`
+	Progress          int            `json:"progress"`
+	StartDate         *time.Time     `json:"start_date,omitempty"`
+	TargetDate        *time.Time     `json:"target_date,omitempty"`
+	CompletedAt       *time.Time     `json:"completed_at,omitempty"`
+	IsDraft           bool           `json:"is_draft"`
+	SortOrder         float64        `json:"sort_order"`
+	Version           int            `json:"version"`
+	Assignees         []int64        `json:"assignees,omitempty"`
+	Labels            []int64        `json:"labels,omitempty"`
+	Modules           []int64        `json:"modules,omitempty"`
+	Watchers          []int64        `json:"watchers,omitempty"`
+	CreatedBy         int64          `json:"created_by"`
+	CreatedAt         time.Time      `json:"created_at"`
+	UpdatedAt         time.Time      `json:"updated_at"`
+	// 缺陷专属字段
 	Severity          int            `json:"severity"`
 	FoundPhase        string         `json:"found_phase"`
 	RootCauseCategory *string        `json:"root_cause_category,omitempty"`
@@ -131,6 +200,254 @@ type Defect struct {
 	FoundVersionID    *int64         `json:"found_version_id,omitempty"`
 	FixVersionID      *int64         `json:"fix_version_id,omitempty"`
 }
+
+// --- 跨类型视图（只读，供列表/搜索等场景返回）---
+
+// WorkitemView 跨类型只读视图 — 从各表汇聚字段的通用投影。
+// 用于必须跨类型统一返回的地方（列表页、搜索），各聚合根结构体仍保持独立。
+type WorkitemView struct {
+	ID          int64         `json:"id"`
+	PublicID    string        `json:"public_id"`
+	WorkspaceID int64         `json:"workspace_id"`
+	ProjectID   int64         `json:"project_id"`
+	SequenceID  int64         `json:"sequence_id"`
+	Identifier  string        `json:"identifier"`
+	TypeCode    IssueTypeCode `json:"type_code"`
+	ParentID    *int64        `json:"parent_id,omitempty"`
+	Depth       int           `json:"depth"`
+	Name        string        `json:"name"`
+	StateID     int64         `json:"state_id"`
+	State       *State        `json:"state,omitempty"`
+	Priority    IssuePriority `json:"priority"`
+	SprintID    *int64        `json:"sprint_id,omitempty"`
+	VersionID   *int64        `json:"version_id,omitempty"`
+	Progress    int           `json:"progress"`
+	TargetDate  *time.Time    `json:"target_date,omitempty"`
+	IsDraft     bool          `json:"is_draft"`
+	SortOrder   float64       `json:"sort_order"`
+	Version     int           `json:"version"`
+	CreatedBy   int64         `json:"created_by"`
+	CreatedAt   time.Time     `json:"created_at"`
+	UpdatedAt   time.Time     `json:"updated_at"`
+	// 按类型的可选项
+	Severity          *int           `json:"severity,omitempty"`
+	FoundPhase        *string        `json:"found_phase,omitempty"`
+	Category          *string        `json:"category,omitempty"`
+	Source            *string        `json:"source,omitempty"`
+	Assignees         []int64        `json:"assignees,omitempty"`
+	Labels            []int64        `json:"labels,omitempty"`
+	Modules           []int64        `json:"modules,omitempty"`
+}
+
+// ToView 将 Requirement 投影为跨类型只读视图。
+func (r Requirement) ToView() WorkitemView {
+	return WorkitemView{
+		ID: r.ID, PublicID: r.PublicID, WorkspaceID: r.WorkspaceID, ProjectID: r.ProjectID,
+		SequenceID: r.SequenceID, Identifier: r.Identifier, TypeCode: r.TypeCode,
+		ParentID: r.ParentID, Depth: r.Depth, Name: r.Name, StateID: r.StateID, State: r.State,
+		Priority: r.Priority, SprintID: r.SprintID, VersionID: r.VersionID, Progress: r.Progress,
+		TargetDate: r.TargetDate, IsDraft: r.IsDraft, SortOrder: r.SortOrder, Version: r.Version,
+		CreatedBy: r.CreatedBy, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt,
+		Source: r.Source, Assignees: r.Assignees, Labels: r.Labels, Modules: r.Modules,
+	}
+}
+
+// ToView 将 Task 投影为跨类型只读视图。
+func (t Task) ToView() WorkitemView {
+	return WorkitemView{
+		ID: t.ID, PublicID: t.PublicID, WorkspaceID: t.WorkspaceID, ProjectID: t.ProjectID,
+		SequenceID: t.SequenceID, Identifier: t.Identifier, TypeCode: t.TypeCode,
+		ParentID: t.ParentID, Depth: t.Depth, Name: t.Name, StateID: t.StateID, State: t.State,
+		Priority: t.Priority, SprintID: t.SprintID, VersionID: t.VersionID, Progress: t.Progress,
+		TargetDate: t.TargetDate, IsDraft: t.IsDraft, SortOrder: t.SortOrder, Version: t.Version,
+		CreatedBy: t.CreatedBy, CreatedAt: t.CreatedAt, UpdatedAt: t.UpdatedAt,
+		Category: t.Category, Assignees: t.Assignees, Labels: t.Labels, Modules: t.Modules,
+	}
+}
+
+// ToView 将 Defect 投影为跨类型只读视图。
+func (d Defect) ToView() WorkitemView {
+	severity := d.Severity
+	return WorkitemView{
+		ID: d.ID, PublicID: d.PublicID, WorkspaceID: d.WorkspaceID, ProjectID: d.ProjectID,
+		SequenceID: d.SequenceID, Identifier: d.Identifier, TypeCode: d.TypeCode,
+		ParentID: d.ParentID, Depth: d.Depth, Name: d.Name, StateID: d.StateID, State: d.State,
+		Priority: d.Priority, SprintID: d.SprintID, VersionID: d.VersionID, Progress: d.Progress,
+		TargetDate: d.TargetDate, IsDraft: d.IsDraft, SortOrder: d.SortOrder, Version: d.Version,
+		CreatedBy: d.CreatedBy, CreatedAt: d.CreatedAt, UpdatedAt: d.UpdatedAt,
+		Severity: &severity, FoundPhase: &d.FoundPhase,
+		Assignees: d.Assignees, Labels: d.Labels, Modules: d.Modules,
+	}
+}
+
+// --- 领域不变量与输入 ---
+
+// CreateRequirementInput 创建需求入参。
+type CreateRequirementInput struct {
+	WorkspaceID       int64
+	ProjectID         int64
+	Name              string
+	DescriptionHTML   string
+	StateID           int64
+	Priority          IssuePriority
+	ParentID          *int64
+	Source            *string
+	Assignees         []int64
+	Labels            []int64
+	Modules           []int64
+	Point             *int
+	StartDate         *time.Time
+	TargetDate        *time.Time
+	IsDraft           bool
+	CreatedBy         int64
+}
+
+// CreateTaskInput 创建任务入参。
+type CreateTaskInput struct {
+	WorkspaceID     int64
+	ProjectID       int64
+	Name            string
+	DescriptionHTML string
+	StateID         int64
+	Priority        IssuePriority
+	ParentID        *int64
+	Category        *string
+	Assignees       []int64
+	Labels          []int64
+	Modules         []int64
+	Point           *int
+	StartDate       *time.Time
+	TargetDate      *time.Time
+	IsDraft         bool
+	CreatedBy       int64
+}
+
+// CreateDefectInput 创建缺陷入参。
+type CreateDefectInput struct {
+	WorkspaceID       int64
+	ProjectID         int64
+	Name              string
+	DescriptionHTML   string
+	StateID           int64
+	Priority          IssuePriority
+	ParentID          *int64
+	Severity          int
+	FoundPhase        string
+	ReproduceSteps    map[string]any
+	Environment       map[string]any
+	SourceVersionID   *int64
+	Assignees         []int64
+	Labels            []int64
+	Modules           []int64
+	Point             *int
+	StartDate         *time.Time
+	TargetDate        *time.Time
+	IsDraft           bool
+	CreatedBy         int64
+}
+
+// UpdateRequirementInput 更新需求入参。
+type UpdateRequirementInput struct {
+	Name              *string
+	DescriptionHTML   *string
+	Priority          *IssuePriority
+	ParentID          *int64
+	Source            *string
+	Assignees         []int64
+	Labels            []int64
+	Modules           []int64
+	Point             *int
+	TargetDate        *time.Time
+	Progress          *int
+	Version           int
+}
+
+// UpdateTaskInput 更新任务入参。
+type UpdateTaskInput struct {
+	Name              *string
+	DescriptionHTML   *string
+	Priority          *IssuePriority
+	ParentID          *int64
+	Category          *string
+	Assignees         []int64
+	Labels            []int64
+	Modules           []int64
+	Point             *int
+	TargetDate        *time.Time
+	Progress          *int
+	Version           int
+}
+
+// UpdateDefectInput 更新缺陷入参。
+type UpdateDefectInput struct {
+	Name              *string
+	DescriptionHTML   *string
+	Priority          *IssuePriority
+	ParentID          *int64
+	Severity          *int
+	FoundPhase        *string
+	RootCauseCategory *string
+	VerifierID        *int64
+	ReproduceSteps    map[string]any
+	FixSteps          map[string]any
+	RegressionRisk    *string
+	Assignees         []int64
+	Labels            []int64
+	Modules           []int64
+	Point             *int
+	TargetDate        *time.Time
+	Progress          *int
+	FoundVersionID    *int64
+	FixVersionID      *int64
+	Version           int
+}
+
+// ListWorkitemsOptions 跨类型列表查询选项。
+type ListWorkitemsOptions struct {
+	WorkspaceID      int64
+	ProjectID        int64
+	StateID          *int64
+	Group            *StateGroup
+	TypeCode         *IssueTypeCode
+	Priority         *IssuePriority
+	ParentID         *int64
+	Search           string
+	SortBy           string
+	SortDesc         bool
+	Limit            int
+	Offset           int
+	AssigneeID       *int64
+	LabelID          *int64
+	ModuleID         *int64
+	SprintID         *int64
+	StartDateFrom    *string // ISO date string
+	TargetDateTo     *string
+	SeverityFrom     *int
+}
+
+// BatchUpdateInput 批量操作输入。
+type BatchUpdateInput struct {
+	IDs        []int64
+	ToStateID  *int64
+	AssigneeID *int64
+	Priority   *string
+	Delete     bool
+}
+
+// BatchResult 批量操作结果。
+type BatchResult struct {
+	Succeeded int
+	Failed    int
+}
+
+// ReorderInput 看板拖拽排序输入。
+type ReorderInput struct {
+	PrevSortOrder *float64
+	NextSortOrder *float64
+	Version       *int
+}
+
+// --- 其他领域实体 ---
 
 // WorkitemExtension 工作项扩展属性
 type WorkitemExtension struct {
@@ -159,27 +476,6 @@ type BizEntityRelation struct {
 	RelationType  string        `json:"relation_type"`
 	CreatedBy     int64         `json:"created_by"`
 	CreatedAt     time.Time     `json:"created_at"`
-}
-
-// Issue 兼容旧版API的工作项域模型（聚合不同类型工作项，内部自动映射）
-type Issue struct {
-	BaseWorkitem
-	Severity          *int           `json:"severity,omitempty"`
-	FoundPhase        *string        `json:"found_phase,omitempty"`
-	RootCauseCategory *string        `json:"root_cause_category,omitempty"`
-	VerifierID        *int64         `json:"verifier_id,omitempty"`
-	Environment       map[string]any `json:"environment,omitempty"`
-	ReproduceSteps    map[string]any `json:"reproduce_steps,omitempty"`
-	Category          *string        `json:"category,omitempty"`
-	ActualEffort      *float64       `json:"actual_effort,omitempty"`
-	RemainingEffort   *float64       `json:"remaining_effort,omitempty"`
-	DelayReason       *string        `json:"delay_reason,omitempty"`
-	Source            *string        `json:"source,omitempty"`
-	Point             *int           `json:"point,omitempty"`
-	ExternalID        *string        `json:"external_id,omitempty"`
-	FoundVersionID    *int64         `json:"found_version_id,omitempty"`
-	FixVersionID      *int64         `json:"fix_version_id,omitempty"`
-	ReleaseVersionID  *int64         `json:"release_version_id,omitempty"`
 }
 
 // Module 项目模块。
@@ -218,8 +514,8 @@ type IssueActivity struct {
 	ID          int64          `json:"id"`
 	WorkspaceID int64          `json:"workspace_id"`
 	ProjectID   int64          `json:"project_id"`
-	IssueID     int64          `json:"issue_id"`
 	Verb        string         `json:"verb"`
+	IssueID     int64          `json:"issue_id"`
 	Field       *string        `json:"field,omitempty"`
 	OldValue    *string        `json:"old_value,omitempty"`
 	NewValue    *string        `json:"new_value,omitempty"`

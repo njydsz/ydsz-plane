@@ -89,17 +89,11 @@ onBeforeUnmount(() => document.removeEventListener("mousedown", onClickOutside))
       <div class="user-menu__divider" />
       <button class="user-menu__item" role="menuitem" @click="goToProfile">
         <span class="user-menu__item-icon">👤</span>
-        <span class="user-menu__item-text">
-          <span class="user-menu__item-label">个人设置</span>
-          <span class="user-menu__item-desc">编辑个人资料与偏好</span>
-        </span>
+        <span class="user-menu__item-label">个人设置</span>
       </button>
       <button class="user-menu__item" role="menuitem" @click="goToApiTokens">
         <span class="user-menu__item-icon">🔑</span>
-        <span class="user-menu__item-text">
-          <span class="user-menu__item-label">访问令牌</span>
-          <span class="user-menu__item-desc">管理个人 API Token</span>
-        </span>
+        <span class="user-menu__item-label">访问令牌</span>
       </button>
       <div class="user-menu__divider" />
       <div class="user-menu__item user-menu__item--row">
@@ -146,13 +140,13 @@ onBeforeUnmount(() => document.removeEventListener("mousedown", onClickOutside))
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: var(--brand-500);
-  color: var(--text-on-brand);
-  font-weight: 700;
-  font-size: 12px;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-accent-subtle);
+  color: var(--txt-accent-primary);
+  font-weight: 600;
+  font-size: 13px;
   flex-shrink: 0;
 }
 
@@ -208,17 +202,17 @@ onBeforeUnmount(() => document.removeEventListener("mousedown", onClickOutside))
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-popover);
   z-index: 300;
-  padding: 6px;
+  padding: 4px;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 1px;
 }
 
 .user-menu__header {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px;
+  gap: 8px;
+  padding: 6px 8px;
 }
 
 .user-menu__divider {
@@ -230,8 +224,8 @@ onBeforeUnmount(() => document.removeEventListener("mousedown", onClickOutside))
 .user-menu__item {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 10px;
+  gap: 8px;
+  padding: 6px 8px;
   border: none;
   border-radius: var(--radius-sm);
   background: none;
@@ -242,6 +236,7 @@ onBeforeUnmount(() => document.removeEventListener("mousedown", onClickOutside))
   color: var(--text-secondary);
   width: 100%;
   transition: background 0.1s ease;
+  line-height: 1.3;
 }
 
 .user-menu__item:hover {
@@ -254,26 +249,16 @@ onBeforeUnmount(() => document.removeEventListener("mousedown", onClickOutside))
 }
 
 .user-menu__item-icon {
-  width: 18px;
+  width: 14px;
   text-align: center;
   flex-shrink: 0;
-}
-
-.user-menu__item-text {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
+  font-size: 12px;
 }
 
 .user-menu__item-label {
   font-size: 13px;
   color: var(--text-primary);
-}
-
-.user-menu__item-desc {
-  font-size: 11px;
-  color: var(--text-tertiary);
+  flex: 1;
 }
 
 .user-menu__item--danger:hover {

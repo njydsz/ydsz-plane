@@ -12,24 +12,12 @@
  * 运行前提：后端 + 前端已启动，且已执行 make migrate && make seed。
  */
 import { expect, test } from "@playwright/test";
+import { apiLogin, apiURL } from "./helpers";
 
-const TEST_EMAIL = "admin@ydsz.dev";
-const TEST_PASSWORD = "Admin@123";
-const apiURL = process.env.API_URL || "http://127.0.0.1:8080/api/v1";
+type Headers = Record<string, string>;
 
-async function login(request: any) {
-  const res = await request.post(`${apiURL}/auth/login`, {
-    data: { email: TEST_EMAIL, password: TEST_PASSWORD },
-  });
-  expect(res.ok()).toBe(true);
-  const { access_token: token } = await res.json();
-  return token as string;
-}
-
-async function wsAndProject(request: any, token: string) {
-  const wsRes = await request.get(`${apiURL}/workspaces`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+async function wsAndProject(request: any, headers: Headers) {
+  const wsRes = await request.get(`${apiURL}/workspaces`, { headers });
   expect(wsRes.ok()).toBe(true);
   const wsList = await wsRes.json();
   const wsId = wsList[0]?.id ?? 1;
@@ -38,7 +26,7 @@ async function wsAndProject(request: any, token: string) {
   // 取项目列表（seed 提供）
   const projRes = await request.get(
     `${apiURL}/workspaces/${wsId}/projects?limit=5`,
-    { headers: { Authorization: `Bearer ${token}` } },
+    { headers },
   );
   const projList = projRes.ok() ? await projRes.json() : { items: [] };
   const items = Array.isArray(projList) ? projList : projList.items ?? [];

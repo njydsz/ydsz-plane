@@ -19,6 +19,7 @@ export default {
     filter: "筛选",
     reset: "重置",
     close: "关闭",
+    clear: "清除",
     back: "返回",
     next: "下一步",
     submit: "提交",
@@ -537,6 +538,10 @@ export default {
 
   knowledge: {
     title: "知识库",
+    search: "搜索",
+    searchPlaceholder: "搜索知识库文档...",
+    searchResults: "搜索结果",
+    searchEmpty: "未找到匹配的文档",
     newSpace: "新建空间",
     createSpace: "创建空间",
     spaceName: "空间名称",

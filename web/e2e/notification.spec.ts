@@ -5,9 +5,7 @@
  * 运行前提：后端 + 前端已启动，且已执行 make migrate && make seed。
  */
 import { expect, test } from "@playwright/test";
-
-const TEST_EMAIL = "admin@ydsz.dev";
-const TEST_PASSWORD = "Admin@123";
+import { apiLogin, API_URL, TEST_EMAIL, TEST_PASSWORD } from "./helpers";
 
 test.describe("通知域", () => {
   test("通知铃铛展示未读计数", async ({ page }) => {
@@ -77,15 +75,11 @@ test.describe("通知域", () => {
     const apiURL = process.env.API_URL || "http://127.0.0.1:8080/api/v1";
 
     // 登录
-    const loginRes = await request.post(`${apiURL}/auth/login`, {
-      data: { email: TEST_EMAIL, password: TEST_PASSWORD },
-    });
-    expect(loginRes.ok()).toBe(true);
-    const { access_token: token } = await loginRes.json();
+    const { token, headers: authHeaders } = await apiLogin(request);
 
     // 获取工作空间
     const wsRes = await request.get(`${apiURL}/workspaces`, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: authHeaders,
     });
     expect(wsRes.ok()).toBe(true);
     const wsList = await wsRes.json();
@@ -93,7 +87,7 @@ test.describe("通知域", () => {
 
     // 查询通知列表
     const notifRes = await request.get(`${apiURL}/workspaces/${wsId}/notifications?limit=1`, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: authHeaders,
     });
     expect(notifRes.ok()).toBe(true);
     const notifBody = await notifRes.json();
@@ -105,14 +99,14 @@ test.describe("通知域", () => {
       // 标记已读
       const markReadRes = await request.put(
         `${apiURL}/workspaces/${wsId}/notifications/${notif.id}/read`,
-        { headers: { Authorization: `Bearer ${token}` } },
+        { headers: authHeaders },
       );
       expect(markReadRes.ok()).toBe(true);
 
       // 验证已读状态
       const afterRes = await request.get(
         `${apiURL}/workspaces/${wsId}/notifications?limit=10`,
-        { headers: { Authorization: `Bearer ${token}` } },
+        { headers: authHeaders },
       );
       const afterBody = await afterRes.json();
       const updated = afterBody.items?.find((n: any) => n.id === notif.id);
@@ -127,14 +121,10 @@ test.describe("通知域", () => {
   test("全部已读 API 生效", async ({ page, request }) => {
     const apiURL = process.env.API_URL || "http://127.0.0.1:8080/api/v1";
 
-    const loginRes = await request.post(`${apiURL}/auth/login`, {
-      data: { email: TEST_EMAIL, password: TEST_PASSWORD },
-    });
-    expect(loginRes.ok()).toBe(true);
-    const { access_token: token } = await loginRes.json();
+    const { token, headers: authHeaders } = await apiLogin(request);
 
     const wsRes = await request.get(`${apiURL}/workspaces`, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: authHeaders,
     });
     expect(wsRes.ok()).toBe(true);
     const wsList = await wsRes.json();
@@ -143,7 +133,7 @@ test.describe("通知域", () => {
     // 调用全部已读
     const markAllRes = await request.put(
       `${apiURL}/workspaces/${wsId}/notifications/read-all`,
-      { headers: { Authorization: `Bearer ${token}` } },
+      { headers: authHeaders },
     );
     expect(markAllRes.ok()).toBe(true);
     const body = await markAllRes.json();
@@ -152,7 +142,7 @@ test.describe("通知域", () => {
     // 验证未读计数归零
     const countRes = await request.get(
       `${apiURL}/workspaces/${wsId}/notifications/unread-count`,
-      { headers: { Authorization: `Bearer ${token}` } },
+      { headers: authHeaders },
     );
     expect(countRes.ok()).toBe(true);
     const countBody = await countRes.json();
@@ -162,14 +152,10 @@ test.describe("通知域", () => {
   test("未读计数 API 正确返回", async ({ request }) => {
     const apiURL = process.env.API_URL || "http://127.0.0.1:8080/api/v1";
 
-    const loginRes = await request.post(`${apiURL}/auth/login`, {
-      data: { email: TEST_EMAIL, password: TEST_PASSWORD },
-    });
-    expect(loginRes.ok()).toBe(true);
-    const { access_token: token } = await loginRes.json();
+    const { token, headers: authHeaders } = await apiLogin(request);
 
     const wsRes = await request.get(`${apiURL}/workspaces`, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: authHeaders,
     });
     expect(wsRes.ok()).toBe(true);
     const wsList = await wsRes.json();
@@ -177,7 +163,7 @@ test.describe("通知域", () => {
 
     const countRes = await request.get(
       `${apiURL}/workspaces/${wsId}/notifications/unread-count`,
-      { headers: { Authorization: `Bearer ${token}` } },
+      { headers: authHeaders },
     );
     expect(countRes.ok()).toBe(true);
     const body = await countRes.json();
@@ -189,21 +175,17 @@ test.describe("通知域", () => {
   test("归档通知后不再出现在列表", async ({ request }) => {
     const apiURL = process.env.API_URL || "http://127.0.0.1:8080/api/v1";
 
-    const loginRes = await request.post(`${apiURL}/auth/login`, {
-      data: { email: TEST_EMAIL, password: TEST_PASSWORD },
-    });
-    expect(loginRes.ok()).toBe(true);
-    const { access_token: token } = await loginRes.json();
+    const { token, headers: authHeaders } = await apiLogin(request);
 
     const wsRes = await request.get(`${apiURL}/workspaces`, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: authHeaders,
     });
     expect(wsRes.ok()).toBe(true);
     const wsList = await wsRes.json();
     const wsId = wsList[0]?.id || 1;
 
     const notifRes = await request.get(`${apiURL}/workspaces/${wsId}/notifications?limit=1`, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: authHeaders,
     });
     const notifBody = await notifRes.json();
     if (notifBody.items?.length > 0) {
@@ -211,14 +193,14 @@ test.describe("通知域", () => {
       // 归档
       const archiveRes = await request.put(
         `${apiURL}/workspaces/${wsId}/notifications/${notif.id}/archive`,
-        { headers: { Authorization: `Bearer ${token}` } },
+        { headers: authHeaders },
       );
       expect(archiveRes.ok()).toBe(true);
 
       // 确认默认列表不再包含已归档项
       const afterRes = await request.get(
         `${apiURL}/workspaces/${wsId}/notifications?limit=50`,
-        { headers: { Authorization: `Bearer ${token}` } },
+        { headers: authHeaders },
       );
       const afterBody = await afterRes.json();
       const stillVisible = afterBody.items?.find((n: any) => n.id === notif.id);

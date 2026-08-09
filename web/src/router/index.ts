@@ -117,6 +117,13 @@ const router = createRouter({
           component: () => import("@/views/workspace/NotificationsView.vue"),
           props: (route) => ({ workspaceId: Number(route.params.workspaceId) }),
         },
+        // 我的工作项：当前用户被分配的工作项（跨项目聚合）
+        {
+          path: ":workspaceId(\\d+)/my-issues",
+          name: "my-issues",
+          component: () => import("@/views/workspace/MyIssuesView.vue"),
+          props: (route) => ({ workspaceId: Number(route.params.workspaceId) }),
+        },
         // 邀请接受链接：公开可读，但 POST accept 需鉴权
         {
           path: "invite/:token",

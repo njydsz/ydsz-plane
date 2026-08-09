@@ -147,8 +147,8 @@ func (s *ProjectService) Create(ctx context.Context, in ProjectCreateInput) (*Pr
 			in.WorkspaceID, in.Name, slug, identifier, in.Description, in.Network, in.Icon, in.Color, in.CoverImageUrl, in.Template, sModules, in.CreatedBy).
 			Scan(&p.ID, &p.WorkspaceID, &p.Name, &p.Slug, &p.Identifier, &p.Description,
 				&p.Network, &p.Icon, &p.Color, &p.CoverImageUrl, &p.Template, &p.Status, &p.SortOrder, &p.Modules, &p.CreatedBy, &p.CreatedAt, &p.UpdatedAt); err != nil {
-			if strings.Contains(err.Error(), "projects_workspace_id_slug") ||
-				strings.Contains(err.Error(), "projects_workspace_id_identifier") {
+			if strings.Contains(err.Error(), "idx_projects_workspace_slug") ||
+				strings.Contains(err.Error(), "idx_projects_workspace_identifier") {
 				return errs.New("PROJECT.DUPLICATE", "项目链接标识或前缀已存在", 409)
 			}
 			return errs.ErrInternal.Wrap(err)
@@ -288,7 +288,7 @@ func (s *ProjectService) Update(ctx context.Context, wsID, projectID int64, in P
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, errs.ErrNotFound
 		}
-		if strings.Contains(err.Error(), "projects_workspace_id") {
+		if strings.Contains(err.Error(), "idx_projects_workspace") {
 			return nil, errs.New("PROJECT.DUPLICATE", "项目链接标识或前缀已存在", 409)
 		}
 		return nil, errs.ErrInternal.Wrap(err)

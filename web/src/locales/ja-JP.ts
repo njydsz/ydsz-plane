@@ -18,6 +18,7 @@ export default {
     filter: "フィルタ",
     reset: "リセット",
     close: "閉じる",
+    clear: "クリア",
     back: "戻る",
     next: "次へ",
     submit: "送信",
@@ -356,6 +357,10 @@ export default {
 
   knowledge: {
     title: "ナレッジ",
+    search: "検索",
+    searchPlaceholder: "ナレッジドキュメントを検索...",
+    searchResults: "検索結果",
+    searchEmpty: "一致するドキュメントが見つかりません",
     createSpace: "スペースを作成",
     createPage: "ページを作成",
     page: "ページ",
