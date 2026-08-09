@@ -106,6 +106,26 @@ export const http = axios.create({
 });
 
 /**
+ * access_token 持久化 key（与 @/stores/auth 保持一致）。
+ * 登录后将令牌存入 localStorage，请求拦截器读取并注入 Authorization 头，
+ * 实现 SPA 的 Bearer 鉴权（后端登录返回 JSON 令牌，而非 Set-Cookie）。
+ */
+export const ACCESS_TOKEN_KEY = "ydsz_access_token";
+
+/** 读取当前持久化的 access_token（无则返回空串） */
+export function getAccessToken(): string {
+  if (typeof localStorage === "undefined") return "";
+  return localStorage.getItem(ACCESS_TOKEN_KEY) ?? "";
+}
+
+/** 写入/清除持久化的 access_token（传入空串即清除） */
+export function setAccessToken(token: string) {
+  if (typeof localStorage === "undefined") return;
+  if (token) localStorage.setItem(ACCESS_TOKEN_KEY, token);
+  else localStorage.removeItem(ACCESS_TOKEN_KEY);
+}
+
+/**
  * apiClient — http 的别名导出（兼容存量 service 的命名约定）。
  * 新代码建议统一使用 http；两个引用指向同一 axios 实例。
  */
@@ -122,6 +142,11 @@ http.interceptors.request.use((config) => {
     const rid = generateRequestId();
     config.headers.set("X-Request-ID", rid);
     (config as RequestMeta).__requestId = rid;
+  }
+  // Bearer 鉴权：注入持久化的 access_token（登录后由 auth store 写入 localStorage）
+  const token = getAccessToken();
+  if (token) {
+    config.headers.set("Authorization", `Bearer ${token}`);
   }
   // CSRF 防护：读取服务端写入的非 HttpOnly Cookie，回写到请求头
   if (typeof document !== "undefined") {
@@ -156,7 +181,10 @@ function generateRequestId(): string {
 let refreshing: Promise<void> | null = null;
 
 async function refreshSession(): Promise<void> {
-  await http.post("/auth/refresh", {});
+  const res = await http.post("/auth/refresh", {});
+  // 刷新成功后持久化新令牌（与 auth store 使用同一 key）
+  const newToken = (res.data as { access_token?: string })?.access_token;
+  if (newToken) setAccessToken(newToken);
 }
 
 http.interceptors.response.use(

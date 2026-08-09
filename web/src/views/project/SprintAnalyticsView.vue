@@ -61,7 +61,6 @@ const scopeChange = computed(() => {
 
 /** 中途加入故事点（速率影响） */
 const addedPoints = computed(() => props.sprint?.progress?.added_points ?? 0);
-const removedPoints = computed(() => props.sprint?.progress?.removed_points ?? 0);
 /** 承诺故事点 = 总点数 - 中途加入点数 */
 const committedPoints = computed(() => Math.max(totalPoints.value - addedPoints.value, 0));
 /** 承诺完成率（排除中途加入的影响） */
