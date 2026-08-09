@@ -36,13 +36,13 @@ async function wsAndProject(request: any, headers: Headers) {
 
 test.describe("自动化规则域", () => {
   test("规则 CRUD + 模板 + dry-run + 执行历史", async ({ request }) => {
-    const token = await login(request);
-    const { wsId, projectId } = await wsAndProject(request, token);
+    const { token, headers: authHeaders } = await apiLogin(request);
+    const { wsId, projectId } = await wsAndProject(request, authHeaders);
     const base = `${apiURL}/workspaces/${wsId}/projects/${projectId}/automation`;
 
     // 1. 模板列表（内置 15 条，开箱可用）
     const tplRes = await request.get(`${base}/templates`, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: authHeaders,
     });
     expect(tplRes.ok()).toBe(true);
     const templates = await tplRes.json();
@@ -50,7 +50,7 @@ test.describe("自动化规则域", () => {
 
     // 2. 创建规则（状态流转通知：issue.status_changed → 通知创建者）
     const createRes = await request.post(`${base}`, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: authHeaders,
       data: {
         name: `E2E-自动化-${Date.now()}`,
         description: "Playwright 创建的临时规则",
@@ -78,13 +78,13 @@ test.describe("自动化规则域", () => {
 
     // 3. 查询单个规则
     const getRes = await request.get(`${base}/${rule.id}`, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: authHeaders,
     });
     expect(getRes.ok()).toBe(true);
 
     // 4. dry-run：DSL 校验器应判定规则合法（valid=true）且动作数正确
     const dryRunRes = await request.post(`${base}/dry-run`, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: authHeaders,
       data: {
         dsl: {
           trigger: { type: "issue.status_changed", filter: {} },
@@ -106,7 +106,7 @@ test.describe("自动化规则域", () => {
 
     // dry-run 负例：非法动作类型应被校验器拒绝
     const badDry = await request.post(`${base}/dry-run`, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: authHeaders,
       data: {
         dsl: {
           trigger: { type: "issue.created" },
@@ -120,7 +120,7 @@ test.describe("自动化规则域", () => {
 
     // 5. 执行历史端点返回结构化记录（可能为空，但结构正确）
     const execRes = await request.get(`${base}/executions?limit=10`, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: authHeaders,
     });
     expect(execRes.ok()).toBe(true);
     const execBody = await execRes.json();
@@ -132,24 +132,24 @@ test.describe("自动化规则域", () => {
 
     // 6. 更新 + 停用 + 删除
     const toggleRes = await request.post(`${base}/${rule.id}/toggle`, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: authHeaders,
     });
     expect(toggleRes.ok()).toBe(true);
     const delRes = await request.delete(`${base}/${rule.id}`, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: authHeaders,
     });
     expect(delRes.ok()).toBe(true);
   });
 
   test("并发触发：同规则多条执行记录落库（事件链路就绪时生效）", async ({ request }) => {
     test.setTimeout(60_000);
-    const token = await login(request);
-    const { wsId, projectId } = await wsAndProject(request, token);
+    const { token, headers: authHeaders } = await apiLogin(request);
+    const { wsId, projectId } = await wsAndProject(request, authHeaders);
     const base = `${apiURL}/workspaces/${wsId}/projects/${projectId}/automation`;
 
     // 创建"新缺陷通知创建者"规则
     const createRes = await request.post(`${base}`, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: authHeaders,
       data: {
         name: `E2E-并发-${Date.now()}`,
         description: "并发竞争用例",
@@ -179,7 +179,7 @@ test.describe("自动化规则域", () => {
     const created = await Promise.all(
       [1, 2, 3].map((i) =>
         request.post(`${issueBase}`, {
-          headers: { Authorization: `Bearer ${token}` },
+          headers: authHeaders,
           data: {
             name: `E2E-并发缺陷-${Date.now()}-${i}`,
             type_code: "defect",
@@ -195,7 +195,7 @@ test.describe("自动化规则域", () => {
     const deadline = Date.now() + 30_000;
     while (Date.now() < deadline) {
       const execRes = await request.get(`${base}/executions?limit=20`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: authHeaders,
       });
       if (execRes.ok()) {
         const body = await execRes.json();
@@ -218,7 +218,7 @@ test.describe("自动化规则域", () => {
 
     // 清理
     await request.delete(`${base}/${rule.id}`, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: authHeaders,
     });
   });
 });

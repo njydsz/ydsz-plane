@@ -12,25 +12,13 @@
  * 运行前提：后端已启动（make migrate && make seed）。
  */
 import { expect, test } from "@playwright/test";
-
-const TEST_EMAIL = "admin@ydsz.dev";
-const TEST_PASSWORD = "Admin@123";
-const apiURL = process.env.API_URL || "http://127.0.0.1:8080/api/v1";
-
-async function login(request: any) {
-  const res = await request.post(`${apiURL}/auth/login`, {
-    data: { email: TEST_EMAIL, password: TEST_PASSWORD },
-  });
-  expect(res.ok()).toBe(true);
-  const { access_token: token } = await res.json();
-  return token as string;
-}
+import { apiLogin, apiURL } from "./helpers";
 
 test.describe("收件箱（Intake）域", () => {
   test("公开提交 → 审核 → 转正 → 跟踪闭环", async ({ request }) => {
-    const token = await login(request);
+    const { token, headers: authHeaders } = await apiLogin(request);
     const wsRes = await request.get(`${apiURL}/workspaces`, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: authHeaders,
     });
     expect(wsRes.ok()).toBe(true);
     const wsList = await wsRes.json();
@@ -40,7 +28,7 @@ test.describe("收件箱（Intake）域", () => {
     // 取项目（转正目标项目）
     const projRes = await request.get(
       `${apiURL}/workspaces/${wsId}/projects?limit=5`,
-      { headers: { Authorization: `Bearer ${token}` } },
+      { headers: authHeaders },
     );
     const projList = projRes.ok() ? await projRes.json() : { items: [] };
     const items = Array.isArray(projList) ? projList : projList.items ?? [];
@@ -52,7 +40,7 @@ test.describe("收件箱（Intake）域", () => {
 
     // 1. 创建公开频道
     const chRes = await request.post(`${adminBase}/channels`, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: authHeaders,
       data: {
         slug,
         name: `E2E 频道 ${stamp}`,
@@ -88,7 +76,7 @@ test.describe("收件箱（Intake）域", () => {
 
     // 3. 管理员查询收件队列并定位工单
     const queueRes = await request.get(`${adminBase}/issues?status=open&limit=20`, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: authHeaders,
     });
     expect(queueRes.ok()).toBe(true);
     const queueBody = await queueRes.json();
@@ -99,7 +87,7 @@ test.describe("收件箱（Intake）域", () => {
 
     // 4. 审核通过（accepted）
     const reviewRes = await request.post(`${adminBase}/issues/${ticketId}/review`, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: authHeaders,
       data: {
         action: "accepted",
         target_issue_type: "requirement",
@@ -110,7 +98,7 @@ test.describe("收件箱（Intake）域", () => {
 
     // 5. 转正 → 生成正式工作项并双向关联
     const convertRes = await request.post(`${adminBase}/issues/${ticketId}/convert`, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: authHeaders,
       data: {
         target_project_id: projectId,
         target_issue_type: "requirement",
@@ -135,7 +123,7 @@ test.describe("收件箱（Intake）域", () => {
     // 7. 转正后正式工作项存在（管理员视角）
     const issueRes = await request.get(
       `${apiURL}/workspaces/${wsId}/projects/${projectId}/issues/${convertedIssueId}`,
-      { headers: { Authorization: `Bearer ${token}` } },
+      { headers: authHeaders },
     );
     expect(issueRes.ok()).toBe(true);
 
@@ -153,21 +141,21 @@ test.describe("收件箱（Intake）域", () => {
     expect(submit2.ok()).toBe(true);
     const t2 = await submit2.json();
     const q2Res = await request.get(`${adminBase}/issues?status=open&limit=50`, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: authHeaders,
     });
     const q2Body = await q2Res.json();
     const q2 = Array.isArray(q2Body) ? q2Body : q2Body.items ?? [];
     const t2row = q2.find((t: any) => t.tracking_id === t2.tracking_id);
     expect(t2row).toBeTruthy();
     const rejectRes = await request.post(`${adminBase}/issues/${t2row.id}/review`, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: authHeaders,
       data: { action: "rejected", reason: "重复提交，无需处理" },
     });
     expect(rejectRes.ok()).toBe(true);
 
     // 清理频道（软删）
     await request.delete(`${adminBase}/channels/${channel.id}`, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: authHeaders,
     });
   });
 });

@@ -14,25 +14,13 @@
  * 运行前提：后端已启动（make migrate && make seed）。
  */
 import { expect, test } from "@playwright/test";
-
-const TEST_EMAIL = "admin@ydsz.dev";
-const TEST_PASSWORD = "Admin@123";
-const apiURL = process.env.API_URL || "http://127.0.0.1:8080/api/v1";
-
-async function login(request: any) {
-  const res = await request.post(`${apiURL}/auth/login`, {
-    data: { email: TEST_EMAIL, password: TEST_PASSWORD },
-  });
-  expect(res.ok()).toBe(true);
-  const { access_token: token } = await res.json();
-  return token as string;
-}
+import { apiLogin, apiURL } from "./helpers";
 
 test.describe("Webhook 域", () => {
   test("订阅 CRUD + 签名头落日志 + 错误路径", async ({ request }) => {
-    const token = await login(request);
+    const { token, headers: authHeaders } = await apiLogin(request);
     const wsRes = await request.get(`${apiURL}/workspaces`, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: authHeaders,
     });
     expect(wsRes.ok()).toBe(true);
     const wsList = await wsRes.json();
@@ -41,7 +29,7 @@ test.describe("Webhook 域", () => {
 
     // 1. 创建订阅（secret 由服务端生成；目标指向不可达端口以模拟失败路径）
     const createRes = await request.post(`${base}`, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: authHeaders,
       data: {
         name: `E2E-Webhook-${Date.now()}`,
         target_url: "http://127.0.0.1:9/e2e-receiver",
@@ -57,23 +45,23 @@ test.describe("Webhook 域", () => {
 
     // 2. 查询 + 列表
     const getRes = await request.get(`${base}/${whId}`, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: authHeaders,
     });
     expect(getRes.ok()).toBe(true);
     const listRes = await request.get(`${base}`, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: authHeaders,
     });
     expect(listRes.ok()).toBe(true);
 
     // 3. 测试推送：目标不可达 → 应返回 4xx 明确失败（错误路径可预期）
     const pingRes = await request.post(`${base}/${whId}/test`, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: authHeaders,
     });
     expect(pingRes.status()).toBeGreaterThanOrEqual(400);
 
     // 4. 投递日志：失败投递也应落日志，且 request_headers 含签名头与时间戳
     const logsRes = await request.get(`${base}/${whId}/logs?limit=5`, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: authHeaders,
     });
     expect(logsRes.ok()).toBe(true);
     const logsBody = await logsRes.json();
@@ -95,13 +83,13 @@ test.describe("Webhook 域", () => {
 
     // 5. 手动重投：对不存在的日志 ID 应返回 4xx（路由 + 鉴权 + 校验生效）
     const retryRes = await request.post(`${base}/${whId}/logs/99999999/retry`, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: authHeaders,
     });
     expect(retryRes.status()).toBeGreaterThanOrEqual(400);
 
     // 6. 事件目录白名单：非法事件类型创建应被拒
     const badRes = await request.post(`${base}`, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: authHeaders,
       data: {
         name: "bad-events",
         target_url: "https://example.invalid/hook",
@@ -112,12 +100,12 @@ test.describe("Webhook 域", () => {
 
     // 7. 更新（停用）+ 删除
     const patchRes = await request.patch(`${base}/${whId}`, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: authHeaders,
       data: { is_active: false },
     });
     expect(patchRes.ok()).toBe(true);
     const delRes = await request.delete(`${base}/${whId}`, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: authHeaders,
     });
     expect(delRes.ok()).toBe(true);
   });

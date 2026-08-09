@@ -9,24 +9,12 @@
  * issue 名称（如 "登录页优化" / "支付流程" 等固定关键词），搜索词用种子关键词。
  */
 import { expect, test } from "@playwright/test";
+import { apiLogin, API_URL } from "./helpers";
 
-const TEST_EMAIL = "admin@ydsz.dev";
-const TEST_PASSWORD = "Admin@123";
-const API_URL = process.env.API_URL || "http://127.0.0.1:8080/api/v1";
+type Headers = Record<string, string>;
 
-async function login(request: any) {
-  const res = await request.post(`${API_URL}/auth/login`, {
-    data: { email: TEST_EMAIL, password: TEST_PASSWORD },
-  });
-  expect(res.ok()).toBe(true);
-  const body = await res.json();
-  return body.access_token;
-}
-
-async function getFirstWorkspace(request: any, token: string) {
-  const res = await request.get(`${API_URL}/workspaces`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+async function getFirstWorkspace(request: any, headers: Headers) {
+  const res = await request.get(`${API_URL}/workspaces`, { headers });
   expect(res.ok()).toBe(true);
   const list = await res.json();
   expect(list.length).toBeGreaterThan(0);
@@ -35,12 +23,12 @@ async function getFirstWorkspace(request: any, token: string) {
 
 test.describe("全局搜索", () => {
   test("工作空间搜索命中 issue 并返回分组结果", async ({ request }) => {
-    const token = await login(request);
-    const wsId = await getFirstWorkspace(request, token);
+    const { token, headers: authHeaders } = await apiLogin(request);
+    const wsId = await getFirstWorkspace(request, authHeaders);
 
     // 用种子数据中的固定关键词搜索（seed 脚本内置 "登录" 等可检索词）
     const res = await request.get(`${API_URL}/workspaces/${wsId}/search`, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: authHeaders,
       params: { q: "登录", limit: 20 },
     });
     expect(res.ok()).toBe(true);
@@ -53,18 +41,18 @@ test.describe("全局搜索", () => {
   });
 
   test("搜索后产生历史记录，可删除", async ({ request }) => {
-    const token = await login(request);
-    const wsId = await getFirstWorkspace(request, token);
+    const { token, headers: authHeaders } = await apiLogin(request);
+    const wsId = await getFirstWorkspace(request, authHeaders);
 
     // 触发一次搜索以写入历史
     await request.get(`${API_URL}/workspaces/${wsId}/search`, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: authHeaders,
       params: { q: "迭代" },
     });
 
     // 读取历史，应包含刚搜索的关键词
     const histRes = await request.get(`${API_URL}/workspaces/${wsId}/search/history`, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: authHeaders,
     });
     expect(histRes.ok()).toBe(true);
     const histBody = await histRes.json();
@@ -76,18 +64,18 @@ test.describe("全局搜索", () => {
     // 删除该条历史
     const delRes = await request.delete(
       `${API_URL}/workspaces/${wsId}/search/history/${found.id}`,
-      { headers: { Authorization: `Bearer ${token}` } },
+      { headers: authHeaders },
     );
     expect(delRes.ok()).toBe(true);
   });
 
   test("书签创建与删除闭环", async ({ request }) => {
-    const token = await login(request);
-    const wsId = await getFirstWorkspace(request, token);
+    const { token, headers: authHeaders } = await apiLogin(request);
+    const wsId = await getFirstWorkspace(request, authHeaders);
 
     const name = `E2E bookmark ${Date.now()}`;
     const createRes = await request.post(`${API_URL}/workspaces/${wsId}/search/bookmarks`, {
-      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      headers: { ...authHeaders, "Content-Type": "application/json" },
       data: { name, query: "登录", is_shared: false },
     });
     expect(createRes.ok()).toBe(true);
@@ -96,7 +84,7 @@ test.describe("全局搜索", () => {
 
     // 列表应包含该书签
     const listRes = await request.get(`${API_URL}/workspaces/${wsId}/search/bookmarks`, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: authHeaders,
     });
     expect(listRes.ok()).toBe(true);
     const listBody = await listRes.json();
@@ -106,7 +94,7 @@ test.describe("全局搜索", () => {
     // 删除书签
     const delRes = await request.delete(
       `${API_URL}/workspaces/${wsId}/search/bookmarks/${bookmarkId}`,
-      { headers: { Authorization: `Bearer ${token}` } },
+      { headers: authHeaders },
     );
     expect(delRes.ok()).toBe(true);
   });

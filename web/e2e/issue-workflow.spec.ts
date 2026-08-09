@@ -7,33 +7,19 @@
  * 运行前提：后端 + 前端已启动，且已执行 make migrate && make seed。
  */
 import { expect, test } from "@playwright/test";
+import { apiLogin, API_URL } from "./helpers";
 
-const TEST_EMAIL = "admin@ydsz.dev";
-const TEST_PASSWORD = "Admin@123";
-const API_URL = process.env.API_URL || "http://127.0.0.1:8080/api/v1";
+type Headers = Record<string, string>;
 
-async function login(request: any) {
-  const res = await request.post(`${API_URL}/auth/login`, {
-    data: { email: TEST_EMAIL, password: TEST_PASSWORD },
-  });
-  expect(res.ok()).toBe(true);
-  const body = await res.json();
-  return body.access_token;
-}
-
-async function getFirstWorkspace(request: any, token: string) {
-  const res = await request.get(`${API_URL}/workspaces`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+async function getFirstWorkspace(request: any, headers: Headers) {
+  const res = await request.get(`${API_URL}/workspaces`, { headers });
   expect(res.ok()).toBe(true);
   const list = await res.json();
   return list[0]?.id || 1;
 }
 
-async function getFirstProject(request: any, token: string, wsId: number) {
-  const res = await request.get(`${API_URL}/workspaces/${wsId}/projects`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+async function getFirstProject(request: any, headers: Headers, wsId: number) {
+  const res = await request.get(`${API_URL}/workspaces/${wsId}/projects`, { headers });
   expect(res.ok()).toBe(true);
   const body = await res.json();
   return body.results?.[0]?.id || body[0]?.id || 1;
@@ -41,8 +27,8 @@ async function getFirstProject(request: any, token: string, wsId: number) {
 
 test.describe("工作项状态机流转", () => {
   test("缺陷流转 required_fields 校验（Fixed→Verifying 需 root_cause_category）", async ({ request }) => {
-    const token = await login(request);
-    const wsId = await getFirstWorkspace(request, token);
+    const { token, headers: authHeaders } = await apiLogin(request);
+    const wsId = await getFirstWorkspace(request, authHeaders);
     const projectId = await getFirstProject(request, token, wsId);
 
     // 创建缺陷
@@ -155,8 +141,8 @@ test.describe("工作项状态机流转", () => {
   });
 
   test("工作项创建后指派人收到通知", async ({ request }) => {
-    const token = await login(request);
-    const wsId = await getFirstWorkspace(request, token);
+    const { token, headers: authHeaders } = await apiLogin(request);
+    const wsId = await getFirstWorkspace(request, authHeaders);
     const projectId = await getFirstProject(request, token, wsId);
 
     // 获取当前用户信息
@@ -193,8 +179,8 @@ test.describe("工作项状态机流转", () => {
   });
 
   test("看板拖拽流转调用 transition API", async ({ request }) => {
-    const token = await login(request);
-    const wsId = await getFirstWorkspace(request, token);
+    const { token, headers: authHeaders } = await apiLogin(request);
+    const wsId = await getFirstWorkspace(request, authHeaders);
     const projectId = await getFirstProject(request, token, wsId);
 
     // 创建任务
