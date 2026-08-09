@@ -590,8 +590,10 @@ COMMENT ON COLUMN public.api_tokens.created_at IS '创建时间';
 COMMENT ON COLUMN public.api_tokens.revoked_at IS '吊销时间；NULL=有效；revoked_at 非空校验时拒绝';
 
 -- 补齐旧 dump 中 COMMENT 引用但实际缺失的列
+-- 注意：api_tokens 在 dump 中先于 users 表创建，此处不能内联 REFERENCES（users 尚不存在），
+-- 外键约束在 users 表创建后单独补充（见 users 表后的 ALTER TABLE ... ADD CONSTRAINT）。
 ALTER TABLE public.api_tokens
-    ADD COLUMN IF NOT EXISTS created_by BIGINT REFERENCES public.users(id),
+    ADD COLUMN IF NOT EXISTS created_by BIGINT,
     ADD COLUMN IF NOT EXISTS deleted_at  TIMESTAMPTZ;
 
 
@@ -2453,9 +2455,9 @@ CREATE TABLE "public"."sso_providers" (
   "enabled" bool NOT NULL DEFAULT true,
   "created_at" timestamptz(6) NOT NULL DEFAULT now(),
   "updated_at" timestamptz(6) NOT NULL DEFAULT now(),
-  CONSTRAINT "sso_providers_pkey" PRIMARY KEY ("id"),
-  CONSTRAINT "sso_providers_workspace_id_fkey" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces" ("id") ON DELETE CASCADE
+  CONSTRAINT "sso_providers_pkey" PRIMARY KEY ("id")
 );
+-- 注：sso_providers.workspace_id → workspaces(id) 外键在 workspaces 主键建立后再补充（见下方）
 CREATE INDEX "idx_sso_providers_workspace" ON "public"."sso_providers" ("workspace_id", "enabled");
 COMMENT ON TABLE public.sso_providers IS 'S13: Workspace-level SSO/OIDC Provider configuration (multi-tenant isolation)';
 COMMENT ON COLUMN public.sso_providers.protocol IS 'Protocol: oidc | saml';
@@ -2472,9 +2474,9 @@ CREATE TABLE "public"."sso_sessions" (
   "error_message" text, "expires_at" timestamptz(6) NOT NULL DEFAULT now() + interval '10 minutes',
   "completed_at" timestamptz(6), "created_at" timestamptz(6) NOT NULL DEFAULT now(),
   CONSTRAINT "sso_sessions_pkey" PRIMARY KEY ("id"),
-  CONSTRAINT "sso_sessions_provider_id_fkey" FOREIGN KEY ("provider_id") REFERENCES "public"."sso_providers" ("id") ON DELETE CASCADE,
-  CONSTRAINT "sso_sessions_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "public"."users" ("id") ON DELETE SET NULL
+  CONSTRAINT "sso_sessions_provider_id_fkey" FOREIGN KEY ("provider_id") REFERENCES "public"."sso_providers" ("id") ON DELETE CASCADE
 );
+-- 注：sso_sessions.user_id → users(id) 外键在 users 主键建立后再补充（见下方）
 
 -- ----------------------------
 -- S13: SSO Links (User-SSO identity binding)
@@ -5276,6 +5278,12 @@ ALTER TABLE "public"."users" ADD CONSTRAINT "users_email_key" UNIQUE ("email");
 -- Primary Key structure for table users
 -- ----------------------------
 ALTER TABLE "public"."users" ADD CONSTRAINT "users_pkey" PRIMARY KEY ("id");
+-- 补充 api_tokens.created_by 外键（users 主键已就绪；原 dump 在 users 创建前内联 REFERENCES 会因无主键/顺序问题失败）
+ALTER TABLE public.api_tokens
+    ADD CONSTRAINT fk_api_tokens_created_by FOREIGN KEY (created_by) REFERENCES public.users(id);
+-- 补充 sso_sessions.user_id 外键（users 主键已就绪）
+ALTER TABLE "public"."sso_sessions"
+    ADD CONSTRAINT "sso_sessions_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "public"."users" ("id") ON DELETE SET NULL;
 
 -- ----------------------------
 -- Auto increment value for version_delivery_snapshots
@@ -5530,6 +5538,9 @@ ALTER TABLE "public"."workspaces" ADD CONSTRAINT "workspaces_status_check" CHECK
 -- Primary Key structure for table workspaces
 -- ----------------------------
 ALTER TABLE "public"."workspaces" ADD CONSTRAINT "workspaces_pkey" PRIMARY KEY ("id");
+-- 补充 sso_providers.workspace_id 外键（workspaces 主键已就绪；原 dump 在 workspaces 创建前内联 REFERENCES 会失败）
+ALTER TABLE "public"."sso_providers"
+    ADD CONSTRAINT "sso_providers_workspace_id_fkey" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces" ("id") ON DELETE CASCADE;
 
 -- ----------------------------
 -- Foreign Keys structure for table api_tokens

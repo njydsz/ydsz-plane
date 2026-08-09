@@ -1,0 +1,49 @@
+?   	github.com/njydsz/ydsz-plane/api/proto/notification/v1	[no test files]
+?   	github.com/njydsz/ydsz-plane/api/proto/search/v1	[no test files]
+?   	github.com/njydsz/ydsz-plane/cmd/api	[no test files]
+?   	github.com/njydsz/ydsz-plane/cmd/migrate	[no test files]
+?   	github.com/njydsz/ydsz-plane/cmd/notification-service	[no test files]
+?   	github.com/njydsz/ydsz-plane/cmd/search-service	[no test files]
+?   	github.com/njydsz/ydsz-plane/cmd/worker	[no test files]
+?   	github.com/njydsz/ydsz-plane/docs/swagger	[no test files]
+ok  	github.com/njydsz/ydsz-plane/internal/application/ai	3.428s
+ok  	github.com/njydsz/ydsz-plane/internal/application/apitoken	0.124s
+ok  	github.com/njydsz/ydsz-plane/internal/application/attachment	3.409s
+ok  	github.com/njydsz/ydsz-plane/internal/application/auth	2.730s
+ok  	github.com/njydsz/ydsz-plane/internal/application/automation	3.016s
+ok  	github.com/njydsz/ydsz-plane/internal/application/dashboard	2.560s
+ok  	github.com/njydsz/ydsz-plane/internal/application/dlq	8.918s
+?   	github.com/njydsz/ydsz-plane/internal/application/intake	[no test files]
+ok  	github.com/njydsz/ydsz-plane/internal/application/issue	5.279s
+?   	github.com/njydsz/ydsz-plane/internal/application/knowledge	[no test files]
+?   	github.com/njydsz/ydsz-plane/internal/application/metrics	[no test files]
+?   	github.com/njydsz/ydsz-plane/internal/application/migrate	[no test files]
+ok  	github.com/njydsz/ydsz-plane/internal/application/notification	1.908s
+?   	github.com/njydsz/ydsz-plane/internal/application/pages	[no test files]
+?   	github.com/njydsz/ydsz-plane/internal/application/preference	[no test files]
+ok  	github.com/njydsz/ydsz-plane/internal/application/search	0.078s
+ok  	github.com/njydsz/ydsz-plane/internal/application/sprint	3.246s
+ok  	github.com/njydsz/ydsz-plane/internal/application/version	4.507s
+ok  	github.com/njydsz/ydsz-plane/internal/application/webhook	5.253s
+ok  	github.com/njydsz/ydsz-plane/internal/application/workbench	5.253s
+ok  	github.com/njydsz/ydsz-plane/internal/application/workspace	5.949s
+ok  	github.com/njydsz/ydsz-plane/internal/config	8.891s
+?   	github.com/njydsz/ydsz-plane/internal/infrastructure/cache	[no test files]
+?   	github.com/njydsz/ydsz-plane/internal/infrastructure/es	[no test files]
+?   	github.com/njydsz/ydsz-plane/internal/infrastructure/events	[no test files]
+ok  	github.com/njydsz/ydsz-plane/internal/infrastructure/mail	8.208s
+?   	github.com/njydsz/ydsz-plane/internal/infrastructure/mq	[no test files]
+?   	github.com/njydsz/ydsz-plane/internal/infrastructure/persistence	[no test files]
+?   	github.com/njydsz/ydsz-plane/internal/infrastructure/storage	[no test files]
+ok  	github.com/njydsz/ydsz-plane/internal/infrastructure/telemetry	8.193s
+ok  	github.com/njydsz/ydsz-plane/internal/infrastructure/worker	12.884s
+?   	github.com/njydsz/ydsz-plane/internal/infrastructure/ws	[no test files]
+ok  	github.com/njydsz/ydsz-plane/internal/interfaces/http	10.016s
+?   	github.com/njydsz/ydsz-plane/internal/interfaces/http/dto	[no test files]
+ok  	github.com/njydsz/ydsz-plane/internal/interfaces/http/export	10.636s
+ok  	github.com/njydsz/ydsz-plane/internal/interfaces/middleware	10.075s
+?   	github.com/njydsz/ydsz-plane/internal/rbac	[no test files]
+?   	github.com/njydsz/ydsz-plane/pkg/crypto	[no test files]
+ok  	github.com/njydsz/ydsz-plane/pkg/errs	10.597s
+?   	github.com/njydsz/ydsz-plane/pkg/eventbus	[no test files]
+ok  	github.com/njydsz/ydsz-plane/pkg/searchql	4.888s
