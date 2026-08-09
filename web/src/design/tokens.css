@@ -1,3 +1,5 @@
+@import "tailwindcss";
+
 /**
  * ============================================================================
  *  设计令牌系统 v2 —— 移植自 Plane 的 oklch 三层语义体系
@@ -766,6 +768,44 @@
   /* 阴影：强化轮廓（高对比模式下阴影辅助可感知性） */
   --shadow-card: 0 0 0 2px var(--border-strong), 0 1px 4px oklch(0 0 0 / 40%);
   --shadow-popover: 0 0 0 2px var(--border-strong), 0 8px 24px oklch(0 0 0 / 60%);
+}
+
+/* ============================================================================
+ *  THEME —— 注册设计令牌到 Tailwind v4 utility 系统
+ *
+ *  说明：
+ *  - 颜色值写原始 oklch()，这样 bg-primary/10 等透明度修饰符才能工作
+ *  - 如需暗色模式适配，在 [data-theme="dark"] 中用 @theme 覆盖
+ * ========================================================================== */
+@theme {
+  /* Brand / Primary — 用于 text-primary, bg-primary, border-primary 等 */
+  --color-primary: oklch(0.4799 0.1158 242.91);
+  --color-primary-foreground: oklch(1 0 0);
+
+  /* Muted / Secondary — 用于 text-muted-foreground, bg-muted 等 */
+  --color-muted: oklch(0.9696 0.0007 230.67);
+  --color-muted-foreground: oklch(0.6161 0.009153 230.867);
+
+  /* Background / Surface — 用于 bg-background, bg-surface, bg-canvas 等 */
+  --color-background: oklch(0.9543 0.001 230.67);
+  --color-surface: oklch(1 0 0);
+  --color-foreground: oklch(0.2378 0.0029 230.83);
+
+  /* Border — 用于 border (默认), border-border 等 */
+  --color-border: oklch(0.9389 0.0014 230.68);
+
+  /* Status colors */
+  --color-success: oklch(0.4468 0.1187 151.4);
+  --color-warning: oklch(0.7724 0.172798 65.367);
+  --color-danger: oklch(0.583 0.238666 28.4765);
+  --color-info: oklch(0.4799 0.1158 242.91);
+
+  /* Radius — rounded, rounded-sm, rounded-md, rounded-lg, rounded-xl */
+  --radius-sm: 6px;
+  --radius: 8px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
 }
 
 /* ============================================================================

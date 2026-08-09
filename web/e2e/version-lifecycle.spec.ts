@@ -37,14 +37,14 @@ test.describe("版本全生命周期", () => {
   test("创建 → 激活 → 查进度 → 归档 状态机闭环", async ({ request }) => {
     const { token, headers: authHeaders } = await apiLogin(request);
     const wsId = await getFirstWorkspace(request, authHeaders);
-    const projectId = await getFirstProject(request, token, wsId);
+    const projectId = await getFirstProject(request, authHeaders, wsId);
 
     // 1. 创建版本
     const uniqueName = `E2E Version ${Date.now()}`;
     const createRes = await request.post(
       `${API_URL}/workspaces/${wsId}/projects/${projectId}/versions`,
       {
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        headers: { ...authHeaders, "Content-Type": "application/json" },
         data: {
           name: uniqueName,
           semver: "1.0.0",
@@ -66,7 +66,7 @@ test.describe("版本全生命周期", () => {
     // 2. 激活版本 planning → active
     const activateRes = await request.post(
       `${API_URL}/workspaces/${wsId}/projects/${projectId}/versions/${versionId}/activate`,
-      { headers: { Authorization: `Bearer ${token}` } },
+      { headers: authHeaders },
     );
     expect(activateRes.ok()).toBe(true);
     const activated = await activateRes.json();
@@ -75,7 +75,7 @@ test.describe("版本全生命周期", () => {
     // 3. 查询进度聚合接口
     const progressRes = await request.get(
       `${API_URL}/workspaces/${wsId}/projects/${projectId}/versions/${versionId}/progress`,
-      { headers: { Authorization: `Bearer ${token}` } },
+      { headers: authHeaders },
     );
     expect(progressRes.ok()).toBe(true);
     const progress = await progressRes.json();
@@ -85,7 +85,7 @@ test.describe("版本全生命周期", () => {
     // 4. 查询质量指标接口
     const qualityRes = await request.get(
       `${API_URL}/workspaces/${wsId}/projects/${projectId}/versions/${versionId}/quality`,
-      { headers: { Authorization: `Bearer ${token}` } },
+      { headers: authHeaders },
     );
     expect(qualityRes.ok()).toBe(true);
     const quality = await qualityRes.json();
@@ -95,7 +95,7 @@ test.describe("版本全生命周期", () => {
     // 5. 交付报告接口
     const reportRes = await request.get(
       `${API_URL}/workspaces/${wsId}/projects/${projectId}/versions/${versionId}/delivery-report`,
-      { headers: { Authorization: `Bearer ${token}` } },
+      { headers: authHeaders },
     );
     expect(reportRes.ok()).toBe(true);
     const report = await reportRes.json();
@@ -104,7 +104,7 @@ test.describe("版本全生命周期", () => {
     // 6. 归档版本 active → archived
     const archiveRes = await request.post(
       `${API_URL}/workspaces/${wsId}/projects/${projectId}/versions/${versionId}/archive`,
-      { headers: { Authorization: `Bearer ${token}` } },
+      { headers: authHeaders },
     );
     expect(archiveRes.ok()).toBe(true);
     const archived = await archiveRes.json();
@@ -113,7 +113,7 @@ test.describe("版本全生命周期", () => {
     // 7. 清理：删除版本
     const deleteRes = await request.delete(
       `${API_URL}/workspaces/${wsId}/projects/${projectId}/versions/${versionId}`,
-      { headers: { Authorization: `Bearer ${token}` } },
+      { headers: authHeaders },
     );
     expect(deleteRes.ok()).toBe(true);
   });
@@ -121,13 +121,13 @@ test.describe("版本全生命周期", () => {
   test("版本发布：检查清单校验 + Release Notes 生成", async ({ request }) => {
     const { token, headers: authHeaders } = await apiLogin(request);
     const wsId = await getFirstWorkspace(request, authHeaders);
-    const projectId = await getFirstProject(request, token, wsId);
+    const projectId = await getFirstProject(request, authHeaders, wsId);
 
     // 创建带检查清单的版本
     const createRes = await request.post(
       `${API_URL}/workspaces/${wsId}/projects/${projectId}/versions`,
       {
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        headers: { ...authHeaders, "Content-Type": "application/json" },
         data: {
           name: `E2E Release ${Date.now()}`,
           semver: "2.0.0",
@@ -146,7 +146,7 @@ test.describe("版本全生命周期", () => {
     // 激活
     const activateRes = await request.post(
       `${API_URL}/workspaces/${wsId}/projects/${projectId}/versions/${versionId}/activate`,
-      { headers: { Authorization: `Bearer ${token}` } },
+      { headers: authHeaders },
     );
     expect(activateRes.ok()).toBe(true);
 
@@ -154,7 +154,7 @@ test.describe("版本全生命周期", () => {
     const releaseRes = await request.post(
       `${API_URL}/workspaces/${wsId}/projects/${projectId}/versions/${versionId}/release`,
       {
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        headers: { ...authHeaders, "Content-Type": "application/json" },
         data: {},
       },
     );
@@ -170,7 +170,7 @@ test.describe("版本全生命周期", () => {
     // 生成 Release Notes
     const notesRes = await request.get(
       `${API_URL}/workspaces/${wsId}/projects/${projectId}/versions/${versionId}/release-notes`,
-      { headers: { Authorization: `Bearer ${token}` } },
+      { headers: authHeaders },
     );
     expect(notesRes.ok()).toBe(true);
     const notes = await notesRes.json();
@@ -180,7 +180,7 @@ test.describe("版本全生命周期", () => {
     const forceReleaseRes = await request.post(
       `${API_URL}/workspaces/${wsId}/projects/${projectId}/versions/${versionId}/release`,
       {
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        headers: { ...authHeaders, "Content-Type": "application/json" },
         data: { force_checklist: true },
       },
     );
@@ -191,20 +191,20 @@ test.describe("版本全生命周期", () => {
     // 清理：删除
     await request.delete(
       `${API_URL}/workspaces/${wsId}/projects/${projectId}/versions/${versionId}`,
-      { headers: { Authorization: `Bearer ${token}` } },
+      { headers: authHeaders },
     );
   });
 
   test("版本关联迭代 + 缺陷面板查询", async ({ request }) => {
     const { token, headers: authHeaders } = await apiLogin(request);
     const wsId = await getFirstWorkspace(request, authHeaders);
-    const projectId = await getFirstProject(request, token, wsId);
+    const projectId = await getFirstProject(request, authHeaders, wsId);
 
     // 创建版本
     const createRes = await request.post(
       `${API_URL}/workspaces/${wsId}/projects/${projectId}/versions`,
       {
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        headers: { ...authHeaders, "Content-Type": "application/json" },
         data: {
           name: `E2E Sprint Version ${Date.now()}`,
           semver: "1.5.0",
@@ -216,12 +216,12 @@ test.describe("版本全生命周期", () => {
     const versionId = version.id;
 
     // 尝试获取第一个迭代并关联
-    const sprintId = await getFirstSprint(request, token, wsId, projectId);
+    const sprintId = await getFirstSprint(request, authHeaders, wsId, projectId);
     if (sprintId) {
       const addRes = await request.post(
         `${API_URL}/workspaces/${wsId}/projects/${projectId}/versions/${versionId}/sprints`,
         {
-          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          headers: { ...authHeaders, "Content-Type": "application/json" },
           data: { sprint_id: sprintId },
         },
       );
@@ -230,7 +230,7 @@ test.describe("版本全生命周期", () => {
       // 列出关联的迭代
       const listRes = await request.get(
         `${API_URL}/workspaces/${wsId}/projects/${projectId}/versions/${versionId}/sprints`,
-        { headers: { Authorization: `Bearer ${token}` } },
+        { headers: authHeaders },
       );
       expect(listRes.ok()).toBe(true);
       const sprints = await listRes.json();
@@ -239,7 +239,7 @@ test.describe("版本全生命周期", () => {
       // 移除迭代关联
       const removeRes = await request.delete(
         `${API_URL}/workspaces/${wsId}/projects/${projectId}/versions/${versionId}/sprints/${sprintId}`,
-        { headers: { Authorization: `Bearer ${token}` } },
+        { headers: authHeaders },
       );
       expect(removeRes.ok()).toBe(true);
     }
@@ -247,7 +247,7 @@ test.describe("版本全生命周期", () => {
     // 缺陷面板查询（空版本，但接口应可用）
     const defectsRes = await request.get(
       `${API_URL}/workspaces/${wsId}/projects/${projectId}/versions/${versionId}/defects`,
-      { headers: { Authorization: `Bearer ${token}` } },
+      { headers: authHeaders },
     );
     expect(defectsRes.ok()).toBe(true);
     const defects = await defectsRes.json();
@@ -257,26 +257,26 @@ test.describe("版本全生命周期", () => {
     // 跨版本缺陷过滤接口
     const filterRes = await request.get(
       `${API_URL}/workspaces/${wsId}/projects/${projectId}/versions/defects?found_version_id=${versionId}&limit=10`,
-      { headers: { Authorization: `Bearer ${token}` } },
+      { headers: authHeaders },
     );
     expect(filterRes.ok()).toBe(true);
 
     // 清理
     await request.delete(
       `${API_URL}/workspaces/${wsId}/projects/${projectId}/versions/${versionId}`,
-      { headers: { Authorization: `Bearer ${token}` } },
+      { headers: authHeaders },
     );
   });
 
   test("乐观锁：带 version 字段更新版本", async ({ request }) => {
     const { token, headers: authHeaders } = await apiLogin(request);
     const wsId = await getFirstWorkspace(request, authHeaders);
-    const projectId = await getFirstProject(request, token, wsId);
+    const projectId = await getFirstProject(request, authHeaders, wsId);
 
     const createRes = await request.post(
       `${API_URL}/workspaces/${wsId}/projects/${projectId}/versions`,
       {
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        headers: { ...authHeaders, "Content-Type": "application/json" },
         data: {
           name: `E2E Optimistic ${Date.now()}`,
           semver: "3.0.0",
@@ -292,7 +292,7 @@ test.describe("版本全生命周期", () => {
     const updateRes = await request.patch(
       `${API_URL}/workspaces/${wsId}/projects/${projectId}/versions/${versionId}`,
       {
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        headers: { ...authHeaders, "Content-Type": "application/json" },
         data: {
           name: `E2E Optimistic Updated ${Date.now()}`,
           version: currentVersion,
@@ -307,7 +307,7 @@ test.describe("版本全生命周期", () => {
     // 清理
     await request.delete(
       `${API_URL}/workspaces/${wsId}/projects/${projectId}/versions/${versionId}`,
-      { headers: { Authorization: `Bearer ${token}` } },
+      { headers: authHeaders },
     );
   });
 });

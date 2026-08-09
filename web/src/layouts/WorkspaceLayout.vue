@@ -17,6 +17,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
 import { workspaceApi, type Workspace } from "@/api/services/workspace";
+import DynamicIcon from "@/components/DynamicIcon.vue";
 import { useAuthStore } from "@/stores/auth";
 import { useSearchStore } from "@/stores/search";
 import { useWorkspaceStore } from "@/stores/workspace";
@@ -321,7 +322,7 @@ watch(
             active-class="is-active"
             exact-active-class="is-active"
           >
-            <span class="nav-icon">▸</span>
+            <DynamicIcon :name="item.icon" class="nav-icon" />
             <span v-if="!collapsed">{{ $t(item.titleKey) }}</span>
           </router-link>
         </div>
