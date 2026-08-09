@@ -288,11 +288,31 @@ const router = createRouter({
             projectId: Number(route.params.projectId),
           }),
         },
-        // 项目列表视图
+        // 需求列表视图
         {
-          path: ":workspaceId(\\d+)/projects/:projectId/list",
-          name: "project-list",
-          component: () => import("@/views/project/IssueListView.vue"),
+          path: ":workspaceId(\\d+)/projects/:projectId/requirements",
+          name: "requirement-list",
+          component: () => import("@/views/project/RequirementListView.vue"),
+          props: (route) => ({
+            workspaceId: Number(route.params.workspaceId),
+            projectId: Number(route.params.projectId),
+          }),
+        },
+        // 任务列表视图
+        {
+          path: ":workspaceId(\\d+)/projects/:projectId/tasks",
+          name: "task-list",
+          component: () => import("@/views/project/TaskListView.vue"),
+          props: (route) => ({
+            workspaceId: Number(route.params.workspaceId),
+            projectId: Number(route.params.projectId),
+          }),
+        },
+        // 缺陷列表视图
+        {
+          path: ":workspaceId(\\d+)/projects/:projectId/defects",
+          name: "defect-list",
+          component: () => import("@/views/project/DefectListView.vue"),
           props: (route) => ({
             workspaceId: Number(route.params.workspaceId),
             projectId: Number(route.params.projectId),

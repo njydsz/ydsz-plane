@@ -14,6 +14,8 @@ package search
 import (
 	"strings"
 	"testing"
+
+	"github.com/njydsz/ydsz-plane/internal/application/issue"
 )
 
 func TestEventDocType(t *testing.T) {
@@ -57,7 +59,7 @@ func TestSourceTable(t *testing.T) {
 		typ  DocType
 		want string
 	}{
-		{DocTypeIssue, "issues"},
+		{DocTypeIssue, issue.CrossTypeWorkitemUnion},
 		{DocTypeSprint, "sprints"},
 		{DocTypeVersion, "versions"},
 		{DocType(""), ""},

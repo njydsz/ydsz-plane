@@ -348,12 +348,28 @@ watch(
               <span v-if="!collapsed">看板</span>
             </router-link>
             <router-link
-              :to="`/${wsStore.currentId}/projects/${currentProjectId}/list`"
+              :to="`/${wsStore.currentId}/projects/${currentProjectId}/requirements`"
               class="nav-item nav-item--sub"
               active-class="is-active"
             >
-              <span class="nav-icon">☰</span>
-              <span v-if="!collapsed">列表</span>
+              <span class="nav-icon">📋</span>
+              <span v-if="!collapsed">需求</span>
+            </router-link>
+            <router-link
+              :to="`/${wsStore.currentId}/projects/${currentProjectId}/tasks`"
+              class="nav-item nav-item--sub"
+              active-class="is-active"
+            >
+              <span class="nav-icon">✅</span>
+              <span v-if="!collapsed">任务</span>
+            </router-link>
+            <router-link
+              :to="`/${wsStore.currentId}/projects/${currentProjectId}/defects`"
+              class="nav-item nav-item--sub"
+              active-class="is-active"
+            >
+              <span class="nav-icon">🐛</span>
+              <span v-if="!collapsed">缺陷</span>
             </router-link>
             <router-link
               :to="`/${wsStore.currentId}/projects/${currentProjectId}/wbs`"

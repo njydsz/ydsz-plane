@@ -32,6 +32,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/mq"
+	"github.com/njydsz/ydsz-plane/internal/application/issue"
 )
 
 // batchSize 是 Backfill 每批处理的记录条数。
@@ -73,18 +74,24 @@ func (x *Indexer) Backfill(ctx context.Context) (int, error) {
 
 // workspacesForType 返回某类型对象存在的所有 workspace_id。
 func (x *Indexer) workspacesForType(ctx context.Context, typ DocType) ([]int64, error) {
-	var table string
+	var q string
 	switch typ {
 	case DocTypeIssue:
-		table = "issues"
+		// 工作项分布在三表中，需要 UNION 取 workspace_id
+		q = `SELECT workspace_id FROM (
+			SELECT workspace_id FROM requirement WHERE deleted_at IS NULL
+			UNION
+			SELECT workspace_id FROM task WHERE deleted_at IS NULL
+			UNION
+			SELECT workspace_id FROM defect WHERE deleted_at IS NULL
+		) ws ORDER BY workspace_id`
 	case DocTypeSprint:
-		table = "sprints"
+		q = "SELECT DISTINCT workspace_id FROM sprints WHERE deleted_at IS NULL ORDER BY workspace_id"
 	case DocTypeVersion:
-		table = "versions"
+		q = "SELECT DISTINCT workspace_id FROM versions WHERE deleted_at IS NULL ORDER BY workspace_id"
 	default:
 		return nil, fmt.Errorf("unknown doc_type %q", typ)
 	}
-	q := "SELECT DISTINCT workspace_id FROM " + table + " WHERE deleted_at IS NULL ORDER BY workspace_id"
 	rows, err := x.db.Query(ctx, q)
 	if err != nil {
 		return nil, err
@@ -152,13 +159,13 @@ func (x *Indexer) backfillBatch(ctx context.Context, typ DocType, wsID, lastID i
 
 // --- 单对象同步 ---
 
-// SyncIssue 同步单条 issue 进 search_documents（upsert）。
-func (x *Indexer) SyncIssue(ctx context.Context, issueID int64) error {
-	wsID, err := x.resolveWorkspace(ctx, "issues", issueID)
+// SyncIssue 同步单条 workitem 进 search_documents（upsert）。
+func (x *Indexer) SyncIssue(ctx context.Context, workitemID int64) error {
+	wsID, err := x.resolveWorkitemWorkspace(ctx, workitemID)
 	if err != nil {
 		return err
 	}
-	return x.syncInWorkspace(ctx, wsID, DocTypeIssue, issueID)
+	return x.syncInWorkspace(ctx, wsID, DocTypeIssue, workitemID)
 }
 
 // SyncSprint 同步单条 sprint 进 search_documents（upsert）。
@@ -229,9 +236,6 @@ func (x *Indexer) RemoveDocument(ctx context.Context, docType string, wsID, docI
 }
 
 // resolveWorkspace 从 source 表解析对象所属 workspace_id。
-// 注意：在未设置 app.workspace_id 的会话中，FORCE RLS 会使该查询返回空，
-// 此时视为对象不存在（返回 pgx.ErrNoRows）。生产链路（RunConsumer / worker）
-// 会优先通过事件/任务的 workspace_id 直接走 syncInWorkspace，避免此限制。
 func (x *Indexer) resolveWorkspace(ctx context.Context, table string, id int64) (int64, error) {
 	var ws int64
 	err := x.db.QueryRow(ctx,
@@ -245,12 +249,32 @@ func (x *Indexer) resolveWorkspace(ctx context.Context, table string, id int64) 
 	return ws, nil
 }
 
+// resolveWorkitemWorkspace 从三独立表（requirement/task/defect）解析工作项所在 workspace_id。
+func (x *Indexer) resolveWorkitemWorkspace(ctx context.Context, workitemID int64) (int64, error) {
+	var ws int64
+	err := x.db.QueryRow(ctx, `
+		SELECT workspace_id FROM (
+			SELECT workspace_id FROM requirement WHERE id = $1 AND deleted_at IS NULL
+			UNION ALL
+			SELECT workspace_id FROM task WHERE id = $1 AND deleted_at IS NULL
+			UNION ALL
+			SELECT workspace_id FROM defect WHERE id = $1 AND deleted_at IS NULL
+		) ws LIMIT 1`, workitemID).Scan(&ws)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return 0, fmt.Errorf("resolve workitem workspace %d: not found", workitemID)
+		}
+		return 0, err
+	}
+	return ws, nil
+}
+
 // --- SQL 片段构建 ---
 
 func sourceTable(typ DocType) string {
 	switch typ {
 	case DocTypeIssue:
-		return "issues"
+		return issue.CrossTypeWorkitemUnion
 	case DocTypeSprint:
 		return "sprints"
 	case DocTypeVersion:

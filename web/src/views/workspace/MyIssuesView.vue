@@ -13,13 +13,11 @@ import { useRoute, useRouter } from "vue-router";
 import { type Issue, type ListIssuesParams, issueApi } from "@/api/services/issue";
 import { workspaceApi, type Project } from "@/api/services/workspace";
 import { useAuthStore } from "@/stores/auth";
-import { useWorkspaceStore } from "@/stores/workspace";
 import { AppEmptyState, AppErrorState, AppSkeleton } from "@/components";
 
 const route = useRoute();
 const router = useRouter();
 const auth = useAuthStore();
-const wsStore = useWorkspaceStore();
 
 const workspaceId = computed(() => Number(route.params.workspaceId ?? 0));
 const loading = ref(true);

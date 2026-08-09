@@ -65,7 +65,11 @@ func (c *CFDCalculator) Calculate(ctx context.Context, wsID, projectID int64, fr
 				count(*) FILTER (WHERE st."group" = 'cancelled') AS cancelled,
 				count(*) FILTER (WHERE i.deleted_at IS NULL AND st."group" != 'cancelled') AS total_active
 			FROM date_series ds
-			LEFT JOIN issues i ON i.project_id = $1 AND i.workspace_id = $2
+			LEFT JOIN (
+				SELECT id, state_id, project_id, workspace_id, created_at FROM requirement WHERE deleted_at IS NULL
+				UNION ALL SELECT id, state_id, project_id, workspace_id, created_at FROM task WHERE deleted_at IS NULL
+				UNION ALL SELECT id, state_id, project_id, workspace_id, created_at FROM defect WHERE deleted_at IS NULL
+			) i ON i.project_id = $1 AND i.workspace_id = $2
 				AND i.created_at <= ds.snap_date + INTERVAL '1 day'
 			LEFT JOIN states st ON st.id = i.state_id
 			GROUP BY ds.snap_date
@@ -135,7 +139,7 @@ func (c *ControlChartCalculator) Calculate(ctx context.Context, wsID, projectID 
 	rows, err := c.db.Query(ctx, `
 		SELECT i.identifier, i.completed_at::date, 
 		       EXTRACT(EPOCH FROM (i.completed_at - i.created_at)) / 86400.0 AS lead_days
-		FROM workitems i
+		FROM (SELECT id, public_id, workspace_id, project_id, sequence_id, 'requirement'::text AS type_code, parent_id, depth, name, description_json, description_html, description_stripped, state_id, priority, NULL::smallint AS severity, NULL::text AS found_phase, NULL::text AS root_cause_category, NULL::bigint AS verifier_id, NULL::jsonb AS environment, NULL::jsonb AS reproduce_steps, NULL::text AS category, NULL::numeric AS actual_effort, NULL::numeric AS remaining_effort, NULL::text AS delay_reason, source, point, sprint_id, progress, start_date, target_date, completed_at, is_draft, sort_order, version, version_id, found_version_id, fix_version_id, external_id, created_by, created_at, updated_at, deleted_at FROM requirement WHERE deleted_at IS NULL UNION ALL SELECT id, public_id, workspace_id, project_id, sequence_id, 'task'::text, parent_id, depth, name, description_json, description_html, description_stripped, state_id, priority, NULL::smallint, NULL::text, NULL::text, NULL::bigint, NULL::jsonb, NULL::jsonb, category, actual_effort, remaining_effort, delay_reason, NULL::text, point, sprint_id, progress, start_date, target_date, completed_at, is_draft, sort_order, version, version_id, found_version_id, fix_version_id, external_id, created_by, created_at, updated_at, deleted_at FROM task WHERE deleted_at IS NULL UNION ALL SELECT id, public_id, workspace_id, project_id, sequence_id, 'defect'::text, parent_id, depth, name, description_json, description_html, description_stripped, state_id, priority, severity, found_phase, root_cause_category, verifier_id, environment, reproduce_steps, NULL::text, NULL::numeric, NULL::numeric, NULL::text, NULL::text, point, sprint_id, progress, start_date, target_date, completed_at, is_draft, sort_order, version, version_id, found_version_id, fix_version_id, external_id, created_by, created_at, updated_at, deleted_at FROM defect WHERE deleted_at IS NULL) AS w i
 		JOIN states st ON st.id = i.state_id
 		WHERE i.project_id = $1 AND i.workspace_id = $2
 		  AND i.type_code = 'requirement'
@@ -222,13 +226,14 @@ func (s *Service) GetResourceLoadDetail(ctx context.Context, wsID, projectID int
 		FROM project_members pm
 		JOIN users u ON u.id = pm.user_id
 		LEFT JOIN LATERAL (
-			SELECT count(*) AS active_cnt, coalesce(sum(i.point), 0) AS total_pts
+			SELECT count(*) AS active_cnt, coalesce(sum(sub.point), 0) AS total_pts
 			FROM issue_assignees ia
-			JOIN issues i ON i.id = ia.issue_id
-			JOIN states st ON st.id = i.state_id
-			WHERE ia.user_id = pm.user_id AND i.project_id = $1
+			JOIN (SELECT id, state_id, point, project_id FROM requirement WHERE deleted_at IS NULL
+			    UNION ALL SELECT id, state_id, point, project_id FROM task WHERE deleted_at IS NULL
+			    UNION ALL SELECT id, state_id, point, project_id FROM defect WHERE deleted_at IS NULL) sub ON sub.id = ia.issue_id
+			JOIN states st ON st.id = sub.state_id
+			WHERE ia.user_id = pm.user_id AND sub.project_id = $1
 			  AND st."group" NOT IN ('completed', 'cancelled')
-			  AND i.deleted_at IS NULL
 		) load ON true
 		WHERE pm.project_id = $1 AND pm.workspace_id = $2
 		ORDER BY load.active_cnt DESC NULLS LAST`,
@@ -285,7 +290,7 @@ func (s *Service) GetWeeklyThroughput(ctx context.Context, wsID, projectID int64
 			(date_trunc('week', i.completed_at)::date + INTERVAL '6 days')::date AS week_end,
 			count(*) AS completed,
 			coalesce(sum(i.point), 0) AS points
-		FROM workitems i
+		FROM (SELECT id, public_id, workspace_id, project_id, sequence_id, 'requirement'::text AS type_code, parent_id, depth, name, description_json, description_html, description_stripped, state_id, priority, NULL::smallint AS severity, NULL::text AS found_phase, NULL::text AS root_cause_category, NULL::bigint AS verifier_id, NULL::jsonb AS environment, NULL::jsonb AS reproduce_steps, NULL::text AS category, NULL::numeric AS actual_effort, NULL::numeric AS remaining_effort, NULL::text AS delay_reason, source, point, sprint_id, progress, start_date, target_date, completed_at, is_draft, sort_order, version, version_id, found_version_id, fix_version_id, external_id, created_by, created_at, updated_at, deleted_at FROM requirement WHERE deleted_at IS NULL UNION ALL SELECT id, public_id, workspace_id, project_id, sequence_id, 'task'::text, parent_id, depth, name, description_json, description_html, description_stripped, state_id, priority, NULL::smallint, NULL::text, NULL::text, NULL::bigint, NULL::jsonb, NULL::jsonb, category, actual_effort, remaining_effort, delay_reason, NULL::text, point, sprint_id, progress, start_date, target_date, completed_at, is_draft, sort_order, version, version_id, found_version_id, fix_version_id, external_id, created_by, created_at, updated_at, deleted_at FROM task WHERE deleted_at IS NULL UNION ALL SELECT id, public_id, workspace_id, project_id, sequence_id, 'defect'::text, parent_id, depth, name, description_json, description_html, description_stripped, state_id, priority, severity, found_phase, root_cause_category, verifier_id, environment, reproduce_steps, NULL::text, NULL::numeric, NULL::numeric, NULL::text, NULL::text, point, sprint_id, progress, start_date, target_date, completed_at, is_draft, sort_order, version, version_id, found_version_id, fix_version_id, external_id, created_by, created_at, updated_at, deleted_at FROM defect WHERE deleted_at IS NULL) AS w i
 		JOIN states st ON st.id = i.state_id
 		WHERE i.project_id = $1 AND i.workspace_id = $2
 		  AND i.type_code = 'requirement'

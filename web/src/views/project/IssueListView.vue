@@ -20,6 +20,13 @@ import { AppErrorState, AppEmptyState, InlineEdit, InlineSelectEdit, AppSkeleton
 import { type FilterState, filterToListParams } from "@/lib/filter-adapter";
 import ImportDialog from "@/components/ImportDialog.vue";
 
+const props = withDefaults(defineProps<{
+  /** 固定类型过滤 — 传入后列表仅展示该类型（requirement/task/defect），用户无法覆盖 */
+  typeCode?: IssueType;
+}>(), {
+  typeCode: undefined,
+});
+
 const route = useRoute();
 const issueStore = useIssueStore();
 const peek = usePeekStore();
@@ -284,6 +291,10 @@ async function load() {
 
     // FilterState → ListParams 转换（统一在 API 边界）
     const filterParams = filterToListParams(currentFilter.value);
+    // 如果指定了 typeCode prop，强制覆盖过滤类型（需求/任务/缺陷独立视图）
+    if (props.typeCode) {
+      filterParams.type = props.typeCode;
+    }
     const params: ListIssuesParams = {
       ...filterParams,
       sort: buildSortParam(),
