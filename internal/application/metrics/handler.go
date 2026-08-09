@@ -174,7 +174,7 @@ func (h *MetricsHandler) GetResourceLoad(c *gin.Context) {
 
 	var wipCount int
 	err := h.d.Svc.db.QueryRow(c.Request.Context(), `
-		SELECT count(*) FROM issues i
+		SELECT count(*) FROM workitems i
 		JOIN sprint_issues si ON si.issue_id = i.id
 		JOIN sprints sp ON sp.id = si.sprint_id
 		JOIN states st ON st.id = i.state_id
@@ -188,7 +188,7 @@ func (h *MetricsHandler) GetResourceLoad(c *gin.Context) {
 
 	var startedCount int
 	err = h.d.Svc.db.QueryRow(c.Request.Context(), `
-		SELECT count(*) FROM issues i
+		SELECT count(*) FROM workitems i
 		JOIN states st ON st.id = i.state_id
 		WHERE i.project_id = $1 AND i.workspace_id = $2 AND st."group" = 'started' AND i.deleted_at IS NULL`,
 		projectID, wsID).Scan(&startedCount)

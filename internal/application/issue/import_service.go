@@ -394,7 +394,7 @@ func (s *ImportService) buildInput(ctx context.Context, wsID, projectID int64, r
 	if v := raw["parent_identifier"]; v != "" {
 		var pid int64
 		if e := s.svc.db.QueryRow(ctx,
-			`SELECT i.id FROM issues i JOIN projects p ON p.id=i.project_id
+			`SELECT i.id FROM workitems i JOIN projects p ON p.id=i.project_id
 			 WHERE i.workspace_id=$1 AND i.project_id=$2 AND p.identifier || '-' || i.sequence_id=$3 AND i.deleted_at IS NULL`,
 			wsID, projectID, v).Scan(&pid); e != nil {
 			errs = append(errs, rowFieldError{Field: "parent_identifier", Message: "未找到父工作项: " + v})
@@ -567,14 +567,14 @@ func (s *ImportService) importAuto(ctx context.Context, wsID, projectID, userID 
 func (s *ImportService) sameNameExists(ctx context.Context, wsID, projectID int64, name string) bool {
 	var count int
 	err := s.svc.db.QueryRow(ctx,
-		`SELECT COUNT(*) FROM issues WHERE workspace_id = $1 AND project_id = $2 AND name = $3 AND deleted_at IS NULL`,
+		`SELECT COUNT(*) FROM workitems WHERE workspace_id = $1 AND project_id = $2 AND name = $3 AND deleted_at IS NULL`,
 		wsID, projectID, name).Scan(&count)
 	return err == nil && count > 0
 }
 
 func (s *ImportService) findByExternalID(ctx context.Context, wsID int64, externalID string) (id int64, version int, found bool) {
 	err := s.svc.db.QueryRow(ctx,
-		`SELECT id, version FROM issues WHERE workspace_id = $1 AND external_id = $2 AND deleted_at IS NULL`,
+		`SELECT id, version FROM workitems WHERE workspace_id = $1 AND external_id = $2 AND deleted_at IS NULL`,
 		wsID, externalID).Scan(&id, &version)
 	if err != nil {
 		return 0, 0, false

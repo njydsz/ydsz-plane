@@ -722,7 +722,7 @@ func (s *Service) computeQuality(ctx context.Context, wsID int64, v *Version) *Q
 
 	rows, err := s.db.Query(ctx, `
 		SELECT i.severity, sg."group", count(*)
-		FROM issues i
+		FROM workitems i
 		JOIN states sg ON sg.id = i.state_id
 		WHERE i.project_id = $1 AND i.type_code = 'defect' AND i.found_version_id = $2 AND i.deleted_at IS NULL
 		GROUP BY i.severity, sg."group"`, v.ProjectID, v.ID)
@@ -754,7 +754,7 @@ func (s *Service) computeQuality(ctx context.Context, wsID int64, v *Version) *Q
 
 	_ = s.db.QueryRow(ctx, `
 		SELECT count(*), count(*) FILTER (WHERE sg."group" = 'completed')
-		FROM issues i
+		FROM workitems i
 		JOIN states sg ON sg.id = i.state_id
 		WHERE i.project_id = $1 AND i.type_code = 'defect' AND i.fix_version_id = $2 AND i.deleted_at IS NULL`,
 		v.ProjectID, v.ID).Scan(&q.TotalBugs, &q.FixedBugCount)
@@ -808,7 +808,7 @@ func (s *Service) buildReleaseNotesSource(ctx context.Context, wsID int64, v *Ve
 
 	rows2, err := s.db.Query(ctx, `
 		SELECT i.identifier, i.name, st.name
-		FROM issues i
+		FROM workitems i
 		JOIN states st ON st.id = i.state_id AND st."group" = 'completed'
 		WHERE i.project_id = $1 AND i.type_code = 'defect' AND i.fix_version_id = $2 AND i.deleted_at IS NULL
 		ORDER BY i.identifier`, v.ProjectID, v.ID)
@@ -825,7 +825,7 @@ func (s *Service) buildReleaseNotesSource(ctx context.Context, wsID int64, v *Ve
 	if includeKnownIssues {
 		rows3, err := s.db.Query(ctx, `
 			SELECT i.identifier, i.name, st.name
-			FROM issues i
+			FROM workitems i
 			JOIN states st ON st.id = i.state_id
 			WHERE i.project_id = $1 AND i.type_code = 'defect' AND i.found_version_id = $2
 				AND i.deleted_at IS NULL AND st."group" NOT IN ('completed','cancelled')
@@ -899,7 +899,7 @@ func (s *Service) DefectPanel(ctx context.Context, wsID, versionID int64) ([]Bug
 		SELECT i.id, i.identifier, i.name, i.severity, i.found_phase,
 		       st.name, st."group", i.root_cause_category,
 		       fv.semver, fxv.semver
-		FROM issues i
+		FROM workitems i
 		JOIN states st ON st.id = i.state_id
 		LEFT JOIN versions fv ON fv.id = i.found_version_id
 		LEFT JOIN versions fxv ON fxv.id = i.fix_version_id
@@ -978,7 +978,7 @@ func (s *Service) FilterDefects(ctx context.Context, f BugVersionFilter) ([]BugV
 
 	var total int64
 	_ = s.db.QueryRow(ctx, `
-		SELECT count(*) FROM issues i
+		SELECT count(*) FROM workitems i
 		JOIN states sg ON sg.id = i.state_id `+where, args...).Scan(&total)
 
 	limitIdx := len(args) + 1
@@ -989,7 +989,7 @@ func (s *Service) FilterDefects(ctx context.Context, f BugVersionFilter) ([]BugV
 		SELECT i.id, i.identifier, i.name, i.severity, i.found_phase,
 		       sg.name, sg."group", i.root_cause_category,
 		       fv.semver, fxv.semver
-		FROM issues i
+		FROM workitems i
 		JOIN states sg ON sg.id = i.state_id
 		LEFT JOIN versions fv ON fv.id = i.found_version_id
 		LEFT JOIN versions fxv ON fxv.id = i.fix_version_id `+where+`

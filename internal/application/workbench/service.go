@@ -85,7 +85,7 @@ func (s *Service) getMyIssuesBucket(ctx context.Context, wsID, userID int64, pro
 	}
 
 	// 总数
-	countSQL := "SELECT count(*) FROM issues i " + whereSQL
+	countSQL := "SELECT count(*) FROM workitems i " + whereSQL
 	if err := s.db.QueryRow(ctx, countSQL, args...).Scan(&bucket.Total); err != nil {
 		return bucket, errs.ErrInternal.Wrap(err)
 	}
@@ -100,7 +100,7 @@ func (s *Service) getMyIssuesBucket(ctx context.Context, wsID, userID int64, pro
 			sp.id AS sprint_id, sp.name AS sprint_name,
 			EXISTS (SELECT 1 FROM issue_relations ir
 				WHERE ir.source_issue_id = i.id AND ir.relation_type = 'blocked_by') AS is_blocked
-		FROM issues i
+		FROM workitems i
 		JOIN states s ON s.id = i.state_id
 		JOIN projects p ON p.id = i.project_id
 		LEFT JOIN sprints sp ON sp.id = i.sprint_id AND sp.deleted_at IS NULL
@@ -166,7 +166,7 @@ func (s *Service) getMyIssuesBucket(ctx context.Context, wsID, userID int64, pro
 func (s *Service) countBlocked(ctx context.Context, wsID, userID int64) int {
 	var count int
 	err := s.db.QueryRow(ctx, `
-		SELECT count(*) FROM issues i
+		SELECT count(*) FROM workitems i
 		WHERE i.workspace_id = $1 AND i.deleted_at IS NULL
 			AND EXISTS (SELECT 1 FROM issue_assignees ia WHERE ia.issue_id = i.id AND ia.user_id = $2)
 			AND EXISTS (SELECT 1 FROM issue_relations ir
@@ -486,7 +486,7 @@ func (s *Service) GetEfficiency(ctx context.Context, wsID, userID int64, project
 	// 本周完成的工作项数量和 story points
 	if err := s.db.QueryRow(ctx, `
 		SELECT count(*)::int, COALESCE(sum(i.point), 0)::int
-		FROM issues i
+		FROM workitems i
 		JOIN states s ON s.id = i.state_id
 		WHERE s."group" = 'completed'
 			AND i.workspace_id = $1
@@ -516,7 +516,7 @@ func (s *Service) GetEfficiency(ctx context.Context, wsID, userID int64, project
 
 	// 逾期数量
 	if err := s.db.QueryRow(ctx, `
-		SELECT count(*)::int FROM issues i
+		SELECT count(*)::int FROM workitems i
 		WHERE i.workspace_id = $1
 			AND i.deleted_at IS NULL
 			AND i.target_date IS NOT NULL
@@ -536,7 +536,7 @@ func (s *Service) GetEfficiency(ctx context.Context, wsID, userID int64, project
 		var count, points int
 		if err := s.db.QueryRow(ctx, `
 			SELECT count(*)::int, COALESCE(sum(i.point), 0)::int
-			FROM issues i
+			FROM workitems i
 			JOIN states s ON s.id = i.state_id
 			WHERE s."group" = 'completed'
 				AND i.workspace_id = $1

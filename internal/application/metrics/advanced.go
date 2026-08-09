@@ -135,7 +135,7 @@ func (c *ControlChartCalculator) Calculate(ctx context.Context, wsID, projectID 
 	rows, err := c.db.Query(ctx, `
 		SELECT i.identifier, i.completed_at::date, 
 		       EXTRACT(EPOCH FROM (i.completed_at - i.created_at)) / 86400.0 AS lead_days
-		FROM issues i
+		FROM workitems i
 		JOIN states st ON st.id = i.state_id
 		WHERE i.project_id = $1 AND i.workspace_id = $2
 		  AND i.type_code = 'requirement'
@@ -285,7 +285,7 @@ func (s *Service) GetWeeklyThroughput(ctx context.Context, wsID, projectID int64
 			(date_trunc('week', i.completed_at)::date + INTERVAL '6 days')::date AS week_end,
 			count(*) AS completed,
 			coalesce(sum(i.point), 0) AS points
-		FROM issues i
+		FROM workitems i
 		JOIN states st ON st.id = i.state_id
 		WHERE i.project_id = $1 AND i.workspace_id = $2
 		  AND i.type_code = 'requirement'

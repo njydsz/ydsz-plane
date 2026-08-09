@@ -581,7 +581,7 @@ func (s *Service) AddPageRelation(ctx context.Context, in AddPageRelationInput) 
 	// 校验工作项同属一个 workspace
 	var issueWsID int64
 	err = s.db.QueryRow(ctx, `
-		SELECT workspace_id FROM issues WHERE id = $1 AND deleted_at IS NULL`, in.IssueID).Scan(&issueWsID)
+		SELECT workspace_id FROM workitems WHERE id = $1 AND deleted_at IS NULL`, in.IssueID).Scan(&issueWsID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, errs.ErrValidation.WithDetails(errs.FieldDetail{Field: "issue_id", Reason: "工作项不存在"})

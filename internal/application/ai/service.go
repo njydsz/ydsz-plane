@@ -206,7 +206,7 @@ func (s *Service) DetectDuplicates(ctx context.Context, projectID int64, title, 
 	rows, err := s.db.Query(ctx, `
 		SELECT id, identifier, name,
 		       ts_rank(search_tsv, to_tsquery('simple', $1)) AS similarity
-		FROM issues
+		FROM workitems
 		WHERE project_id = $2
 		  AND deleted_at IS NULL
 		  AND search_tsv @@ to_tsquery('simple', $1)
@@ -476,7 +476,7 @@ type GrammarIssue struct {
 // FixGrammarResult 纠错结果。
 type FixGrammarResult struct {
 	FixedText string        `json:"fixed_text"` // 修正后全文
-	Issues    []GrammarIssue `json:"issues"`     // 发现的问题列表
+	Issues    []GrammarIssue `json:"workitems"`     // 发现的问题列表
 	Model     string        `json:"model"`       // rule-engine
 }
 
@@ -875,7 +875,7 @@ func (s *Service) calculateExpertiseScore(ctx context.Context, userID, projectID
 
 	// 查询成员最近 50 个工作项的标题
 	rows, err := s.db.Query(ctx, `
-		SELECT name FROM issues
+		SELECT name FROM workitems
 		WHERE project_id = $1
 		  AND id IN (SELECT issue_id FROM issue_assignees WHERE user_id = $2)
 		  AND deleted_at IS NULL
@@ -915,7 +915,7 @@ func (s *Service) calculateLoadScore(ctx context.Context, userID, projectID int6
 	var count int
 	err := s.db.QueryRow(ctx, `
 		SELECT COUNT(*)
-		FROM issues i
+		FROM workitems i
 		JOIN issue_assignees ia ON ia.issue_id = i.id AND ia.user_id = $1
 		JOIN states st ON st.id = i.state_id
 		WHERE i.project_id = $2

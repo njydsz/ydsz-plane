@@ -262,7 +262,7 @@ func (s *DefectAnalyticsService) ExportDefects(ctx context.Context, q AnalyticsQ
 				FROM issue_modules im JOIN modules m ON m.id = im.module_id
 				WHERE im.issue_id = i.id
 			), '') AS module_names
-		FROM issues i
+		FROM workitems i
 		LEFT JOIN states st ON st.id = i.state_id
 		`+baseWhere+`
 		ORDER BY i.created_at DESC
@@ -304,7 +304,7 @@ func (s *DefectAnalyticsService) aggregateBase(ctx context.Context, where string
 			COUNT(*) FILTER (WHERE i.completed_at IS NULL) AS open_cnt,
 			COUNT(*) FILTER (WHERE i.completed_at IS NOT NULL) AS resolved_cnt,
 			COALESCE(AVG(EXTRACT(EPOCH FROM (COALESCE(i.completed_at, now()) - i.created_at)) / 86400), 0) AS avg_age_days
-		FROM issues i `+where, args...)
+		FROM workitems i `+where, args...)
 	if err := row.Scan(&a.TotalDefects, &a.OpenDefects, &a.ResolvedDefects, &a.AvgAgeDays); err != nil {
 		return errs.ErrInternal.Wrap(err)
 	}
@@ -315,7 +315,7 @@ func (s *DefectAnalyticsService) aggregateBase(ctx context.Context, where string
 func (s *DefectAnalyticsService) severityDist(ctx context.Context, where string, args []interface{}) ([]SeverityCount, error) {
 	rows, err := s.db.Query(ctx, `
 		SELECT COALESCE(i.severity, 0) AS severity, COUNT(*) AS cnt
-		FROM issues i `+where+`
+		FROM workitems i `+where+`
 		GROUP BY i.severity ORDER BY i.severity`, args...)
 	if err != nil {
 		return nil, errs.ErrInternal.Wrap(err)
@@ -341,7 +341,7 @@ func (s *DefectAnalyticsService) severityDist(ctx context.Context, where string,
 func (s *DefectAnalyticsService) phaseDist(ctx context.Context, where string, args []interface{}) ([]PhaseCount, error) {
 	rows, err := s.db.Query(ctx, `
 		SELECT COALESCE(i.found_phase, 'unknown') AS phase, COUNT(*) AS cnt
-		FROM issues i `+where+`
+		FROM workitems i `+where+`
 		GROUP BY i.found_phase ORDER BY cnt DESC`, args...)
 	if err != nil {
 		return nil, errs.ErrInternal.Wrap(err)
@@ -365,13 +365,13 @@ func (s *DefectAnalyticsService) moduleDist(ctx context.Context, where string, a
 	// UNION：有模块关联 + 无模块关联
 	query := `
 		SELECT m.id AS module_id, m.name AS module_name, COUNT(i.id) AS cnt
-		FROM issues i
+		FROM workitems i
 		JOIN issue_modules im ON im.issue_id = i.id
 		JOIN modules m ON m.id = im.module_id `+where+`
 		GROUP BY m.id, m.name
 		UNION ALL
 		SELECT NULL::bigint, '未分配' AS module_name, COUNT(i.id) AS cnt
-		FROM issues i `+where+`
+		FROM workitems i `+where+`
 		AND NOT EXISTS(SELECT 1 FROM issue_modules im WHERE im.issue_id = i.id)
 		ORDER BY cnt DESC`
 	// 注意：args 需要重复使用（两次 where）
@@ -400,7 +400,7 @@ func (s *DefectAnalyticsService) moduleDist(ctx context.Context, where string, a
 func (s *DefectAnalyticsService) rootCauseDist(ctx context.Context, where string, args []interface{}) ([]RootCauseCount, error) {
 	rows, err := s.db.Query(ctx, `
 		SELECT COALESCE(i.root_cause_category, 'unfilled') AS rc, COUNT(*) AS cnt
-		FROM issues i `+where+`
+		FROM workitems i `+where+`
 		GROUP BY i.root_cause_category ORDER BY cnt DESC`, args...)
 	if err != nil {
 		return nil, errs.ErrInternal.Wrap(err)
@@ -437,7 +437,7 @@ func (s *DefectAnalyticsService) ageBuckets(ctx context.Context, where string, a
 			bucketWhere += ` AND ` + ageExpr + ` <= ` + strconv.Itoa(b.MaxDays)
 		}
 		var cnt int64
-		err := s.db.QueryRow(ctx, `SELECT COUNT(*) FROM issues i `+bucketWhere, args...).Scan(&cnt)
+		err := s.db.QueryRow(ctx, `SELECT COUNT(*) FROM workitems i `+bucketWhere, args...).Scan(&cnt)
 		if err != nil {
 			return nil, errs.ErrInternal.Wrap(err)
 		}
@@ -458,12 +458,12 @@ func (s *DefectAnalyticsService) trend(ctx context.Context, where string, args [
 		) AS dateweek
 		LEFT JOIN (
 			SELECT date_trunc('week', created_at) AS wk, COUNT(*) AS cnt
-			FROM issues i `+where+`
+			FROM workitems i `+where+`
 			GROUP BY wk
 		) c ON c.wk = date_trunc('week', dateweek)
 		LEFT JOIN (
 			SELECT date_trunc('week', completed_at) AS wk, COUNT(*) AS cnt
-			FROM issues i `+where+` AND i.completed_at IS NOT NULL
+			FROM workitems i `+where+` AND i.completed_at IS NOT NULL
 			GROUP BY wk
 		) r ON r.wk = date_trunc('week', dateweek)
 		ORDER BY dateweek`, args...)
@@ -493,7 +493,7 @@ func (s *DefectAnalyticsService) trendFallback(ctx context.Context, where string
 	rows, err := s.db.Query(ctx, `
 		SELECT to_char(date_trunc('week', i.created_at), 'YYYY-"W"IW') AS week,
 		       COUNT(*) AS created
-		FROM issues i `+where+`
+		FROM workitems i `+where+`
 		GROUP BY week ORDER BY week DESC LIMIT 12`, args...)
 	if err != nil {
 		return nil, errs.ErrInternal.Wrap(err)
@@ -532,7 +532,7 @@ func (s *DefectAnalyticsService) GetDefectAge(ctx context.Context, q AnalyticsQu
 			ROUND(MIN(EXTRACT(EPOCH FROM (now() - i.created_at)) / 86400)::numeric, 1) AS min_days,
 			ROUND(MAX(EXTRACT(EPOCH FROM (now() - i.created_at)) / 86400)::numeric, 1) AS max_days,
 			ROUND(AVG(EXTRACT(EPOCH FROM (now() - i.created_at)) / 86400)::numeric, 1) AS avg_days
-		FROM issues i
+		FROM workitems i
 		LEFT JOIN states st ON st.id = i.state_id
 		`+baseWhere+`
 		GROUP BY st.name, st."group"
@@ -562,7 +562,7 @@ func (s *DefectAnalyticsService) GetDefectAge(ctx context.Context, q AnalyticsQu
 		var medianDays *float64
 		_ = s.db.QueryRow(ctx, `
 			SELECT PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM (now() - i.created_at)) / 86400)
-			FROM issues i
+			FROM workitems i
 			LEFT JOIN states st ON st.id = i.state_id
 			`+medianWhere, medianArgs...).Scan(&medianDays)
 		if medianDays != nil {
@@ -578,7 +578,7 @@ func (s *DefectAnalyticsService) GetDefectAge(ctx context.Context, q AnalyticsQu
 			i.id, i.identifier, i.name, i.severity,
 			COALESCE(st.name, '未分配') AS state_name,
 			ROUND((EXTRACT(EPOCH FROM (now() - i.created_at)) / 86400)::numeric, 1) AS age_days
-		FROM issues i
+		FROM workitems i
 		LEFT JOIN states st ON st.id = i.state_id
 		`+overdueWhere+`
 		ORDER BY age_days DESC
@@ -611,7 +611,7 @@ func (s *DefectAnalyticsService) GetDefectAge(ctx context.Context, q AnalyticsQu
 	}
 
 	// 超阈值总数
-	_ = s.db.QueryRow(ctx, `SELECT COUNT(*) FROM issues i `+baseWhere+`
+	_ = s.db.QueryRow(ctx, `SELECT COUNT(*) FROM workitems i `+baseWhere+`
 		AND EXTRACT(EPOCH FROM (now() - i.created_at)) / 86400 > 7`, args...).Scan(&result.OverdueCount)
 
 	return result, nil
@@ -625,7 +625,7 @@ func (s *DefectAnalyticsService) GetRootCause(ctx context.Context, q AnalyticsQu
 		SELECT rc, COUNT(*) AS cnt
 		FROM (
 			SELECT COALESCE(NULLIF(i.root_cause_category, ''), 'unfilled') AS rc
-			FROM issues i `+baseWhere+`
+			FROM workitems i `+baseWhere+`
 		) sub
 		GROUP BY rc ORDER BY cnt DESC`, args...)
 	if err != nil {

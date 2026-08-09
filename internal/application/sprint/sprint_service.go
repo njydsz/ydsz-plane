@@ -410,7 +410,7 @@ func (s *Service) AddIssue(ctx context.Context, wsID int64, in AddIssueInput) er
 		var issueProjectID int64
 		var statusCode SprintStatusCode
 		err = tx.QueryRow(ctx,
-			`SELECT i.project_id FROM issues i WHERE i.id = $1 AND i.workspace_id = $2 AND i.deleted_at IS NULL`,
+			`SELECT i.project_id FROM workitems i WHERE i.id = $1 AND i.workspace_id = $2 AND i.deleted_at IS NULL`,
 			in.IssueID, wsID).Scan(&issueProjectID)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
@@ -467,7 +467,7 @@ func (s *Service) AddIssue(ctx context.Context, wsID int64, in AddIssueInput) er
 func (s *Service) wouldExceedCapacityTx(ctx context.Context, tx pgx.Tx, sp *Sprint, issueID int64) (bool, error) {
 	var incomingPoint int
 	if err := tx.QueryRow(ctx,
-		`SELECT COALESCE(point, 0) FROM issues WHERE id = $1 AND deleted_at IS NULL`, issueID).Scan(&incomingPoint); err != nil {
+		`SELECT COALESCE(point, 0) FROM workitems WHERE id = $1 AND deleted_at IS NULL`, issueID).Scan(&incomingPoint); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return false, errs.ErrNotFound
 		}
@@ -638,7 +638,7 @@ func (s *Service) GetBacklog(ctx context.Context, wsID, projectID int64, limit, 
 	// Backlog：未关闭/未取消、且不在 active 迭代的工作项
 	var total int64
 	_ = s.db.QueryRow(ctx, `
-		SELECT count(*) FROM issues i
+		SELECT count(*) FROM workitems i
 		WHERE i.workspace_id = $1 AND i.project_id = $2 AND i.deleted_at IS NULL
 			AND i.sprint_id IS NULL
 			AND i.state_id NOT IN (SELECT id FROM states WHERE "group" IN ('completed','cancelled'))
@@ -648,7 +648,7 @@ func (s *Service) GetBacklog(ctx context.Context, wsID, projectID int64, limit, 
 		SELECT i.id, i.name, i.type_code, i.priority, i.point,
 			s.id, s.name, s.color, s."group",
 			i.sprint_id, sp.name
-		FROM issues i
+		FROM workitems i
 		JOIN states s ON s.id = i.state_id
 		LEFT JOIN sprints sp ON sp.id = i.sprint_id AND sp.status = 'active' AND sp.deleted_at IS NULL
 		WHERE i.workspace_id = $1 AND i.project_id = $2 AND i.deleted_at IS NULL
@@ -903,7 +903,7 @@ func (s *Service) removedPointsSinceTx(ctx context.Context, tx pgx.Tx, sprintID 
 
 	var sum sql.NullFloat64
 	if err := tx.QueryRow(ctx,
-		`SELECT coalesce(sum(point), 0) FROM issues WHERE id = ANY($1) AND deleted_at IS NULL`,
+		`SELECT coalesce(sum(point), 0) FROM workitems WHERE id = ANY($1) AND deleted_at IS NULL`,
 		removed).Scan(&sum); err != nil {
 		return 0, errs.ErrInternal.Wrap(err)
 	}

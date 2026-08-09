@@ -128,7 +128,7 @@ func (s *Service) GetLeadTime(ctx context.Context, wsID, projectID int64, days i
 
 	rows, err := s.db.Query(ctx, `
 		SELECT EXTRACT(EPOCH FROM (i.completed_at - i.created_at)) / 86400.0 AS lead_days
-		FROM issues i
+		FROM workitems i
 		JOIN states st ON st.id = i.state_id
 		WHERE i.project_id = $1 AND i.workspace_id = $2
 		  AND i.type_code = 'requirement'
@@ -186,7 +186,7 @@ func (s *Service) GetQualityMetrics(ctx context.Context, wsID, projectID int64) 
 			count(*) FILTER (WHERE i.deleted_at IS NULL AND d.found_phase IN ('production','customer')),
 			coalesce(avg(EXTRACT(EPOCH FROM (now() - i.created_at)) / 86400) FILTER (WHERE st."group" NOT IN ('completed','cancelled')), 0),
 			count(*) FILTER (WHERE d.reopened_at IS NOT NULL)
-		FROM issues i
+		FROM workitems i
 		JOIN states st ON st.id = i.state_id
 		LEFT JOIN defect_extra d ON d.issue_id = i.id
 		WHERE i.project_id = $1 AND i.workspace_id = $2 AND i.type_code = 'defect'`,
@@ -204,7 +204,7 @@ func (s *Service) GetQualityMetrics(ctx context.Context, wsID, projectID int64) 
 	var totalPoints sql.NullFloat64
 	err = s.db.QueryRow(ctx, `
 		SELECT coalesce(sum(estimate_points), 0)
-		FROM issues i
+		FROM workitems i
 		WHERE i.project_id = $1 AND i.workspace_id = $2 AND i.type_code = 'requirement' AND i.deleted_at IS NULL`,
 		projectID, wsID).Scan(&totalPoints)
 	if err != nil {
@@ -353,7 +353,7 @@ func (s *Service) AggregateDailySnapshots(ctx context.Context, snapshotDate stri
 		// 写入 WIP 快照（今日活跃 sprint WIP）
 		var wipCount int
 		_ = s.db.QueryRow(ctx,
-			`SELECT count(*) FROM issues i JOIN sprint_issues si ON si.issue_id = i.id
+			`SELECT count(*) FROM workitems i JOIN sprint_issues si ON si.issue_id = i.id
 			 JOIN sprints sp ON sp.id = si.sprint_id JOIN states st ON st.id = i.state_id
 			 WHERE i.project_id = $1 AND sp.status = 'active' AND st."group" = 'started'
 			 AND i.deleted_at IS NULL`,
@@ -385,7 +385,7 @@ func (s *Service) AggregateDailySnapshots(ctx context.Context, snapshotDate stri
 		var throughput float64
 		if err := s.db.QueryRow(ctx, `
 			SELECT COALESCE(count(*)::numeric / 30.0, 0)
-			FROM issues i
+			FROM workitems i
 			JOIN states st ON st.id = i.state_id
 			WHERE i.project_id = $1 AND i.workspace_id = $2
 			  AND st."group" = 'completed' AND i.completed_at IS NOT NULL

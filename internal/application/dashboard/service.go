@@ -223,7 +223,7 @@ func (s *Service) getStateDistribution(ctx context.Context, projectID int64) (an
 func (s *Service) getOverdueList(ctx context.Context, projectID int64) (any, error) {
 	w := OverdueListWidget{}
 	err := s.db.QueryRow(ctx, `
-		SELECT count(*) FROM issues i
+		SELECT count(*) FROM workitems i
 		JOIN states st ON st.id = i.state_id
 		WHERE i.project_id = $1 AND i.deleted_at IS NULL
 			AND i.target_date < CURRENT_DATE AND st."group" NOT IN ('completed','cancelled')`,
@@ -235,7 +235,7 @@ func (s *Service) getOverdueList(ctx context.Context, projectID int64) (any, err
 	rows, err := s.db.Query(ctx, `
 		SELECT i.id, i.sequence_id::text, i.name, i.priority, CURRENT_DATE - i.target_date AS overdue_days,
 		       (SELECT string_agg(u.display_name, ',') FROM issue_assignees ia JOIN users u ON u.id = ia.user_id WHERE ia.issue_id = i.id) AS assignee
-		FROM issues i
+		FROM workitems i
 		JOIN states st ON st.id = i.state_id
 		WHERE i.project_id = $1 AND i.deleted_at IS NULL
 			AND i.target_date < CURRENT_DATE AND st."group" NOT IN ('completed','cancelled')
@@ -266,7 +266,7 @@ func (s *Service) getBlockedList(ctx context.Context, projectID int64) (any, err
 		           JOIN issue_assignees ia ON ia.issue_id = blocker.id
 		           JOIN users u ON u.id = ia.user_id
 		       WHERE ir.source_issue_id = i.id AND ir.relation_type = 'blocked_by') AS blockers
-		FROM issues i
+		FROM workitems i
 		WHERE i.project_id = $1 AND i.deleted_at IS NULL
 			AND EXISTS (SELECT 1 FROM issue_relations ir WHERE ir.source_issue_id = i.id AND ir.relation_type = 'blocked_by')
 		ORDER BY blocked_count DESC LIMIT 10`,

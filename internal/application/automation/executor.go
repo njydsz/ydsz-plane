@@ -223,8 +223,21 @@ func (x *dbActionExecutor) updateTimeCol(ctx context.Context, wsID, issueID int6
 }
 
 // directUpdate 直接执行带乐观锁的 UPDATE（version 不匹配则报错）。
+// 由于工作项分布在 requirement/task/defect 三表中，需要先 detectType 确定目标表。
 func (x *dbActionExecutor) directUpdate(ctx context.Context, wsID, issueID int64, version int, setClause string, arg any) error {
-	q := "UPDATE issues SET " + setClause + ", version = version + 1, updated_at = now()" +
+	// 先确定工作项所在表
+	var tc string
+	err := x.db.QueryRow(ctx, `
+		SELECT 'task' FROM task WHERE id = $1 AND workspace_id = $2 AND deleted_at IS NULL
+		UNION ALL
+		SELECT 'requirement' FROM requirement WHERE id = $1 AND workspace_id = $2 AND deleted_at IS NULL
+		UNION ALL
+		SELECT 'defect' FROM defect WHERE id = $1 AND workspace_id = $2 AND deleted_at IS NULL
+		LIMIT 1`, issueID, wsID).Scan(&tc)
+	if err != nil {
+		return fmt.Errorf("direct_update_detect: %w", err)
+	}
+	q := "UPDATE " + tc + " SET " + setClause + ", version = version + 1, updated_at = now()" +
 		" WHERE id = $2 AND workspace_id = $3 AND version = $4 AND deleted_at IS NULL"
 	tag, err := x.db.Exec(ctx, q, arg, issueID, wsID, version)
 	if err != nil {
