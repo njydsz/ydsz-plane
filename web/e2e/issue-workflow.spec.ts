@@ -29,13 +29,13 @@ test.describe("工作项状态机流转", () => {
   test("缺陷流转 required_fields 校验（Fixed→Verifying 需 root_cause_category）", async ({ request }) => {
     const { token, headers: authHeaders } = await apiLogin(request);
     const wsId = await getFirstWorkspace(request, authHeaders);
-    const projectId = await getFirstProject(request, token, wsId);
+    const projectId = await getFirstProject(request, authHeaders, wsId);
 
     // 创建缺陷
     const createRes = await request.post(
       `${API_URL}/workspaces/${wsId}/projects/${projectId}/issues`,
       {
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        headers: { ...authHeaders, "Content-Type": "application/json" },
         data: {
           type: "defect",
           name: `E2E defect ${Date.now()}`,
@@ -56,7 +56,7 @@ test.describe("工作项状态机流转", () => {
     // 获取状态列表以获取合法流转目标
     const statesRes = await request.get(
       `${API_URL}/workspaces/${wsId}/projects/${projectId}/states`,
-      { headers: { Authorization: `Bearer ${token}` } },
+      { headers: authHeaders },
     );
     expect(statesRes.ok()).toBe(true);
     const states = await statesRes.json();
@@ -75,7 +75,7 @@ test.describe("工作项状态机流转", () => {
     // 策略：列出 possible transitions，尝试无 context 流转
     const transitionsRes = await request.get(
       `${API_URL}/workspaces/${wsId}/projects/${projectId}/issues/${defect.id}`,
-      { headers: { Authorization: `Bearer ${token}` } },
+      { headers: authHeaders },
     );
     expect(transitionsRes.ok()).toBe(true);
     const issueDetail = await transitionsRes.json();
@@ -95,7 +95,7 @@ test.describe("工作项状态机流转", () => {
       const toFixedRes = await request.post(
         `${API_URL}/workspaces/${wsId}/projects/${projectId}/issues/${defect.id}/transition`,
         {
-          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          headers: { ...authHeaders, "Content-Type": "application/json" },
           data: { to_state_id: fixedStateId },
         },
       );
@@ -109,7 +109,7 @@ test.describe("工作项状态机流转", () => {
         const toVerifyingRes = await request.post(
           `${API_URL}/workspaces/${wsId}/projects/${projectId}/issues/${defect.id}/transition`,
           {
-            headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+            headers: { ...authHeaders, "Content-Type": "application/json" },
             data: { to_state_id: verifyingStateId },
           },
         );
@@ -121,7 +121,7 @@ test.describe("工作项状态机流转", () => {
         const toVerifyingWithCtxRes = await request.post(
           `${API_URL}/workspaces/${wsId}/projects/${projectId}/issues/${defect.id}/transition`,
           {
-            headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+            headers: { ...authHeaders, "Content-Type": "application/json" },
             data: {
               to_state_id: verifyingStateId,
               context: { root_cause_category: "logic_error" },
@@ -143,11 +143,11 @@ test.describe("工作项状态机流转", () => {
   test("工作项创建后指派人收到通知", async ({ request }) => {
     const { token, headers: authHeaders } = await apiLogin(request);
     const wsId = await getFirstWorkspace(request, authHeaders);
-    const projectId = await getFirstProject(request, token, wsId);
+    const projectId = await getFirstProject(request, authHeaders, wsId);
 
     // 获取当前用户信息
     const meRes = await request.get(`${API_URL}/me`, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: authHeaders,
     });
     expect(meRes.ok()).toBe(true);
     const me = await meRes.json();
@@ -156,7 +156,7 @@ test.describe("工作项状态机流转", () => {
     const createRes = await request.post(
       `${API_URL}/workspaces/${wsId}/projects/${projectId}/issues`,
       {
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        headers: { ...authHeaders, "Content-Type": "application/json" },
         data: {
           type: "task",
           name: `E2E assigned issue ${Date.now()}`,
@@ -173,7 +173,7 @@ test.describe("工作项状态机流转", () => {
     // 我们只验证：创建操作返回成功 + 通知列表能加载
     const notifRes = await request.get(
       `${API_URL}/workspaces/${wsId}/notifications?limit=10`,
-      { headers: { Authorization: `Bearer ${token}` } },
+      { headers: authHeaders },
     );
     expect(notifRes.ok()).toBe(true);
   });
@@ -181,13 +181,13 @@ test.describe("工作项状态机流转", () => {
   test("看板拖拽流转调用 transition API", async ({ request }) => {
     const { token, headers: authHeaders } = await apiLogin(request);
     const wsId = await getFirstWorkspace(request, authHeaders);
-    const projectId = await getFirstProject(request, token, wsId);
+    const projectId = await getFirstProject(request, authHeaders, wsId);
 
     // 创建任务
     const createRes = await request.post(
       `${API_URL}/workspaces/${wsId}/projects/${projectId}/issues`,
       {
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        headers: { ...authHeaders, "Content-Type": "application/json" },
         data: {
           type: "task",
           name: `E2E kanban drag ${Date.now()}`,
@@ -204,7 +204,7 @@ test.describe("工作项状态机流转", () => {
     const reorderRes = await request.patch(
       `${API_URL}/workspaces/${wsId}/projects/${projectId}/issues/${issue.id}/reorder`,
       {
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        headers: { ...authHeaders, "Content-Type": "application/json" },
         data: { sort_order: 1.5 },
       },
     );

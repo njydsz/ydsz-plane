@@ -7,42 +7,26 @@
  * 运行前提：后端 + 前端已启动，且已执行 make migrate && make seed。
  */
 import { expect, test } from "@playwright/test";
+import { apiLogin, API_URL } from "./helpers";
 
-const TEST_EMAIL = "admin@ydsz.dev";
-const TEST_PASSWORD = "Admin@123";
-const API_URL = process.env.API_URL || "http://127.0.0.1:8080/api/v1";
+type Headers = Record<string, string>;
 
-async function login(request: any) {
-  const res = await request.post(`${API_URL}/auth/login`, {
-    data: { email: TEST_EMAIL, password: TEST_PASSWORD },
-  });
-  expect(res.ok()).toBe(true);
-  const body = await res.json();
-  return body.access_token;
-}
-
-async function getFirstWorkspace(request: any, token: string) {
-  const res = await request.get(`${API_URL}/workspaces`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+async function getFirstWorkspace(request: any, headers: Headers) {
+  const res = await request.get(`${API_URL}/workspaces`, { headers });
   expect(res.ok()).toBe(true);
   const list = await res.json();
   return list[0]?.id || 1;
 }
 
-async function getFirstProject(request: any, token: string, wsId: number) {
-  const res = await request.get(`${API_URL}/workspaces/${wsId}/projects`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+async function getFirstProject(request: any, headers: Headers, wsId: number) {
+  const res = await request.get(`${API_URL}/workspaces/${wsId}/projects`, { headers });
   expect(res.ok()).toBe(true);
   const body = await res.json();
   return body.results?.[0]?.id || body[0]?.id || 1;
 }
 
-async function getFirstSprint(request: any, token: string, wsId: number, projectId: number) {
-  const res = await request.get(`${API_URL}/workspaces/${wsId}/projects/${projectId}/sprints`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+async function getFirstSprint(request: any, headers: Headers, wsId: number, projectId: number) {
+  const res = await request.get(`${API_URL}/workspaces/${wsId}/projects/${projectId}/sprints`, { headers });
   if (!res.ok()) return null;
   const body = await res.json();
   const list = body.results || body;
@@ -51,8 +35,8 @@ async function getFirstSprint(request: any, token: string, wsId: number, project
 
 test.describe("版本全生命周期", () => {
   test("创建 → 激活 → 查进度 → 归档 状态机闭环", async ({ request }) => {
-    const token = await login(request);
-    const wsId = await getFirstWorkspace(request, token);
+    const { token, headers: authHeaders } = await apiLogin(request);
+    const wsId = await getFirstWorkspace(request, authHeaders);
     const projectId = await getFirstProject(request, token, wsId);
 
     // 1. 创建版本
@@ -135,8 +119,8 @@ test.describe("版本全生命周期", () => {
   });
 
   test("版本发布：检查清单校验 + Release Notes 生成", async ({ request }) => {
-    const token = await login(request);
-    const wsId = await getFirstWorkspace(request, token);
+    const { token, headers: authHeaders } = await apiLogin(request);
+    const wsId = await getFirstWorkspace(request, authHeaders);
     const projectId = await getFirstProject(request, token, wsId);
 
     // 创建带检查清单的版本
@@ -212,8 +196,8 @@ test.describe("版本全生命周期", () => {
   });
 
   test("版本关联迭代 + 缺陷面板查询", async ({ request }) => {
-    const token = await login(request);
-    const wsId = await getFirstWorkspace(request, token);
+    const { token, headers: authHeaders } = await apiLogin(request);
+    const wsId = await getFirstWorkspace(request, authHeaders);
     const projectId = await getFirstProject(request, token, wsId);
 
     // 创建版本
@@ -285,8 +269,8 @@ test.describe("版本全生命周期", () => {
   });
 
   test("乐观锁：带 version 字段更新版本", async ({ request }) => {
-    const token = await login(request);
-    const wsId = await getFirstWorkspace(request, token);
+    const { token, headers: authHeaders } = await apiLogin(request);
+    const wsId = await getFirstWorkspace(request, authHeaders);
     const projectId = await getFirstProject(request, token, wsId);
 
     const createRes = await request.post(
