@@ -430,15 +430,21 @@ func (h *IssueHandler) restoreIssue(c *gin.Context) {
 func (h *IssueHandler) hardDeleteIssue(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	issueID := int64Param(c, "issue_id")
+	ctx := c.Request.Context()
 
-	tag, err := h.d.IssueSvc.db.Exec(c.Request.Context(),
-		`DELETE FROM issues WHERE id = $1 AND workspace_id = $2 AND deleted_at IS NOT NULL`,
-		issueID, wsID)
-	if err != nil {
-		writeErr(c, errs.ErrInternal.Wrap(err))
-		return
+	// 由于工作项分布在 requirement/task/defect 三表中，需要逐表尝试物理删除
+	totalTag := int64(0)
+	for _, table := range []string{"task", "requirement", "defect"} {
+		tag, err := h.d.IssueSvc.db.Exec(ctx,
+			`DELETE FROM `+table+` WHERE id = $1 AND workspace_id = $2 AND deleted_at IS NOT NULL`,
+			issueID, wsID)
+		if err != nil {
+			writeErr(c, errs.ErrInternal.Wrap(err))
+			return
+		}
+		totalTag += tag.RowsAffected()
 	}
-	if tag.RowsAffected() == 0 {
+	if totalTag == 0 {
 		writeErr(c, errs.ErrNotFound)
 		return
 	}
@@ -459,7 +465,7 @@ func (h *IssueHandler) listTrash(c *gin.Context) {
 	rows, err := h.d.IssueSvc.db.Query(c.Request.Context(), `
 		SELECT i.id, i.project_id, i.sequence_id, i.type_code, i.name,
 		       i.state_id, i.priority, i.deleted_at
-		FROM issues i
+		FROM workitems i
 		WHERE i.workspace_id = $1 AND i.project_id = $2 AND i.deleted_at IS NOT NULL
 		ORDER BY i.deleted_at DESC
 		LIMIT 200`, wsID, projectID)
