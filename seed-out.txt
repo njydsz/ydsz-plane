@@ -1,0 +1,8 @@
+﻿go : stat D:\Code\open\ydsz-plane\scripts\seed: directory not found
+所在位置 C:\Users\Marvin\AppData\Local\Temp\genie-ps-1786272495234-tvmte2.ps1:262 字符: 29
++ cd d:/Code/open/ydsz-plane; go run ./scripts/seed 2>&1 | Out-String - ...
++                             ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (stat D:\Code\op...ctory not found:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+
