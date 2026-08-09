@@ -8,9 +8,8 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"strconv"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -232,6 +231,10 @@ func triggerProgressRollup(ctx context.Context, tx pgx.Tx, parentID int64, table
 
 // validateWorkitemName 校验工作项名称（三个类型共用）。
 func validateWorkitemName(name string) error {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return errs.ErrValidation.WithDetails(errs.FieldDetail{Field: "name", Reason: "名称不能为空"})
+	}
 	if errs := validateNameLen(name); errs != nil {
 		return errs
 	}
@@ -253,5 +256,3 @@ func validateTypeCode(tc IssueTypeCode) bool {
 	}
 	return false
 }
-
-var _ = strconv.Itoa // keep import if unused

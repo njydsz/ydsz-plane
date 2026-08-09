@@ -19,7 +19,6 @@ import {
   Link,
   Users,
   Settings,
-  type Component,
 } from "@lucide/vue";
 import { computed } from "vue";
 
@@ -34,7 +33,7 @@ const props = withDefaults(defineProps<Props>(), {
   strokeWidth: 2,
 });
 
-const iconMap: Record<string, Component> = {
+const iconMap: Record<string, (typeof LayoutDashboard)> = {
   LayoutDashboard,
   UserCircle,
   FolderKanban,
@@ -50,7 +49,7 @@ const iconMap: Record<string, Component> = {
   Settings,
 };
 
-const IconComponent = computed(() => iconMap[props.name] ?? iconMap.Settings);
+const IconComponent = computed(() => iconMap[props.name] ?? Settings);
 </script>
 
 <template>

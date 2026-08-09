@@ -1,0 +1,42 @@
+# github.com/njydsz/ydsz-plane/internal/application/issue [github.com/njydsz/ydsz-plane/internal/application/issue.test]
+fatal error: out of memory allocating heap arena map
+
+runtime stack:
+runtime.throw({0x7ff73533dd6f?, 0xd0b71ffa18?})
+	runtime/panic.go:1229 +0x4d fp=0xd0b71ff990 sp=0xd0b71ff960 pc=0x7ff734715f0d
+runtime.(*mheap).sysAlloc(0x7ff735d85ec0, 0x3000?, 0x7ff735d962c0, 0x7ff735d962e8)
+	runtime/malloc.go:866 +0x378 fp=0xd0b71ffa68 sp=0xd0b71ff990 pc=0x7ff7346a3578
+runtime.(*mheap).grow(0x7ff735d85ec0, 0x7ff700000004?)
+	runtime/mheap.go:1574 +0x7d fp=0xd0b71ffaf0 sp=0xd0b71ffa68 pc=0x7ff7346c5e9d
+runtime.(*mheap).allocSpan(0x7ff735d85ec0, 0x1, 0x0, 0x24)
+	runtime/mheap.go:1299 +0x1b7 fp=0xd0b71ffbb0 sp=0xd0b71ffaf0 pc=0x7ff7346c54d7
+runtime.(*mheap).alloc.func1()
+	runtime/mheap.go:1017 +0x5c fp=0xd0b71ffbf8 sp=0xd0b71ffbb0 pc=0x7ff7346c4dfc
+runtime.(*mheap).alloc(0x7ff735d65b60?, 0xd0b71ffc88?, 0x60?)
+	runtime/mheap.go:1011 +0x57 fp=0xd0b71ffc40 sp=0xd0b71ffbf8 pc=0x7ff7346c4d57
+runtime.(*mcentral).grow(...)
+	runtime/mcentral.go:253
+runtime.(*mcentral).cacheSpan(0x7ff735d97e58)
+	runtime/mcentral.go:171 +0x7ff fp=0xd0b71ffd00 sp=0xd0b71ffc40 pc=0x7ff7346a9e7f
+runtime.(*mcache).refill(0x200e7d70108, 0x40?)
+	runtime/mcache.go:205 +0x16b fp=0xd0b71ffd40 sp=0xd0b71ffd00 pc=0x7ff7346a908b
+runtime.(*mcache).nextFree(...)
+	runtime/malloc.go:1006
+runtime.mallocgcSmallScanNoHeader(0x100, 0x7ff73523e8c0)
+	runtime/malloc.go:1529 +0x18b fp=0xd0b71ffdb8 sp=0xd0b71ffd40 pc=0x7ff7346a47ab
+runtime.mallocgc(...)
+	runtime/malloc.go:1150
+runtime.newobject(0x7ff73523e8c0)
+	runtime/malloc.go:2157 +0x98 fp=0xd0b71ffdf0 sp=0xd0b71ffdb8 pc=0x7ff7346a57d8
+internal/cpu.doinit()
+	internal/cpu/cpu_x86.go:72 +0x1e fp=0xd0b71ffe58 sp=0xd0b71ffdf0 pc=0x7ff734684b3e
+internal/cpu.Initialize({0x0, 0x0})
+	internal/cpu/cpu.go:181 +0x1d fp=0xd0b71ffe78 sp=0xd0b71ffe58 pc=0x7ff7346845dd
+runtime.cpuinit(...)
+	runtime/proc.go:761
+runtime.schedinit()
+	runtime/proc.go:878 +0xfa fp=0xd0b71ffed0 sp=0xd0b71ffe78 pc=0x7ff7346ddc1a
+runtime.rt0_go()
+	runtime/asm_amd64.s:373 +0x143 fp=0xd0b71ffed8 sp=0xd0b71ffed0 pc=0x7ff73471b8e3
+FAIL	github.com/njydsz/ydsz-plane/internal/application/issue [build failed]
+FAIL

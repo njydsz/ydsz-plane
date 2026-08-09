@@ -249,7 +249,7 @@ func (h *IssueHandler) batchIssues(c *gin.Context) {
 	}
 
 	result, err := h.d.IssueSvc.BatchUpdate(c.Request.Context(), wsID, projectID, userID, BatchUpdateInput{
-		IssueIDs:   req.IssueIDs,
+		IDs:        req.IssueIDs,
 		ToStateID:  req.ToStateID,
 		AssigneeID: req.AssigneeID,
 		Priority:   req.Priority,

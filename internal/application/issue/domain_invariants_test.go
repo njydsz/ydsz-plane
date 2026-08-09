@@ -11,6 +11,7 @@
 package issue
 
 import (
+	"fmt"
 	"testing"
 )
 
@@ -324,7 +325,10 @@ func TestValidateCreateInput_EdgeCases(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			err := validateCreateInput(c.in)
+			err := validateWorkitemName(c.in.Name)
+			if err == nil && !validateTypeCode(c.in.TypeCode) {
+				err = fmt.Errorf("invalid type_code: %q", c.in.TypeCode)
+			}
 			if c.wantErr && err == nil {
 				t.Error("expected error, got nil")
 			}

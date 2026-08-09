@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -149,7 +148,6 @@ func (s *RequirementService) GetByID(ctx context.Context, wsID, reqID int64) (*R
 
 // Update 更新需求。
 func (s *RequirementService) Update(ctx context.Context, wsID, reqID int64, in UpdateRequirementInput) (*Requirement, error) {
-	var result *Requirement
 	err := s.withTx(ctx, wsID, func(tx pgx.Tx) error {
 		current, err := s.getByIDTx(ctx, tx, reqID, wsID)
 		if err != nil {
@@ -259,8 +257,9 @@ func (s *RequirementService) Transition(ctx context.Context, wsID, projectID, re
 		_ = tx.QueryRow(ctx, `SELECT p.identifier, r.name
 			FROM requirement r JOIN projects p ON p.id = r.project_id
 			WHERE r.id = $1`, reqID).Scan(&identifier, &reqName)
+		actorName := getUserNameTx(ctx, tx, userID)
 		return recordWorkitemEvent(ctx, tx, "workitem.status_changed", wsID, projectID, reqID, TypeRequirement,
-			userID, identifier, reqName, assignees, loadStateName(ctx, tx, r.StateID), loadStateName(ctx, tx, toStateID))
+			userID, actorName, identifier, reqName, assignees, loadStateName(ctx, tx, r.StateID), loadStateName(ctx, tx, toStateID))
 	})
 	if err != nil {
 		return nil, err
@@ -291,8 +290,9 @@ func (s *RequirementService) insertRequirement(ctx context.Context, in CreateReq
 		}
 		var identifier string
 		_ = tx.QueryRow(ctx, `SELECT identifier FROM projects WHERE id = $1`, in.ProjectID).Scan(&identifier)
+		actorName := getUserNameTx(ctx, tx, in.CreatedBy)
 		return recordWorkitemEvent(ctx, tx, "workitem.created", in.WorkspaceID, in.ProjectID, reqID, TypeRequirement,
-			in.CreatedBy, identifier+"-"+strconv.FormatInt(seqID, 10), in.Name, in.Assignees, "", "")
+			in.CreatedBy, actorName, identifier+"-"+strconv.FormatInt(seqID, 10), in.Name, in.Assignees, "", "")
 	})
 	return reqID, err
 }

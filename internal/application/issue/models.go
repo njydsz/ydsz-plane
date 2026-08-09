@@ -425,6 +425,21 @@ type ListWorkitemsOptions struct {
 	SeverityFrom     *int
 }
 
+// BatchUpdateInput 批量操作输入。
+type BatchUpdateInput struct {
+	IDs        []int64
+	ToStateID  *int64
+	AssigneeID *int64
+	Priority   *string
+	Delete     bool
+}
+
+// BatchResult 批量操作结果。
+type BatchResult struct {
+	Succeeded int
+	Failed    int
+}
+
 // --- 其他领域实体 ---
 
 // WorkitemExtension 工作项扩展属性

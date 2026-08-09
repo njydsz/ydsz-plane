@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -39,14 +38,10 @@ func (s *TaskService) Create(ctx context.Context, in CreateTaskInput) (*Task, er
 	if len(in.Name) > 500 {
 		return nil, errs.ErrValidation.WithDetails(errs.FieldDetail{Field: "name", Reason: "任务名称不能超过 500 字符"})
 	}
-
-	// WBS 规则校验
 	if in.ParentID != nil {
-		// TODO: 暂不支持 task 嵌套，对齐 Plane 行为可在后续迭代放开
 		return nil, errs.ErrValidation.WithDetails(errs.FieldDetail{Field: "parent_id", Reason: "任务暂不支持父子层级"})
 	}
 
-	// 状态未指定取默认
 	stateID := in.StateID
 	if stateID == 0 {
 		defaultState, err := s.stateSvc.GetDefaultState(ctx, in.WorkspaceID, in.ProjectID)
@@ -56,13 +51,11 @@ func (s *TaskService) Create(ctx context.Context, in CreateTaskInput) (*Task, er
 		stateID = defaultState.ID
 	}
 
-	// 发号
 	seqID, err := s.nextSequenceID(ctx, in.ProjectID)
 	if err != nil {
 		return nil, err
 	}
 
-	// 事务写入
 	taskID, err := s.insertTask(ctx, in, stateID, seqID)
 	if err != nil {
 		return nil, err
@@ -91,8 +84,7 @@ func (s *TaskService) GetByID(ctx context.Context, wsID, taskID int64) (*Task, e
 		       t.priority, t.category, t.point,
 		       t.start_date, t.target_date, t.completed_at, t.progress,
 		       t.is_draft, t.version, t.created_by, t.created_at, t.updated_at,
-		       p.identifier,
-		       t.sprint_id, t.version_id
+		       p.identifier, t.sprint_id, t.version_id
 		FROM task t
 		JOIN states s ON s.id = t.state_id
 		JOIN projects p ON p.id = t.project_id
@@ -115,35 +107,14 @@ func (s *TaskService) GetByID(ctx context.Context, wsID, taskID int64) (*Task, e
 
 	t.Identifier = identifier + "-" + strconv.FormatInt(t.SequenceID, 10)
 	t.State = &State{ID: t.StateID, Name: stateName, Color: stateColor, Group: stateGroup}
-	if parentID.Valid {
-		v := parentID.Int64
-		t.ParentID = &v
-	}
-	if category.Valid {
-		v := category.String
-		t.Category = &v
-	}
-	if point.Valid {
-		v := int(point.Int64)
-		t.Point = &v
-	}
-	if startDate.Valid {
-		t.StartDate = &startDate.Time
-	}
-	if targetDate.Valid {
-		t.TargetDate = &targetDate.Time
-	}
-	if completedAt.Valid {
-		t.CompletedAt = &completedAt.Time
-	}
-	if sprintID.Valid {
-		v := sprintID.Int64
-		t.SprintID = &v
-	}
-	if versionID.Valid {
-		v := versionID.Int64
-		t.VersionID = &v
-	}
+	if parentID.Valid { v := parentID.Int64; t.ParentID = &v }
+	if category.Valid { v := category.String; t.Category = &v }
+	if point.Valid { v := int(point.Int64); t.Point = &v }
+	if startDate.Valid { t.StartDate = &startDate.Time }
+	if targetDate.Valid { t.TargetDate = &targetDate.Time }
+	if completedAt.Valid { t.CompletedAt = &completedAt.Time }
+	if sprintID.Valid { v := sprintID.Int64; t.SprintID = &v }
+	if versionID.Valid { v := versionID.Int64; t.VersionID = &v }
 	t.Assignees, _ = loadIntArray(ctx, s.db, `SELECT user_id FROM issue_assignees WHERE issue_id = $1`, taskID)
 	t.Labels, _ = loadIntArray(ctx, s.db, `SELECT label_id FROM issue_labels WHERE issue_id = $1`, taskID)
 	t.Modules, _ = loadIntArray(ctx, s.db, `SELECT module_id FROM issue_modules WHERE issue_id = $1`, taskID)
@@ -154,12 +125,9 @@ func (s *TaskService) GetByID(ctx context.Context, wsID, taskID int64) (*Task, e
 
 // Update 更新任务。
 func (s *TaskService) Update(ctx context.Context, wsID, taskID int64, in UpdateTaskInput) (*Task, error) {
-	var result *Task
 	err := s.withTx(ctx, wsID, func(tx pgx.Tx) error {
 		current, err := s.getByIDTx(ctx, tx, taskID, wsID)
-		if err != nil {
-			return err
-		}
+		if err != nil { return err }
 		if in.Version != current.Version {
 			return errs.ErrVersionConflict
 		}
@@ -169,7 +137,7 @@ func (s *TaskService) Update(ctx context.Context, wsID, taskID int64, in UpdateT
 
 		sets, args := buildTaskUpdateSet(in)
 		if len(sets) == 0 {
-			return s.updateM2M(ctx, tx, taskID, in.Assignees, in.Labels, in.Modules)
+			return sharedUpdateM2M(ctx, tx, taskID, in.Assignees, in.Labels, in.Modules)
 		}
 
 		sets = append(sets, "updated_at = now()")
@@ -178,21 +146,15 @@ func (s *TaskService) Update(ctx context.Context, wsID, taskID int64, in UpdateT
 		args = append(args, taskID, wsID, in.Version)
 
 		tag, err := tx.Exec(ctx, query, args...)
-		if err != nil {
-			return err
-		}
-		if tag.RowsAffected() == 0 {
-			return errs.ErrVersionConflict
-		}
-		return s.updateM2M(ctx, tx, taskID, in.Assignees, in.Labels, in.Modules)
+		if err != nil { return err }
+		if tag.RowsAffected() == 0 { return errs.ErrVersionConflict }
+		return sharedUpdateM2M(ctx, tx, taskID, in.Assignees, in.Labels, in.Modules)
 	})
-	if err != nil {
-		return nil, err
-	}
+	if err != nil { return nil, err }
 	return s.GetByID(ctx, wsID, taskID)
 }
 
-// SoftDelete 归档（含级联子项）。
+// SoftDelete 归档。
 func (s *TaskService) SoftDelete(ctx context.Context, wsID, taskID int64) error {
 	return s.withTx(ctx, wsID, func(tx pgx.Tx) error {
 		if _, err := tx.Exec(ctx, `DELETE FROM sprint_issues WHERE issue_id = $1`, taskID); err != nil {
@@ -201,12 +163,8 @@ func (s *TaskService) SoftDelete(ctx context.Context, wsID, taskID int64) error 
 		tag, err := tx.Exec(ctx, `
 			UPDATE task SET deleted_at = now(), updated_at = now()
 			WHERE id = $1 AND workspace_id = $2 AND deleted_at IS NULL`, taskID, wsID)
-		if err != nil {
-			return err
-		}
-		if tag.RowsAffected() == 0 {
-			return errs.ErrNotFound
-		}
+		if err != nil { return err }
+		if tag.RowsAffected() == 0 { return errs.ErrNotFound }
 		return nil
 	})
 }
@@ -216,12 +174,8 @@ func (s *TaskService) Restore(ctx context.Context, wsID, taskID int64) error {
 	tag, err := s.db.Exec(ctx, `
 		UPDATE task SET deleted_at = NULL, updated_at = now()
 		WHERE id = $1 AND workspace_id = $2 AND deleted_at IS NOT NULL`, taskID, wsID)
-	if err != nil {
-		return errs.ErrInternal.Wrap(err)
-	}
-	if tag.RowsAffected() == 0 {
-		return errs.ErrNotFound
-	}
+	if err != nil { return errs.ErrInternal.Wrap(err) }
+	if tag.RowsAffected() == 0 { return errs.ErrNotFound }
 	return nil
 }
 
@@ -229,12 +183,8 @@ func (s *TaskService) Restore(ctx context.Context, wsID, taskID int64) error {
 func (s *TaskService) Transition(ctx context.Context, wsID, projectID, taskID, toStateID, userID int64) (*Task, error) {
 	err := s.withTx(ctx, wsID, func(tx pgx.Tx) error {
 		t, err := s.getByIDTx(ctx, tx, taskID, wsID)
-		if err != nil {
-			return err
-		}
-		if t.StateID == toStateID {
-			return nil
-		}
+		if err != nil { return err }
+		if t.StateID == toStateID { return nil }
 		if err := s.stateSvc.ValidateTransition(ctx, wsID, projectID, TransitionInput{
 			IssueID: taskID, FromState: t.StateID, ToState: toStateID, TypeCode: t.TypeCode,
 		}); err != nil {
@@ -242,35 +192,29 @@ func (s *TaskService) Transition(ctx context.Context, wsID, projectID, taskID, t
 		}
 
 		toGroup, err := s.stateSvc.StateGroupByID(ctx, toStateID)
-		if err != nil {
-			return err
-		}
+		if err != nil { return err }
 		completedAtClause := "NULL"
 		progress := t.Progress
 		if toGroup == GroupCompleted {
 			completedAtClause = "now()"
 			progress = 100
 		}
-		query := fmt.Sprintf(`UPDATE task SET state_id = $1, completed_at = %s,
-			progress = $2, version = version + 1, updated_at = now()
+		query := fmt.Sprintf(`UPDATE task SET state_id = $1, completed_at = %s, progress = $2, version = version + 1, updated_at = now()
 			WHERE id = $3 AND workspace_id = $4 AND deleted_at IS NULL`, completedAtClause)
 		if _, err := tx.Exec(ctx, query, toStateID, progress, taskID, wsID); err != nil {
 			return err
 		}
 		t.StateID = toStateID
 
-		// 领域事件
 		assignees := loadIntArrayTx(ctx, tx, `SELECT user_id FROM issue_assignees WHERE issue_id = $1`, taskID)
-		var identifier, taskName string
-		_ = tx.QueryRow(ctx, `SELECT p.identifier, t.name
-			FROM task t JOIN projects p ON p.id = t.project_id
-			WHERE t.id = $1`, taskID).Scan(&identifier, &taskName)
+		var identifier, name string
+		_ = tx.QueryRow(ctx, `SELECT p.identifier, t.name FROM task t JOIN projects p ON p.id = t.project_id
+			WHERE t.id = $1`, taskID).Scan(&identifier, &name)
+		actorName := getUserNameTx(ctx, tx, userID)
 		return recordWorkitemEvent(ctx, tx, "workitem.status_changed", wsID, projectID, taskID, TypeTask,
-			userID, identifier, taskName, assignees, loadStateName(ctx, tx, t.StateID), loadStateName(ctx, tx, toStateID))
+			userID, actorName, identifier, name, assignees, loadStateName(ctx, tx, t.StateID), loadStateName(ctx, tx, toStateID))
 	})
-	if err != nil {
-		return nil, err
-	}
+	if err != nil { return nil, err }
 	return s.GetByID(ctx, wsID, taskID)
 }
 
@@ -295,11 +239,11 @@ func (s *TaskService) insertTask(ctx context.Context, in CreateTaskInput, stateI
 		if err := insertM2M(ctx, tx, taskID, in.Assignees, in.Labels, in.Modules); err != nil {
 			return err
 		}
-		// 制作领域事件
 		var identifier string
 		_ = tx.QueryRow(ctx, `SELECT identifier FROM projects WHERE id = $1`, in.ProjectID).Scan(&identifier)
+		actorName := getUserNameTx(ctx, tx, in.CreatedBy)
 		return recordWorkitemEvent(ctx, tx, "workitem.created", in.WorkspaceID, in.ProjectID, taskID, TypeTask,
-			in.CreatedBy, identifier+"-"+strconv.FormatInt(seqID, 10), in.Name, in.Assignees, "", "")
+			in.CreatedBy, actorName, identifier+"-"+strconv.FormatInt(seqID, 10), in.Name, in.Assignees, "", "")
 	})
 	return taskID, err
 }
@@ -315,78 +259,32 @@ func (s *TaskService) getByIDTx(ctx context.Context, tx pgx.Tx, taskID, wsID int
 		&t.TypeCode, &parentID, &t.Depth,
 		&t.Name, &t.StateID, &t.Priority, &t.Version, &t.CreatedBy)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, errs.ErrNotFound
-		}
+		if errors.Is(err, pgx.ErrNoRows) { return nil, errs.ErrNotFound }
 		return nil, errs.ErrInternal.Wrap(err)
 	}
-	if parentID.Valid {
-		v := parentID.Int64
-		t.ParentID = &v
-	}
+	if parentID.Valid { v := parentID.Int64; t.ParentID = &v }
 	return &t, nil
 }
 
 func (s *TaskService) nextSequenceID(ctx context.Context, projectID int64) (int64, error) {
 	var seq int64
 	err := s.db.QueryRow(ctx, `
-		INSERT INTO project_sequences (project_id, next_value)
-		VALUES ($1, 2)
+		INSERT INTO project_sequences (project_id, next_value) VALUES ($1, 2)
 		ON CONFLICT (project_id) DO UPDATE SET next_value = project_sequences.next_value + 1
 		RETURNING next_value - 1`, projectID).Scan(&seq)
-	if err != nil {
-		return 0, errs.ErrInternal.Wrap(err)
-	}
+	if err != nil { return 0, errs.ErrInternal.Wrap(err) }
 	return seq, nil
 }
 
 func (s *TaskService) withTx(ctx context.Context, wsID int64, fn func(tx pgx.Tx) error) error {
 	tx, err := s.db.Begin(ctx)
-	if err != nil {
-		return errs.ErrInternal.Wrap(err)
-	}
+	if err != nil { return errs.ErrInternal.Wrap(err) }
 	defer func() { _ = tx.Rollback(ctx) }()
 	if _, err := tx.Exec(ctx, "SELECT set_config('app.workspace_id', $1, true)", strconv.FormatInt(wsID, 10)); err != nil {
 		return errs.ErrInternal.Wrap(err)
 	}
-	if err := fn(tx); err != nil {
-		return err
-	}
+	if err := fn(tx); err != nil { return err }
 	return tx.Commit(ctx)
-}
-
-func (s *TaskService) updateM2M(ctx context.Context, tx pgx.Tx, taskID int64, assignees, labels, modules []int64) error {
-	if assignees != nil {
-		if _, err := tx.Exec(ctx, `DELETE FROM issue_assignees WHERE issue_id = $1`, taskID); err != nil {
-			return err
-		}
-		for _, uid := range assignees {
-			if _, err := tx.Exec(ctx, `INSERT INTO issue_assignees (issue_id, user_id) VALUES ($1,$2) ON CONFLICT DO NOTHING`, taskID, uid); err != nil {
-				return err
-			}
-		}
-	}
-	if labels != nil {
-		if _, err := tx.Exec(ctx, `DELETE FROM issue_labels WHERE issue_id = $1`, taskID); err != nil {
-			return err
-		}
-		for _, lid := range labels {
-			if _, err := tx.Exec(ctx, `INSERT INTO issue_labels (issue_id, label_id) VALUES ($1,$2) ON CONFLICT DO NOTHING`, taskID, lid); err != nil {
-				return err
-			}
-		}
-	}
-	if modules != nil {
-		if _, err := tx.Exec(ctx, `DELETE FROM issue_modules WHERE issue_id = $1`, taskID); err != nil {
-			return err
-		}
-		for _, mid := range modules {
-			if _, err := tx.Exec(ctx, `INSERT INTO issue_modules (issue_id, module_id) VALUES ($1,$2) ON CONFLICT DO NOTHING`, taskID, mid); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
 }
 
 func buildTaskUpdateSet(in UpdateTaskInput) ([]string, []interface{}) {
@@ -394,44 +292,28 @@ func buildTaskUpdateSet(in UpdateTaskInput) ([]string, []interface{}) {
 	var args []interface{}
 	arg := 1
 	if in.Name != nil {
-		sets = append(sets, "name = $"+strconv.Itoa(arg))
-		args = append(args, *in.Name)
-		arg++
+		sets = append(sets, "name = $"+strconv.Itoa(arg)); args = append(args, *in.Name); arg++
 	}
 	if in.DescriptionHTML != nil {
-		sets = append(sets, "description_html = $"+strconv.Itoa(arg))
-		args = append(args, *in.DescriptionHTML)
-		arg++
+		sets = append(sets, "description_html = $"+strconv.Itoa(arg)); args = append(args, *in.DescriptionHTML); arg++
 	}
 	if in.Priority != nil {
-		sets = append(sets, "priority = $"+strconv.Itoa(arg))
-		args = append(args, string(*in.Priority))
-		arg++
+		sets = append(sets, "priority = $"+strconv.Itoa(arg)); args = append(args, string(*in.Priority)); arg++
 	}
 	if in.ParentID != nil {
-		sets = append(sets, "parent_id = $"+strconv.Itoa(arg))
-		args = append(args, *in.ParentID)
-		arg++
+		sets = append(sets, "parent_id = $"+strconv.Itoa(arg)); args = append(args, *in.ParentID); arg++
 	}
 	if in.Category != nil {
-		sets = append(sets, "category = $"+strconv.Itoa(arg))
-		args = append(args, *in.Category)
-		arg++
+		sets = append(sets, "category = $"+strconv.Itoa(arg)); args = append(args, *in.Category); arg++
 	}
 	if in.Point != nil {
-		sets = append(sets, "point = $"+strconv.Itoa(arg))
-		args = append(args, *in.Point)
-		arg++
+		sets = append(sets, "point = $"+strconv.Itoa(arg)); args = append(args, *in.Point); arg++
 	}
 	if in.TargetDate != nil {
-		sets = append(sets, "target_date = $"+strconv.Itoa(arg))
-		args = append(args, *in.TargetDate)
-		arg++
+		sets = append(sets, "target_date = $"+strconv.Itoa(arg)); args = append(args, *in.TargetDate); arg++
 	}
 	if in.Progress != nil {
-		sets = append(sets, "progress = $"+strconv.Itoa(arg))
-		args = append(args, *in.Progress)
-		arg++
+		sets = append(sets, "progress = $"+strconv.Itoa(arg)); args = append(args, *in.Progress); arg++
 	}
 	return sets, args
 }
@@ -442,8 +324,7 @@ func mapTaskPgError(err error) error {
 		if pgErr.ConstraintName == "task_project_id_sequence_id_key" {
 			return errs.New("TASK.DUPLICATE_SEQ", "任务序号冲突，请重试", 409)
 		}
-	if errors.Is(err, pgx.ErrNoRows) {
-		return errs.ErrNotFound
 	}
+	if errors.Is(err, pgx.ErrNoRows) { return errs.ErrNotFound }
 	return errs.ErrInternal.Wrap(err)
 }
