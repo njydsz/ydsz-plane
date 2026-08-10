@@ -28,14 +28,6 @@ START 1
 CACHE 1;
 
 -- ----------------------------
--- Sequence structure for attachments_id_seq
--- ----------------------------
-DROP SEQUENCE IF EXISTS "public"."attachments_id_seq";
-CREATE SEQUENCE "public"."attachments_id_seq" 
-INCREMENT 1
-MINVALUE  1
-MAXVALUE 9223372036854775807
-START 1
 CACHE 1;
 
 -- ----------------------------
@@ -543,41 +535,135 @@ ALTER TABLE public.api_tokens
 
 
 -- ----------------------------
--- Table structure for attachments
--- ----------------------------
-DROP TABLE IF EXISTS "public"."attachments";
-CREATE TABLE "public"."attachments" (
-  "id" int8 NOT NULL DEFAULT nextval('attachments_id_seq'::regclass),
-  "workspace_id" int8 NOT NULL,
-  "project_id" int8 NOT NULL,
-  "entity_type" varchar(20) COLLATE "pg_catalog"."default" NOT NULL,
-  "entity_id" int8 NOT NULL,
-  "file_name" varchar(512) COLLATE "pg_catalog"."default" NOT NULL,
-  "file_size" int8 NOT NULL,
-  "content_type" varchar(128) COLLATE "pg_catalog"."default" NOT NULL DEFAULT 'application/octet-stream'::character varying,
-  "storage_key" varchar(512) COLLATE "pg_catalog"."default" NOT NULL,
-  "storage_url" varchar(2048) COLLATE "pg_catalog"."default",
-  "thumb_key" varchar(512) COLLATE "pg_catalog"."default",
-  "uploaded_by" int8 NOT NULL,
-  "deleted_at" timestamptz(6),
-  "created_at" timestamptz(6) NOT NULL DEFAULT now(),
-  "updated_at" timestamptz(6) NOT NULL DEFAULT now()
-)
-;
-COMMENT ON TABLE public.attachments IS '附件表（多态关联: issue/comment/workspace/project/user；元数据 JSONB）';
-COMMENT ON COLUMN public.attachments.id IS '主键 ID';
-COMMENT ON COLUMN public.attachments.workspace_id IS '工作空间 FK（RLS 依据）';
-COMMENT ON COLUMN public.attachments.file_name IS '原始文件名（用户上传时显示名）';
-COMMENT ON COLUMN public.attachments.file_size IS '文件大小（字节；最大 10MB）';
-COMMENT ON COLUMN public.attachments.content_type IS 'MIME content-type（类型白名单校验）';
-COMMENT ON COLUMN public.attachments.storage_key IS 'MinIO 对象存储 key（UUID，文件名已重命名）';
-COMMENT ON COLUMN public.attachments.uploaded_by IS '上传人 FK';
-COMMENT ON COLUMN public.attachments.created_at IS '上传时间';
-COMMENT ON COLUMN public.attachments.deleted_at IS '软删除时间戳';
 
 -- ----------------------------
--- Records of attachments
+-- Table structure for requirement_attachments
 -- ----------------------------
+CREATE TABLE IF NOT EXISTS public.requirement_attachments (
+    id              BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    workspace_id    BIGINT NOT NULL REFERENCES workspaces(id),
+    project_id      BIGINT NOT NULL REFERENCES projects(id),
+    requirement_id  BIGINT NOT NULL REFERENCES requirements(id) ON DELETE CASCADE,
+    file_name       VARCHAR(512) NOT NULL,
+    file_size       BIGINT NOT NULL,
+    content_type    VARCHAR(128) NOT NULL DEFAULT 'application/octet-stream',
+    storage_key     VARCHAR(512) NOT NULL,
+    storage_url     VARCHAR(2048),
+    thumb_key       VARCHAR(512),
+    uploaded_by     BIGINT NOT NULL REFERENCES users(id),
+    deleted_at      TIMESTAMPTZ,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+COMMENT ON TABLE  public.requirement_attachments IS '需求附件（需求详情/评论附件）';
+COMMENT ON COLUMN public.requirement_attachments.id IS '主键 ID';
+COMMENT ON COLUMN public.requirement_attachments.workspace_id IS '工作空间 FK（RLS 依据）';
+COMMENT ON COLUMN public.requirement_attachments.project_id IS '归属项目';
+COMMENT ON COLUMN public.requirement_attachments.requirement_id IS '关联需求 FK（级联删除）';
+COMMENT ON COLUMN public.requirement_attachments.file_name IS '原始文件名';
+COMMENT ON COLUMN public.requirement_attachments.file_size IS '文件大小（字节；最大 10MB）';
+COMMENT ON COLUMN public.requirement_attachments.content_type IS 'MIME content-type';
+COMMENT ON COLUMN public.requirement_attachments.storage_key IS 'MinIO 对象存储 key';
+COMMENT ON COLUMN public.requirement_attachments.storage_url IS '存储 URL';
+COMMENT ON COLUMN public.requirement_attachments.thumb_key IS '缩略图 storage key';
+COMMENT ON COLUMN public.requirement_attachments.uploaded_by IS '上传人 FK';
+COMMENT ON COLUMN public.requirement_attachments.deleted_at IS '软删除时间戳';
+
+ALTER TABLE public.requirement_attachments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.requirement_attachments FORCE ROW LEVEL SECURITY;
+CREATE POLICY tenant_isolation ON public.requirement_attachments
+    USING (workspace_id = current_setting('app.workspace_id', true)::bigint)
+    WITH CHECK (workspace_id = current_setting('app.workspace_id', true)::bigint);
+
+CREATE INDEX IF NOT EXISTS idx_requirement_attachments_entity ON public.requirement_attachments (requirement_id ASC NULLS LAST);
+CREATE INDEX IF NOT EXISTS idx_requirement_attachments_uploader ON public.requirement_attachments (uploaded_by ASC NULLS LAST);
+CREATE INDEX IF NOT EXISTS idx_requirement_attachments_workspace ON public.requirement_attachments (workspace_id ASC NULLS LAST);
+
+-- ----------------------------
+-- Table structure for task_attachments
+-- ----------------------------
+CREATE TABLE IF NOT EXISTS public.task_attachments (
+    id              BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    workspace_id    BIGINT NOT NULL REFERENCES workspaces(id),
+    project_id      BIGINT NOT NULL REFERENCES projects(id),
+    task_id         BIGINT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+    file_name       VARCHAR(512) NOT NULL,
+    file_size       BIGINT NOT NULL,
+    content_type    VARCHAR(128) NOT NULL DEFAULT 'application/octet-stream',
+    storage_key     VARCHAR(512) NOT NULL,
+    storage_url     VARCHAR(2048),
+    thumb_key       VARCHAR(512),
+    uploaded_by     BIGINT NOT NULL REFERENCES users(id),
+    deleted_at      TIMESTAMPTZ,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+COMMENT ON TABLE  public.task_attachments IS '任务附件（任务详情/评论附件）';
+COMMENT ON COLUMN public.task_attachments.id IS '主键 ID';
+COMMENT ON COLUMN public.task_attachments.workspace_id IS '工作空间 FK（RLS 依据）';
+COMMENT ON COLUMN public.task_attachments.project_id IS '归属项目';
+COMMENT ON COLUMN public.task_attachments.task_id IS '关联任务 FK（级联删除）';
+COMMENT ON COLUMN public.task_attachments.file_name IS '原始文件名';
+COMMENT ON COLUMN public.task_attachments.file_size IS '文件大小（字节；最大 10MB）';
+COMMENT ON COLUMN public.task_attachments.content_type IS 'MIME content-type';
+COMMENT ON COLUMN public.task_attachments.storage_key IS 'MinIO 对象存储 key';
+COMMENT ON COLUMN public.task_attachments.storage_url IS '存储 URL';
+COMMENT ON COLUMN public.task_attachments.thumb_key IS '缩略图 storage key';
+COMMENT ON COLUMN public.task_attachments.uploaded_by IS '上传人 FK';
+COMMENT ON COLUMN public.task_attachments.deleted_at IS '软删除时间戳';
+
+ALTER TABLE public.task_attachments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.task_attachments FORCE ROW LEVEL SECURITY;
+CREATE POLICY tenant_isolation ON public.task_attachments
+    USING (workspace_id = current_setting('app.workspace_id', true)::bigint)
+    WITH CHECK (workspace_id = current_setting('app.workspace_id', true)::bigint);
+
+CREATE INDEX IF NOT EXISTS idx_task_attachments_entity ON public.task_attachments (task_id ASC NULLS LAST);
+CREATE INDEX IF NOT EXISTS idx_task_attachments_uploader ON public.task_attachments (uploaded_by ASC NULLS LAST);
+CREATE INDEX IF NOT EXISTS idx_task_attachments_workspace ON public.task_attachments (workspace_id ASC NULLS LAST);
+
+-- ----------------------------
+-- Table structure for defect_attachments
+-- ----------------------------
+CREATE TABLE IF NOT EXISTS public.defect_attachments (
+    id              BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    workspace_id    BIGINT NOT NULL REFERENCES workspaces(id),
+    project_id      BIGINT NOT NULL REFERENCES projects(id),
+    defect_id       BIGINT NOT NULL REFERENCES defects(id) ON DELETE CASCADE,
+    file_name       VARCHAR(512) NOT NULL,
+    file_size       BIGINT NOT NULL,
+    content_type    VARCHAR(128) NOT NULL DEFAULT 'application/octet-stream',
+    storage_key     VARCHAR(512) NOT NULL,
+    storage_url     VARCHAR(2048),
+    thumb_key       VARCHAR(512),
+    uploaded_by     BIGINT NOT NULL REFERENCES users(id),
+    deleted_at      TIMESTAMPTZ,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+COMMENT ON TABLE  public.defect_attachments IS '缺陷附件（缺陷详情/评论附件）';
+COMMENT ON COLUMN public.defect_attachments.id IS '主键 ID';
+COMMENT ON COLUMN public.defect_attachments.workspace_id IS '工作空间 FK（RLS 依据）';
+COMMENT ON COLUMN public.defect_attachments.project_id IS '归属项目';
+COMMENT ON COLUMN public.defect_attachments.defect_id IS '关联缺陷 FK（级联删除）';
+COMMENT ON COLUMN public.defect_attachments.file_name IS '原始文件名';
+COMMENT ON COLUMN public.defect_attachments.file_size IS '文件大小（字节；最大 10MB）';
+COMMENT ON COLUMN public.defect_attachments.content_type IS 'MIME content-type';
+COMMENT ON COLUMN public.defect_attachments.storage_key IS 'MinIO 对象存储 key';
+COMMENT ON COLUMN public.defect_attachments.storage_url IS '存储 URL';
+COMMENT ON COLUMN public.defect_attachments.thumb_key IS '缩略图 storage key';
+COMMENT ON COLUMN public.defect_attachments.uploaded_by IS '上传人 FK';
+COMMENT ON COLUMN public.defect_attachments.deleted_at IS '软删除时间戳';
+
+ALTER TABLE public.defect_attachments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.defect_attachments FORCE ROW LEVEL SECURITY;
+CREATE POLICY tenant_isolation ON public.defect_attachments
+    USING (workspace_id = current_setting('app.workspace_id', true)::bigint)
+    WITH CHECK (workspace_id = current_setting('app.workspace_id', true)::bigint);
+
+CREATE INDEX IF NOT EXISTS idx_defect_attachments_entity ON public.defect_attachments (defect_id ASC NULLS LAST);
+CREATE INDEX IF NOT EXISTS idx_defect_attachments_uploader ON public.defect_attachments (uploaded_by ASC NULLS LAST);
+CREATE INDEX IF NOT_EXISTS idx_defect_attachments_workspace ON public.defect_attachments (workspace_id ASC NULLS LAST);
 
 -- ----------------------------
 -- Table structure for audit_logs
@@ -1297,8 +1383,9 @@ CREATE TABLE "public"."notifications" (
   "workspace_id" int8 NOT NULL,
   "recipient_id" int8 NOT NULL,
   "event_type" varchar(64) COLLATE "pg_catalog"."default" NOT NULL,
-  "entity_type" varchar(32) COLLATE "pg_catalog"."default" NOT NULL,
-  "entity_id" int8 NOT NULL,
+  "requirement_id" int8,
+  "task_id" int8,
+  "defect_id" int8,
   "title" varchar(256) COLLATE "pg_catalog"."default" NOT NULL,
   "body" text COLLATE "pg_catalog"."default",
   "action_url" varchar(512) COLLATE "pg_catalog"."default",
@@ -1324,7 +1411,9 @@ COMMENT ON COLUMN public.notifications.is_read IS '已读状态: true=已读(已
 COMMENT ON COLUMN public.notifications.read_at IS '首次阅读时间 TIMESTAMPTZ（列表"全部已读"触发）';
 COMMENT ON COLUMN public.notifications.created_at IS '创建时间 TIMESTAMPTZ（列表/游标分页倒序 + 分区裁剪）';
 COMMENT ON COLUMN "public"."notifications"."event_type" IS '事件类型: issue.created/issue.assigned/issue.status_changed/comment.created/sprint.started/sprint.completed/version.released/member.added';
-COMMENT ON COLUMN "public"."notifications"."entity_type" IS '关联对象类型: issue/sprint/version/project/workspace/comment';
+COMMENT ON COLUMN "public"."notifications"."requirement_id" IS '关联需求 FK（三选一）';
+COMMENT ON COLUMN "public"."notifications"."task_id" IS '关联任务 FK（三选一）';
+COMMENT ON COLUMN "public"."notifications"."defect_id" IS '关联缺陷 FK（三选一）';
 COMMENT ON COLUMN "public"."notifications"."channel" IS '通知渠道: in_app(站内)/email/sms/wecom/dingtalk/feishu';
 COMMENT ON TABLE "public"."notifications" IS '通知消息表（站内铃铛+多渠道预留）';
 
@@ -3190,29 +3279,6 @@ ALTER TABLE "public"."api_tokens" ADD CONSTRAINT "api_tokens_token_hash_key" UNI
 ALTER TABLE "public"."api_tokens" ADD CONSTRAINT "api_tokens_pkey" PRIMARY KEY ("id");
 
 -- ----------------------------
--- Indexes structure for table attachments
--- ----------------------------
-CREATE INDEX "idx_attachments_entity" ON "public"."attachments" USING btree (
-  "entity_type" COLLATE "pg_catalog"."default" "pg_catalog"."text_ops" ASC NULLS LAST,
-  "entity_id" "pg_catalog"."int8_ops" ASC NULLS LAST
-) WHERE deleted_at IS NULL;
-COMMENT ON INDEX public.idx_attachments_entity IS '多态查询: type+id 定位附件列表（工作项详情/评论附件）';
-CREATE INDEX "idx_attachments_uploader" ON "public"."attachments" USING btree (
-  "uploaded_by" "pg_catalog"."int8_ops" ASC NULLS LAST
-) WHERE deleted_at IS NULL;
-COMMENT ON INDEX public.idx_attachments_uploader IS '按上传人查附件（配额统计/回收站）';
-CREATE INDEX "idx_attachments_workspace" ON "public"."attachments" USING btree (
-  "workspace_id" "pg_catalog"."int8_ops" ASC NULLS LAST
-) WHERE deleted_at IS NULL;
-COMMENT ON INDEX public.idx_attachments_workspace IS '按工作空间查全部附件（配额/存储用量统计）';
-
--- ----------------------------
--- Checks structure for table attachments
--- ----------------------------
-ALTER TABLE "public"."attachments" ADD CONSTRAINT "attachments_entity_type_check" CHECK (entity_type::text = ANY (ARRAY['issue'::character varying, 'comment'::character varying, 'workspace'::character varying, 'project'::character varying]::text[]));
-
--- ----------------------------
--- Primary Key structure for table attachments
 -- ----------------------------
 ALTER TABLE "public"."attachments" ADD CONSTRAINT "attachments_pkey" PRIMARY KEY ("id");
 
@@ -3791,11 +3857,6 @@ CREATE INDEX "idx_notifications_archived" ON "public"."notifications" USING btre
   "created_at" "pg_catalog"."timestamptz_ops" ASC NULLS LAST
 ) WHERE is_archived = true;
 COMMENT ON INDEX public.idx_notifications_archived IS '按已读状态过滤通知列表（活跃通知筛选）';
-CREATE INDEX "idx_notifications_entity" ON "public"."notifications" USING btree (
-  "entity_type" COLLATE "pg_catalog"."default" "pg_catalog"."text_ops" ASC NULLS LAST,
-  "entity_id" "pg_catalog"."int8_ops" ASC NULLS LAST
-);
-COMMENT ON INDEX public.idx_notifications_entity IS '按关联实体查通知记录';
 CREATE INDEX "idx_notifications_recipient_unread" ON "public"."notifications" USING btree (
   "recipient_id" "pg_catalog"."int8_ops" ASC NULLS LAST,
   "workspace_id" "pg_catalog"."int8_ops" ASC NULLS LAST,
@@ -5062,7 +5123,6 @@ ALTER TABLE "public"."pages" ADD CONSTRAINT "pages_workspace_id_fkey" FOREIGN KE
 
 
 -- ============================================================
--- 表: attachments — 附件表
 -- ============================================================
 
 
@@ -5575,7 +5635,8 @@ DECLARE
         'states', 'state_transitions', 'sprints',
         'sprint_snapshots', 'versions', 'automation_rules', 'rule_executions',
         'automation_templates', 'notifications', 'notification_preferences',
-        'api_tokens', 'attachments', 'invitations', 'intake_channels',
+        'defect_attachments', 'requirement_attachments', 'task_attachments',
+        'knowledge_page_requirements', 'knowledge_page_tasks', 'knowledge_page_defects',
         'intake_issues', 'workbench_configs', 'search_documents',
         'dashboard_widgets', 'dashboard_snapshots', 'metric_snapshots',
         'audit_logs', 'domain_events', 'webhooks', 'webhook_logs',
@@ -5614,7 +5675,8 @@ DECLARE
         'states', 'state_transitions', 'sprints',
         'sprint_snapshots', 'versions', 'automation_rules', 'rule_executions',
         'automation_templates', 'notifications', 'notification_preferences',
-        'api_tokens', 'attachments', 'invitations', 'intake_channels',
+        'defect_attachments', 'requirement_attachments', 'task_attachments',
+        'knowledge_page_requirements', 'knowledge_page_tasks', 'knowledge_page_defects',
         'intake_issues', 'workbench_configs', 'search_documents',
         'dashboard_widgets', 'dashboard_snapshots', 'metric_snapshots',
         'audit_logs', 'domain_events', 'webhooks', 'webhook_logs',
@@ -7007,22 +7069,55 @@ CREATE INDEX IF NOT EXISTS idx_kpv_version  ON public.knowledge_page_versions(pa
 COMMENT ON TABLE  public.knowledge_page_versions               IS '文档版本快照（回滚历史）';
 
 -- ============================================================================
--- knowledge_page_relations — 文档与工作项关联（issues 表已下线，由代码层维护关联完整性）
+-- knowledge_page_requirements/tasks/defects — 文档与需求/任务/缺陷关联
 -- ============================================================================
-CREATE TABLE IF NOT EXISTS public.knowledge_page_relations (
-    id                   BIGSERIAL   PRIMARY KEY,
-    page_id              BIGINT      NOT NULL REFERENCES public.knowledge_pages(id) ON DELETE CASCADE,
-    issue_id             BIGINT      NOT NULL,
-    relation_type        VARCHAR(32) NOT NULL DEFAULT 'referenced'
-                                  CHECK (relation_type IN ('referenced','referencing')),
-    created_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
-    CONSTRAINT uq_kpr_page_issue_type UNIQUE (page_id, issue_id, relation_type)
+CREATE TABLE IF NOT EXISTS public.knowledge_page_requirements (
+    id              BIGSERIAL    PRIMARY KEY,
+    workspace_id    BIGINT       NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    project_id      BIGINT       NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    page_id         BIGINT       NOT NULL REFERENCES knowledge_pages(id) ON DELETE CASCADE,
+    requirement_id  BIGINT       NOT NULL REFERENCES requirements(id) ON DELETE CASCADE,
+    relation_type   VARCHAR(32)  NOT NULL DEFAULT 'referenced'
+                              CHECK (relation_type IN ('referenced','referencing')),
+    created_at      TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    CONSTRAINT uq_kp_requirements_page_req_type UNIQUE (page_id, requirement_id, relation_type)
 );
 
-CREATE INDEX IF NOT EXISTS idx_kpr_page  ON public.knowledge_page_relations(page_id);
-CREATE INDEX IF NOT EXISTS idx_kpr_issue ON public.knowledge_page_relations(issue_id);
+CREATE TABLE IF NOT EXISTS public.knowledge_page_tasks (
+    id              BIGSERIAL    PRIMARY KEY,
+    workspace_id    BIGINT       NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    project_id      BIGINT       NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    page_id         BIGINT       NOT NULL REFERENCES knowledge_pages(id) ON DELETE CASCADE,
+    task_id         BIGINT       NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+    relation_type   VARCHAR(32)  NOT NULL DEFAULT 'referenced'
+                              CHECK (relation_type IN ('referenced','referencing')),
+    created_at      TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    CONSTRAINT uq_kp_tasks_page_task_type UNIQUE (page_id, task_id, relation_type)
+);
 
-COMMENT ON TABLE  public.knowledge_page_relations            IS '文档与工作项关联表（关联 task/requirement/defect 通过 biz_entity_relations）';
+CREATE TABLE IF NOT EXISTS public.knowledge_page_defects (
+    id              BIGSERIAL    PRIMARY KEY,
+    workspace_id    BIGINT       NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    project_id      BIGINT       NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    page_id         BIGINT       NOT NULL REFERENCES knowledge_pages(id) ON DELETE CASCADE,
+    defect_id       BIGINT       NOT NULL REFERENCES defects(id) ON DELETE CASCADE,
+    relation_type   VARCHAR(32)  NOT NULL DEFAULT 'referenced'
+                              CHECK (relation_type IN ('referenced','referencing')),
+    created_at      TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    CONSTRAINT uq_kp_defects_page_defect_type UNIQUE (page_id, defect_id, relation_type)
+);
+
+CREATE INDEX IF NOT EXISTS idx_kp_requirements_page    ON public.knowledge_page_requirements(page_id);
+CREATE INDEX IF NOT EXISTS idx_kp_requirements_req     ON public.knowledge_page_requirements(requirement_id);
+CREATE INDEX IF NOT EXISTS idx_kp_tasks_page           ON public.knowledge_page_tasks(page_id);
+CREATE INDEX IF NOT EXISTS idx_kp_tasks_task            ON public.knowledge_page_tasks(task_id);
+CREATE INDEX IF NOT EXISTS idx_kp_defects_page          ON public.knowledge_page_defects(page_id);
+CREATE INDEX IF NOT EXISTS idx_kp_defects_defect        ON public.knowledge_page_defects(defect_id);
+
+COMMENT ON TABLE public.knowledge_page_requirements IS '文档与需求关联表';
+COMMENT ON TABLE public.knowledge_page_tasks         IS '文档与任务关联表';
+COMMENT ON TABLE public.knowledge_page_defects        IS '文档与缺陷关联表';
+
 
 
 -- ============================================================================
@@ -7039,8 +7134,9 @@ CREATE TABLE IF NOT EXISTS notifications (
   workspace_id int8 NOT NULL,
   recipient_id int8 NOT NULL,
   event_type   varchar(64)   NOT NULL,
-  entity_type  varchar(32)   NOT NULL,
-  entity_id    int8          NOT NULL,
+  requirement_id int8,
+  task_id      int8,
+  defect_id    int8,
   title        varchar(256)  NOT NULL,
   body         text,
   action_url   varchar(512),
