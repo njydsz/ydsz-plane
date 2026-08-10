@@ -8,9 +8,6 @@
 
 | 版本 | 日期 | 变更说明 |
 |------|------|----------|
-| V1.0 | 2026-08-10 | 初版，82 张表 |
-| V1.1 | 2026-08-10 | 对照 PRD 全量评审：① 修正归属字段缺漏（states/versions/sprints/modules/labels/intake_channels/intake_issues/webhooks 补 `project_id` 等）；② 基础模板新增回收站字段（`deleted_at`/`deleted_by`）；③ 补充 PRD 字段（缺陷 resolution/重开次数、任务预估工时、需求 severity、项目 network 三态、通知免打扰等）；④ 新增 18 张表（评审工作流、租户成员、项目模板/项目集、知识库空间成员、内容模板、分享链接、我的待办、保存视图、星标、日程、代码关联、小部件缓存、数据任务、版本日报告），共 100 张表 |
-
 ---
 
 ---
@@ -22,37 +19,35 @@
 | 约定 | 规格 |
 |------|------|
 | 主键 | `id BIGINT` — 雪花算法（美团 Leaf/Snowflake），递增有序，应用层生成 |
-| 短代码 | `code VARCHAR(50)` — 可选，用户按规则生成的业务标识符（PROJ-001 / PROJ1-TASK-1001） |
-| 租户隔离 | `tenant_id BIGINT NOT NULL` — 所有业务表必备，数据隔离第一维度 |
-| 软删除 | `deleted BOOLEAN NOT NULL DEFAULT false` + `deleted_at TIMESTAMPTZ` + `deleted_by BIGINT`（回收站支持，删除后 30 天自动清理，期内可恢复） |
+| 短代码 | `code VARCHAR(50)` — 用户可选按规则生成的业务标识符（如 PROJ-001 / PROJ1-TASK-1001） |
+| 名称 | `name VARCHAR(255) NOT NULL` — 业务名称 |
+| 状态 | `status VARCHAR(50) NOT NULL` — 状态（CHECK约束） |
+| 租户隔离 | `tenant_id BIGINT NOT NULL` — 所有业务表必备，数据隔离唯一维度 |
+| 软删除 | `deleted BOOLEAN NOT NULL DEFAULT false` - 回收站支持 |
 | 创建人 | `created_by BIGINT NOT NULL` — 用户表逻辑外键 |
 | 更新人 | `updated_by BIGINT NOT NULL` — 用户表逻辑外键 |
 | 创建时戳 | `created_at TIMESTAMPTZ NOT NULL DEFAULT now()` |
 | 更新时戳 | `updated_at TIMESTAMPTZ NOT NULL DEFAULT now()` |
-| 乐观锁 | `version INT NOT NULL DEFAULT 1`（高频编辑表） |
-| 状态 | `status VARCHAR(50) NOT NULL`（CHECK约束） |
 | 无物理外键 | 所有关联通过代码层维护，逻辑外键字段加索引 |
 
 ### 统一基础字段模板
 
-每张表均含以下 10 个基础字段：
+以下 10 个字段是所有业务表的固定骨架，每张表无一例外均携带：
 
 ```sql
-id            BIGINT PRIMARY KEY,        -- 雪花ID，应用生成
-code          VARCHAR(50),               -- 可选短代码标识（如 YD-1001），可与 tenant_id 联合唯一
+id            BIGINT PRIMARY KEY,        -- 雪花ID，应用层生成
+code          VARCHAR(50),               -- 用户可选短代码标识（如 REQ-1001），可与 tenant_id 联合唯一
 name          VARCHAR(255) NOT NULL,     -- 名称
 status        VARCHAR(50) NOT NULL,      -- 状态（CHECK约束具体值）
 deleted       BOOLEAN NOT NULL DEFAULT false,
-deleted_at    TIMESTAMPTZ,               -- 删除时间（回收站，30 天自动清理）
-deleted_by    BIGINT,                    -- 删除人（逻辑外键 → users.id）
-tenant_id     BIGINT NOT NULL,           -- 租户（组织）ID
+tenant_id     BIGINT NOT NULL,           -- 租户（组织）ID，数据隔离维度
 created_by    BIGINT NOT NULL,           -- 创建人（逻辑外键 → users.id）
 created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
 updated_by    BIGINT NOT NULL,           -- 最后更新人（逻辑外键 → users.id）
 updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 ```
 
-> 回收站约定：业务表软删除时必须写入 `deleted_at`/`deleted_by`；回收站查询 `WHERE deleted AND deleted_at > now() - interval '30 days'`；定时任务物理清理超期数据。日志/快照/关联类弱实体表（activities、snapshots、M2M 关联表等）可不携带回收站字段。
+> 关联弱实体表（如 entity_labels、sprint_assignments 等 M2M 表）与日志/快照/审计类表可酌情不携带 `code` / `name`（置 NULL），其余 8 个字段必须完整。
 
 ### 逻辑外键索引惯例
 
@@ -76,10 +71,10 @@ CREATE INDEX "{table}_code_idx" ON "{table}" (tenant_id, code) WHERE code IS NOT
 
 | 类别 | 取值 |
 |------|------|
-| 工作项核心 | `requirement` / `task` / `defect` |
+| 核心实体 | `requirement` / `task` / `defect` |
 | 扩展实体 | `knowledge_page` / `document` / `intake_issue` / `sprint` / `version` / `project` |
 
-- 评论、附件、标签、关注人等多态表默认承载三类工作项；按 PRD 需要扩展承载知识文档评论、项目文档附件、收件箱附件等扩展实体，各表在 CHECK 约束中声明实际支持的子集
+- 评论、附件、标签、关注人等多态表默认承载三类核心实体（需求/任务/缺陷）；按 PRD 需要扩展承载知识文档评论、项目文档附件、收件箱附件等扩展实体，各表在 CHECK 约束中声明实际支持的子集
 - 跨类型关联（需求↔任务、缺陷→需求/任务）一律走 `entity_relations`，不新增专用外键，保证关联模型统一
 
 ### 层级与排序约定
@@ -110,7 +105,7 @@ tenants ──< users ──< user_roles >── roles ──< role_menus >─�
   │        │        ├──< version_delivery_snapshots      └──< sprint_snapshots
   │        │        └──< version_reports（交付报告/Release Notes）
   │        ├──< intake_channels ──< intake_issues
-  │        └──< content_templates（工作项/文档/知识库模板）
+  │        └──< content_templates（需求/任务/缺陷/文档/知识库模板）
   │
   ├──< reviews ──< review_assignments（多态：需求评审/文档评审/知识库评审/迭代复盘）
   │        └── review_templates
@@ -313,13 +308,13 @@ tenants ──< users ──< user_roles >── roles ──< role_menus >─�
 
 > UNIQUE(tenant_id, project_id, config_key)
 
-### 10. `project_sequences` — 工作项发号器
+### 10. `project_sequences` — 实体发号器
 
 | 字段 | 类型 | 约束 | 说明 |
 |------|------|------|------|
 | id | BIGINT | PK | 雪花ID |
 | project_id | BIGINT | NOT NULL | |
-| entity_type | VARCHAR(20) | NOT NULL CHECK (requirement/task/defect) | 工作项类型 |
+| entity_type | VARCHAR(20) | NOT NULL CHECK (requirement/task/defect) | 实体类型（需求/任务/缺陷） |
 | next_value | BIGINT | DEFAULT 1 | 下一个序号 |
 | tenant_id | BIGINT | NOT NULL | |
 | updated_at | TIMESTAMPTZ | DEFAULT now() | |
@@ -330,7 +325,7 @@ tenants ──< users ──< user_roles >── roles ──< role_menus >─�
 
 ## 三、状态机域
 
-### 11. `states` — 工作项状态
+### 11. `states` — 状态
 
 | 字段 | 类型 | 约束 | 说明 |
 |------|------|------|------|
@@ -341,7 +336,7 @@ tenants ──< users ──< user_roles >── roles ──< role_menus >─�
 | name | VARCHAR(100) | NOT NULL | 状态名 |
 | description | TEXT | | |
 | color | VARCHAR(7) | | 色值 HEX |
-| entity_type | VARCHAR(20) | NOT NULL CHECK (requirement/task/defect) | 适用工作项类型（需求/任务/缺陷状态机独立） |
+| entity_type | VARCHAR(20) | NOT NULL CHECK (requirement/task/defect) | 适用类型（需求/任务/缺陷独立） |
 | project_id | BIGINT | 逻辑外键 → projects.id | 所属项目；NULL = 租户级默认状态（PRD 6.1：每项目独立状态机） |
 | state_group | VARCHAR(20) | NOT NULL CHECK (backlog/unstarted/started/completed/cancelled/triage) | |
 | is_triage | BOOLEAN | DEFAULT false | 是否分诊态 |
@@ -470,7 +465,7 @@ tenants ──< users ──< user_roles >── roles ──< role_menus >─�
 | end_date | DATE | NOT NULL | |
 | started_at | TIMESTAMPTZ | | 实际启动时间 |
 | completed_at | TIMESTAMPTZ | | 实际完成时间 |
-| close_strategy | VARCHAR(20) | CHECK (backlog/next_sprint) | 结束时尚未完成工作项处理方式（PRD 4.4.3） |
+| close_strategy | VARCHAR(20) | CHECK (backlog/next_sprint) | 结束时未完成需求/任务/缺陷的处理方式 |
 | retrospective_document_id | BIGINT | 逻辑外键 → documents.id | 复盘报告文档（PRD 4.4.3 自动复盘） |
 | owner_id | BIGINT | 逻辑外键 → users.id | 迭代负责人（PRD 5.2 owned_by） |
 | status | VARCHAR(50) | DEFAULT 'planned' CHECK (planned/active/completed/cancelled) | |
@@ -517,14 +512,14 @@ tenants ──< users ──< user_roles >── roles ──< role_menus >─�
 
 > UNIQUE(tenant_id, sprint_id, snapshot_date)
 
-### 19. `sprint_assignments` — 迭代-工作项关联（多态）
+### 19. `sprint_assignments` — 迭代-实体关联（多态）
 
 | 字段 | 类型 | 约束 | 说明 |
 |------|------|------|------|
 | id | BIGINT | PK | 雪花ID |
 | sprint_id | BIGINT | NOT NULL | |
 | entity_type | VARCHAR(20) | NOT NULL CHECK (requirement/task/defect) | |
-| entity_id | BIGINT | NOT NULL | 工作项ID |
+| entity_id | BIGINT | NOT NULL | 需求/任务/缺陷 ID |
 | is_mid_sprint | BOOLEAN | DEFAULT false | 中途加入 |
 | added_by | BIGINT | 逻辑外键 → users.id | |
 | added_at | TIMESTAMPTZ | DEFAULT now() | |
@@ -575,14 +570,11 @@ tenants ──< users ──< user_roles >── roles ──< role_menus >─�
 | external_id | VARCHAR(255) | | 外部系统ID（增量导入去重键，PRD 9.5） |
 | custom_fields | JSONB | | 自定义字段扩展 |
 | deleted | BOOLEAN | DEFAULT false | |
-| deleted_at | TIMESTAMPTZ | | 回收站 |
-| deleted_by | BIGINT | | |
 | tenant_id | BIGINT | NOT NULL | |
 | created_by | BIGINT | NOT NULL | |
 | created_at | TIMESTAMPTZ | DEFAULT now() | |
 | updated_by | BIGINT | NOT NULL | |
 | updated_at | TIMESTAMPTZ | DEFAULT now() | |
-| version | INT | DEFAULT 1 | |
 
 > UNIQUE(tenant_id, code)
 > UNIQUE(tenant_id, external_source, external_id) WHERE external_id IS NOT NULL — 导入幂等
@@ -625,14 +617,11 @@ tenants ──< users ──< user_roles >── roles ──< role_menus >─�
 | external_id | VARCHAR(255) | | 外部系统ID（导入去重） |
 | custom_fields | JSONB | | |
 | deleted | BOOLEAN | DEFAULT false | |
-| deleted_at | TIMESTAMPTZ | | |
-| deleted_by | BIGINT | | |
 | tenant_id | BIGINT | NOT NULL | |
 | created_by | BIGINT | NOT NULL | |
 | created_at | TIMESTAMPTZ | DEFAULT now() | |
 | updated_by | BIGINT | NOT NULL | |
 | updated_at | TIMESTAMPTZ | DEFAULT now() | |
-| version | INT | DEFAULT 1 | |
 
 > UNIQUE(tenant_id, code)
 > UNIQUE(tenant_id, external_source, external_id) WHERE external_id IS NOT NULL
@@ -678,14 +667,11 @@ tenants ──< users ──< user_roles >── roles ──< role_menus >─�
 | external_id | VARCHAR(255) | | 外部系统ID（导入去重） |
 | custom_fields | JSONB | | |
 | deleted | BOOLEAN | DEFAULT false | |
-| deleted_at | TIMESTAMPTZ | | |
-| deleted_by | BIGINT | | |
 | tenant_id | BIGINT | NOT NULL | |
 | created_by | BIGINT | NOT NULL | |
 | created_at | TIMESTAMPTZ | DEFAULT now() | |
 | updated_by | BIGINT | NOT NULL | |
 | updated_at | TIMESTAMPTZ | DEFAULT now() | |
-| version | INT | DEFAULT 1 | |
 
 > UNIQUE(tenant_id, code)
 > UNIQUE(tenant_id, external_source, external_id) WHERE external_id IS NOT NULL
@@ -698,7 +684,7 @@ tenants ──< users ──< user_roles >── roles ──< role_menus >─�
 
 ### M2M 关联（通用结构）
 
-#### 23. `entity_assignees` — 工作项负责人（多对多）
+#### 23. `entity_assignees` — 指派人关联（多对多）
 
 | 字段 | 类型 | 约束 | 说明 |
 |------|------|------|------|
@@ -712,7 +698,7 @@ tenants ──< users ──< user_roles >── roles ──< role_menus >─�
 
 > UNIQUE(tenant_id, entity_type, entity_id, user_id, role_type)
 
-#### 24. `entity_labels` — 工作项标签（多对多）
+#### 24. `entity_labels` — 标签关联（多对多）
 
 | 字段 | 类型 | 约束 | 说明 |
 |------|------|------|------|
@@ -725,7 +711,7 @@ tenants ──< users ──< user_roles >── roles ──< role_menus >─�
 
 > UNIQUE(tenant_id, entity_type, entity_id, label_id)
 
-#### 25. `entity_watchers` — 工作项关注人
+#### 25. `entity_watchers` — 关注关联
 
 | 字段 | 类型 | 约束 | 说明 |
 |------|------|------|------|
@@ -822,7 +808,7 @@ tenants ──< users ──< user_roles >── roles ──< role_menus >─�
 
 ### 关联关系（带方向的独立记录）
 
-#### 30. `entity_relations` — 工作项关联关系
+#### 30. `entity_relations` — 关联关系
 
 | 字段 | 类型 | 约束 | 说明 |
 |------|------|------|------|
@@ -839,7 +825,7 @@ tenants ──< users ──< user_roles >── roles ──< role_menus >─�
 
 > UNIQUE(tenant_id, source_type, source_id, target_type, target_id, relation_type)
 
-#### 31. `entity_dependencies` — 工作项依赖
+#### 31. `entity_dependencies` — 任务依赖
 
 | 字段 | 类型 | 约束 | 说明 |
 |------|------|------|------|
@@ -899,7 +885,7 @@ tenants ──< users ──< user_roles >── roles ──< role_menus >─�
 | updated_by | BIGINT | NOT NULL | |
 | updated_at | TIMESTAMPTZ | DEFAULT now() | |
 
-### 34. `entity_modules` — 工作项-模块关联
+### 34. `entity_modules` — 模块关联
 
 | 字段 | 类型 | 约束 | 说明 |
 |------|------|------|------|
@@ -1043,7 +1029,7 @@ tenants ──< users ──< user_roles >── roles ──< role_menus >─�
 
 > UNIQUE(tenant_id, page_id, version_num)
 
-### 40. `knowledge_page_links` — 知识文档-工作项关联
+### 40. `knowledge_page_links` — 知识文档-实体关联
 
 | 字段 | 类型 | 约束 | 说明 |
 |------|------|------|------|
@@ -1855,7 +1841,7 @@ tenants ──< users ──< user_roles >── roles ──< role_menus >─�
 | threshold_config | JSONB | | 阈值 |
 | severity | VARCHAR(20) | DEFAULT 'medium' CHECK (low/medium/high/critical) | |
 | auto_actions | JSONB | | 自动动作 |
-| applicable_entity_types | JSONB | | 适用工作项 |
+| applicable_entity_types | JSONB | | 适用实体（requirement/task/defect） |
 | evaluation_frequency | VARCHAR(20) | DEFAULT 'daily' | |
 | status | VARCHAR(50) | DEFAULT 'active' | |
 | deleted | BOOLEAN | DEFAULT false | |
@@ -2012,7 +1998,7 @@ tenants ──< users ──< user_roles >── roles ──< role_menus >─�
 | role | VARCHAR(20) | NOT NULL DEFAULT 'member' CHECK (owner/admin/member/guest) | 空间四级角色（PRD 1.4.2/1.4.3） |
 | join_type | VARCHAR(20) | DEFAULT 'invitation' CHECK (direct/invitation/import) | 加入方式（import=CSV 批量导入） |
 | invited_by | BIGINT | 逻辑外键 → users.id | 邀请人 |
-| is_active | BOOLEAN | DEFAULT true | 移除成员置 false（工作项保留但无权限，PRD 1.4.2） |
+| is_active | BOOLEAN | DEFAULT true | 移除成员置 false（已关联需求/任务/缺陷保留但无权限） |
 | joined_at | TIMESTAMPTZ | DEFAULT now() | |
 | last_active_at | TIMESTAMPTZ | | 最后活跃时间（成员列表展示） |
 | created_at | TIMESTAMPTZ | DEFAULT now() | |
@@ -2360,7 +2346,7 @@ tenants ──< users ──< user_roles >── roles ──< role_menus >─�
 | created_at | TIMESTAMPTZ | DEFAULT now() | |
 
 > UNIQUE(tenant_id, entity_type, entity_id, link_type, provider, external_id) — 智能提交幂等
-> INDEX (tenant_id, provider, external_id) — 按 commit/PR 反查工作项
+> INDEX (tenant_id, provider, external_id) — 按 commit/PR 反查关联
 
 ### 99. `dashboard_widget_data` — 小部件数据缓存
 
@@ -2473,4 +2459,4 @@ CREATE INDEX "{table}_fts_idx"
 
 ---
 
-> 文档覆盖 **100 张表**：原有 82 张（租户权限6 + 项目5 + 状态机2 + 估算1 + 版本日1 + 迭代5 + 工作项核心3 + 工作项关联12 + 标签模块3 + 收件箱2 + 知识库4 + 文档管理3 + 通知4 + 效率增强10 + 自动化3 + 集成6 + 事件总线4 + 安全审计4 + 效能度量3 + 治理3 + CMS3）+ V1.1 新增 18 张（组织与项目扩展4 + 评审工作流3 + 版本日报告1 + 模板权限与分享3 + 个人效率扩展4 + 工程联动与数据任务3）。
+> 文档覆盖 **100 张表**：原有 82 张（租户权限6 + 项目5 + 状态机2 + 估算1 + 版本日1 + 迭代5 + 需求/任务/缺陷3 + 多态关联12 + 标签模块3 + 收件箱2 + 知识库4 + 文档管理3 + 通知4 + 效率增强10 + 自动化3 + 集成6 + 事件总线4 + 安全审计4 + 效能度量3 + 治理3 + CMS3）+ V1.1 新增 18 张（组织与项目扩展4 + 评审工作流3 + 版本日报告1 + 模板权限与分享3 + 个人效率扩展4 + 工程联动与数据任务3）。
