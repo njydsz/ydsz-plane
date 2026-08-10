@@ -160,61 +160,6 @@ START 1
 CACHE 1;
 
 -- ----------------------------
--- Sequence structure for issue_activities_id_seq
--- ----------------------------
-DROP SEQUENCE IF EXISTS "public"."issue_activities_id_seq";
-CREATE SEQUENCE "public"."issue_activities_id_seq" 
-INCREMENT 1
-MINVALUE  1
-MAXVALUE 9223372036854775807
-START 1
-CACHE 1;
-
--- ----------------------------
--- Sequence structure for issue_comments_id_seq
--- ----------------------------
-DROP SEQUENCE IF EXISTS "public"."issue_comments_id_seq";
-CREATE SEQUENCE "public"."issue_comments_id_seq" 
-INCREMENT 1
-MINVALUE  1
-MAXVALUE 9223372036854775807
-START 1
-CACHE 1;
-
--- ----------------------------
--- Sequence structure for issue_dependencies_id_seq
--- ----------------------------
-DROP SEQUENCE IF EXISTS "public"."issue_dependencies_id_seq";
-CREATE SEQUENCE "public"."issue_dependencies_id_seq" 
-INCREMENT 1
-MINVALUE  1
-MAXVALUE 9223372036854775807
-START 1
-CACHE 1;
-
--- ----------------------------
--- Sequence structure for issue_relations_id_seq
--- ----------------------------
-DROP SEQUENCE IF EXISTS "public"."issue_relations_id_seq";
-CREATE SEQUENCE "public"."issue_relations_id_seq" 
-INCREMENT 1
-MINVALUE  1
-MAXVALUE 9223372036854775807
-START 1
-CACHE 1;
-
--- ----------------------------
--- Sequence structure for issues_id_seq
--- ----------------------------
-DROP SEQUENCE IF EXISTS "public"."issues_id_seq";
-CREATE SEQUENCE "public"."issues_id_seq" 
-INCREMENT 1
-MINVALUE  1
-MAXVALUE 9223372036854775807
-START 1
-CACHE 1;
-
--- ----------------------------
 -- Sequence structure for labels_id_seq
 -- ----------------------------
 DROP SEQUENCE IF EXISTS "public"."labels_id_seq";
@@ -1046,7 +991,7 @@ COMMENT ON COLUMN public.intake_issues.status IS '处理状态: open(待审核) 
 COMMENT ON COLUMN public.intake_issues.submitter_name IS '提交者姓名（脱敏显示）';
 COMMENT ON COLUMN public.intake_issues.submitter_email IS '提交者邮箱（邮件校验码找回进展）';
 COMMENT ON COLUMN public.intake_issues.description IS '提交描述（纯文本；不支持富文本/附件）';
-COMMENT ON COLUMN public.intake_issues.converted_issue_id IS '转正后工作项 FK（issues.id；创建时复制标题/描述/附件）';
+COMMENT ON COLUMN public.intake_issues.converted_issue_id IS '转正后工作项 ID（指向 requirement/task/defect，代码层多态关联；创建时复制标题/描述/附件）';
 COMMENT ON COLUMN public.intake_issues.created_at IS '提交时间';
 COMMENT ON COLUMN public.intake_issues.updated_at IS '修改时间（触发器自动维护）';
 
@@ -1091,392 +1036,6 @@ COMMENT ON COLUMN public.invitations.created_at IS '创建时间';
 
 -- ----------------------------
 -- Records of invitations
--- ----------------------------
-
--- ----------------------------
--- Table structure for issue_activities
--- ----------------------------
-DROP TABLE IF EXISTS "public"."issue_activities";
-CREATE TABLE "public"."issue_activities" (
-  "id" int8 NOT NULL GENERATED ALWAYS AS IDENTITY (
-INCREMENT 1
-MINVALUE  1
-MAXVALUE 9223372036854775807
-START 1
-CACHE 1
-),
-  "workspace_id" int8 NOT NULL,
-  "project_id" int8 NOT NULL,
-  "issue_id" int8 NOT NULL,
-  "verb" text COLLATE "pg_catalog"."default" NOT NULL,
-  "field" text COLLATE "pg_catalog"."default",
-  "old_value" text COLLATE "pg_catalog"."default",
-  "new_value" text COLLATE "pg_catalog"."default",
-  "old_ref" jsonb,
-  "new_ref" jsonb,
-  "actor_id" int8,
-  "actor_email" text COLLATE "pg_catalog"."default",
-  "actor_name" text COLLATE "pg_catalog"."default",
-  "created_at" timestamptz(6) NOT NULL DEFAULT now()
-)
-;
-COMMENT ON TABLE public.issue_activities IS '工作项活动历史表（按月 RANGE 分区；字段 diff / 流转 / 附件 / 关联等全量审计）';
-COMMENT ON COLUMN public.issue_activities.id IS '主键 ID';
-COMMENT ON COLUMN public.issue_activities.issue_id IS '关联工作项 FK';
-COMMENT ON COLUMN public.issue_activities.actor_id IS '操作人 FK（users.id）；系统动作为 NULL';
-COMMENT ON COLUMN public.issue_activities.verb IS '操作动词: created/updated/transitioned/attached/linked/detached/deleted/restored/commented/mentioned';
-COMMENT ON COLUMN public.issue_activities.field IS '变更字段名（verb=updated 时使用；如 state, priority, assignees）';
-COMMENT ON COLUMN public.issue_activities.old_value IS '变更前值（TEXT 或 JSONB 序列化）';
-COMMENT ON COLUMN public.issue_activities.new_value IS '变更后值（TEXT 或 JSONB 序列化）';
-COMMENT ON COLUMN public.issue_activities.created_at IS '记录时间 TIMESTAMPTZ';
-COMMENT ON COLUMN public.issue_activities.workspace_id IS '工作空间 FK（支撑 RLS 与按月分区键）';
-
--- ----------------------------
--- Records of issue_activities
--- ----------------------------
-
--- ----------------------------
--- Table structure for issue_assignees
--- ----------------------------
-DROP TABLE IF EXISTS "public"."issue_assignees";
-CREATE TABLE "public"."issue_assignees" (
-  "issue_id" int8 NOT NULL,
-  "user_id" int8 NOT NULL,
-  "assigned_at" timestamptz(6) NOT NULL DEFAULT now(),
-  "assigned_by" int8
-)
-;
-COMMENT ON TABLE public.issue_assignees IS '工作项-指派人物多对一关联表（含主负责人标记）';
-COMMENT ON COLUMN public.issue_assignees.issue_id IS '工作项 FK';
-COMMENT ON COLUMN public.issue_assignees.user_id IS '被指派人 FK';
-
--- ----------------------------
--- Records of issue_assignees
--- ----------------------------
-
--- ----------------------------
--- Table structure for issue_comments
--- ----------------------------
-DROP TABLE IF EXISTS "public"."issue_comments";
-CREATE TABLE "public"."issue_comments" (
-  "id" int8 NOT NULL DEFAULT nextval('issue_comments_id_seq'::regclass),
-  "workspace_id" int8 NOT NULL,
-  "project_id" int8 NOT NULL,
-  "issue_id" int8 NOT NULL,
-  "content_json" jsonb NOT NULL DEFAULT '{}'::jsonb,
-  "content_html" text COLLATE "pg_catalog"."default",
-  "content_stripped" text COLLATE "pg_catalog"."default",
-  "created_by" int8 NOT NULL,
-  "mentions" int8[] DEFAULT '{}'::bigint[],
-  "parent_id" int8,
-  "is_edited" bool NOT NULL DEFAULT false,
-  "edited_at" timestamptz(6),
-  "created_at" timestamptz(6) NOT NULL DEFAULT now(),
-  "updated_at" timestamptz(6) NOT NULL DEFAULT now()
-)
-;
-COMMENT ON TABLE public.issue_comments IS '工作项评论表（TipTap JSON 富文本，支持 @提及、回复、反应）';
-COMMENT ON COLUMN "public"."issue_comments"."content_json" IS 'TipTap 编辑器的 JSON 输出';
-COMMENT ON COLUMN "public"."issue_comments"."mentions" IS '@提及的用户 ID 数组';
-COMMENT ON COLUMN "public"."issue_comments"."parent_id" IS '父评论 ID（嵌套回复）';
-COMMENT ON TABLE "public"."issue_comments" IS '工作项评论表（支持富文本 + @提及 + 嵌套回复）';
-
--- ----------------------------
--- Records of issue_comments
--- ----------------------------
-
--- ----------------------------
--- Table structure for issue_dependencies
--- ----------------------------
-DROP TABLE IF EXISTS "public"."issue_dependencies";
-CREATE TABLE "public"."issue_dependencies" (
-  "id" int8 NOT NULL GENERATED ALWAYS AS IDENTITY (
-INCREMENT 1
-MINVALUE  1
-MAXVALUE 9223372036854775807
-START 1
-CACHE 1
-),
-  "workspace_id" int8 NOT NULL,
-  "project_id" int8 NOT NULL,
-  "predecessor_id" int8 NOT NULL,
-  "successor_id" int8 NOT NULL,
-  "dependency_type" text COLLATE "pg_catalog"."default" NOT NULL,
-  "lag_days" int4 NOT NULL DEFAULT 0,
-  "created_by" int8 NOT NULL,
-  "created_at" timestamptz(6) NOT NULL DEFAULT now()
-)
-;
-COMMENT ON TABLE public.issue_dependencies IS '工作项依赖关系表（FS/SS/FF/SF + lag_days，DFS 检测环）';
-COMMENT ON COLUMN public.issue_dependencies.id IS '主键 ID';
-COMMENT ON COLUMN public.issue_dependencies.workspace_id IS '工作空间 FK';
-COMMENT ON COLUMN public.issue_dependencies.dependency_type IS '依赖类型: FS(完成→开始) / SS(开始→开始) / FF(完成→完成) / SF(开始→完成)';
-COMMENT ON COLUMN public.issue_dependencies.lag_days IS '延迟天数（正=延迟等待，负=提前开始）；0 表示无延迟';
-COMMENT ON COLUMN public.issue_dependencies.created_by IS '创建人 FK';
-COMMENT ON COLUMN public.issue_dependencies.created_at IS '创建时间';
-
--- ----------------------------
--- Records of issue_dependencies
--- ----------------------------
-
--- ----------------------------
--- Table structure for issue_labels
--- ----------------------------
-DROP TABLE IF EXISTS "public"."issue_labels";
-CREATE TABLE "public"."issue_labels" (
-  "issue_id" int8 NOT NULL,
-  "label_id" int8 NOT NULL
-)
-;
-COMMENT ON TABLE public.issue_labels IS '工作项-标签多对一关联表';
-COMMENT ON COLUMN public.issue_labels.issue_id IS '工作项 FK';
-COMMENT ON COLUMN public.issue_labels.label_id IS '标签 FK';
-
--- ----------------------------
--- Records of issue_labels
--- ----------------------------
-
--- ----------------------------
--- Table structure for issue_modules
--- ----------------------------
-DROP TABLE IF EXISTS "public"."issue_modules";
-CREATE TABLE "public"."issue_modules" (
-  "issue_id" int8 NOT NULL,
-  "module_id" int8 NOT NULL
-)
-;
-COMMENT ON TABLE public.issue_modules IS '工作项-模块多对一关联表';
-COMMENT ON COLUMN public.issue_modules.issue_id IS '工作项 FK';
-COMMENT ON COLUMN public.issue_modules.module_id IS '模块 FK';
-
--- ----------------------------
--- Records of issue_modules
--- ----------------------------
-
--- ----------------------------
--- Table structure for issue_relations
--- ----------------------------
-DROP TABLE IF EXISTS "public"."issue_relations";
-CREATE TABLE "public"."issue_relations" (
-  "id" int8 NOT NULL GENERATED ALWAYS AS IDENTITY (
-INCREMENT 1
-MINVALUE  1
-MAXVALUE 9223372036854775807
-START 1
-CACHE 1
-),
-  "workspace_id" int8 NOT NULL,
-  "project_id" int8 NOT NULL,
-  "source_issue_id" int8 NOT NULL,
-  "target_issue_id" int8 NOT NULL,
-  "relation_type" text COLLATE "pg_catalog"."default" NOT NULL,
-  "created_by" int8 NOT NULL,
-  "created_at" timestamptz(6) NOT NULL DEFAULT now()
-)
-;
-COMMENT ON TABLE public.issue_relations IS '工作项语义关联表（duplicate/relates_to/blocked_by/start_before/finish_before/implemented_by）';
-COMMENT ON COLUMN public.issue_relations.id IS '主键 ID';
-COMMENT ON COLUMN public.issue_relations.workspace_id IS '工作空间 FK';
-COMMENT ON COLUMN public.issue_relations.relation_type IS '语义关联类型: duplicate(重复) / relates_to(关联) / blocked_by(被阻塞) / start_before(先于开始) / finish_before(先于完成) / implemented_by(由…实现)';
-COMMENT ON COLUMN public.issue_relations.created_by IS '创建人 FK';
-COMMENT ON COLUMN public.issue_relations.created_at IS '创建时间';
-
--- ----------------------------
--- Records of issue_relations
--- ----------------------------
-
--- ----------------------------
--- Table structure for issue_watchers
--- ----------------------------
-DROP TABLE IF EXISTS "public"."issue_watchers";
-CREATE TABLE "public"."issue_watchers" (
-  "issue_id" int8 NOT NULL,
-  "user_id" int8 NOT NULL,
-  "created_at" timestamptz(6) NOT NULL DEFAULT now()
-)
-;
-COMMENT ON TABLE public.issue_watchers IS '工作项-关注人多对一关联表';
-COMMENT ON COLUMN public.issue_watchers.issue_id IS '工作项 FK';
-COMMENT ON COLUMN public.issue_watchers.user_id IS '关注人 FK；事件驱动通知（issue.updated/issue.commented 等）';
-COMMENT ON COLUMN public.issue_watchers.created_at IS '关注时间';
-
--- ----------------------------
--- Records of issue_watchers
--- ----------------------------
-
--- ----------------------------
--- Table structure for issue_reactions
--- ----------------------------
-DROP TABLE IF EXISTS "public"."issue_reactions";
-CREATE TABLE "public"."issue_reactions" (
-  "id" int8 NOT NULL GENERATED ALWAYS AS IDENTITY (
-INCREMENT 1
-MINVALUE  1
-MAXVALUE 9223372036854775807
-START 1
-CACHE 1
-),
-  "workspace_id" int8 NOT NULL,
-  "project_id" int8 NOT NULL,
-  "issue_id" int8 NOT NULL,
-  "user_id" int8 NOT NULL,
-  "reaction_type" text COLLATE "pg_catalog"."default" NOT NULL,
-  "created_at" timestamptz(6) NOT NULL DEFAULT now()
-)
-;
-COMMENT ON TABLE public.issue_reactions IS '工作项表情反应表（emoji 轻量反馈，参考 Linear/Plane Reaction）';
-COMMENT ON COLUMN public.issue_reactions.id IS '主键 ID';
-COMMENT ON COLUMN public.issue_reactions.workspace_id IS '工作空间 FK';
-COMMENT ON COLUMN public.issue_reactions.project_id IS '项目 FK';
-COMMENT ON COLUMN public.issue_reactions.issue_id IS '工作项 FK';
-COMMENT ON COLUMN public.issue_reactions.user_id IS '反应用户 FK';
-COMMENT ON COLUMN public.issue_reactions.reaction_type IS '表情类型（emoji 字符串，如 👍 👀 🎉 ❤️ 😄）';
-COMMENT ON COLUMN public.issue_reactions.created_at IS '反应时间（唯一约束: 同人同工作项同表情仅一条）';
-
--- ----------------------------
--- Records of issue_reactions
--- ----------------------------
-
--- ----------------------------
--- Table structure for issue_votes
--- ----------------------------
-DROP TABLE IF EXISTS "public"."issue_votes";
-CREATE TABLE "public"."issue_votes" (
-  "id" int8 NOT NULL GENERATED ALWAYS AS IDENTITY (
-INCREMENT 1
-MINVALUE  1
-MAXVALUE 9223372036854775807
-START 1
-CACHE 1
-),
-  "workspace_id" int8 NOT NULL,
-  "project_id" int8 NOT NULL,
-  "issue_id" int8 NOT NULL,
-  "user_id" int8 NOT NULL,
-  "vote" int2 NOT NULL DEFAULT 1,
-  "created_at" timestamptz(6) NOT NULL DEFAULT now(),
-  "updated_at" timestamptz(6) NOT NULL DEFAULT now()
-)
-;
-COMMENT ON TABLE public.issue_votes IS '工作项投票表（支持赞成/反对，同人同工作项仅一票）';
-COMMENT ON COLUMN public.issue_votes.id IS '主键 ID';
-COMMENT ON COLUMN public.issue_votes.workspace_id IS '工作空间 FK';
-COMMENT ON COLUMN public.issue_votes.project_id IS '项目 FK';
-COMMENT ON COLUMN public.issue_votes.issue_id IS '工作项 FK';
-COMMENT ON COLUMN public.issue_votes.user_id IS '投票用户 FK';
-COMMENT ON COLUMN public.issue_votes.vote IS '投票值: 1=赞成(upvote) / -1=反对(downvote)；0 表示撤销';
-COMMENT ON COLUMN public.issue_votes.created_at IS '首次投票时间';
-COMMENT ON COLUMN public.issue_votes.updated_at IS '最近更新（改票时刷新）';
-
--- ----------------------------
--- Records of issue_votes
--- ----------------------------
-
--- ----------------------------
--- Table structure for issues
--- ----------------------------
-DROP TABLE IF EXISTS "public"."issues";
-CREATE TABLE "public"."issues" (
-  "id" int8 NOT NULL GENERATED ALWAYS AS IDENTITY (
-INCREMENT 1
-MINVALUE  1
-MAXVALUE 9223372036854775807
-START 1
-CACHE 1
-),
-  "public_id" uuid NOT NULL DEFAULT gen_random_uuid(),
-  "workspace_id" int8 NOT NULL,
-  "project_id" int8 NOT NULL,
-  "sequence_id" int8 NOT NULL,
-  "type_code" text COLLATE "pg_catalog"."default" NOT NULL,
-  "parent_id" int8,
-  "depth" int2 NOT NULL DEFAULT 1,
-  "name" text COLLATE "pg_catalog"."default" NOT NULL,
-  "description_json" jsonb,
-  "description_html" text COLLATE "pg_catalog"."default",
-  "description_stripped" text COLLATE "pg_catalog"."default",
-  "state_id" int8 NOT NULL,
-  "priority" text COLLATE "pg_catalog"."default" NOT NULL DEFAULT 'none'::text,
-  "severity" int2,
-  "found_phase" text COLLATE "pg_catalog"."default",
-  "root_cause_category" text COLLATE "pg_catalog"."default",
-  "verifier_id" int8,
-  "environment" jsonb,
-  "reproduce_steps" jsonb,
-  "category" text COLLATE "pg_catalog"."default",
-  "actual_effort" numeric(8,2),
-  "remaining_effort" numeric(8,2),
-  "delay_reason" text COLLATE "pg_catalog"."default",
-  "source" text COLLATE "pg_catalog"."default",
-  "point" int2,
-  "external_id" text COLLATE "pg_catalog"."default",
-  "sprint_id" int8,
-  "progress" int2 NOT NULL DEFAULT 0,
-  "start_date" date,
-  "target_date" date,
-  "completed_at" timestamptz(6),
-  "is_draft" bool NOT NULL DEFAULT false,
-  "sort_order" float8 NOT NULL DEFAULT 65535,
-  "created_by" int8 NOT NULL,
-  "created_at" timestamptz(6) NOT NULL DEFAULT now(),
-  "updated_at" timestamptz(6) NOT NULL DEFAULT now(),
-  "deleted_at" timestamptz(6),
-  "version" int4 NOT NULL DEFAULT 1,
-  "found_version_id" int8,
-  "fix_version_id" int8,
-  "release_version_id" int8,
-  "search_tsv" tsvector GENERATED ALWAYS AS (
-((setweight(to_tsvector('simple'::regconfig, COALESCE(name, ''::text)), 'A'::"char") || setweight(to_tsvector('simple'::regconfig, COALESCE(description_stripped, ''::text)), 'B'::"char")) || setweight(to_tsvector('simple'::regconfig, COALESCE(type_code, ''::text)), 'C'::"char"))
-) STORED
-)
-;
-COMMENT ON TABLE public.issues IS '工作项主表（需求/任务/缺陷统一存储，支撑看板、迭代、搜索、关联等核心能力）';
-COMMENT ON COLUMN public.issues.id IS '主键 ID（GENERATED ALWAYS AS IDENTITY，不外泄）';
-COMMENT ON COLUMN public.issues.public_id IS '对外暴露的唯一标识（UUID），用于 API 与外部引用';
-COMMENT ON COLUMN public.issues.workspace_id IS '工作空间/租户 FK，RLS 依据，复合索引首列';
-COMMENT ON COLUMN public.issues.project_id IS '所属项目 FK（projects.id），聚合根容器';
-COMMENT ON COLUMN public.issues.sequence_id IS '项目内自增序号，配合 project.identifier 展示为 YD-123';
-COMMENT ON COLUMN public.issues.type_code IS '工作项类型: epic(史诗) / requirement(需求) / task(任务) / defect(缺陷)';
-COMMENT ON COLUMN public.issues.parent_id IS 'WBS 父工作项 FK（issues.id），NULL=顶级，limit depth ≤3';
-COMMENT ON COLUMN public.issues.depth IS 'WBS 冗余层级（1..3），父项 depth+1 自动填充，>3 拒绝';
-COMMENT ON COLUMN public.issues.name IS '工作项标题（短文本，索引全文检索命中）';
-COMMENT ON COLUMN public.issues.description_json IS 'TipTap 编辑器结构化 JSON（Node 数组，ProseMirror 格式）';
-COMMENT ON COLUMN public.issues.description_html IS '从 description_json 渲染的 HTML（展示层 + 通知邮件富文本）';
-COMMENT ON COLUMN public.issues.description_stripped IS '纯文本（HTML strip 后），tsvector 全文字段索引源';
-COMMENT ON COLUMN public.issues.state_id IS '状态 FK（states.id）；group ∈ backlog/unstarted/started/completed/cancelled/triage';
-COMMENT ON COLUMN public.issues.priority IS '优先级: urgent(紧急) / high(高) / medium(中) / low(低) / none(无)';
-COMMENT ON COLUMN public.issues.severity IS '缺陷严重程度（1=致命..5=轻微）；仅 type_code=defect 使用，必填';
-COMMENT ON COLUMN public.issues.found_phase IS '缺陷发现阶段: unit(单元测试) / integration(集成) / uat(验收) / production(生产) / customer(客户反馈)';
-COMMENT ON COLUMN public.issues.root_cause_category IS '缺陷根因分类: requirement(需求) / technical(技术) / environment(环境) / data(数据)；流转至 completed 时必填';
-COMMENT ON COLUMN public.issues.verifier_id IS '验证人 FK（users.id）；缺陷待验证阶段可指派';
-COMMENT ON COLUMN public.issues.environment IS '缺陷发现环境 JSONB（OS / Browser / Device / AppVersion）';
-COMMENT ON COLUMN public.issues.reproduce_steps IS '缺陷复现步骤 JSONB {steps:[], expected:'', actual:''}';
-COMMENT ON COLUMN public.issues.category IS '工作项分类标签: frontend/backend/qa/devops/design/doc 等（自由填写）';
-COMMENT ON COLUMN public.issues.actual_effort IS '实际已用工时 NUMERIC(8,2) 单位: 小时；time_logs sum 回写';
-COMMENT ON COLUMN public.issues.remaining_effort IS '剩余预估工时 NUMERIC(8,2) 单位: 小时；0 表示完成';
-COMMENT ON COLUMN public.issues.delay_reason IS '延期原因: requirement_change(需求变更) / resource(资源) / blocked(阻塞) / other(其他)';
-COMMENT ON COLUMN public.issues.source IS '需求来源: customer(客户) / internal(内部) / competitor(竞品) / other';
-COMMENT ON COLUMN public.issues.point IS '故事点估算 SMALLINT 0-12；斐波那契数列 0,1,2,3,5,8,13';
-COMMENT ON COLUMN public.issues.external_id IS '外部系统唯一标识（Jira/Excel 导入等），用于增量同步去重；NULL=本地创建';
-COMMENT ON COLUMN public.issues.sprint_id IS '归属迭代 FK（sprints.id），同一项目内一个活跃迭代（可配置）';
-COMMENT ON COLUMN public.issues.progress IS '完成百分比 0-100（冗余字段；子项 state.group=completed 时事件触发的回写）';
-COMMENT ON COLUMN public.issues.start_date IS '计划开始日期（用户指定；逾期触发 risk_rule 告警）';
-COMMENT ON COLUMN public.issues.target_date IS '目标完成日期（用户指定；逾期触发 risk_rule 告警）';
-COMMENT ON COLUMN public.issues.completed_at IS '实际完成时间 TIMESTAMPTZ；进入 completed 状态时自动赋值';
-COMMENT ON COLUMN public.issues.is_draft IS '草稿标记: true=草稿(仅草稿流可见)，false=正式发布；默认 false';
-COMMENT ON COLUMN public.issues.sort_order IS '看板列内排序权重 DOUBLE PRECISION（默认 65535 末尾追加；中值插入；碎片化触发重排）';
-COMMENT ON COLUMN public.issues.created_by IS '创建人 FK（users.id）；通知默认接收人';
-COMMENT ON COLUMN public.issues.created_at IS '创建时间（迁移写入后不可变）';
-COMMENT ON COLUMN public.issues.updated_at IS '最后修改时间（触发器 trg_xxx_updated_at 自动维护 now()）';
-COMMENT ON COLUMN public.issues.deleted_at IS '软删除时间戳；NULL=有效；部分索引 WHERE deleted_at IS NULL 排除软删除';
-COMMENT ON COLUMN public.issues.version IS '乐观锁版本号（默认 1）；UPDATE 条件带 version，冲突返回 409';
-COMMENT ON COLUMN public.issues.found_version_id IS '缺陷发现版本 FK（versions.id）；type_code=defect 时关联';
-COMMENT ON COLUMN public.issues.fix_version_id IS '缺陷修复版本 FK（versions.id）；流转至待验证/已修复时必填';
-COMMENT ON COLUMN public.issues.release_version_id IS '首次发布版本 FK（versions.id）；需求/任务在发布时回填';
-COMMENT ON COLUMN public.issues.search_tsv IS 'tsvector 全文索引（simple 配置，中文降级兜底；ES 为主）';
-
--- ----------------------------
--- Records of issues
 -- ----------------------------
 
 -- ----------------------------
@@ -2144,28 +1703,6 @@ COMMENT ON COLUMN public.search_history.searched_at IS '搜索时间 TIMESTAMPTZ
 -- ----------------------------
 
 -- ----------------------------
--- Table structure for sprint_issues
--- ----------------------------
-DROP TABLE IF EXISTS "public"."sprint_issues";
-CREATE TABLE "public"."sprint_issues" (
-  "sprint_id" int8 NOT NULL,
-  "issue_id" int8 NOT NULL,
-  "added_midway" bool NOT NULL DEFAULT false,
-  "sort_order" float8 NOT NULL DEFAULT 65535,
-  "added_at" timestamptz(6) NOT NULL DEFAULT now(),
-  "added_by" int8
-)
-;
-COMMENT ON TABLE public.sprint_issues IS '迭代-工作项关联表（含中途加项标记 added_midway，复盘报告使用）';
-COMMENT ON COLUMN public.sprint_issues.sprint_id IS '迭代 FK';
-COMMENT ON COLUMN public.sprint_issues.issue_id IS '工作项 FK';
-COMMENT ON COLUMN public.sprint_issues.added_midway IS '是否中途加入: true=迭代启动后新增（复盘报告单独统计对速率影响）';
-
--- ----------------------------
--- Records of sprint_issues
--- ----------------------------
-
--- ----------------------------
 -- Table structure for sprint_snapshots
 -- ----------------------------
 DROP TABLE IF EXISTS "public"."sprint_snapshots";
@@ -2364,7 +1901,7 @@ CACHE 1
 ;
 COMMENT ON TABLE public.time_logs IS '工时记录表（单位: 分钟；关联工作项 + 用户，差值回写 actual_effort）';
 COMMENT ON COLUMN public.time_logs.id IS '主键 ID';
-COMMENT ON COLUMN public.time_logs.issue_id IS '关联工作项 FK';
+COMMENT ON COLUMN public.time_logs.issue_id IS '关联实体 ID（需求/任务/缺陷，代码层多态关联）';
 COMMENT ON COLUMN public.time_logs.user_id IS '登记人 FK';
 COMMENT ON COLUMN public.time_logs.description IS '工时说明（可选: 做了什么）';
 COMMENT ON COLUMN public.time_logs.created_at IS '创建时间';
@@ -2975,7 +2512,6 @@ DECLARE
     v_doc_type TEXT;
 BEGIN
     CASE TG_TABLE_NAME
-        WHEN 'issues'   THEN v_doc_type := 'issue';
         WHEN 'sprints'  THEN v_doc_type := 'sprint';
         WHEN 'versions' THEN v_doc_type := 'version';
         ELSE RETURN OLD;
@@ -2983,48 +2519,6 @@ BEGIN
     DELETE FROM search_documents
     WHERE doc_type = v_doc_type AND doc_id = OLD.id AND workspace_id = OLD.workspace_id;
     RETURN OLD;
-END;
-$BODY$
-  LANGUAGE plpgsql VOLATILE
-  COST 100;
-
--- ----------------------------
--- Function structure for fn_refresh_search_document
--- ----------------------------
-DROP FUNCTION IF EXISTS "public"."fn_refresh_search_document"();
-CREATE FUNCTION "public"."fn_refresh_search_document"()
-  RETURNS "pg_catalog"."trigger" AS $BODY$
-DECLARE
-    v_title TEXT;
-    v_content TEXT;
-    v_metadata JSONB;
-BEGIN
-    v_title := COALESCE(NEW.name, '');
-    v_content := COALESCE(NEW.description_stripped, '');
-    v_metadata := jsonb_build_object(
-        'type_code', NEW.type_code,
-        'state_id', NEW.state_id,
-        'priority', NEW.priority
-    );
-
-    INSERT INTO search_documents (workspace_id, project_id, doc_type, doc_id, title, identifier, content, search_tsv, metadata)
-    VALUES (
-        NEW.workspace_id, NEW.project_id, 'issue', NEW.id,
-        v_title, NEW.sequence_id::text, v_content,
-        to_tsvector('simple',
-            coalesce(v_title, '') || ' ' ||
-            coalesce(v_content, '')
-        ),
-        v_metadata
-    )
-    ON CONFLICT (workspace_id, doc_type, doc_id) DO UPDATE SET
-        title = EXCLUDED.title,
-        identifier = EXCLUDED.identifier,
-        content = EXCLUDED.content,
-        search_tsv = EXCLUDED.search_tsv,
-        metadata = EXCLUDED.metadata,
-        updated_at = now();
-    RETURN NEW;
 END;
 $BODY$
   LANGUAGE plpgsql VOLATILE
@@ -3447,41 +2941,6 @@ SELECT setval(pg_get_serial_sequence('public.intake_issues', 'id'), (SELECT COAL
 ALTER SEQUENCE "public"."invitations_id_seq"
 OWNED BY "public"."invitations"."id";
 SELECT setval(pg_get_serial_sequence('public.invitations', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.invitations) + 1, false);
-
--- ----------------------------
--- Alter sequences owned by
--- ----------------------------
-ALTER SEQUENCE "public"."issue_activities_id_seq"
-OWNED BY "public"."issue_activities"."id";
-SELECT setval(pg_get_serial_sequence('public.issue_activities', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.issue_activities) + 1, false);
-
--- ----------------------------
--- Alter sequences owned by
--- ----------------------------
-ALTER SEQUENCE "public"."issue_comments_id_seq"
-OWNED BY "public"."issue_comments"."id";
-SELECT setval(pg_get_serial_sequence('public.issue_comments', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.issue_comments) + 1, false);
-
--- ----------------------------
--- Alter sequences owned by
--- ----------------------------
-ALTER SEQUENCE "public"."issue_dependencies_id_seq"
-OWNED BY "public"."issue_dependencies"."id";
-SELECT setval(pg_get_serial_sequence('public.issue_dependencies', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.issue_dependencies) + 1, false);
-
--- ----------------------------
--- Alter sequences owned by
--- ----------------------------
-ALTER SEQUENCE "public"."issue_relations_id_seq"
-OWNED BY "public"."issue_relations"."id";
-SELECT setval(pg_get_serial_sequence('public.issue_relations', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.issue_relations) + 1, false);
-
--- ----------------------------
--- Alter sequences owned by
--- ----------------------------
-ALTER SEQUENCE "public"."issues_id_seq"
-OWNED BY "public"."issues"."id";
-SELECT setval(pg_get_serial_sequence('public.issues', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.issues) + 1, false);
 
 -- ----------------------------
 -- Alter sequences owned by
@@ -4124,346 +3583,6 @@ ALTER TABLE "public"."invitations" ADD CONSTRAINT "invitations_status_check" CHE
 -- ----------------------------
 ALTER TABLE "public"."invitations" ADD CONSTRAINT "invitations_pkey" PRIMARY KEY ("id");
 
--- ----------------------------
--- Auto increment value for issue_activities
--- ----------------------------
-SELECT setval(pg_get_serial_sequence('public.issue_activities', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.issue_activities) + 1, false);
-
--- ----------------------------
--- Indexes structure for table issue_activities
--- ----------------------------
-CREATE INDEX "idx_activities_issue" ON "public"."issue_activities" USING btree (
-  "issue_id" "pg_catalog"."int8_ops" ASC NULLS LAST,
-  "created_at" "pg_catalog"."timestamptz_ops" DESC NULLS FIRST
-);
-COMMENT ON INDEX public.idx_activities_issue IS '按工作项+时间倒序（详情页活动时间线）';
-CREATE INDEX "idx_activities_issue_covering" ON "public"."issue_activities" USING btree (
-  "issue_id" "pg_catalog"."int8_ops" ASC NULLS LAST,
-  "created_at" "pg_catalog"."timestamptz_ops" DESC NULLS FIRST
-);
-COMMENT ON INDEX public.idx_activities_issue_covering IS '覆盖索引：按 work activity 高频列表查询';
-CREATE INDEX "idx_activities_project" ON "public"."issue_activities" USING btree (
-  "project_id" "pg_catalog"."int8_ops" ASC NULLS LAST,
-  "created_at" "pg_catalog"."timestamptz_ops" DESC NULLS FIRST
-);
-COMMENT ON INDEX public.idx_activities_project IS '按工作空间+项目查询活动日志';
-
--- ----------------------------
--- Checks structure for table issue_activities
--- ----------------------------
-ALTER TABLE "public"."issue_activities" ADD CONSTRAINT "issue_activities_verb_check" CHECK (verb = ANY (ARRAY['created'::text, 'updated'::text, 'transitioned'::text, 'attached'::text, 'linked'::text, 'unlinked'::text, 'commented'::text]));
-
--- ----------------------------
--- Primary Key structure for table issue_activities
--- ----------------------------
-ALTER TABLE "public"."issue_activities" ADD CONSTRAINT "issue_activities_pkey" PRIMARY KEY ("id");
-
--- ----------------------------
--- Indexes structure for table issue_assignees
--- ----------------------------
-CREATE INDEX "idx_issue_assignees_covering" ON "public"."issue_assignees" USING btree (
-  "user_id" "pg_catalog"."int8_ops" ASC NULLS LAST
-);
-COMMENT ON INDEX public.idx_issue_assignees_covering IS '覆盖索引：按工作项+用户查指派（含常用字段）';
-CREATE INDEX "idx_issue_assignees_user" ON "public"."issue_assignees" USING btree (
-  "user_id" "pg_catalog"."int8_ops" ASC NULLS LAST
-);
-COMMENT ON INDEX public.idx_issue_assignees_user IS '按 user_id 查询"我的指派"（待办列表高频场景）';
-
--- ----------------------------
--- Primary Key structure for table issue_assignees
--- ----------------------------
-ALTER TABLE "public"."issue_assignees" ADD CONSTRAINT "issue_assignees_pkey" PRIMARY KEY ("issue_id", "user_id");
-
--- ----------------------------
--- Indexes structure for table issue_comments
--- ----------------------------
-CREATE INDEX "idx_issue_comments_author" ON "public"."issue_comments" USING btree (
-  "created_by" "pg_catalog"."int8_ops" ASC NULLS LAST,
-  "created_at" "pg_catalog"."timestamptz_ops" DESC NULLS FIRST
-);
-COMMENT ON INDEX public.idx_issue_comments_author IS '按作者查评论列表';
-CREATE INDEX "idx_issue_comments_issue" ON "public"."issue_comments" USING btree (
-  "issue_id" "pg_catalog"."int8_ops" ASC NULLS LAST,
-  "created_at" "pg_catalog"."timestamptz_ops" ASC NULLS LAST
-);
-COMMENT ON INDEX public.idx_issue_comments_issue IS '按工作项查评论列表';
-
--- ----------------------------
--- Primary Key structure for table issue_comments
--- ----------------------------
-ALTER TABLE "public"."issue_comments" ADD CONSTRAINT "issue_comments_pkey" PRIMARY KEY ("id");
-
--- ----------------------------
--- Auto increment value for issue_dependencies
--- ----------------------------
-SELECT setval(pg_get_serial_sequence('public.issue_dependencies', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.issue_dependencies) + 1, false);
-
--- ----------------------------
--- Indexes structure for table issue_dependencies
--- ----------------------------
-CREATE INDEX "idx_issue_deps_pred" ON "public"."issue_dependencies" USING btree (
-  "predecessor_id" "pg_catalog"."int8_ops" ASC NULLS LAST
-);
-COMMENT ON INDEX public.idx_issue_deps_pred IS '按前驱工作项查依赖关系';
-CREATE INDEX "idx_issue_deps_succ" ON "public"."issue_dependencies" USING btree (
-  "successor_id" "pg_catalog"."int8_ops" ASC NULLS LAST
-);
-COMMENT ON INDEX public.idx_issue_deps_succ IS '按后继工作项查依赖关系';
-
--- ----------------------------
--- Uniques structure for table issue_dependencies
--- ----------------------------
-ALTER TABLE "public"."issue_dependencies" ADD CONSTRAINT "issue_dependencies_predecessor_id_successor_id_dependency_t_key" UNIQUE ("predecessor_id", "successor_id", "dependency_type");
-
--- ----------------------------
--- Checks structure for table issue_dependencies
--- ----------------------------
-ALTER TABLE "public"."issue_dependencies" ADD CONSTRAINT "issue_dependencies_dependency_type_check" CHECK (dependency_type = ANY (ARRAY['FS'::text, 'SS'::text, 'FF'::text, 'SF'::text]));
-ALTER TABLE "public"."issue_dependencies" ADD CONSTRAINT "no_self_dependency" CHECK (predecessor_id <> successor_id);
-
--- ----------------------------
--- Primary Key structure for table issue_dependencies
--- ----------------------------
-ALTER TABLE "public"."issue_dependencies" ADD CONSTRAINT "issue_dependencies_pkey" PRIMARY KEY ("id");
-
--- ----------------------------
--- Primary Key structure for table issue_labels
--- ----------------------------
-ALTER TABLE "public"."issue_labels" ADD CONSTRAINT "issue_labels_pkey" PRIMARY KEY ("issue_id", "label_id");
-
--- ----------------------------
--- Primary Key structure for table issue_modules
--- ----------------------------
-ALTER TABLE "public"."issue_modules" ADD CONSTRAINT "issue_modules_pkey" PRIMARY KEY ("issue_id", "module_id");
-
--- ----------------------------
--- Auto increment value for issue_relations
--- ----------------------------
-SELECT setval(pg_get_serial_sequence('public.issue_relations', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.issue_relations) + 1, false);
-
--- ----------------------------
--- Indexes structure for table issue_relations
--- ----------------------------
-CREATE INDEX "idx_issue_relations_source" ON "public"."issue_relations" USING btree (
-  "source_issue_id" "pg_catalog"."int8_ops" ASC NULLS LAST
-);
-COMMENT ON INDEX public.idx_issue_relations_source IS '按源工作项查关联关系';
-CREATE INDEX "idx_issue_relations_target" ON "public"."issue_relations" USING btree (
-  "target_issue_id" "pg_catalog"."int8_ops" ASC NULLS LAST
-);
-COMMENT ON INDEX public.idx_issue_relations_target IS '按目标工作项查关联关系';
-
--- ----------------------------
--- Uniques structure for table issue_relations
--- ----------------------------
-ALTER TABLE "public"."issue_relations" ADD CONSTRAINT "issue_relations_source_issue_id_target_issue_id_relation_ty_key" UNIQUE ("source_issue_id", "target_issue_id", "relation_type");
-
--- ----------------------------
--- Checks structure for table issue_relations
--- ----------------------------
-ALTER TABLE "public"."issue_relations" ADD CONSTRAINT "issue_relations_relation_type_check" CHECK (relation_type = ANY (ARRAY['duplicate'::text, 'relates_to'::text, 'blocked_by'::text, 'start_before'::text, 'finish_before'::text, 'implemented_by'::text]));
-ALTER TABLE "public"."issue_relations" ADD CONSTRAINT "no_self_relation" CHECK (source_issue_id <> target_issue_id);
-
--- ----------------------------
--- Primary Key structure for table issue_relations
--- ----------------------------
-ALTER TABLE "public"."issue_relations" ADD CONSTRAINT "issue_relations_pkey" PRIMARY KEY ("id");
-
--- ----------------------------
--- Indexes structure for table issue_watchers
--- ----------------------------
-CREATE INDEX "idx_issue_watchers_user" ON "public"."issue_watchers" USING btree (
-  "user_id" "pg_catalog"."int8_ops" ASC NULLS LAST
-);
-COMMENT ON INDEX public.idx_issue_watchers_user IS '按 user_id 查关注的工作项列表';
-
--- ----------------------------
--- Primary Key structure for table issue_watchers
--- ----------------------------
-ALTER TABLE "public"."issue_watchers" ADD CONSTRAINT "issue_watchers_pkey" PRIMARY KEY ("issue_id", "user_id");
-
--- ----------------------------
--- Indexes structure for table issue_reactions
--- ----------------------------
-CREATE INDEX "idx_issue_reactions_issue" ON "public"."issue_reactions" USING btree (
-  "issue_id" "pg_catalog"."int8_ops" ASC NULLS LAST
-);
-COMMENT ON INDEX public.idx_issue_reactions_issue IS '按工作项查所有反应（详情页聚合）';
-CREATE INDEX "idx_issue_reactions_user" ON "public"."issue_reactions" USING btree (
-  "user_id" "pg_catalog"."int8_ops" ASC NULLS LAST
-);
-COMMENT ON INDEX public.idx_issue_reactions_user IS '按用户查其发出的反应';
-
--- ----------------------------
--- Uniques structure for table issue_reactions
--- ----------------------------
-ALTER TABLE "public"."issue_reactions" ADD CONSTRAINT "issue_reactions_issue_user_type_key" UNIQUE ("issue_id", "user_id", "reaction_type");
-
--- ----------------------------
--- Primary Key structure for table issue_reactions
--- ----------------------------
-ALTER TABLE "public"."issue_reactions" ADD CONSTRAINT "issue_reactions_pkey" PRIMARY KEY ("id");
-
--- ----------------------------
--- Indexes structure for table issue_votes
--- ----------------------------
-CREATE INDEX "idx_issue_votes_issue" ON "public"."issue_votes" USING btree (
-  "issue_id" "pg_catalog"."int8_ops" ASC NULLS LAST
-);
-COMMENT ON INDEX public.idx_issue_votes_issue IS '按工作项查投票聚合（赞成/反对计数）';
-
--- ----------------------------
--- Uniques structure for table issue_votes
--- ----------------------------
-ALTER TABLE "public"."issue_votes" ADD CONSTRAINT "issue_votes_issue_user_key" UNIQUE ("issue_id", "user_id");
-
--- ----------------------------
--- Primary Key structure for table issue_votes
--- ----------------------------
-ALTER TABLE "public"."issue_votes" ADD CONSTRAINT "issue_votes_pkey" PRIMARY KEY ("id");
-
--- ----------------------------
--- Auto increment value for issues
--- ----------------------------
-SELECT setval(pg_get_serial_sequence('public.issues', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.issues) + 1, false);
-
--- ----------------------------
--- Indexes structure for table issues
--- ----------------------------
-CREATE INDEX "idx_issues_created" ON "public"."issues" USING btree (
-  "project_id" "pg_catalog"."int8_ops" ASC NULLS LAST,
-  "created_at" "pg_catalog"."timestamptz_ops" DESC NULLS FIRST
-);
-COMMENT ON INDEX public.idx_issues_created IS '按工作空间+创建时间倒序（最近创建/活动日志查询）';
-CREATE INDEX "idx_issues_fix_version" ON "public"."issues" USING btree (
-  "project_id" "pg_catalog"."int8_ops" ASC NULLS LAST,
-  "fix_version_id" "pg_catalog"."int8_ops" ASC NULLS LAST
-) WHERE deleted_at IS NULL AND fix_version_id IS NOT NULL;
-COMMENT ON INDEX public.idx_issues_fix_version IS '按 fix_version 查询缺陷（版本修复追踪）';
-CREATE INDEX "idx_issues_found_version" ON "public"."issues" USING btree (
-  "project_id" "pg_catalog"."int8_ops" ASC NULLS LAST,
-  "found_version_id" "pg_catalog"."int8_ops" ASC NULLS LAST
-) WHERE deleted_at IS NULL AND found_version_id IS NOT NULL;
-COMMENT ON INDEX public.idx_issues_found_version IS '按 found_version 查询缺陷（发现版本统计）';
-CREATE INDEX "idx_issues_list_covering" ON "public"."issues" USING btree (
-  "project_id" "pg_catalog"."int8_ops" ASC NULLS LAST,
-  "updated_at" "pg_catalog"."timestamptz_ops" DESC NULLS FIRST
-) WHERE deleted_at IS NULL;
-COMMENT ON INDEX public.idx_issues_list_covering IS '覆盖索引：列表视图高频查询场景';
-CREATE INDEX "idx_issues_parent" ON "public"."issues" USING btree (
-  "parent_id" "pg_catalog"."int8_ops" ASC NULLS LAST
-) WHERE deleted_at IS NULL AND parent_id IS NOT NULL;
-COMMENT ON INDEX public.idx_issues_parent IS '按 parent_id 查询子项（WBS 树展开/进度回写）';
-CREATE INDEX "idx_issues_priority_covering" ON "public"."issues" USING btree (
-  "project_id" "pg_catalog"."int8_ops" ASC NULLS LAST,
-  "priority" COLLATE "pg_catalog"."default" "pg_catalog"."text_ops" ASC NULLS LAST,
-  "updated_at" "pg_catalog"."timestamptz_ops" DESC NULLS FIRST
-) WHERE deleted_at IS NULL AND (priority = ANY (ARRAY['urgent'::text, 'high'::text]));
-COMMENT ON INDEX public.idx_issues_priority_covering IS '覆盖索引：按项目+优先级过滤（看板/列表视图）';
-CREATE UNIQUE INDEX "idx_issues_project_sequence" ON "public"."issues" USING btree (
-  "project_id" "pg_catalog"."int8_ops" ASC NULLS LAST,
-  "sequence_id" "pg_catalog"."int8_ops" ASC NULLS LAST
-) WHERE deleted_at IS NULL;
-COMMENT ON INDEX public.idx_issues_project_sequence IS '按项目+序号唯一（YD-123 展示编号查询）';
-CREATE INDEX "idx_issues_project_state" ON "public"."issues" USING btree (
-  "project_id" "pg_catalog"."int8_ops" ASC NULLS LAST,
-  "state_id" "pg_catalog"."int8_ops" ASC NULLS LAST,
-  "sort_order" "pg_catalog"."float8_ops" ASC NULLS LAST
-) WHERE deleted_at IS NULL;
-COMMENT ON INDEX public.idx_issues_project_state IS '按工作空间+项目+状态查询（看板列表/过滤器高频场景；排除软删除）';
-CREATE UNIQUE INDEX "idx_issues_public_id" ON "public"."issues" USING btree (
-  "public_id" "pg_catalog"."uuid_ops" ASC NULLS LAST
-) WHERE deleted_at IS NULL;
-COMMENT ON INDEX public.idx_issues_public_id IS '按 public_id 查询工作项（API/URL 路由）';
-CREATE INDEX "idx_issues_release_version" ON "public"."issues" USING btree (
-  "project_id" "pg_catalog"."int8_ops" ASC NULLS LAST,
-  "release_version_id" "pg_catalog"."int8_ops" ASC NULLS LAST
-) WHERE deleted_at IS NULL AND release_version_id IS NOT NULL;
-COMMENT ON INDEX public.idx_issues_release_version IS '按 release_version 查询（版本交付范围）';
-CREATE INDEX "idx_issues_search_tsv" ON "public"."issues" USING gin (
-  "search_tsv" "pg_catalog"."tsvector_ops"
-);
-COMMENT ON INDEX public.idx_issues_search_tsv IS 'tsvector 索引（search_tsv 列 GIN；PostgreSQL 全文检索）';
-CREATE INDEX "idx_issues_state_covering" ON "public"."issues" USING btree (
-  "project_id" "pg_catalog"."int8_ops" ASC NULLS LAST,
-  "state_id" "pg_catalog"."int8_ops" ASC NULLS LAST,
-  "sort_order" "pg_catalog"."float8_ops" ASC NULLS LAST
-) WHERE deleted_at IS NULL;
-COMMENT ON INDEX public.idx_issues_state_covering IS '覆盖索引：按项目+状态查询看板列表';
-CREATE INDEX "idx_issues_target_date" ON "public"."issues" USING btree (
-  "project_id" "pg_catalog"."int8_ops" ASC NULLS LAST,
-  "target_date" "pg_catalog"."date_ops" ASC NULLS LAST
-) WHERE deleted_at IS NULL AND completed_at IS NULL;
-COMMENT ON INDEX public.idx_issues_target_date IS '按工作空间+项目+目标日期查询（未完成逾期提醒/甘特图）';
-CREATE INDEX "idx_issues_target_date_covering" ON "public"."issues" USING btree (
-  "project_id" "pg_catalog"."int8_ops" ASC NULLS LAST,
-  "target_date" "pg_catalog"."date_ops" ASC NULLS LAST
-) WHERE deleted_at IS NULL AND target_date IS NOT NULL;
-COMMENT ON INDEX public.idx_issues_target_date_covering IS '覆盖索引：目标日期查询场景';
-CREATE INDEX "idx_issues_type" ON "public"."issues" USING btree (
-  "project_id" "pg_catalog"."int8_ops" ASC NULLS LAST,
-  "type_code" COLLATE "pg_catalog"."default" "pg_catalog"."text_ops" ASC NULLS LAST
-) WHERE deleted_at IS NULL;
-COMMENT ON INDEX public.idx_issues_type IS '按工作项类型过滤（需求/任务/缺陷列表视图切换）';
-CREATE INDEX "idx_issues_type_covering" ON "public"."issues" USING btree (
-  "project_id" "pg_catalog"."int8_ops" ASC NULLS LAST,
-  "type_code" COLLATE "pg_catalog"."default" "pg_catalog"."text_ops" ASC NULLS LAST,
-  "created_at" "pg_catalog"."timestamptz_ops" DESC NULLS FIRST
-) WHERE deleted_at IS NULL;
-COMMENT ON INDEX public.idx_issues_type_covering IS '覆盖索引：按类型过滤列表查询';
-CREATE INDEX "idx_issues_updated" ON "public"."issues" USING btree (
-  "project_id" "pg_catalog"."int8_ops" ASC NULLS LAST,
-  "updated_at" "pg_catalog"."timestamptz_ops" DESC NULLS FIRST
-);
-COMMENT ON INDEX public.idx_issues_updated IS '按工作空间+更新时间倒序（最近活动/时间线查询）';
-CREATE UNIQUE INDEX "idx_issues_external_id" ON "public"."issues" USING btree (
-  "workspace_id" "pg_catalog"."int8_ops" ASC NULLS LAST,
-  "external_id" COLLATE "pg_catalog"."default" "pg_catalog"."text_ops" ASC NULLS LAST
-) WHERE deleted_at IS NULL AND external_id IS NOT NULL;
-COMMENT ON INDEX public.idx_issues_external_id IS '按工作空间+外部标识唯一；增量导入去重依据';
-CREATE INDEX "idx_issues_workspace_project" ON "public"."issues" USING btree (
-  "workspace_id" "pg_catalog"."int8_ops" ASC NULLS LAST,
-  "project_id" "pg_catalog"."int8_ops" ASC NULLS LAST
-) WHERE deleted_at IS NULL;
-COMMENT ON INDEX public.idx_issues_workspace_project IS '按工作空间+项目高频过滤查询';
-
--- ----------------------------
--- Triggers structure for table issues
--- ----------------------------
-CREATE TRIGGER "trg_issue_search_cleanup" AFTER UPDATE OF "deleted_at" ON "public"."issues"
-FOR EACH ROW
-WHEN ((new.deleted_at IS NOT NULL))
-EXECUTE PROCEDURE "public"."fn_cleanup_search_document"();
--- FIXED: COMMENT ON TRIGGER trg_issue_search_cleanup IS 'issues: AFTER DELETE（软删除）异步清理 ES 索引对应文档';
-CREATE TRIGGER "trg_issue_search_sync" AFTER INSERT OR UPDATE OF "name", "description_stripped" ON "public"."issues"
-FOR EACH ROW
-WHEN ((new.deleted_at IS NULL))
-EXECUTE PROCEDURE "public"."fn_refresh_search_document"();
--- FIXED: COMMENT ON TRIGGER trg_issue_search_sync IS 'issues: AFTER INSERT/UPDATE 异步同步 ES 索引 `ydsz_issues`；routing=workspace_id';
-CREATE TRIGGER "trg_issues_updated_at" BEFORE UPDATE ON "public"."issues"
-FOR EACH ROW
-EXECUTE PROCEDURE "public"."set_updated_at"();
--- FIXED: COMMENT ON TRIGGER trg_issues_updated_at IS 'issues: BEFORE UPDATE 自动将 updated_at 更新为 now()；事件监听同步 ES';
-
--- ----------------------------
--- Checks structure for table issues
--- ----------------------------
-ALTER TABLE "public"."issues" ADD CONSTRAINT "issues_delay_reason_check" CHECK (delay_reason = ANY (ARRAY['requirement_change'::text, 'resource'::text, 'blocked'::text, 'other'::text]));
-ALTER TABLE "public"."issues" ADD CONSTRAINT "issues_depth_check" CHECK (depth >= 1 AND depth <= 3);
-ALTER TABLE "public"."issues" ADD CONSTRAINT "issues_found_phase_check" CHECK (found_phase = ANY (ARRAY['unit'::text, 'integration'::text, 'uat'::text, 'production'::text, 'customer'::text]));
-ALTER TABLE "public"."issues" ADD CONSTRAINT "issues_point_check" CHECK (point >= 0 AND point <= 12);
-ALTER TABLE "public"."issues" ADD CONSTRAINT "issues_priority_check" CHECK (priority = ANY (ARRAY['urgent'::text, 'high'::text, 'medium'::text, 'low'::text, 'none'::text]));
-ALTER TABLE "public"."issues" ADD CONSTRAINT "issues_progress_check" CHECK (progress >= 0 AND progress <= 100);
-ALTER TABLE "public"."issues" ADD CONSTRAINT "issues_root_cause_category_check" CHECK (root_cause_category = ANY (ARRAY['requirement'::text, 'technical'::text, 'environment'::text, 'data'::text]));
-ALTER TABLE "public"."issues" ADD CONSTRAINT "issues_severity_check" CHECK (severity >= 1 AND severity <= 5);
-ALTER TABLE "public"."issues" ADD CONSTRAINT "issues_type_code_check" CHECK (type_code = ANY (ARRAY['epic'::text, 'requirement'::text, 'task'::text, 'defect'::text]));
-ALTER TABLE "public"."issues" ADD CONSTRAINT "defect_required" CHECK (type_code <> 'defect'::text OR severity IS NOT NULL AND found_phase IS NOT NULL);
-
--- ----------------------------
--- Primary Key structure for table issues
--- ----------------------------
-ALTER TABLE "public"."issues" ADD CONSTRAINT "issues_pkey" PRIMARY KEY ("id");
 
 -- ----------------------------
 -- Auto increment value for labels
@@ -5065,19 +4184,6 @@ COMMENT ON INDEX public.idx_search_history_ws_user IS '按工作空间+用户查
 ALTER TABLE "public"."search_history" ADD CONSTRAINT "search_history_pkey" PRIMARY KEY ("id");
 
 -- ----------------------------
--- Indexes structure for table sprint_issues
--- ----------------------------
-CREATE INDEX "idx_sprint_issues_issue" ON "public"."sprint_issues" USING btree (
-  "issue_id" "pg_catalog"."int8_ops" ASC NULLS LAST
-);
-COMMENT ON INDEX public.idx_sprint_issues_issue IS '按 issue_id 反查所属迭代';
-
--- ----------------------------
--- Primary Key structure for table sprint_issues
--- ----------------------------
-ALTER TABLE "public"."sprint_issues" ADD CONSTRAINT "sprint_issues_pkey" PRIMARY KEY ("sprint_id", "issue_id");
-
--- ----------------------------
 -- Auto increment value for sprint_snapshots
 -- ----------------------------
 SELECT setval(pg_get_serial_sequence('public.sprint_snapshots', 'id'), (SELECT COALESCE(MAX(id), 0) FROM public.sprint_snapshots) + 1, false);
@@ -5230,7 +4336,7 @@ SELECT setval(pg_get_serial_sequence('public.time_logs', 'id'), (SELECT COALESCE
 CREATE INDEX "idx_time_logs_issue" ON "public"."time_logs" USING btree (
   "issue_id" "pg_catalog"."int8_ops" ASC NULLS LAST
 ) WHERE deleted_at IS NULL;
-COMMENT ON INDEX public.idx_time_logs_issue IS '按工作项查工时明细（详情页时间线 / sum 重算 actual_effort）';
+COMMENT ON INDEX public.idx_time_logs_issue IS '按实体查工时明细（详情页时间线 / sum 重算 actual_effort）';
 CREATE INDEX "idx_time_logs_user_date" ON "public"."time_logs" USING btree (
   "user_id" "pg_catalog"."int8_ops" ASC NULLS LAST,
   "spent_date" "pg_catalog"."date_ops" ASC NULLS LAST
@@ -5600,78 +4706,6 @@ ALTER TABLE "public"."intake_issues" ADD CONSTRAINT "fk_intake_issue_workspace" 
 ALTER TABLE "public"."invitations" ADD CONSTRAINT "invitations_inviter_id_fkey" FOREIGN KEY ("inviter_id") REFERENCES "public"."users" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
 ALTER TABLE "public"."invitations" ADD CONSTRAINT "invitations_workspace_id_fkey" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces" ("id") ON DELETE CASCADE ON UPDATE NO ACTION;
 
--- ----------------------------
--- Foreign Keys structure for table issue_activities
--- ----------------------------
-ALTER TABLE "public"."issue_activities" ADD CONSTRAINT "issue_activities_actor_id_fkey" FOREIGN KEY ("actor_id") REFERENCES "public"."users" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
-ALTER TABLE "public"."issue_activities" ADD CONSTRAINT "issue_activities_issue_id_fkey" FOREIGN KEY ("issue_id") REFERENCES "public"."issues" ("id") ON DELETE CASCADE ON UPDATE NO ACTION;
-ALTER TABLE "public"."issue_activities" ADD CONSTRAINT "issue_activities_project_id_fkey" FOREIGN KEY ("project_id") REFERENCES "public"."projects" ("id") ON DELETE CASCADE ON UPDATE NO ACTION;
-ALTER TABLE "public"."issue_activities" ADD CONSTRAINT "issue_activities_workspace_id_fkey" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces" ("id") ON DELETE CASCADE ON UPDATE NO ACTION;
-
--- ----------------------------
--- Foreign Keys structure for table issue_assignees
--- ----------------------------
-ALTER TABLE "public"."issue_assignees" ADD CONSTRAINT "issue_assignees_assigned_by_fkey" FOREIGN KEY ("assigned_by") REFERENCES "public"."users" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
-ALTER TABLE "public"."issue_assignees" ADD CONSTRAINT "issue_assignees_issue_id_fkey" FOREIGN KEY ("issue_id") REFERENCES "public"."issues" ("id") ON DELETE CASCADE ON UPDATE NO ACTION;
-ALTER TABLE "public"."issue_assignees" ADD CONSTRAINT "issue_assignees_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "public"."users" ("id") ON DELETE CASCADE ON UPDATE NO ACTION;
-
--- ----------------------------
--- Foreign Keys structure for table issue_comments
--- ----------------------------
-ALTER TABLE "public"."issue_comments" ADD CONSTRAINT "issue_comments_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "public"."users" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
-ALTER TABLE "public"."issue_comments" ADD CONSTRAINT "issue_comments_issue_id_fkey" FOREIGN KEY ("issue_id") REFERENCES "public"."issues" ("id") ON DELETE CASCADE ON UPDATE NO ACTION;
-ALTER TABLE "public"."issue_comments" ADD CONSTRAINT "issue_comments_parent_id_fkey" FOREIGN KEY ("parent_id") REFERENCES "public"."issue_comments" ("id") ON DELETE SET NULL ON UPDATE NO ACTION;
-ALTER TABLE "public"."issue_comments" ADD CONSTRAINT "issue_comments_project_id_fkey" FOREIGN KEY ("project_id") REFERENCES "public"."projects" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
-ALTER TABLE "public"."issue_comments" ADD CONSTRAINT "issue_comments_workspace_id_fkey" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
-
--- ----------------------------
--- Foreign Keys structure for table issue_dependencies
--- ----------------------------
-ALTER TABLE "public"."issue_dependencies" ADD CONSTRAINT "issue_dependencies_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "public"."users" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
-ALTER TABLE "public"."issue_dependencies" ADD CONSTRAINT "issue_dependencies_predecessor_id_fkey" FOREIGN KEY ("predecessor_id") REFERENCES "public"."issues" ("id") ON DELETE CASCADE ON UPDATE NO ACTION;
-ALTER TABLE "public"."issue_dependencies" ADD CONSTRAINT "issue_dependencies_project_id_fkey" FOREIGN KEY ("project_id") REFERENCES "public"."projects" ("id") ON DELETE CASCADE ON UPDATE NO ACTION;
-ALTER TABLE "public"."issue_dependencies" ADD CONSTRAINT "issue_dependencies_successor_id_fkey" FOREIGN KEY ("successor_id") REFERENCES "public"."issues" ("id") ON DELETE CASCADE ON UPDATE NO ACTION;
-ALTER TABLE "public"."issue_dependencies" ADD CONSTRAINT "issue_dependencies_workspace_id_fkey" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces" ("id") ON DELETE CASCADE ON UPDATE NO ACTION;
-
--- ----------------------------
--- Foreign Keys structure for table issue_labels
--- ----------------------------
-ALTER TABLE "public"."issue_labels" ADD CONSTRAINT "issue_labels_issue_id_fkey" FOREIGN KEY ("issue_id") REFERENCES "public"."issues" ("id") ON DELETE CASCADE ON UPDATE NO ACTION;
-ALTER TABLE "public"."issue_labels" ADD CONSTRAINT "issue_labels_label_id_fkey" FOREIGN KEY ("label_id") REFERENCES "public"."labels" ("id") ON DELETE CASCADE ON UPDATE NO ACTION;
-
--- ----------------------------
--- Foreign Keys structure for table issue_modules
--- ----------------------------
-ALTER TABLE "public"."issue_modules" ADD CONSTRAINT "issue_modules_issue_id_fkey" FOREIGN KEY ("issue_id") REFERENCES "public"."issues" ("id") ON DELETE CASCADE ON UPDATE NO ACTION;
-ALTER TABLE "public"."issue_modules" ADD CONSTRAINT "issue_modules_module_id_fkey" FOREIGN KEY ("module_id") REFERENCES "public"."modules" ("id") ON DELETE CASCADE ON UPDATE NO ACTION;
-
--- ----------------------------
--- Foreign Keys structure for table issue_relations
--- ----------------------------
-ALTER TABLE "public"."issue_relations" ADD CONSTRAINT "issue_relations_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "public"."users" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
-ALTER TABLE "public"."issue_relations" ADD CONSTRAINT "issue_relations_project_id_fkey" FOREIGN KEY ("project_id") REFERENCES "public"."projects" ("id") ON DELETE CASCADE ON UPDATE NO ACTION;
-ALTER TABLE "public"."issue_relations" ADD CONSTRAINT "issue_relations_source_issue_id_fkey" FOREIGN KEY ("source_issue_id") REFERENCES "public"."issues" ("id") ON DELETE CASCADE ON UPDATE NO ACTION;
-ALTER TABLE "public"."issue_relations" ADD CONSTRAINT "issue_relations_target_issue_id_fkey" FOREIGN KEY ("target_issue_id") REFERENCES "public"."issues" ("id") ON DELETE CASCADE ON UPDATE NO ACTION;
-ALTER TABLE "public"."issue_relations" ADD CONSTRAINT "issue_relations_workspace_id_fkey" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces" ("id") ON DELETE CASCADE ON UPDATE NO ACTION;
-
--- ----------------------------
--- Foreign Keys structure for table issue_watchers
--- ----------------------------
-ALTER TABLE "public"."issue_watchers" ADD CONSTRAINT "issue_watchers_issue_id_fkey" FOREIGN KEY ("issue_id") REFERENCES "public"."issues" ("id") ON DELETE CASCADE ON UPDATE NO ACTION;
-ALTER TABLE "public"."issue_watchers" ADD CONSTRAINT "issue_watchers_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "public"."users" ("id") ON DELETE CASCADE ON UPDATE NO ACTION;
-
--- ----------------------------
--- Foreign Keys structure for table issues
--- ----------------------------
-ALTER TABLE "public"."issues" ADD CONSTRAINT "issues_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "public"."users" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
-ALTER TABLE "public"."issues" ADD CONSTRAINT "issues_fix_version_id_fkey" FOREIGN KEY ("fix_version_id") REFERENCES "public"."versions" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
-ALTER TABLE "public"."issues" ADD CONSTRAINT "issues_found_version_id_fkey" FOREIGN KEY ("found_version_id") REFERENCES "public"."versions" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
-ALTER TABLE "public"."issues" ADD CONSTRAINT "issues_parent_id_fkey" FOREIGN KEY ("parent_id") REFERENCES "public"."issues" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
-ALTER TABLE "public"."issues" ADD CONSTRAINT "issues_project_id_fkey" FOREIGN KEY ("project_id") REFERENCES "public"."projects" ("id") ON DELETE CASCADE ON UPDATE NO ACTION;
-ALTER TABLE "public"."issues" ADD CONSTRAINT "issues_release_version_id_fkey" FOREIGN KEY ("release_version_id") REFERENCES "public"."versions" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
-ALTER TABLE "public"."issues" ADD CONSTRAINT "issues_state_id_fkey" FOREIGN KEY ("state_id") REFERENCES "public"."states" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
-ALTER TABLE "public"."issues" ADD CONSTRAINT "issues_verifier_id_fkey" FOREIGN KEY ("verifier_id") REFERENCES "public"."users" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
-ALTER TABLE "public"."issues" ADD CONSTRAINT "issues_workspace_id_fkey" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces" ("id") ON DELETE CASCADE ON UPDATE NO ACTION;
 
 -- ----------------------------
 -- Foreign Keys structure for table labels
@@ -5799,13 +4833,6 @@ ALTER TABLE "public"."search_history" ADD CONSTRAINT "search_history_user_id_fke
 ALTER TABLE "public"."search_history" ADD CONSTRAINT "search_history_workspace_id_fkey" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces" ("id") ON DELETE CASCADE ON UPDATE NO ACTION;
 
 -- ----------------------------
--- Foreign Keys structure for table sprint_issues
--- ----------------------------
-ALTER TABLE "public"."sprint_issues" ADD CONSTRAINT "sprint_issues_added_by_fkey" FOREIGN KEY ("added_by") REFERENCES "public"."users" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
-ALTER TABLE "public"."sprint_issues" ADD CONSTRAINT "sprint_issues_issue_id_fkey" FOREIGN KEY ("issue_id") REFERENCES "public"."issues" ("id") ON DELETE CASCADE ON UPDATE NO ACTION;
-ALTER TABLE "public"."sprint_issues" ADD CONSTRAINT "sprint_issues_sprint_id_fkey" FOREIGN KEY ("sprint_id") REFERENCES "public"."sprints" ("id") ON DELETE CASCADE ON UPDATE NO ACTION;
-
--- ----------------------------
 -- Foreign Keys structure for table sprint_snapshots
 -- ----------------------------
 ALTER TABLE "public"."sprint_snapshots" ADD CONSTRAINT "sprint_snapshots_project_id_fkey" FOREIGN KEY ("project_id") REFERENCES "public"."projects" ("id") ON DELETE CASCADE ON UPDATE NO ACTION;
@@ -5838,7 +4865,7 @@ ALTER TABLE "public"."states" ADD CONSTRAINT "states_workspace_id_fkey" FOREIGN 
 -- ----------------------------
 -- Foreign Keys structure for table time_logs
 -- ----------------------------
-ALTER TABLE "public"."time_logs" ADD CONSTRAINT "time_logs_issue_id_fkey" FOREIGN KEY ("issue_id") REFERENCES "public"."issues" ("id") ON DELETE CASCADE ON UPDATE NO ACTION;
+-- 注：issue_id 原指向已下线的 issues 表，现已改为关联需求/任务/缺陷（requirement/task/defect，代码层维护多态关联），不再设 DB 外键
 ALTER TABLE "public"."time_logs" ADD CONSTRAINT "time_logs_project_id_fkey" FOREIGN KEY ("project_id") REFERENCES "public"."projects" ("id") ON DELETE CASCADE ON UPDATE NO ACTION;
 ALTER TABLE "public"."time_logs" ADD CONSTRAINT "time_logs_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "public"."users" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
 ALTER TABLE "public"."time_logs" ADD CONSTRAINT "time_logs_workspace_id_fkey" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces" ("id") ON DELETE CASCADE ON UPDATE NO ACTION;
@@ -5992,7 +5019,7 @@ ALTER TABLE "public"."pages" ADD CONSTRAINT "pages_workspace_id_fkey" FOREIGN KE
 --   psql -U ydsz_app -d ydsz-plane -f add-comments-patch.sql
 --
 -- 注意事项:
---   1. 已存在注释的表/issue_comments, notification_preferences, notifications, versions
+--   1. 已存在注释的表/notification_preferences, notifications, versions
 --      仅补充缺失字段的注释，不覆盖已有内容。
 --   2. 所有 COMMENT 语句均为幂等操作，可重复执行。
 --   3. 部分索引注释中包含 WHERE 条件含义说明。
@@ -6002,9 +5029,6 @@ ALTER TABLE "public"."pages" ADD CONSTRAINT "pages_workspace_id_fkey" FOREIGN KE
 -- 核心工作项域
 -- ============================================================================
 
--- ============================================================
--- 表: issues — 核心工作项表
--- ============================================================
 
 
 -- ============================================================
@@ -6017,43 +5041,19 @@ ALTER TABLE "public"."pages" ADD CONSTRAINT "pages_workspace_id_fkey" FOREIGN KE
 -- ============================================================
 
 
--- ============================================================
--- 表: issue_labels — 工作项-标签关联表
--- ============================================================
 
 
--- ============================================================
--- 表: issue_modules — 工作项-模块关联表
--- ============================================================
 
 
--- ============================================================
--- 表: issue_assignees — 工作项指派人员表
--- ============================================================
 
 
--- ============================================================
--- 表: issue_watchers — 工作项关注者表
--- ============================================================
 
 
--- ============================================================
--- 表: issue_comments — 工作项评论表（已有注释，补充缺失字段）
--- ============================================================
-
--- ============================================================
--- 表: issue_activities — 工作项活动表（按月分区）
--- ============================================================
 
 
--- ============================================================
--- 表: issue_dependencies — 工作项依赖关系表
--- ============================================================
 
 
--- ============================================================
--- 表: issue_relations — 工作项关联关系表
--- ============================================================
+
 
 
 -- ============================================================
@@ -6081,9 +5081,6 @@ ALTER TABLE "public"."pages" ADD CONSTRAINT "pages_workspace_id_fkey" FOREIGN KE
 -- ============================================================
 
 
--- ============================================================
--- 表: sprint_issues — 迭代-工作项关联表
--- ============================================================
 
 
 -- ============================================================
@@ -6146,9 +5143,6 @@ ALTER TABLE "public"."pages" ADD CONSTRAINT "pages_workspace_id_fkey" FOREIGN KE
 -- ============================================================
 
 
--- ============================================================
--- 表: sprint_issues — 迭代-工作项关联表
--- ============================================================
 
 
 -- ============================================================
@@ -6428,13 +5422,9 @@ ALTER TABLE "public"."pages" ADD CONSTRAINT "pages_workspace_id_fkey" FOREIGN KE
 -- 部分索引注释（说明 WHERE 条件含义）
 -- ============================================================================
 
--- ================ issues 表索引 ================
-
 -- ================ sprints 表索引 ================
 
 -- ================ versions 表索引 ================
-
--- ================ issues 关联表索引 ================
 
 -- ================ notification 模块索引 ================
 
@@ -6582,9 +5572,7 @@ DECLARE
     tbl TEXT;
     tables TEXT[] := ARRAY[
         'workspaces', 'workspace_members', 'projects', 'modules', 'labels',
-        'states', 'state_transitions', 'issues', 'issue_assignees',
-        'issue_labels', 'issue_modules', 'issue_activities', 'issue_comments',
-        'issue_relations', 'issue_dependencies', 'sprints', 'sprint_issues',
+        'states', 'state_transitions', 'sprints',
         'sprint_snapshots', 'versions', 'automation_rules', 'rule_executions',
         'automation_templates', 'notifications', 'notification_preferences',
         'api_tokens', 'attachments', 'invitations', 'intake_channels',
@@ -6623,9 +5611,7 @@ DECLARE
     tbl TEXT;
     tables TEXT[] := ARRAY[
         'workspaces', 'workspace_members', 'projects', 'modules', 'labels',
-        'states', 'state_transitions', 'issues', 'issue_assignees',
-        'issue_labels', 'issue_modules', 'issue_activities', 'issue_comments',
-        'issue_relations', 'issue_dependencies', 'sprints', 'sprint_issues',
+        'states', 'state_transitions', 'sprints',
         'sprint_snapshots', 'versions', 'automation_rules', 'rule_executions',
         'automation_templates', 'notifications', 'notification_preferences',
         'api_tokens', 'attachments', 'invitations', 'intake_channels',
@@ -6852,6 +5838,28 @@ ON CONFLICT (role_slug, permission_code) DO NOTHING;
 
 
 -- ============================================================================
+-- 估算体系 estimate_points（被 task/requirement/defect 的 estimate_point_id 外键引用）
+-- 对应《Ydsz Plane 数据库表设计》13. estimate_points；字段 tenant_id 在本库以 workspace_id 承载
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS estimate_points (
+    id              BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    code            TEXT NOT NULL,
+    name            TEXT NOT NULL,
+    description     TEXT,
+    points_config   JSONB NOT NULL,
+    is_default      BOOLEAN NOT NULL DEFAULT FALSE,
+    status          TEXT NOT NULL DEFAULT 'active',
+    deleted         BOOLEAN NOT NULL DEFAULT FALSE,
+    workspace_id    BIGINT NOT NULL REFERENCES workspaces(id),
+    created_by      BIGINT NOT NULL REFERENCES users(id),
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_by      BIGINT NOT NULL REFERENCES users(id),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (workspace_id, code)
+);
+COMMENT ON TABLE estimate_points IS '估算体系（估算选项 points_config 如 [{"label":"1点","value":1}]；被 task/requirement/defect 引用）';
+
+-- ============================================================================
 -- [原 0024] 工作项分表拆分 —— task / requirement / defect
 -- ============================================================================
 
@@ -7057,135 +6065,6 @@ CREATE INDEX IF NOT EXISTS idx_requirement_archived ON requirement(archived_at) 
 CREATE INDEX IF NOT EXISTS idx_defect_archived      ON defect(archived_at)      WHERE archived_at IS NOT NULL;
 
 
--- ============================================================================
--- [原 0026] 工作项数据迁移（issues → task/requirement/defect）
--- 一次性数据同步，旧库数据拆分到新分表；全新空库执行无影响（ON CONFLICT DO NOTHING）。
--- ============================================================================
-
--- 1. task 类型工作项
-INSERT INTO task (
-    public_id, workspace_id, project_id, sequence_id, parent_id, depth,
-    name, description_json, description_html, state_id, priority,
-    category, actual_effort, remaining_effort, delay_reason,
-    point, estimate_point_id, sprint_id, version_id, progress,
-    start_date, target_date, completed_at, is_draft, sort_order,
-    created_by, created_at, updated_at, deleted_at
-)
-SELECT
-    public_id, workspace_id, project_id, sequence_id, parent_id, depth,
-    name, description_json, description_html, state_id, priority,
-    category, actual_effort, remaining_effort, delay_reason,
-    point, estimate_point_id, sprint_id, version_id, progress,
-    start_date, target_date, completed_at, is_draft, sort_order,
-    created_by, created_at, updated_at, deleted_at
-FROM issues
-WHERE type_code = 'task'
-ON CONFLICT (project_id, sequence_id) DO NOTHING;
-
--- 2. requirement 类型工作项
-INSERT INTO requirement (
-    public_id, workspace_id, project_id, sequence_id, parent_id, depth,
-    name, description_json, description_html, state_id, priority,
-    source, point, estimate_point_id, sprint_id, version_id, progress,
-    start_date, target_date, completed_at, is_draft, sort_order,
-    created_by, created_at, updated_at, deleted_at
-)
-SELECT
-    public_id, workspace_id, project_id, sequence_id, parent_id, depth,
-    name, description_json, description_html, state_id, priority,
-    source, point, estimate_point_id, sprint_id, version_id, progress,
-    start_date, target_date, completed_at, is_draft, sort_order,
-    created_by, created_at, updated_at, deleted_at
-FROM issues
-WHERE type_code = 'requirement'
-ON CONFLICT (project_id, sequence_id) DO NOTHING;
-
--- 3. defect 类型工作项
-INSERT INTO defect (
-    public_id, workspace_id, project_id, sequence_id, parent_id, depth,
-    name, description_json, description_html, state_id, priority,
-    severity, found_phase, found_version_id, fix_version_id, root_cause_category,
-    verifier_id, environment, reproduce_steps,
-    point, estimate_point_id, sprint_id, version_id, progress,
-    start_date, target_date, completed_at, is_draft, sort_order,
-    created_by, created_at, updated_at, deleted_at
-)
-SELECT
-    public_id, workspace_id, project_id, sequence_id, parent_id, depth,
-    name, description_json, description_html, state_id, priority,
-    severity, found_phase, found_version_id, fix_version_id, root_cause_category,
-    verifier_id, environment, reproduce_steps,
-    point, estimate_point_id, sprint_id, version_id, progress,
-    start_date, target_date, completed_at, is_draft, sort_order,
-    created_by, created_at, updated_at, deleted_at
-FROM issues
-WHERE type_code = 'defect'
-ON CONFLICT (project_id, sequence_id) DO NOTHING;
-
--- 4. 迁移关联关系数据
-INSERT INTO biz_entity_relation (
-    workspace_id, project_id, source_type, source_id, target_type, target_id,
-    relation_type, created_by, created_at
-)
-SELECT
-    ir.workspace_id, ir.project_id,
-    CASE WHEN i1.type_code = 'task' THEN 'task' WHEN i1.type_code = 'requirement' THEN 'requirement' ELSE 'defect' END,
-    ir.source_id,
-    CASE WHEN i2.type_code = 'task' THEN 'task' WHEN i2.type_code = 'requirement' THEN 'requirement' ELSE 'defect' END,
-    ir.target_id,
-    ir.relation_type, ir.created_by, ir.created_at
-FROM issue_relations ir
-JOIN issues i1 ON ir.source_id = i1.id
-JOIN issues i2 ON ir.target_id = i2.id
-ON CONFLICT (source_type, source_id, target_type, target_id, relation_type) DO NOTHING;
-
-
--- ============================================================================
--- [原 0026] Issue 版本快照审计（对标 Plane IssueVersion / Activity History）
--- ============================================================================
-
-CREATE TABLE IF NOT EXISTS issue_versions (
-    id              BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    workspace_id    BIGINT NOT NULL REFERENCES workspaces(id),
-    project_id      BIGINT NOT NULL REFERENCES projects(id),
-    issue_id        BIGINT NOT NULL,
-    version         INT NOT NULL,
-    snapshot        JSONB NOT NULL,
-    changed_fields  TEXT[] DEFAULT '{}',
-    change_type     TEXT NOT NULL DEFAULT 'update'
-                    CHECK (change_type IN ('create','update','delete','transition')),
-    created_by      BIGINT,
-    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-    UNIQUE (issue_id, version)
-);
-
-ALTER TABLE issue_versions ENABLE ROW LEVEL SECURITY;
-ALTER TABLE issue_versions FORCE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS tenant_isolation ON issue_versions CREATE POLICY tenant_isolation ON issue_versions
-    USING (workspace_id = current_setting('app.workspace_id', true)::bigint)
-    WITH CHECK (workspace_id = current_setting('app.workspace_id', true)::bigint);
-
-CREATE INDEX IF NOT EXISTS idx_issue_versions_issue   ON issue_versions(workspace_id, issue_id, version DESC);
-CREATE INDEX IF NOT EXISTS idx_issue_versions_project ON issue_versions(workspace_id, project_id, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_issue_versions_actor   ON issue_versions(workspace_id, created_by) WHERE created_by IS NOT NULL;
-
-COMMENT ON TABLE issue_versions IS '工作项版本快照：记录每次变更前的字段状态，支撑审计回溯与变更对比';
-COMMENT ON COLUMN issue_versions.snapshot IS '变更前完整字段快照（JSONB，对应 BaseWorkitem 结构）';
-COMMENT ON COLUMN issue_versions.changed_fields IS '本次变更涉及的字段名，便于 diff 视图渲染';
-COMMENT ON COLUMN issue_versions.change_type IS '变更类型：create(创建) / update(字段更新) / delete(软删除) / transition(状态流转)';
-COMMENT ON COLUMN issue_versions.version IS '递增版本号；与 issues.version 一一对应';
-
-
--- ============================================================================
--- [原 0025] Epic 类型 + Module 模块体系
--- ============================================================================
-
--- 1. issues.type_code 约束已含 epic（init 文件 4518 行已对齐），此处确保约束
-ALTER TABLE issues DROP CONSTRAINT IF EXISTS issues_type_code_check;
-ALTER TABLE issues ADD CONSTRAINT issues_type_code_check
-    CHECK (type_code = ANY (ARRAY['epic'::text, 'requirement'::text, 'task'::text, 'defect'::text]));
-
-COMMENT ON COLUMN issues.type_code IS '工作项类型: epic(史诗) / requirement(需求) / task(任务) / defect(缺陷)';
 
 -- 2. modules 表升级：补齐 public_id 列与缺失的约束/索引
 ALTER TABLE modules ADD COLUMN IF NOT EXISTS public_id UUID NOT NULL DEFAULT gen_random_uuid();
@@ -7536,43 +6415,6 @@ ALTER VIEW defect_view SET (security_barrier = true);
 -- ============================================================================
 
 
--- ============================================================================
--- 迁移脚本整合：0028_drop_legacy_issues.up.sql
--- 彻底删除所有旧 issues 相关表、索引、约束、触发器，切换到新的三表结构
--- ============================================================================
-
--- 彻底删除所有旧issues相关表、索引、约束、触发器，完全切换到新的三表结构
--- 执行前请确保所有数据已迁移到新表，且所有代码已适配新结构
--- 该操作不可逆，请勿在生产环境未测试的情况下直接执行
-
--- 删除依赖表（按依赖顺序倒序删除）
-DROP TABLE IF EXISTS issue_reactions;
-DROP TABLE IF EXISTS issue_votes;
-DROP TABLE IF EXISTS issue_subscriptions;
-DROP TABLE IF EXISTS issue_comments;
-DROP TABLE IF EXISTS issue_activities;
-DROP TABLE IF EXISTS issue_dependencies;
-DROP TABLE IF EXISTS issue_relations;
-DROP TABLE IF EXISTS issue_watchers;
-DROP TABLE IF EXISTS issue_modules;
-DROP TABLE IF EXISTS issue_labels;
-DROP TABLE IF EXISTS issue_assignees;
-DROP TABLE IF EXISTS issue_sequences;
-DROP TABLE IF EXISTS sprint_issues;
-DROP TABLE IF EXISTS intake_issues;
-DROP TABLE IF EXISTS project_sequences;
-
--- 删除主表
-DROP TABLE IF EXISTS issues;
-
--- 删除所有旧issues相关的触发器
-DROP TRIGGER IF EXISTS issues_set_updated_at ON issues;
-DROP TRIGGER IF EXISTS issues_set_sequence ON issues;
-DROP TRIGGER IF EXISTS issues_elasticsearch_sync ON issues;
-DROP TRIGGER IF EXISTS issues_outbox ON issues;
-
--- 删除所有旧issues相关的函数
-DROP FUNCTION IF EXISTS generate_issue_identifier;
 
 
 -- ============================================================================
@@ -8350,19 +7192,6 @@ CREATE TRIGGER knowledge_pages_tsv_trigger
   FOR EACH ROW EXECUTE FUNCTION public.knowledge_pages_tsv_trigger_fn();
 
 CREATE INDEX IF NOT EXISTS idx_kp_tsv ON public.knowledge_pages USING GIN (tsv);
-
-
--- ============================================================================
--- 迁移脚本整合：_sprint_issues.sql
--- ============================================================================
-CREATE TABLE IF NOT EXISTS "public"."sprint_issues" (
-  "sprint_id" int8 NOT NULL,
-  "issue_id" int8 NOT NULL,
-  "added_midway" bool NOT NULL DEFAULT false,
-  "sort_order" float8 NOT NULL DEFAULT 65535,
-  "added_at" timestamptz(6) NOT NULL DEFAULT now(),
-  "added_by" int8
-);
 
 
 -- ============================================================================

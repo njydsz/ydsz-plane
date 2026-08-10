@@ -9,15 +9,15 @@ Ydsz Plane 致力于打造面向中国软件开发团队的开源、自托管项
 Ydsz Plane 是一款开源的现代项目管理工具，提供需求池、迭代、缺陷、模块、版本等核心能力。定位为 Jira 的轻量级替代品，面向中小型敏捷开发团队。
 
 ## **<font style="color:rgb(46,117,182);">1.2 核心架构</font>**
-工作空间 (Workspace) ⟶ 项目 (Project) ⟶ 工作项 (Issue)
+工作空间 (Workspace) ⟶ 项目 (Project) ⟶ 需求 (Requirement) / 任务 (Task) / 缺陷 (Defect)
 
-• 工作项通过 type 字段区分：需求 (Requirement)、任务 (Task)、缺陷 (Defect)
+• 需求、任务、缺陷为三类独立的业务实体，各自独立建表、独立追踪（不存在统一的 Issue 单表模型）
 
-• 工作项通过 parent 字段实现 WBS 层级：需求→子需求，任务→子任务，缺陷→子缺陷
+• 三类实体通过 parent 字段实现 WBS 层级：需求→子需求，任务→子任务，缺陷→子缺陷
 
 • 版本日 (Version) = 1~N 迭代 (Sprint) 的里程碑容器
 
-• 模块 (Module) 是工作项的归档属性，非独立管理对象
+• 模块 (Module) 是需求/任务/缺陷的归档属性，非独立管理对象
 
 # **<font style="color:rgb(31,78,121);">2. 竞品对标</font>**
 下表对标一线竞品。● 已支持 / △ 部分 / ○ 不支持 / ✕ 不适用
@@ -542,7 +542,7 @@ Ydsz Plane 是一款开源的现代项目管理工具，提供需求池、迭代
 
 
 ### **<font style="color:rgb(51,51,51);">2.4.2 功能模块开关</font>**
-19. Intake（收件箱）：启用后用户可提交 Intake Issue，由管理员转正进入项目。
+19. Intake（收件箱）：启用后用户可提交 Intake 提报，由管理员转正进入需求/任务/缺陷。
 
 20. Sprint（迭代）：启用后可创建迭代管理 Sprint。
 
@@ -837,7 +837,8 @@ Ydsz Plane 是一款开源的现代项目管理工具，提供需求池、迭代
 62. 提关联缺陷：需求详情→「创建关联缺陷」→ 系统自动关联当前需求 ID → 保存
 
 ## **<font style="color:rgb(46,117,182);">5.5 数据模型设计</font>**
-| **<font style="color:rgb(255,255,255);">📋</font>****<font style="color:rgb(255,255,255);"> issue</font>** | | |
+> 注：本节数据模型为早期草稿，实际已按需求/任务/缺陷三独立业务表拆分，字段与关系表（relation/activity 等）定义以《Ydsz Plane 数据库表设计》为准。
+| **<font style="color:rgb(255,255,255);">📋</font>****<font style="color:rgb(255,255,255);"> requirement</font>** | | |
 | --- | --- | --- |
 | **<font style="color:rgb(255,255,255);">字段名</font>** | **<font style="color:rgb(255,255,255);">类型</font>****<font style="color:rgb(255,255,255);">/约束</font>** | **<font style="color:rgb(255,255,255);">说明</font>** |
 | id | **PK (auto)** | 主键自增ID |
@@ -952,7 +953,8 @@ Ydsz Plane 是一款开源的现代项目管理工具，提供需求池、迭代
 76. 设置依赖：任务详情→「添加依赖」→ 选择前置任务 → 选择依赖类型 → 保存
 
 ## **<font style="color:rgb(46,117,182);">6.5 数据模型设计</font>**
-| **<font style="color:rgb(255,255,255);">📋</font>****<font style="color:rgb(255,255,255);"> issue</font>** | | |
+> 注：本节数据模型为早期草稿，实际已按需求/任务/缺陷三独立业务表拆分，字段与关系表（dependency/relation/activity 等）定义以《Ydsz Plane 数据库表设计》为准。
+| **<font style="color:rgb(255,255,255);">📋</font>****<font style="color:rgb(255,255,255);"> task</font>** | | |
 | --- | --- | --- |
 | **<font style="color:rgb(255,255,255);">字段名</font>** | **<font style="color:rgb(255,255,255);">类型</font>****<font style="color:rgb(255,255,255);">/约束</font>** | **<font style="color:rgb(255,255,255);">说明</font>** |
 | id | **PK (auto)** | 主键自增ID |
@@ -1077,7 +1079,8 @@ Ydsz Plane 是一款开源的现代项目管理工具，提供需求池、迭代
 88. 流转状态：缺陷详情→ 点击状态按钮 → 选择下一状态 → 填写流转说明 → 确认
 
 ## **<font style="color:rgb(46,117,182);">7.5 数据模型设计</font>**
-| **<font style="color:rgb(255,255,255);">📋</font>****<font style="color:rgb(255,255,255);"> issue</font>** | | |
+> 注：本节数据模型为早期草稿，实际已按需求/任务/缺陷三独立业务表拆分，字段与关系表（template/relation/activity 等）定义以《Ydsz Plane 数据库表设计》为准。
+| **<font style="color:rgb(255,255,255);">📋</font>****<font style="color:rgb(255,255,255);"> defect</font>** | | |
 | --- | --- | --- |
 | **<font style="color:rgb(255,255,255);">字段名</font>** | **<font style="color:rgb(255,255,255);">类型</font>****<font style="color:rgb(255,255,255);">/约束</font>** | **<font style="color:rgb(255,255,255);">说明</font>** |
 | id | **PK (auto)** | 主键自增ID |
@@ -1303,12 +1306,12 @@ Ydsz Plane 是一款开源的现代项目管理工具，提供需求池、迭代
 | KnowledgePageVersion | page(FK), version, content_md | 文档版本快照 |
 |  | created_by, created_at | 版本创建信息 |
 |  |  |  |
-| KnowledgePageRelation | page(FK), issue(FK Issue) | 文档与工作项双向关联 |
+| KnowledgePageRelation | page(FK), target_type(requirement/task/defect), target_id | 文档与需求/任务/缺陷双向关联 |
 |  | relation_type(enum) | 关联类型（引用/被引用） |
 
 
 # **<font style="color:rgb(31,78,121);">8.10 收件箱 (Intake/Inbox)</font>**
-收件箱是用户将外部反馈（Defect 报告、功能建议、用户反馈）提交到项目的通道。Intake Issue 经管理员审核后可转正为正式需求/任务/缺陷，或拒绝/归档。对标 Jira Service Management Queue、云效反馈。
+收件箱是用户将外部反馈（Defect 报告、功能建议、用户反馈）提交到项目的通道。Intake 提报经管理员审核后可转正为正式需求/任务/缺陷，或拒绝/归档。对标 Jira Service Management Queue、云效反馈。
 
 ## **<font style="color:rgb(46,117,182);">8.10 功能概述</font>**
 收件箱是面向所有反馈来源的统一收集通道，支持外部Defect 报告、功能建议的筛选、转正和跟踪。对标 Jira Service Management, 云效需求池。
@@ -1317,21 +1320,21 @@ Ydsz Plane 是一款开源的现代项目管理工具，提供需求池、迭代
 | **<font style="color:rgb(255,255,255);">功能点</font>** | **<font style="color:rgb(255,255,255);">Jira Service Management</font>** | **<font style="color:rgb(255,255,255);">云效反馈</font>** | **<font style="color:rgb(255,255,255);">ONES 反馈</font>** | **<font style="color:rgb(255,255,255);">TAPD 反馈</font>** | **<font style="color:rgb(255,255,255);">Ydsz Plane</font>****<font style="color:rgb(255,255,255);"> </font>****<font style="color:rgb(255,255,255);">现有</font>** |
 | --- | --- | --- | --- | --- | --- |
 | <font style="color:rgb(51,51,51);">收件箱</font><font style="color:rgb(51,51,51);"> Channel 配置</font> | <font style="color:rgb(51,51,51);">● 多队列</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> |
-| <font style="color:rgb(51,51,51);">Intake Issue 提交</font> | <font style="color:rgb(51,51,51);">● 门户/邮件</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> |
+| <font style="color:rgb(51,51,51);">Intake 提报提交</font> | <font style="color:rgb(51,51,51);">● 门户/邮件</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> |
 | <font style="color:rgb(51,51,51);">自动分配规则</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> |
-| <font style="color:rgb(51,51,51);">Intake Issue 转正</font> | <font style="color:rgb(51,51,51);">→ Issue</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> |
+| <font style="color:rgb(51,51,51);">Intake 提报转正</font> | <font style="color:rgb(51,51,51);">→ 需求/任务/缺陷</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> |
 | <font style="color:rgb(51,51,51);">审核拒绝</font><font style="color:rgb(51,51,51);">/归档</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> |
 | <font style="color:rgb(51,51,51);">提交者跟踪门户</font> | <font style="color:rgb(51,51,51);">● 公开</font> | <font style="color:rgb(51,51,51);">○</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">○</font> | <font style="color:rgb(51,51,51);">●</font> |
 | <font style="color:rgb(51,51,51);">邮件自动回复</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">○ 规划中</font> |
 | <font style="color:rgb(51,51,51);">Webhook 事件</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> |
-| <font style="color:rgb(51,51,51);">重复</font><font style="color:rgb(51,51,51);"> Issue 检测</font> | <font style="color:rgb(51,51,51);">● AI</font> | <font style="color:rgb(51,51,51);">○</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">○</font> | <font style="color:rgb(51,51,51);">○ 规划中</font> |
+| <font style="color:rgb(51,51,51);">重复提报检测</font> | <font style="color:rgb(51,51,51);">● AI</font> | <font style="color:rgb(51,51,51);">○</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">○</font> | <font style="color:rgb(51,51,51);">○ 规划中</font> |
 | <font style="color:rgb(51,51,51);">知识库</font><font style="color:rgb(51,51,51);">/FAQ 自助</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">○</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">○</font> | <font style="color:rgb(51,51,51);">○</font> |
 
 
 ## **<font style="color:rgb(46,117,182);">8.10 用户故事</font>**
 • 作为外部用户，我希望能通过收件箱通道提交反馈，无需注册账号。
 
-• 作为项目经理，我希望能审核 Intake Issue 并决定转正为需求还是缺陷。
+• 作为项目经理，我希望能审核 Intake 提报并决定转正为需求还是缺陷。
 
 • 作为提交者，我希望能跟踪我的反馈处理进度。
 
@@ -1343,21 +1346,21 @@ Ydsz Plane 是一款开源的现代项目管理工具，提供需求池、迭代
 
 98. 门户页面：自动生成可嵌入的反馈门户页面，支持自定义 Logo 和说明。
 
-### **<font style="color:rgb(51,51,51);">9.3.2 Intake Issue 管理</font>**
+### **<font style="color:rgb(51,51,51);">9.3.2 Intake 提报管理</font>**
 | **<font style="color:rgb(255,255,255);">功能</font>** | **<font style="color:rgb(255,255,255);">详细描述</font>** | **<font style="color:rgb(255,255,255);">验收标准</font>** | **<font style="color:rgb(255,255,255);">优先级</font>** |
 | --- | --- | --- | --- |
 | <font style="color:rgb(51,51,51);">提交反馈</font> | <font style="color:rgb(51,51,51);">填写标题、描述、附件（截图）、优先级（可选）</font> | <font style="color:rgb(51,51,51);">提交成功返回跟踪</font><font style="color:rgb(51,51,51);"> ID</font> | <font style="color:rgb(51,51,51);">P0</font> |
-| <font style="color:rgb(51,51,51);">转正为需求</font> | <font style="color:rgb(51,51,51);">管理员审核后转正为需求，系统创建关联，状态同步</font> | <font style="color:rgb(51,51,51);">Intake 状态变为关联的正式 Issue</font> | <font style="color:rgb(51,51,51);">P0</font> |
-| <font style="color:rgb(51,51,51);">转正为缺陷</font> | <font style="color:rgb(51,51,51);">管理员审核后转正为缺陷，自动关联标题</font><font style="color:rgb(51,51,51);">/描述</font> | <font style="color:rgb(51,51,51);">Intake 状态变为关联的正式 Issue</font> | <font style="color:rgb(51,51,51);">P0</font> |
+| <font style="color:rgb(51,51,51);">转正为需求</font> | <font style="color:rgb(51,51,51);">管理员审核后转正为需求，系统创建关联，状态同步</font> | <font style="color:rgb(51,51,51);">Intake 状态变为关联的正式需求</font> | <font style="color:rgb(51,51,51);">P0</font> |
+| <font style="color:rgb(51,51,51);">转正为缺陷</font> | <font style="color:rgb(51,51,51);">管理员审核后转正为缺陷，自动关联标题</font><font style="color:rgb(51,51,51);">/描述</font> | <font style="color:rgb(51,51,51);">Intake 状态变为关联的正式缺陷</font> | <font style="color:rgb(51,51,51);">P0</font> |
 | <font style="color:rgb(51,51,51);">拒绝</font><font style="color:rgb(51,51,51);">/归档</font> | <font style="color:rgb(51,51,51);">标记为拒绝（无效反馈）或归档（暂不处理）</font> | <font style="color:rgb(51,51,51);">通知提交者（如公开门户）</font> | <font style="color:rgb(51,51,51);">P1</font> |
 | <font style="color:rgb(51,51,51);">自动分配</font> | <font style="color:rgb(51,51,51);">基于模块</font><font style="color:rgb(51,51,51);">/类型自动分配给指定成员</font> | <font style="color:rgb(51,51,51);">分配后通知被指派人</font> | <font style="color:rgb(51,51,51);">P0</font> |
-| <font style="color:rgb(51,51,51);">重复检测（</font><font style="color:rgb(51,51,51);">AI）</font> | <font style="color:rgb(51,51,51);">提交时</font><font style="color:rgb(51,51,51);"> AI 检测可能重复的 Issue，提示候选</font> | <font style="color:rgb(51,51,51);">检测结果高亮展示</font> | <font style="color:rgb(51,51,51);">P2</font> |
+| <font style="color:rgb(51,51,51);">重复检测（</font><font style="color:rgb(51,51,51);">AI）</font> | <font style="color:rgb(51,51,51);">提交时</font><font style="color:rgb(51,51,51);"> AI 检测可能重复的提报，提示候选</font> | <font style="color:rgb(51,51,51);">检测结果高亮展示</font> | <font style="color:rgb(51,51,51);">P2</font> |
 
 
 ## **<font style="color:rgb(46,117,182);">8.10 交互流程</font>**
 99. 提交反馈：收件箱门户/邮件 → 填写信息 → 提交 → 返回跟踪 ID
 
-100. 审核转正：项目→ Intake 模块 → 点击 Issue → 选择转正类型（需求/缺陷）→ 确认
+100. 审核转正：项目→ Intake 模块 → 点击提报 → 选择转正类型（需求/缺陷）→ 确认
 
 101. 跟踪状态：提交者通过跟踪 ID + 邮件查看处理状态
 
@@ -1479,7 +1482,7 @@ DashboardConfig: name, layout(JSON), owner(FK User), is_default, scope(project/s
 ## **<font style="color:rgb(46,117,182);">9.2 个人工作台 (My Workbench)</font>**
 每个团队成员的首页，聚合与「我」相关的所有工作项、迭代动态、通知提醒。对标 TAPD 工作台、云效工作台、Jira Your Work。
 
-WorkbenchConfig: user(FK), layout(JSON), widgets(M2M WidgetDef) WidgetDef: name, type(todo/notification/calendar/iteration), default_config(JSON) TodoItem: user(FK), issue(FK Issue), is_pinned, order
+WorkbenchConfig: user(FK), layout(JSON), widgets(M2M WidgetDef) WidgetDef: name, type(todo/notification/calendar/iteration), default_config(JSON) TodoItem: user(FK), target_type(requirement/task/defect), target_id, is_pinned, order
 
 ### **<font style="color:rgb(51,51,51);">9.2 数据模型设计</font>**
 个人工作台的功能需求详述（详见下方详细功能描述）
@@ -1539,7 +1542,7 @@ WorkbenchConfig: user(FK), layout(JSON), widgets(M2M WidgetDef) WidgetDef: name,
 ## **<font style="color:rgb(46,117,182);">9.3 通知中心 (Notification Center)</font>**
 聚合所有与用户相关的变更事件，支持站内、邮件、IM（企微/钉钉/飞书）多渠道推送。对标 Jira Notification、TAPD 消息中心。
 
-Notification: recipient(FK User), issue(FK Issue), event_type, channel(in_app/email/im), is_read, created_at NotificationSubscription: user(FK), project(FK), event_types(JSON), channels(JSON), is_enabled NotificationDigest: user(FK), frequency(real_time/daily/weekly), last_sent_at
+Notification: recipient(FK User), target_type(requirement/task/defect), target_id, event_type, channel(in_app/email/im), is_read, created_at NotificationSubscription: user(FK), project(FK), event_types(JSON), channels(JSON), is_enabled NotificationDigest: user(FK), frequency(real_time/daily/weekly), last_sent_at
 
 ### **<font style="color:rgb(51,51,51);">9.3 数据模型设计</font>**
 通知中心的功能需求详述（详见下方详细功能描述）
@@ -1717,7 +1720,7 @@ Webhook的功能需求详述（详见下方详细功能描述）
 创建 Webhook → 配置 URL、事件类型、重试规则 → 测试推送 → 查看推送日志
 
 ### **<font style="color:rgb(51,51,51);">9.6 交互流程</font>**
-开发工程师: 我希望 Issue 状态变更时能自动通知钉钉/企业微信。 DevOps: 我需要在 Issue 创建时自动触发 Jenkins 构建。 集成方: 我需要 Webhook 支持签名验证和安全重试。
+开发工程师: 我希望需求/任务/缺陷状态变更时能自动通知钉钉/企业微信。 DevOps: 我需要在需求/任务/缺陷创建时自动触发 Jenkins 构建。 集成方: 我需要 Webhook 支持签名验证和安全重试。
 
 ### **<font style="color:rgb(51,51,51);">9.6 用户故事</font>**
 参见下方竞品对标表格
@@ -1753,7 +1756,7 @@ Webhook & API 提供系统集成能力，支持事件订阅、请求签名、自
 
 
 ### **<font style="color:rgb(51,51,51);">Webhook 事件类型</font>**
-• issue.created / issue.updated / issue.deleted / issue.status_changed
+• requirement.created / task.created / defect.created（以及 .updated / .deleted / .status_changed）
 
 • sprint.created / sprint.started / sprint.completed / sprint.deleted
 
