@@ -833,8 +833,65 @@ CREATE TABLE IF NOT EXISTS biz_entity_relations (
 );
 
 -- ===========================================================================
--- 第九部分: 工时记录（分表）
+-- 第九部分: 活动日志（按月分区）与工时记录（分表）
 -- ===========================================================================
+
+CREATE TABLE IF NOT EXISTS task_activities (
+    id              BIGINT PRIMARY KEY,
+    tenant_id       BIGINT NOT NULL,
+    workspace_id    BIGINT NOT NULL,
+    project_id      BIGINT NOT NULL,
+    task_id         BIGINT NOT NULL,
+    verb            VARCHAR(50) NOT NULL,
+    field_name      VARCHAR(100),
+    old_value       TEXT,
+    new_value       TEXT,
+    actor_id        BIGINT NOT NULL,
+    status          entity_status NOT NULL DEFAULT 'active',
+    deleted         BOOLEAN NOT NULL DEFAULT false,
+    created_by      BIGINT NOT NULL,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_by      BIGINT NOT NULL,
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS requirement_activities (
+    id              BIGINT PRIMARY KEY,
+    tenant_id       BIGINT NOT NULL,
+    workspace_id    BIGINT NOT NULL,
+    project_id      BIGINT NOT NULL,
+    requirement_id  BIGINT NOT NULL,
+    verb            VARCHAR(50) NOT NULL,
+    field_name      VARCHAR(100),
+    old_value       TEXT,
+    new_value       TEXT,
+    actor_id        BIGINT NOT NULL,
+    status          entity_status NOT NULL DEFAULT 'active',
+    deleted         BOOLEAN NOT NULL DEFAULT false,
+    created_by      BIGINT NOT NULL,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_by      BIGINT NOT NULL,
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS defect_activities (
+    id              BIGINT PRIMARY KEY,
+    tenant_id       BIGINT NOT NULL,
+    workspace_id    BIGINT NOT NULL,
+    project_id      BIGINT NOT NULL,
+    defect_id       BIGINT NOT NULL,
+    verb            VARCHAR(50) NOT NULL,
+    field_name      VARCHAR(100),
+    old_value       TEXT,
+    new_value       TEXT,
+    actor_id        BIGINT NOT NULL,
+    status          entity_status NOT NULL DEFAULT 'active',
+    deleted         BOOLEAN NOT NULL DEFAULT false,
+    created_by      BIGINT NOT NULL,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_by      BIGINT NOT NULL,
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
 
 CREATE TABLE IF NOT EXISTS task_timelogs (
     id              BIGINT PRIMARY KEY,
@@ -1782,6 +1839,344 @@ CREATE TABLE IF NOT EXISTS sso_providers (
 
 COMMENT ON TABLE sso_providers IS 'SSO提供方配置表（系统级表，不含tenant_id）';
 
+-- ===========================================================================
+-- 第二十五部分(b): ER总览暗示的补充表（设计文档中通过 xxx_* 范式或ER图暗示的同构表）
+-- ===========================================================================
+
+CREATE TABLE IF NOT EXISTS tenant_members (
+    id              BIGINT PRIMARY KEY,
+    tenant_id       BIGINT NOT NULL,
+    user_id         BIGINT NOT NULL,
+    role            workspace_role_enum NOT NULL DEFAULT 'member',
+    status          entity_status NOT NULL DEFAULT 'active',
+    is_owner        BOOLEAN DEFAULT false,
+    joined_at       TIMESTAMPTZ DEFAULT now(),
+    deleted         BOOLEAN NOT NULL DEFAULT false,
+    created_by      BIGINT NOT NULL,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_by      BIGINT NOT NULL,
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (tenant_id, user_id)
+);
+
+COMMENT ON TABLE tenant_members IS '租户成员表（租户级用户[user↔tenant]多对多）';
+
+CREATE TABLE IF NOT EXISTS user_preferences (
+    id              BIGINT PRIMARY KEY,
+    tenant_id       BIGINT NOT NULL,
+    user_id         BIGINT NOT NULL,
+    key             VARCHAR(100) NOT NULL,
+    value           JSONB,
+    status          entity_status NOT NULL DEFAULT 'active',
+    deleted         BOOLEAN NOT NULL DEFAULT false,
+    created_by      BIGINT NOT NULL,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_by      BIGINT NOT NULL,
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (tenant_id, user_id, key)
+);
+
+CREATE TABLE IF NOT EXISTS role_menus (
+    id              BIGINT PRIMARY KEY,
+    role_id         BIGINT NOT NULL,
+    menu_id         BIGINT NOT NULL,
+    status          entity_status NOT NULL DEFAULT 'active',
+    deleted         BOOLEAN NOT NULL DEFAULT false,
+    created_by      BIGINT NOT NULL,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_by      BIGINT NOT NULL,
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (role_id, menu_id)
+);
+
+COMMENT ON TABLE role_menus IS '角色-权限关联表（多对多）';
+
+CREATE TABLE IF NOT EXISTS project_configs (
+    id              BIGINT PRIMARY KEY,
+    tenant_id       BIGINT NOT NULL,
+    workspace_id    BIGINT NOT NULL,
+    project_id      BIGINT NOT NULL UNIQUE,
+    config          JSONB DEFAULT '{}',
+    status          entity_status NOT NULL DEFAULT 'active',
+    deleted         BOOLEAN NOT NULL DEFAULT false,
+    created_by      BIGINT NOT NULL,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_by      BIGINT NOT NULL,
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+COMMENT ON TABLE project_configs IS '项目级配置表（存储项目特色配置）';
+
+CREATE TABLE IF NOT EXISTS version_sprint_relations (
+    id              BIGINT PRIMARY KEY,
+    tenant_id       BIGINT NOT NULL,
+    workspace_id    BIGINT NOT NULL,
+    project_id      BIGINT NOT NULL,
+    version_id      BIGINT NOT NULL,
+    sprint_id       BIGINT NOT NULL,
+    status          entity_status NOT NULL DEFAULT 'active',
+    deleted         BOOLEAN NOT NULL DEFAULT false,
+    created_by      BIGINT NOT NULL,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_by      BIGINT NOT NULL,
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (project_id, version_id, sprint_id)
+);
+
+COMMENT ON TABLE version_sprint_relations IS '版本-迭代关联表（多对多，版本跨多个迭代）';
+
+CREATE TABLE IF NOT EXISTS sprint_requirements (
+    id              BIGINT PRIMARY KEY,
+    tenant_id       BIGINT NOT NULL,
+    workspace_id    BIGINT NOT NULL,
+    project_id      BIGINT NOT NULL,
+    sprint_id       BIGINT NOT NULL,
+    requirement_id  BIGINT NOT NULL,
+    status          entity_status NOT NULL DEFAULT 'active',
+    deleted         BOOLEAN NOT NULL DEFAULT false,
+    created_by      BIGINT NOT NULL,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_by      BIGINT NOT NULL,
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (project_id, sprint_id, requirement_id)
+);
+
+CREATE TABLE IF NOT EXISTS sprint_tasks (
+    id              BIGINT PRIMARY KEY,
+    tenant_id       BIGINT NOT NULL,
+    workspace_id    BIGINT NOT NULL,
+    project_id      BIGINT NOT NULL,
+    sprint_id       BIGINT NOT NULL,
+    task_id         BIGINT NOT NULL,
+    status          entity_status NOT NULL DEFAULT 'active',
+    deleted         BOOLEAN NOT NULL DEFAULT false,
+    created_by      BIGINT NOT NULL,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_by      BIGINT NOT NULL,
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (project_id, sprint_id, task_id)
+);
+
+CREATE TABLE IF NOT EXISTS sprint_defects (
+    id              BIGINT PRIMARY KEY,
+    tenant_id       BIGINT NOT NULL,
+    workspace_id    BIGINT NOT NULL,
+    project_id      BIGINT NOT NULL,
+    sprint_id       BIGINT NOT NULL,
+    defect_id       BIGINT NOT NULL,
+    status          entity_status NOT NULL DEFAULT 'active',
+    deleted         BOOLEAN NOT NULL DEFAULT false,
+    created_by      BIGINT NOT NULL,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_by      BIGINT NOT NULL,
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (project_id, sprint_id, defect_id)
+);
+
+CREATE TABLE IF NOT EXISTS content_templates (
+    id              BIGINT PRIMARY KEY,
+    tenant_id       BIGINT NOT NULL,
+    workspace_id    BIGINT NOT NULL,
+    project_id      BIGINT,
+    name            VARCHAR(255) NOT NULL,
+    template_type   VARCHAR(50) NOT NULL,
+    content_json    JSONB NOT NULL,
+    content_html    TEXT,
+    is_default      BOOLEAN DEFAULT false,
+    status          entity_status NOT NULL DEFAULT 'active',
+    deleted         BOOLEAN NOT NULL DEFAULT false,
+    created_by      BIGINT NOT NULL,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_by      BIGINT NOT NULL,
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS reviews (
+    id              BIGINT PRIMARY KEY,
+    tenant_id       BIGINT NOT NULL,
+    workspace_id    BIGINT NOT NULL,
+    project_id      BIGINT,
+    name            VARCHAR(255) NOT NULL,
+    review_type     VARCHAR(50) NOT NULL CHECK (review_type IN ('requirement_review', 'design_review', 'code_release', 'test_plan')),
+    status          entity_status NOT NULL DEFAULT 'active',
+    description     TEXT,
+    due_date        DATE,
+    created_date    DATE DEFAULT CURRENT_DATE,
+    completed_date  DATE,
+    deleted         BOOLEAN NOT NULL DEFAULT false,
+    created_by      BIGINT NOT NULL,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_by      BIGINT NOT NULL,
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS review_assignments (
+    id              BIGINT PRIMARY KEY,
+    tenant_id       BIGINT NOT NULL,
+    workspace_id    BIGINT NOT NULL,
+    project_id      BIGINT,
+    review_id       BIGINT NOT NULL,
+    assignee_id     BIGINT NOT NULL,
+    status          entity_status NOT NULL DEFAULT 'active',
+    deleted         BOOLEAN NOT NULL DEFAULT false,
+    created_by      BIGINT NOT NULL,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_by      BIGINT NOT NULL,
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (review_id, assignee_id)
+);
+
+CREATE TABLE IF NOT EXISTS documents (
+    id              BIGINT PRIMARY KEY,
+    code            VARCHAR(50),
+    name            VARCHAR(255) NOT NULL,
+    tenant_id       BIGINT NOT NULL,
+    workspace_id    BIGINT NOT NULL,
+    project_id      BIGINT,
+    public_id       UUID DEFAULT gen_random_uuid(),
+    description     TEXT,
+    cover_image_url TEXT,
+    is_published    BOOLEAN DEFAULT false,
+    is_archived     BOOLEAN DEFAULT false,
+    sort_order      DOUBLE PRECISION DEFAULT 65535,
+    status          entity_status NOT NULL DEFAULT 'active',
+    deleted         BOOLEAN NOT NULL DEFAULT false,
+    created_by      BIGINT NOT NULL,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_by      BIGINT NOT NULL,
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS document_versions (
+    id              BIGINT PRIMARY KEY,
+    tenant_id       BIGINT NOT NULL,
+    workspace_id    BIGINT NOT NULL,
+    project_id      BIGINT,
+    document_id     BIGINT NOT NULL,
+    version_number  INT NOT NULL,
+    change_summary  VARCHAR(255),
+    content_json    JSONB,
+    content_html    TEXT,
+    status          entity_status NOT NULL DEFAULT 'active',
+    deleted         BOOLEAN NOT NULL DEFAULT false,
+    created_by      BIGINT NOT NULL,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_by      BIGINT NOT NULL,
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (document_id, version_number)
+);
+
+CREATE TABLE IF NOT EXISTS share_links (
+    id              BIGINT PRIMARY KEY,
+    tenant_id       BIGINT NOT NULL,
+    workspace_id    BIGINT NOT NULL,
+    project_id      BIGINT,
+    entity_type     VARCHAR(50) NOT NULL,
+    entity_id       BIGINT NOT NULL,
+    share_token     VARCHAR(255) NOT NULL,
+    scope           VARCHAR(20) NOT NULL DEFAULT 'view' CHECK (scope IN ('view', 'comment', 'edit')),
+    password_hash   VARCHAR(255),
+    expires_at      TIMESTAMPTZ,
+    is_active       BOOLEAN DEFAULT true,
+    access_count    INT DEFAULT 0,
+    last_accessed_at TIMESTAMPTZ,
+    status          entity_status NOT NULL DEFAULT 'active',
+    deleted         BOOLEAN NOT NULL DEFAULT false,
+    created_by      BIGINT NOT NULL,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_by      BIGINT NOT NULL,
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (share_token)
+);
+
+CREATE TABLE IF NOT EXISTS notification_subscriptions (
+    id              BIGINT PRIMARY KEY,
+    tenant_id       BIGINT NOT NULL,
+    workspace_id    BIGINT NOT NULL,
+    project_id      BIGINT,
+    user_id         BIGINT NOT NULL,
+    entity_type     VARCHAR(50),
+    entity_id       BIGINT,
+    event_types     TEXT[] DEFAULT '{}',
+    status          entity_status NOT NULL DEFAULT 'active',
+    deleted         BOOLEAN NOT NULL DEFAULT false,
+    created_by      BIGINT NOT NULL,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_by      BIGINT NOT NULL,
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (tenant_id, workspace_id, user_id, entity_type, entity_id)
+);
+
+CREATE TABLE IF NOT EXISTS saved_views (
+    id              BIGINT PRIMARY KEY,
+    tenant_id       BIGINT NOT NULL,
+    workspace_id    BIGINT NOT NULL,
+    project_id      BIGINT,
+    user_id         BIGINT NOT NULL,
+    name            VARCHAR(255) NOT NULL,
+    view_type       VARCHAR(20) NOT NULL,
+    filters         JSONB DEFAULT '{}',
+    columns         JSONB DEFAULT '[]',
+    sort            JSONB DEFAULT '{}',
+    is_shared       BOOLEAN DEFAULT false,
+    sort_order      FLOAT8 DEFAULT 65535,
+    status          entity_status NOT NULL DEFAULT 'active',
+    deleted         BOOLEAN NOT NULL DEFAULT false,
+    created_by      BIGINT NOT NULL,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_by      BIGINT NOT NULL,
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS calendar_events (
+    id              BIGINT PRIMARY KEY,
+    tenant_id       BIGINT NOT NULL,
+    workspace_id    BIGINT NOT NULL,
+    project_id      BIGINT,
+    title           VARCHAR(255) NOT NULL,
+    description     TEXT,
+    start_time      TIMESTAMPTZ NOT NULL,
+    end_time        TIMESTAMPTZ NOT NULL,
+    is_all_day      BOOLEAN DEFAULT false,
+    location        VARCHAR(255),
+    event_type      VARCHAR(20) NOT NULL DEFAULT 'meeting' CHECK (event_type IN ('meeting', 'milestone', 'reminder', 'other')),
+    source_type     VARCHAR(20) CHECK (source_type IN ('manual', 'sprint', 'version')),
+    source_id       BIGINT,
+    idempotency_key VARCHAR(100),
+    organizer_id    BIGINT,
+    status          entity_status NOT NULL DEFAULT 'active',
+    version         INT DEFAULT 1,
+    deleted         BOOLEAN NOT NULL DEFAULT false,
+    created_by      BIGINT NOT NULL,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_by      BIGINT NOT NULL,
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CHECK (end_time >= start_time)
+);
+
+CREATE TABLE IF NOT EXISTS data_jobs (
+    id              BIGINT PRIMARY KEY,
+    tenant_id       BIGINT NOT NULL,
+    workspace_id    BIGINT NOT NULL,
+    project_id      BIGINT,
+    job_type        VARCHAR(50) NOT NULL CHECK (job_type IN ('export', 'import', 'bulk_update', 'bulk_delete', 'cleanup', 'reindex')),
+    name            VARCHAR(255) NOT NULL,
+    parameters      JSONB DEFAULT '{}',
+    progress        INT DEFAULT 0 CHECK (progress BETWEEN 0 AND 100),
+    status          work_item_status NOT NULL DEFAULT 'active',
+    error_message   TEXT,
+    scheduled_at    TIMESTAMPTZ,
+    executed_at     TIMESTAMPTZ,
+    completed_at    TIMESTAMPTZ,
+    duration_ms     BIGINT,
+    triggered_by    BIGINT,
+    deleted         BOOLEAN NOT NULL DEFAULT false,
+    created_by      BIGINT NOT NULL,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_by      BIGINT NOT NULL,
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 CREATE TABLE IF NOT EXISTS deployment_events (
     id              BIGINT PRIMARY KEY,
     tenant_id       BIGINT NOT NULL,
@@ -1985,7 +2380,12 @@ DECLARE
         'defect_assignees', 'defect_labels', 'defect_modules',
         'defect_watchers', 'defect_relations', 'defect_comments',
         'biz_entity_relations', 'task_timelogs', 'requirement_timelogs', 'defect_timelogs',
-        'task_attachments', 'requirement_attachments', 'defect_attachments'
+        'task_activities', 'requirement_activities', 'defect_activities',
+        'task_attachments', 'requirement_attachments', 'defect_attachments',
+        'tenant_members', 'user_preferences', 'role_menus', 'project_configs',
+        'version_sprint_relations', 'sprint_requirements', 'sprint_tasks', 'sprint_defects',
+        'content_templates', 'reviews', 'review_assignments', 'documents', 'document_versions',
+        'share_links', 'notification_subscriptions', 'saved_views', 'calendar_events', 'data_jobs'
     ];
 BEGIN
     FOREACH tbl IN ARRAY tables
@@ -1997,6 +2397,28 @@ BEGIN
         END IF;
     END LOOP;
 END $$;
+
+-- ===========================================================================
+-- 第二十六部分(b): 补充索引（新增表的索引）
+-- ===========================================================================
+
+CREATE INDEX idx_tenant_members_tenant ON tenant_members (tenant_id) WHERE NOT deleted;
+CREATE INDEX idx_user_preferences_user ON user_preferences (tenant_id, user_id) WHERE NOT deleted;
+CREATE INDEX idx_role_menus_role ON role_menus (role_id) WHERE NOT deleted;
+CREATE INDEX idx_version_sprint_v ON version_sprint_relations (tenant_id, version_id) WHERE NOT deleted;
+CREATE INDEX idx_version_sprint_s ON version_sprint_relations (tenant_id, sprint_id) WHERE NOT deleted;
+CREATE INDEX idx_sprint_items_sprint ON sprint_tasks (tenant_id, project_id, sprint_id) WHERE NOT deleted;
+CREATE INDEX idx_documents_project ON documents (tenant_id, workspace_id, project_id) WHERE NOT deleted;
+CREATE INDEX idx_calendar_events_time ON calendar_events (tenant_id, workspace_id, start_time) WHERE NOT deleted;
+CREATE INDEX idx_data_jobs_status ON data_jobs (tenant_id, workspace_id, job_type, status) WHERE NOT deleted;
+CREATE INDEX idx_notif_subs_user ON notification_subscriptions (tenant_id, user_id) WHERE NOT deleted;
+CREATE INDEX idx_saved_views_user ON saved_views (tenant_id, workspace_id, user_id, view_type) WHERE NOT deleted;
+
+-- 活动日志索引
+CREATE INDEX idx_task_activities ON task_activities (tenant_id, project_id, task_id, created_at DESC) WHERE NOT deleted;
+CREATE INDEX idx_requirement_activities ON requirement_activities (tenant_id, project_id, requirement_id, created_at DESC) WHERE NOT deleted;
+CREATE INDEX idx_defect_activities ON defect_activities (tenant_id, project_id, defect_id, created_at DESC) WHERE NOT deleted;
+CREATE INDEX idx_workbench_configs_user ON workbench_configs (tenant_id, user_id) WHERE NOT deleted;
 
 -- ===========================================================================
 -- 第二十七部分: 种子数据（最小化）
