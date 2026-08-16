@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -321,14 +322,14 @@ func (s *Service) Reorder(ctx context.Context, wsID, issueID int64, in ReorderIn
 	if in.Version != nil {
 		tag, err := s.db.Exec(ctx, `
 			UPDATE `+table+` SET sort_order = $1, updated_at = now(), version = version + 1
-			WHERE id = $2 AND workspace_id = $3 AND deleted_at IS NULL AND version = $4`,
+			WHERE id = $2 AND workspace_id = $3 AND deleted = false AND version = $4`,
 			newOrder, issueID, wsID, *in.Version)
 		if err != nil { return nil, errs.ErrInternal.Wrap(err) }
 		if tag.RowsAffected() == 0 { return nil, errs.ErrVersionConflict }
 	} else {
 		_, err := s.db.Exec(ctx, `
 			UPDATE `+table+` SET sort_order = $1, updated_at = now(), version = version + 1
-			WHERE id = $2 AND workspace_id = $3 AND deleted_at IS NULL`,
+			WHERE id = $2 AND workspace_id = $3 AND deleted = false`,
 			newOrder, issueID, wsID)
 		if err != nil { return nil, errs.ErrInternal.Wrap(err) }
 	}
@@ -352,7 +353,7 @@ func (s *Service) BatchUpdate(ctx context.Context, wsID, projectID, userID int64
 				break
 			}
 			var ver int
-			batchErr = s.db.QueryRow(ctx, `SELECT version FROM `+tc.Table()+` WHERE id = $1 AND workspace_id = $2 AND deleted_at IS NULL`, id, wsID).Scan(&ver)
+			batchErr = s.db.QueryRow(ctx, `SELECT version FROM `+tc.Table()+` WHERE id = $1 AND workspace_id = $2 AND deleted = false`, id, wsID).Scan(&ver)
 			if batchErr != nil { break }
 			batchErr = s.directUpdate(ctx, tc, wsID, id, in.AssigneeID, in.Priority, ver)
 		}
@@ -369,15 +370,17 @@ func (s *Service) BatchUpdate(ctx context.Context, wsID, projectID, userID int64
 }
 
 func (s *Service) directUpdate(ctx context.Context, tc IssueTypeCode, wsID, issueID int64, assigneeID *int64, priority *string, expectedVersion int) error {
+	prefix := workitemM2MPrefix(tc)
+	idCol := prefix + "_id"
 	return coordinatorWithTx(ctx, s.db, wsID, func(tx pgx.Tx) error {
 		if assigneeID != nil {
-			if _, err := tx.Exec(ctx, `DELETE FROM issue_assignees WHERE issue_id = $1`, issueID); err != nil { return err }
-			if _, err := tx.Exec(ctx, `INSERT INTO issue_assignees (issue_id, user_id) VALUES ($1,$2) ON CONFLICT DO NOTHING`, issueID, *assigneeID); err != nil { return err }
+			if _, err := tx.Exec(ctx, fmt.Sprintf(`DELETE FROM %s_assignees WHERE %s = $1`, prefix, idCol), issueID); err != nil { return err }
+			if _, err := tx.Exec(ctx, fmt.Sprintf(`INSERT INTO %s_assignees (%s, user_id) VALUES ($1,$2) ON CONFLICT DO NOTHING`, prefix, idCol), issueID, *assigneeID); err != nil { return err }
 		}
 		if priority != nil {
 			tag, err := tx.Exec(ctx, `
 				UPDATE `+tc.Table()+` SET priority = $1, updated_at = now(), version = version + 1
-				WHERE id = $2 AND workspace_id = $3 AND deleted_at IS NULL AND version = $4`,
+				WHERE id = $2 AND workspace_id = $3 AND deleted = false AND version = $4`,
 				*priority, issueID, wsID, expectedVersion)
 			if err != nil { return err }
 			if tag.RowsAffected() == 0 { return errs.ErrVersionConflict }
@@ -409,19 +412,19 @@ func (s *Service) List(ctx context.Context, opts ListIssuesOptions) ([]Issue, in
 			       parent_id, depth, name, state_id, priority, NULL::int AS severity,
 			       category, point, start_date, target_date, progress, version,
 			       created_by, created_at, updated_at, project_id AS pid
-			FROM task WHERE workspace_id = $2 AND deleted_at IS NULL
+			FROM task WHERE workspace_id = $2 AND deleted = false
 			UNION ALL
 			SELECT id, public_id, workspace_id, project_id, sequence_id, 'requirement'::text,
 			       parent_id, depth, name, state_id, priority, NULL::int,
 			       NULL::text, point, start_date, target_date, progress, version,
 			       created_by, created_at, updated_at, project_id
-			FROM requirement WHERE workspace_id = $2 AND deleted_at IS NULL
+			FROM requirement WHERE workspace_id = $2 AND deleted = false
 			UNION ALL
 			SELECT id, public_id, workspace_id, project_id, sequence_id, 'defect'::text,
 			       parent_id, depth, name, state_id, priority, severity,
 			       NULL::text, point, start_date, target_date, progress, version,
 			       created_by, created_at, updated_at, project_id
-			FROM defect WHERE workspace_id = $2 AND deleted_at IS NULL
+			FROM defect WHERE workspace_id = $2 AND deleted = false
 		) i
 		JOIN states s ON s.id = i.state_id
 		JOIN projects p ON p.id = i.pid
@@ -473,35 +476,50 @@ func (s *Service) List(ctx context.Context, opts ListIssuesOptions) ([]Issue, in
 	return issues, 0, rows.Err()
 }
 
-// Watch / Unwatch 共用 issue_watchers 表。
+// Watch / Unwatch 共用分表 {type}_watchers 表。
 func (s *Service) Watch(ctx context.Context, wsID, issueID, userID int64) error {
-	_, err := s.db.Exec(ctx,
-		`INSERT INTO issue_watchers (issue_id, user_id) VALUES ($1,$2) ON CONFLICT DO NOTHING`,
-		issueID, userID)
+	tc, err := detectWorkitemType(ctx, s.db, issueID)
+	if err != nil {
+		return err
+	}
+	prefix := workitemM2MPrefix(tc)
+	_, err = s.db.Exec(ctx,
+		fmt.Sprintf(`INSERT INTO %s_watchers (workspace_id, %s_id, user_id) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING`, prefix, prefix),
+		wsID, issueID, userID)
 	if err != nil { return errs.ErrInternal.Wrap(err) }
 	return nil
 }
 
 func (s *Service) Unwatch(ctx context.Context, wsID, issueID, userID int64) error {
-	_, err := s.db.Exec(ctx,
-		`DELETE FROM issue_watchers WHERE issue_id = $1 AND user_id = $2`, issueID, userID)
+	tc, err := detectWorkitemType(ctx, s.db, issueID)
+	if err != nil {
+		return err
+	}
+	prefix := workitemM2MPrefix(tc)
+	_, err = s.db.Exec(ctx,
+		fmt.Sprintf(`DELETE FROM %s_watchers WHERE %s_id = $1 AND user_id = $2`, prefix, prefix), issueID, userID)
 	if err != nil { return errs.ErrInternal.Wrap(err) }
 	return nil
 }
 
 func (s *Service) LoadWatchers(ctx context.Context, issueID int64) ([]int64, error) {
-	return loadIntArray(ctx, s.db, `SELECT user_id FROM issue_watchers WHERE issue_id = $1`, issueID)
+	tc, err := detectWorkitemType(ctx, s.db, issueID)
+	if err != nil {
+		return nil, err
+	}
+	prefix := workitemM2MPrefix(tc)
+	return loadIntArray(ctx, s.db, fmt.Sprintf(`SELECT user_id FROM %s_watchers WHERE %s_id = $1`, prefix, prefix), issueID)
 }
 
 // detectType 确定工作项类型。
 func (s *Service) detectType(ctx context.Context, wsID, issueID int64) (IssueTypeCode, error) {
 	var tc string
 	err := s.db.QueryRow(ctx, `
-		SELECT 'task' FROM task WHERE id = $1 AND workspace_id = $2 AND deleted_at IS NULL
+		SELECT 'task' FROM task WHERE id = $1 AND workspace_id = $2 AND deleted = false
 		UNION ALL
-		SELECT 'requirement' FROM requirement WHERE id = $1 AND workspace_id = $2 AND deleted_at IS NULL
+		SELECT 'requirement' FROM requirement WHERE id = $1 AND workspace_id = $2 AND deleted = false
 		UNION ALL
-		SELECT 'defect' FROM defect WHERE id = $1 AND workspace_id = $2 AND deleted_at IS NULL
+		SELECT 'defect' FROM defect WHERE id = $1 AND workspace_id = $2 AND deleted = false
 		LIMIT 1`, issueID, wsID).Scan(&tc)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) { return "", errs.ErrNotFound }
@@ -600,19 +618,19 @@ func buildCoordinatorWhere(opts ListIssuesOptions) (string, []interface{}) {
 		clauses = append(clauses, "i.name ILIKE $"+strconv.Itoa(arg)); args = append(args, "%"+opts.Search+"%"); arg++
 	}
 	if opts.AssigneeID != nil {
-		clauses = append(clauses, "EXISTS(SELECT 1 FROM issue_assignees ia WHERE ia.issue_id = i.id AND ia.user_id = $"+strconv.Itoa(arg)+")")
+		clauses = append(clauses, "EXISTS(SELECT 1 FROM task_assignees WHERE task_id = i.id AND user_id = $"+strconv.Itoa(arg)+" UNION ALL SELECT 1 FROM requirement_assignees WHERE requirement_id = i.id AND user_id = $"+strconv.Itoa(arg)+" UNION ALL SELECT 1 FROM defect_assignees WHERE defect_id = i.id AND user_id = $"+strconv.Itoa(arg)+")")
 		args = append(args, *opts.AssigneeID); arg++
 	}
 	if opts.LabelID != nil {
-		clauses = append(clauses, "EXISTS(SELECT 1 FROM issue_labels il WHERE il.issue_id = i.id AND il.label_id = $"+strconv.Itoa(arg)+")")
+		clauses = append(clauses, "EXISTS(SELECT 1 FROM task_labels WHERE task_id = i.id AND label_id = $"+strconv.Itoa(arg)+" UNION ALL SELECT 1 FROM requirement_labels WHERE requirement_id = i.id AND label_id = $"+strconv.Itoa(arg)+" UNION ALL SELECT 1 FROM defect_labels WHERE defect_id = i.id AND label_id = $"+strconv.Itoa(arg)+")")
 		args = append(args, *opts.LabelID); arg++
 	}
 	if opts.ModuleID != nil {
-		clauses = append(clauses, "EXISTS(SELECT 1 FROM issue_modules im WHERE im.issue_id = i.id AND im.module_id = $"+strconv.Itoa(arg)+")")
+		clauses = append(clauses, "EXISTS(SELECT 1 FROM task_modules WHERE task_id = i.id AND module_id = $"+strconv.Itoa(arg)+" UNION ALL SELECT 1 FROM requirement_modules WHERE requirement_id = i.id AND module_id = $"+strconv.Itoa(arg)+" UNION ALL SELECT 1 FROM defect_modules WHERE defect_id = i.id AND module_id = $"+strconv.Itoa(arg)+")")
 		args = append(args, *opts.ModuleID); arg++
 	}
 	if opts.SprintID != nil {
-		clauses = append(clauses, "EXISTS(SELECT 1 FROM sprint_issues si WHERE si.issue_id = i.id AND si.sprint_id = $"+strconv.Itoa(arg)+")")
+		clauses = append(clauses, "EXISTS(SELECT 1 FROM sprint_tasks WHERE task_id = i.id AND sprint_id = $"+strconv.Itoa(arg)+" UNION ALL SELECT 1 FROM sprint_requirements WHERE requirement_id = i.id AND sprint_id = $"+strconv.Itoa(arg)+" UNION ALL SELECT 1 FROM sprint_defects WHERE defect_id = i.id AND sprint_id = $"+strconv.Itoa(arg)+")")
 		args = append(args, *opts.SprintID); arg++
 	}
 	if opts.StartDateFrom != nil {

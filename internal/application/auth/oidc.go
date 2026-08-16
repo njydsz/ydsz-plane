@@ -419,7 +419,7 @@ func (s *OIDCService) findOrCreateUser(ctx context.Context, cfg *OIDCProviderCon
 	err := s.db.QueryRow(ctx, `
 		SELECT id, email, display_name, coalesce(avatar_url, '')
 		FROM users
-		WHERE sso_provider = $1 AND sso_subject = $2 AND deleted_at IS NULL`,
+		WHERE sso_provider = $1 AND sso_subject = $2 AND deleted = false`,
 		fmt.Sprintf("oidc:%d", providerID), info.Subject).
 		Scan(&user.ID, &user.Email, &user.DisplayName, &user.AvatarURL)
 
@@ -431,7 +431,7 @@ func (s *OIDCService) findOrCreateUser(ctx context.Context, cfg *OIDCProviderCon
 	err = s.db.QueryRow(ctx, `
 		SELECT id, email, display_name, coalesce(avatar_url, '')
 		FROM users
-		WHERE email = $1 AND deleted_at IS NULL`,
+		WHERE email = $1 AND deleted = false`,
 		info.Email).
 		Scan(&user.ID, &user.Email, &user.DisplayName, &user.AvatarURL)
 

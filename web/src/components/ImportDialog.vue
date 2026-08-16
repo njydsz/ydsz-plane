@@ -72,8 +72,8 @@ const canSubmit = computed(() => {
   return true;
 });
 
-/** 文件选择 → 解析 header + 前几行 */
-function onFileChange(e: Event) {
+/** 文件选择 → 解析 header + 前几行（CSV 本地解析，XLSX 走后端预览） */
+async function onFileChange(e: Event) {
   const input = e.target as HTMLInputElement;
   const f = input.files?.[0];
   if (!f) return;
@@ -81,14 +81,31 @@ function onFileChange(e: Event) {
   parseError.value = "";
   parsing.value = true;
 
-  // XLSX 走 stub：目前后端返回 501；前端仍可解析 CSV 预览
   if (f.name.toLowerCase().endsWith(".xlsx")) {
-    parseError.value = "Excel (.xlsx) 导入暂需后端添加依赖，请先使用 CSV 格式";
-    parsing.value = false;
+    try {
+      const r = await issueApi.previewImport(props.wsId, props.projectId, f);
+      applyHeaders(r.headers ?? [], r.preview_rows ?? []);
+    } catch (err) {
+      parseError.value = err instanceof Error ? err.message : "文件解析失败";
+      parsing.value = false;
+    }
     return;
   }
 
   parseCSV(f);
+}
+
+/** 用后端/本地解析出的 header 与预览行填充映射步骤 */
+function applyHeaders(headerList: string[], rows: string[][]) {
+  headers.value = headerList;
+  previewRows.value = rows;
+  // 默认映射：表头与 IMPORT_FIELD_LABELS 匹配的自动选上
+  mappings.value = headerList.map((h) => ({
+    column_name: h,
+    field: guessField(h),
+  }));
+  step.value = STEP.MAPPING;
+  parsing.value = false;
 }
 
 /** 用浏览器原生 CSV 解析（简化版，不做 full RFC 4180） */
@@ -103,16 +120,9 @@ function parseCSV(f: File) {
       return;
     }
     const sep = detectSeparator(lines[0]);
-    headers.value = splitLine(lines[0], sep);
-    previewRows.value = lines.slice(1, 4).map((l) => splitLine(l, sep));
-
-    // 默认映射：表头与 IMPORT_FIELD_LABELS 匹配的自动选上
-    mappings.value = headers.value.map((h) => ({
-      column_name: h,
-      field: guessField(h),
-    }));
-    step.value = STEP.MAPPING;
-    parsing.value = false;
+    const headerList = splitLine(lines[0], sep);
+    const rows = lines.slice(1, 4).map((l) => splitLine(l, sep));
+    applyHeaders(headerList, rows);
   };
   reader.onerror = () => {
     parseError.value = "文件读取失败";

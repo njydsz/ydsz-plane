@@ -88,7 +88,7 @@ func (s *TaskService) GetByID(ctx context.Context, wsID, taskID int64) (*Task, e
 		FROM task t
 		JOIN states s ON s.id = t.state_id
 		JOIN projects p ON p.id = t.project_id
-		WHERE t.id = $1 AND t.workspace_id = $2 AND t.deleted_at IS NULL`,
+		WHERE t.id = $1 AND t.workspace_id = $2 AND t.deleted = false`,
 		taskID, wsID).Scan(
 		&t.ID, &t.PublicID, &t.WorkspaceID, &t.ProjectID, &t.SequenceID,
 		&t.TypeCode, &parentID, &t.Depth, &t.Name,
@@ -115,10 +115,10 @@ func (s *TaskService) GetByID(ctx context.Context, wsID, taskID int64) (*Task, e
 	if completedAt.Valid { t.CompletedAt = &completedAt.Time }
 	if sprintID.Valid { v := sprintID.Int64; t.SprintID = &v }
 	if versionID.Valid { v := versionID.Int64; t.VersionID = &v }
-	t.Assignees, _ = loadIntArray(ctx, s.db, `SELECT user_id FROM issue_assignees WHERE issue_id = $1`, taskID)
-	t.Labels, _ = loadIntArray(ctx, s.db, `SELECT label_id FROM issue_labels WHERE issue_id = $1`, taskID)
-	t.Modules, _ = loadIntArray(ctx, s.db, `SELECT module_id FROM issue_modules WHERE issue_id = $1`, taskID)
-	t.Watchers, _ = loadIntArray(ctx, s.db, `SELECT user_id FROM issue_watchers WHERE issue_id = $1`, taskID)
+	t.Assignees, _ = loadIntArray(ctx, s.db, `SELECT user_id FROM task_assignees WHERE task_id = $1`, taskID)
+	t.Labels, _ = loadIntArray(ctx, s.db, `SELECT label_id FROM task_labels WHERE task_id = $1`, taskID)
+	t.Modules, _ = loadIntArray(ctx, s.db, `SELECT module_id FROM task_modules WHERE task_id = $1`, taskID)
+	t.Watchers, _ = loadIntArray(ctx, s.db, `SELECT user_id FROM task_watchers WHERE task_id = $1`, taskID)
 
 	return &t, nil
 }
@@ -137,18 +137,18 @@ func (s *TaskService) Update(ctx context.Context, wsID, taskID int64, in UpdateT
 
 		sets, args := buildTaskUpdateSet(in)
 		if len(sets) == 0 {
-			return sharedUpdateM2M(ctx, tx, taskID, in.Assignees, in.Labels, in.Modules)
+			return sharedUpdateM2M(ctx, tx, TypeTask, wsID, current.ProjectID, taskID, in.Assignees, in.Labels, in.Modules)
 		}
 
 		sets = append(sets, "updated_at = now()")
-		query := fmt.Sprintf(`UPDATE task SET %s WHERE id = $%d AND workspace_id = $%d AND version = $%d AND deleted_at IS NULL`,
+		query := fmt.Sprintf(`UPDATE task SET %s WHERE id = $%d AND workspace_id = $%d AND version = $%d AND deleted = false`,
 			strings.Join(sets, ", "), len(args)+1, len(args)+2, len(args)+3)
 		args = append(args, taskID, wsID, in.Version)
 
 		tag, err := tx.Exec(ctx, query, args...)
 		if err != nil { return err }
 		if tag.RowsAffected() == 0 { return errs.ErrVersionConflict }
-		return sharedUpdateM2M(ctx, tx, taskID, in.Assignees, in.Labels, in.Modules)
+		return sharedUpdateM2M(ctx, tx, TypeTask, wsID, current.ProjectID, taskID, in.Assignees, in.Labels, in.Modules)
 	})
 	if err != nil { return nil, err }
 	return s.GetByID(ctx, wsID, taskID)
@@ -157,12 +157,12 @@ func (s *TaskService) Update(ctx context.Context, wsID, taskID int64, in UpdateT
 // SoftDelete 归档。
 func (s *TaskService) SoftDelete(ctx context.Context, wsID, taskID int64) error {
 	return s.withTx(ctx, wsID, func(tx pgx.Tx) error {
-		if _, err := tx.Exec(ctx, `DELETE FROM sprint_issues WHERE issue_id = $1`, taskID); err != nil {
+		if _, err := tx.Exec(ctx, `DELETE FROM sprint_tasks WHERE task_id = $1`, taskID); err != nil {
 			return err
 		}
 		tag, err := tx.Exec(ctx, `
-			UPDATE task SET deleted_at = now(), updated_at = now()
-			WHERE id = $1 AND workspace_id = $2 AND deleted_at IS NULL`, taskID, wsID)
+			UPDATE task SET deleted = true, updated_at = now()
+			WHERE id = $1 AND workspace_id = $2 AND deleted = false`, taskID, wsID)
 		if err != nil { return err }
 		if tag.RowsAffected() == 0 { return errs.ErrNotFound }
 		return nil
@@ -172,8 +172,8 @@ func (s *TaskService) SoftDelete(ctx context.Context, wsID, taskID int64) error 
 // Restore 从回收站恢复。
 func (s *TaskService) Restore(ctx context.Context, wsID, taskID int64) error {
 	tag, err := s.db.Exec(ctx, `
-		UPDATE task SET deleted_at = NULL, updated_at = now()
-		WHERE id = $1 AND workspace_id = $2 AND deleted_at IS NOT NULL`, taskID, wsID)
+		UPDATE task SET deleted = false, updated_at = now()
+		WHERE id = $1 AND workspace_id = $2 AND deleted = true`, taskID, wsID)
 	if err != nil { return errs.ErrInternal.Wrap(err) }
 	if tag.RowsAffected() == 0 { return errs.ErrNotFound }
 	return nil
@@ -200,13 +200,13 @@ func (s *TaskService) Transition(ctx context.Context, wsID, projectID, taskID, t
 			progress = 100
 		}
 		query := fmt.Sprintf(`UPDATE task SET state_id = $1, completed_at = %s, progress = $2, version = version + 1, updated_at = now()
-			WHERE id = $3 AND workspace_id = $4 AND deleted_at IS NULL`, completedAtClause)
+			WHERE id = $3 AND workspace_id = $4 AND deleted = false`, completedAtClause)
 		if _, err := tx.Exec(ctx, query, toStateID, progress, taskID, wsID); err != nil {
 			return err
 		}
 		t.StateID = toStateID
 
-		assignees := loadIntArrayTx(ctx, tx, `SELECT user_id FROM issue_assignees WHERE issue_id = $1`, taskID)
+		assignees := loadIntArrayTx(ctx, tx, `SELECT user_id FROM task_assignees WHERE task_id = $1`, taskID)
 		var identifier, name string
 		_ = tx.QueryRow(ctx, `SELECT p.identifier, t.name FROM task t JOIN projects p ON p.id = t.project_id
 			WHERE t.id = $1`, taskID).Scan(&identifier, &name)
@@ -236,7 +236,7 @@ func (s *TaskService) insertTask(ctx context.Context, in CreateTaskInput, stateI
 		if err != nil {
 			return mapTaskPgError(err)
 		}
-		if err := insertM2M(ctx, tx, taskID, in.Assignees, in.Labels, in.Modules); err != nil {
+		if err := insertM2M(ctx, tx, TypeTask, in.WorkspaceID, in.ProjectID, taskID, in.Assignees, in.Labels, in.Modules); err != nil {
 			return err
 		}
 		var identifier string
@@ -254,7 +254,7 @@ func (s *TaskService) getByIDTx(ctx context.Context, tx pgx.Tx, taskID, wsID int
 	err := tx.QueryRow(ctx, `
 		SELECT id, workspace_id, project_id, sequence_id, 'task'::text, parent_id, depth,
 		       name, state_id, priority, version, created_by
-		FROM task WHERE id = $1 AND workspace_id = $2 AND deleted_at IS NULL`, taskID, wsID).Scan(
+		FROM task WHERE id = $1 AND workspace_id = $2 AND deleted = false`, taskID, wsID).Scan(
 		&t.ID, &t.WorkspaceID, &t.ProjectID, &t.SequenceID,
 		&t.TypeCode, &parentID, &t.Depth,
 		&t.Name, &t.StateID, &t.Priority, &t.Version, &t.CreatedBy)

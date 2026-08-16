@@ -17,9 +17,9 @@ const CrossTypeWorkitemUnion = `(SELECT
   source, point, sprint_id, progress,
   start_date, target_date, completed_at,
   is_draft, sort_order, version, version_id,
-  found_version_id, fix_version_id, external_id,
-  created_by, created_at, updated_at, deleted_at
-FROM requirement WHERE deleted_at IS NULL
+  NULL::bigint AS found_version_id, NULL::bigint AS fix_version_id,
+  created_by, created_at, updated_at, deleted
+FROM requirement WHERE deleted = false
 UNION ALL
 SELECT
   id, public_id, workspace_id, project_id, sequence_id,
@@ -32,9 +32,9 @@ SELECT
   NULL::text, point, sprint_id, progress,
   start_date, target_date, completed_at,
   is_draft, sort_order, version, version_id,
-  found_version_id, fix_version_id, external_id,
-  created_by, created_at, updated_at, deleted_at
-FROM task WHERE deleted_at IS NULL
+  NULL::bigint AS found_version_id, NULL::bigint AS fix_version_id,
+  created_by, created_at, updated_at, deleted
+FROM task WHERE deleted = false
 UNION ALL
 SELECT
   id, public_id, workspace_id, project_id, sequence_id,
@@ -47,9 +47,9 @@ SELECT
   NULL::text, point, sprint_id, progress,
   start_date, target_date, completed_at,
   is_draft, sort_order, version, version_id,
-  found_version_id, fix_version_id, external_id,
-  created_by, created_at, updated_at, deleted_at
-FROM defect WHERE deleted_at IS NULL)`
+  found_version_id, fix_version_id,
+  created_by, created_at, updated_at, deleted
+FROM defect WHERE deleted = false)`
 
 // WorkitemUnionAlias 是 UNION ALL 子查询的标准别名（SQL 中与 CrossTypeWorkitemUnion 配套使用）。
 const WorkitemUnionAlias = "w"

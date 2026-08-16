@@ -72,10 +72,15 @@ func (x *dbActionExecutor) AssignIssue(ctx context.Context, wsID, projectID, iss
 	if userID <= 0 {
 		return fmt.Errorf("assign: invalid user_id %d", userID)
 	}
-	_, err := x.db.Exec(ctx, `
-		INSERT INTO issue_assignees (issue_id, user_id)
-		VALUES ($1, $2)
-		ON CONFLICT (issue_id, user_id) DO NOTHING`, issueID, userID)
+	iss, err := x.issueSvc.GetByID(ctx, wsID, issueID)
+	if err != nil {
+		return fmt.Errorf("assign: load issue: %w", err)
+	}
+	prefix := iss.TypeCode.Table()
+	_, err = x.db.Exec(ctx, fmt.Sprintf(`
+		INSERT INTO %s_assignees (workspace_id, %s_id, user_id)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (%s_id, user_id) DO NOTHING`, prefix, prefix, prefix), wsID, issueID, userID)
 	if err != nil {
 		return fmt.Errorf("assign: upsert assignee: %w", err)
 	}
@@ -228,17 +233,17 @@ func (x *dbActionExecutor) directUpdate(ctx context.Context, wsID, issueID int64
 	// 先确定工作项所在表
 	var tc string
 	err := x.db.QueryRow(ctx, `
-		SELECT 'task' FROM task WHERE id = $1 AND workspace_id = $2 AND deleted_at IS NULL
+		SELECT 'task' FROM task WHERE id = $1 AND workspace_id = $2 AND deleted = false
 		UNION ALL
-		SELECT 'requirement' FROM requirement WHERE id = $1 AND workspace_id = $2 AND deleted_at IS NULL
+		SELECT 'requirement' FROM requirement WHERE id = $1 AND workspace_id = $2 AND deleted = false
 		UNION ALL
-		SELECT 'defect' FROM defect WHERE id = $1 AND workspace_id = $2 AND deleted_at IS NULL
+		SELECT 'defect' FROM defect WHERE id = $1 AND workspace_id = $2 AND deleted = false
 		LIMIT 1`, issueID, wsID).Scan(&tc)
 	if err != nil {
 		return fmt.Errorf("direct_update_detect: %w", err)
 	}
 	q := "UPDATE " + tc + " SET " + setClause + ", version = version + 1, updated_at = now()" +
-		" WHERE id = $2 AND workspace_id = $3 AND version = $4 AND deleted_at IS NULL"
+		" WHERE id = $2 AND workspace_id = $3 AND version = $4 AND deleted = false"
 	tag, err := x.db.Exec(ctx, q, arg, issueID, wsID, version)
 	if err != nil {
 		return fmt.Errorf("direct_update: %w", err)

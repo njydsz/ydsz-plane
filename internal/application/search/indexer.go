@@ -79,16 +79,16 @@ func (x *Indexer) workspacesForType(ctx context.Context, typ DocType) ([]int64, 
 	case DocTypeIssue:
 		// 工作项分布在三表中，需要 UNION 取 workspace_id
 		q = `SELECT workspace_id FROM (
-			SELECT workspace_id FROM requirement WHERE deleted_at IS NULL
+			SELECT workspace_id FROM requirement WHERE deleted = false
 			UNION
-			SELECT workspace_id FROM task WHERE deleted_at IS NULL
+			SELECT workspace_id FROM task WHERE deleted = false
 			UNION
-			SELECT workspace_id FROM defect WHERE deleted_at IS NULL
+			SELECT workspace_id FROM defect WHERE deleted = false
 		) ws ORDER BY workspace_id`
 	case DocTypeSprint:
-		q = "SELECT DISTINCT workspace_id FROM sprints WHERE deleted_at IS NULL ORDER BY workspace_id"
+		q = "SELECT DISTINCT workspace_id FROM sprints WHERE deleted = false ORDER BY workspace_id"
 	case DocTypeVersion:
-		q = "SELECT DISTINCT workspace_id FROM versions WHERE deleted_at IS NULL ORDER BY workspace_id"
+		q = "SELECT DISTINCT workspace_id FROM versions WHERE deleted = false ORDER BY workspace_id"
 	default:
 		return nil, fmt.Errorf("unknown doc_type %q", typ)
 	}
@@ -142,7 +142,7 @@ func (x *Indexer) backfillBatch(ctx context.Context, typ DocType, wsID, lastID i
 	// 以 id 键集分页，在设置了租户上下文的事务内 SELECT + INSERT 同批完成。
 	sql := "INSERT INTO search_documents (workspace_id, project_id, doc_type, doc_id, title, identifier, content, search_tsv, metadata) " +
 		"SELECT " + sourceColumnsFor(typ) + " FROM " + table + " src" +
-		" WHERE src.workspace_id = $1 AND src.deleted_at IS NULL AND src.id > $2 ORDER BY src.id LIMIT " + strconv.Itoa(batchSize) +
+		" WHERE src.workspace_id = $1 AND src.deleted = false AND src.id > $2 ORDER BY src.id LIMIT " + strconv.Itoa(batchSize) +
 		" ON CONFLICT (workspace_id, doc_type, doc_id) DO UPDATE SET " +
 		"title = EXCLUDED.title, identifier = EXCLUDED.identifier, content = EXCLUDED.content, " +
 		"search_tsv = EXCLUDED.search_tsv, metadata = EXCLUDED.metadata, updated_at = now()"
@@ -202,7 +202,7 @@ func (x *Indexer) syncInWorkspace(ctx context.Context, wsID int64, typ DocType, 
 
 	sql := "INSERT INTO search_documents (workspace_id, project_id, doc_type, doc_id, title, identifier, content, search_tsv, metadata) " +
 		"SELECT " + sourceColumnsFor(typ) + " FROM " + table + " src" +
-		" WHERE src.workspace_id = $1 AND src.deleted_at IS NULL AND src.id = $2" +
+		" WHERE src.workspace_id = $1 AND src.deleted = false AND src.id = $2" +
 		" ON CONFLICT (workspace_id, doc_type, doc_id) DO UPDATE SET " +
 		"title = EXCLUDED.title, identifier = EXCLUDED.identifier, content = EXCLUDED.content, " +
 		"search_tsv = EXCLUDED.search_tsv, metadata = EXCLUDED.metadata, updated_at = now()"
@@ -239,7 +239,7 @@ func (x *Indexer) RemoveDocument(ctx context.Context, docType string, wsID, docI
 func (x *Indexer) resolveWorkspace(ctx context.Context, table string, id int64) (int64, error) {
 	var ws int64
 	err := x.db.QueryRow(ctx,
-		"SELECT workspace_id FROM "+table+" WHERE id = $1 AND deleted_at IS NULL", id).Scan(&ws)
+		"SELECT workspace_id FROM "+table+" WHERE id = $1 AND deleted = false", id).Scan(&ws)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return 0, fmt.Errorf("resolve workspace: %s %d: %w", table, id, err)
@@ -254,11 +254,11 @@ func (x *Indexer) resolveWorkitemWorkspace(ctx context.Context, workitemID int64
 	var ws int64
 	err := x.db.QueryRow(ctx, `
 		SELECT workspace_id FROM (
-			SELECT workspace_id FROM requirement WHERE id = $1 AND deleted_at IS NULL
+			SELECT workspace_id FROM requirement WHERE id = $1 AND deleted = false
 			UNION ALL
-			SELECT workspace_id FROM task WHERE id = $1 AND deleted_at IS NULL
+			SELECT workspace_id FROM task WHERE id = $1 AND deleted = false
 			UNION ALL
-			SELECT workspace_id FROM defect WHERE id = $1 AND deleted_at IS NULL
+			SELECT workspace_id FROM defect WHERE id = $1 AND deleted = false
 		) ws LIMIT 1`, workitemID).Scan(&ws)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {

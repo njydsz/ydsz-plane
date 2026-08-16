@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -27,14 +28,21 @@ func (s *CommentService) CreateWithEvent(ctx context.Context, input CreateCommen
 			input.ContentJSON = json.RawMessage("{}")
 		}
 
-		err := tx.QueryRow(ctx, `
-			INSERT INTO issue_comments
-				(workspace_id, project_id, issue_id, content_json, content_html, content_stripped,
+		tc, err := detectWorkitemType(ctx, s.db, input.IssueID)
+		if err != nil {
+			return err
+		}
+		table := subresourceTable(tc, "_comments")
+		idCol := workitemM2MPrefix(tc) + "_id"
+
+		err = tx.QueryRow(ctx, fmt.Sprintf(`
+			INSERT INTO %s
+				(workspace_id, project_id, %s, content_json, content_html, content_stripped,
 				 created_by, mentions, parent_id, created_at, updated_at)
 			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NOW(),NOW())
-			RETURNING id, workspace_id, project_id, issue_id, content_json, content_html,
+			RETURNING id, workspace_id, project_id, %s, content_json, content_html,
 				content_stripped, created_by, mentions, parent_id, is_edited, edited_at,
-				created_at, updated_at`,
+				created_at, updated_at`, table, idCol, idCol),
 			input.WorkspaceID, input.ProjectID, input.IssueID,
 			input.ContentJSON, input.ContentHTML, input.ContentStripped,
 			input.CreatedBy, mentions, input.ParentID,
@@ -53,7 +61,7 @@ func (s *CommentService) CreateWithEvent(ctx context.Context, input CreateCommen
 			comment.CreatedBy).Scan(&comment.CreatorName, &comment.CreatorAvatar)
 
 		// 录制领域事件：comment.created → 通知工作项关注人
-		assignees := loadAssigneesForTx(ctx, tx, input.IssueID)
+		assignees := loadAssigneesForTx(ctx, tx, workitemM2MPrefix(tc), input.IssueID)
 		return recordCommentEvent(ctx, tx, input.WorkspaceID, input.IssueID, comment.ID,
 			input.CreatedBy, comment.CreatorName, input.ContentStripped, assignees)
 	})
@@ -78,8 +86,8 @@ func (s *CommentService) withTx(ctx context.Context, wsID int64, fn func(tx pgx.
 }
 
 // loadAssigneesForTx 事务内查工作项分配人。
-func loadAssigneesForTx(ctx context.Context, tx pgx.Tx, issueID int64) []int64 {
-	rows, err := tx.Query(ctx, `SELECT user_id FROM issue_assignees WHERE issue_id = $1`, issueID)
+func loadAssigneesForTx(ctx context.Context, tx pgx.Tx, prefix string, workitemID int64) []int64 {
+	rows, err := tx.Query(ctx, fmt.Sprintf(`SELECT user_id FROM %s_assignees WHERE %s_id = $1`, prefix, prefix), workitemID)
 	if err != nil {
 		return nil
 	}
@@ -93,6 +101,7 @@ func loadAssigneesForTx(ctx context.Context, tx pgx.Tx, issueID int64) []int64 {
 	}
 	return ids
 }
+
 type Comment struct {
 	ID              int64           `json:"id"`
 	WorkspaceID     int64           `json:"workspace_id"`
@@ -155,15 +164,22 @@ func (s *CommentService) Create(ctx context.Context, input CreateCommentInput) (
 	// 服务端白名单清洗，防存储型 XSS（content_html 由前端 v-html 渲染）
 	input.ContentHTML = sanitizeCommentHTML(input.ContentHTML)
 
+	tc, err := detectWorkitemType(ctx, s.db, input.IssueID)
+	if err != nil {
+		return nil, err
+	}
+	table := subresourceTable(tc, "_comments")
+	idCol := workitemM2MPrefix(tc) + "_id"
+
 	var c Comment
-	err := s.db.QueryRow(ctx, `
-		INSERT INTO issue_comments
-			(workspace_id, project_id, issue_id, content_json, content_html, content_stripped,
+	err = s.db.QueryRow(ctx, fmt.Sprintf(`
+		INSERT INTO %s
+			(workspace_id, project_id, %s, content_json, content_html, content_stripped,
 			 created_by, mentions, parent_id, created_at, updated_at)
 		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NOW(),NOW())
-		RETURNING id, workspace_id, project_id, issue_id, content_json, content_html,
+		RETURNING id, workspace_id, project_id, %s, content_json, content_html,
 			content_stripped, created_by, mentions, parent_id, is_edited, edited_at,
-			created_at, updated_at`,
+			created_at, updated_at`, table, idCol, idCol),
 		input.WorkspaceID, input.ProjectID, input.IssueID,
 		input.ContentJSON, input.ContentHTML, input.ContentStripped,
 		input.CreatedBy, mentions, input.ParentID,
@@ -184,16 +200,23 @@ func (s *CommentService) Create(ctx context.Context, input CreateCommentInput) (
 
 // ListByIssue 查询工作项下的所有评论。
 func (s *CommentService) ListByIssue(ctx context.Context, issueID int64) ([]Comment, error) {
-	rows, err := s.db.Query(ctx, `
-		SELECT c.id, c.workspace_id, c.project_id, c.issue_id,
+	tc, err := detectWorkitemType(ctx, s.db, issueID)
+	if err != nil {
+		return nil, err
+	}
+	table := subresourceTable(tc, "_comments")
+	idCol := workitemM2MPrefix(tc) + "_id"
+
+	rows, err := s.db.Query(ctx, fmt.Sprintf(`
+		SELECT c.id, c.workspace_id, c.project_id, c.%s,
 			c.content_json, c.content_html, c.content_stripped,
 			c.created_by, COALESCE(u.display_name,''), COALESCE(u.avatar_url,''),
 			c.mentions, c.parent_id, c.is_edited, c.edited_at,
 			c.created_at, c.updated_at
-		FROM issue_comments c
+		FROM %s c
 		LEFT JOIN users u ON u.id = c.created_by
-		WHERE c.issue_id = $1
-		ORDER BY c.created_at ASC`, issueID)
+		WHERE c.%s = $1
+		ORDER BY c.created_at ASC`, idCol, table, idCol), issueID)
 	if err != nil {
 		return nil, fmt.Errorf("CommentService.ListByIssue: %w", err)
 	}
@@ -228,15 +251,21 @@ func (s *CommentService) Update(ctx context.Context, commentID, userID int64, in
 	// 服务端白名单清洗（与 Create 一致）
 	input.ContentHTML = sanitizeCommentHTML(input.ContentHTML)
 
+	table, err := locateSubresourceTable(ctx, s.db, "_comments", commentID)
+	if err != nil {
+		return nil, err
+	}
+	idCol := strings.TrimSuffix(table, "_comments") + "_id"
+
 	var c Comment
-	err := s.db.QueryRow(ctx, `
-		UPDATE issue_comments SET
+	err = s.db.QueryRow(ctx, fmt.Sprintf(`
+		UPDATE %s SET
 			content_json = $3, content_html = $4, content_stripped = $5,
 			mentions = $6, is_edited = true, edited_at = NOW(), updated_at = NOW()
 		WHERE id = $1 AND created_by = $2
-		RETURNING id, workspace_id, project_id, issue_id, content_json, content_html,
+		RETURNING id, workspace_id, project_id, %s, content_json, content_html,
 			content_stripped, created_by, mentions, parent_id, is_edited, edited_at,
-			created_at, updated_at`,
+			created_at, updated_at`, table, idCol),
 		commentID, userID,
 		input.ContentJSON, input.ContentHTML, input.ContentStripped, mentions,
 	).Scan(
@@ -251,10 +280,14 @@ func (s *CommentService) Update(ctx context.Context, commentID, userID int64, in
 	return &c, nil
 }
 
-// Delete 删除评论（软删除级联已由 ON DELETE CASCADE 处理）。
+// Delete 删除评论。
 func (s *CommentService) Delete(ctx context.Context, commentID, userID int64) error {
+	table, err := locateSubresourceTable(ctx, s.db, "_comments", commentID)
+	if err != nil {
+		return err
+	}
 	tag, err := s.db.Exec(ctx,
-		`DELETE FROM issue_comments WHERE id = $1 AND created_by = $2`,
+		fmt.Sprintf(`DELETE FROM %s WHERE id = $1 AND created_by = $2`, table),
 		commentID, userID)
 	if err != nil {
 		return fmt.Errorf("CommentService.Delete: %w", err)

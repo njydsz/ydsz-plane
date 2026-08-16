@@ -113,7 +113,7 @@ func (s *ModuleService) GetModule(ctx context.Context, moduleID int64, wsID int6
 	err := s.db.QueryRow(ctx, `
 		SELECT id, public_id, workspace_id, project_id, name, description, lead_id, status,
 		       start_date, target_date, sort_order, created_by, created_at, updated_at
-		FROM modules WHERE id = $1 AND workspace_id = $2 AND deleted_at IS NULL`,
+		FROM modules WHERE id = $1 AND workspace_id = $2 AND deleted = false`,
 		moduleID, wsID,
 	).Scan(&m.ID, &m.PublicID, &m.WorkspaceID, &m.ProjectID, &m.Name,
 		&m.Description, &m.LeadID, &m.Status, &m.StartDate, &m.TargetDate,
@@ -129,7 +129,7 @@ func (s *ModuleService) ListModules(ctx context.Context, f ListModulesFilter) ([
 	var args []interface{}
 	var conds []string
 	args = append(args, f.WorkspaceID, f.ProjectID)
-	conds = append(conds, "workspace_id = $1", "project_id = $2", "deleted_at IS NULL")
+	conds = append(conds, "workspace_id = $1", "project_id = $2", "deleted = false")
 
 	if f.Status != "" {
 		args = append(args, f.Status)
@@ -171,7 +171,7 @@ func (s *ModuleService) UpdateModule(ctx context.Context, in UpdateModuleInput) 
 			start_date = COALESCE($8, start_date),
 			target_date = COALESCE($9, target_date),
 			sort_order = COALESCE($10, sort_order)
-		WHERE id = $1 AND workspace_id = $2 AND project_id = $3 AND deleted_at IS NULL
+		WHERE id = $1 AND workspace_id = $2 AND project_id = $3 AND deleted = false
 		RETURNING id, public_id, workspace_id, project_id, name, description, lead_id, status,
 		          start_date, target_date, sort_order, created_by, created_at, updated_at`,
 		in.ID, in.WorkspaceID, in.ProjectID,
@@ -189,7 +189,7 @@ func (s *ModuleService) UpdateModule(ctx context.Context, in UpdateModuleInput) 
 // DeleteModule 软删除模块。
 func (s *ModuleService) DeleteModule(ctx context.Context, moduleID int64, wsID int64, projectID int64) error {
 	cmd, err := s.db.Exec(ctx,
-		`UPDATE modules SET deleted_at = now() WHERE id = $1 AND workspace_id = $2 AND project_id = $3 AND deleted_at IS NULL`,
+		`UPDATE modules SET deleted = true WHERE id = $1 AND workspace_id = $2 AND project_id = $3 AND deleted = false`,
 		moduleID, wsID, projectID)
 	if err != nil {
 		return errs.ErrInternal.Wrap(err)

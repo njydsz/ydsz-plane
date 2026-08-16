@@ -38,7 +38,7 @@ func (s *Service) List(ctx context.Context, wsID, projectID int64, entityType st
 		FROM attachments
 		WHERE workspace_id = $1 AND project_id = $2
 		  AND entity_type = $3 AND entity_id = $4
-		  AND deleted_at IS NULL
+		  AND deleted = false
 		ORDER BY created_at ASC`, wsID, projectID, entityType, entityID)
 	if err != nil {
 		return nil, fmt.Errorf("Attachment.List: %w", err)
@@ -152,7 +152,7 @@ func (s *Service) Delete(ctx context.Context, wsID, projectID, attachmentID int6
 			file_name, file_size, content_type, storage_key,
 			uploaded_by, created_at, updated_at
 		FROM attachments
-		WHERE id = $1 AND workspace_id = $2 AND project_id = $3 AND deleted_at IS NULL`,
+		WHERE id = $1 AND workspace_id = $2 AND project_id = $3 AND deleted = false`,
 		attachmentID, wsID, projectID,
 	).Scan(
 		&a.ID, &a.WorkspaceID, &a.ProjectID, &a.EntityType, &a.EntityID,
@@ -171,9 +171,9 @@ func (s *Service) Delete(ctx context.Context, wsID, projectID, attachmentID int6
 
 	// 软删除 DB 记录
 	tag, err := s.db.Exec(ctx, `
-		UPDATE attachments SET deleted_at = NOW(), updated_at = NOW()
+		UPDATE attachments SET deleted = NOW(), updated_at = NOW()
 		WHERE id = $1 AND workspace_id = $2 AND project_id = $3
-		  AND uploaded_by = $4 AND deleted_at IS NULL`,
+		  AND uploaded_by = $4 AND deleted = false`,
 		attachmentID, wsID, projectID, userID)
 	if err != nil {
 		return fmt.Errorf("Attachment.Delete: %w", err)

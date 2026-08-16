@@ -90,7 +90,7 @@ func (s *RequirementService) GetByID(ctx context.Context, wsID, reqID int64) (*R
 		FROM requirement r
 		JOIN states s ON s.id = r.state_id
 		JOIN projects p ON p.id = r.project_id
-		WHERE r.id = $1 AND r.workspace_id = $2 AND r.deleted_at IS NULL`,
+		WHERE r.id = $1 AND r.workspace_id = $2 AND r.deleted = false`,
 		reqID, wsID).Scan(
 		&r.ID, &r.PublicID, &r.WorkspaceID, &r.ProjectID, &r.SequenceID,
 		&r.TypeCode, &parentID, &r.Depth, &r.Name,
@@ -138,10 +138,10 @@ func (s *RequirementService) GetByID(ctx context.Context, wsID, reqID int64) (*R
 		v := versionID.Int64
 		r.VersionID = &v
 	}
-	r.Assignees, _ = loadIntArray(ctx, s.db, `SELECT user_id FROM issue_assignees WHERE issue_id = $1`, reqID)
-	r.Labels, _ = loadIntArray(ctx, s.db, `SELECT label_id FROM issue_labels WHERE issue_id = $1`, reqID)
-	r.Modules, _ = loadIntArray(ctx, s.db, `SELECT module_id FROM issue_modules WHERE issue_id = $1`, reqID)
-	r.Watchers, _ = loadIntArray(ctx, s.db, `SELECT user_id FROM issue_watchers WHERE issue_id = $1`, reqID)
+	r.Assignees, _ = loadIntArray(ctx, s.db, `SELECT user_id FROM requirement_assignees WHERE requirement_id = $1`, reqID)
+	r.Labels, _ = loadIntArray(ctx, s.db, `SELECT label_id FROM requirement_labels WHERE requirement_id = $1`, reqID)
+	r.Modules, _ = loadIntArray(ctx, s.db, `SELECT module_id FROM requirement_modules WHERE requirement_id = $1`, reqID)
+	r.Watchers, _ = loadIntArray(ctx, s.db, `SELECT user_id FROM requirement_watchers WHERE requirement_id = $1`, reqID)
 
 	return &r, nil
 }
@@ -162,11 +162,11 @@ func (s *RequirementService) Update(ctx context.Context, wsID, reqID int64, in U
 
 		sets, args := buildRequirementUpdateSet(in)
 		if len(sets) == 0 {
-			return s.updateM2M(ctx, tx, reqID, in.Assignees, in.Labels, in.Modules)
+			return s.updateM2M(ctx, tx, wsID, current.ProjectID, reqID, in.Assignees, in.Labels, in.Modules)
 		}
 
 		sets = append(sets, "updated_at = now()")
-		query := fmt.Sprintf(`UPDATE requirement SET %s WHERE id = $%d AND workspace_id = $%d AND version = $%d AND deleted_at IS NULL`,
+		query := fmt.Sprintf(`UPDATE requirement SET %s WHERE id = $%d AND workspace_id = $%d AND version = $%d AND deleted = false`,
 			strings.Join(sets, ", "), len(args)+1, len(args)+2, len(args)+3)
 		args = append(args, reqID, wsID, in.Version)
 
@@ -177,7 +177,7 @@ func (s *RequirementService) Update(ctx context.Context, wsID, reqID int64, in U
 		if tag.RowsAffected() == 0 {
 			return errs.ErrVersionConflict
 		}
-		return s.updateM2M(ctx, tx, reqID, in.Assignees, in.Labels, in.Modules)
+		return s.updateM2M(ctx, tx, wsID, current.ProjectID, reqID, in.Assignees, in.Labels, in.Modules)
 	})
 	if err != nil {
 		return nil, err
@@ -188,12 +188,12 @@ func (s *RequirementService) Update(ctx context.Context, wsID, reqID int64, in U
 // SoftDelete 归档。
 func (s *RequirementService) SoftDelete(ctx context.Context, wsID, reqID int64) error {
 	return s.withTx(ctx, wsID, func(tx pgx.Tx) error {
-		if _, err := tx.Exec(ctx, `DELETE FROM sprint_issues WHERE issue_id = $1`, reqID); err != nil {
+		if _, err := tx.Exec(ctx, `DELETE FROM sprint_requirements WHERE requirement_id = $1`, reqID); err != nil {
 			return err
 		}
 		tag, err := tx.Exec(ctx, `
-			UPDATE requirement SET deleted_at = now(), updated_at = now()
-			WHERE id = $1 AND workspace_id = $2 AND deleted_at IS NULL`, reqID, wsID)
+			UPDATE requirement SET deleted = true, updated_at = now()
+			WHERE id = $1 AND workspace_id = $2 AND deleted = false`, reqID, wsID)
 		if err != nil {
 			return err
 		}
@@ -207,8 +207,8 @@ func (s *RequirementService) SoftDelete(ctx context.Context, wsID, reqID int64) 
 // Restore 从回收站恢复。
 func (s *RequirementService) Restore(ctx context.Context, wsID, reqID int64) error {
 	tag, err := s.db.Exec(ctx, `
-		UPDATE requirement SET deleted_at = NULL, updated_at = now()
-		WHERE id = $1 AND workspace_id = $2 AND deleted_at IS NOT NULL`, reqID, wsID)
+		UPDATE requirement SET deleted = false, updated_at = now()
+		WHERE id = $1 AND workspace_id = $2 AND deleted = true`, reqID, wsID)
 	if err != nil {
 		return errs.ErrInternal.Wrap(err)
 	}
@@ -246,13 +246,13 @@ func (s *RequirementService) Transition(ctx context.Context, wsID, projectID, re
 		}
 		query := fmt.Sprintf(`UPDATE requirement SET state_id = $1, completed_at = %s,
 			progress = $2, version = version + 1, updated_at = now()
-			WHERE id = $3 AND workspace_id = $4 AND deleted_at IS NULL`, completedAtClause)
+			WHERE id = $3 AND workspace_id = $4 AND deleted = false`, completedAtClause)
 		if _, err := tx.Exec(ctx, query, toStateID, progress, reqID, wsID); err != nil {
 			return err
 		}
 		r.StateID = toStateID
 
-		assignees := loadIntArrayTx(ctx, tx, `SELECT user_id FROM issue_assignees WHERE issue_id = $1`, reqID)
+		assignees := loadIntArrayTx(ctx, tx, `SELECT user_id FROM requirement_assignees WHERE requirement_id = $1`, reqID)
 		var identifier, reqName string
 		_ = tx.QueryRow(ctx, `SELECT p.identifier, r.name
 			FROM requirement r JOIN projects p ON p.id = r.project_id
@@ -285,7 +285,7 @@ func (s *RequirementService) insertRequirement(ctx context.Context, in CreateReq
 		if err != nil {
 			return mapPgRequirementErr(err)
 		}
-		if err := insertM2M(ctx, tx, reqID, in.Assignees, in.Labels, in.Modules); err != nil {
+		if err := insertM2M(ctx, tx, TypeRequirement, in.WorkspaceID, in.ProjectID, reqID, in.Assignees, in.Labels, in.Modules); err != nil {
 			return err
 		}
 		var identifier string
@@ -303,7 +303,7 @@ func (s *RequirementService) getByIDTx(ctx context.Context, tx pgx.Tx, reqID, ws
 	err := tx.QueryRow(ctx, `
 		SELECT id, workspace_id, project_id, sequence_id, 'requirement'::text, parent_id, depth,
 		       name, state_id, priority, version, created_by
-		FROM requirement WHERE id = $1 AND workspace_id = $2 AND deleted_at IS NULL`, reqID, wsID).Scan(
+		FROM requirement WHERE id = $1 AND workspace_id = $2 AND deleted = false`, reqID, wsID).Scan(
 		&r.ID, &r.WorkspaceID, &r.ProjectID, &r.SequenceID,
 		&r.TypeCode, &parentID, &r.Depth,
 		&r.Name, &r.StateID, &r.Priority, &r.Version, &r.CreatedBy)
@@ -348,8 +348,8 @@ func (s *RequirementService) withTx(ctx context.Context, wsID int64, fn func(tx 
 	return tx.Commit(ctx)
 }
 
-func (s *RequirementService) updateM2M(ctx context.Context, tx pgx.Tx, reqID int64, assignees, labels, modules []int64) error {
-	return sharedUpdateM2M(ctx, tx, reqID, assignees, labels, modules)
+func (s *RequirementService) updateM2M(ctx context.Context, tx pgx.Tx, wsID, projectID, reqID int64, assignees, labels, modules []int64) error {
+	return sharedUpdateM2M(ctx, tx, TypeRequirement, wsID, projectID, reqID, assignees, labels, modules)
 }
 
 func buildRequirementUpdateSet(in UpdateRequirementInput) ([]string, []interface{}) {

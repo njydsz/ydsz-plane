@@ -98,7 +98,7 @@ func (s *DefectService) GetByID(ctx context.Context, wsID, defectID int64) (*Def
 		FROM defect d
 		JOIN states s ON s.id = d.state_id
 		JOIN projects p ON p.id = d.project_id
-		WHERE d.id = $1 AND d.workspace_id = $2 AND d.deleted_at IS NULL`,
+		WHERE d.id = $1 AND d.workspace_id = $2 AND d.deleted = false`,
 		defectID, wsID).Scan(
 		&d.ID, &d.PublicID, &d.WorkspaceID, &d.ProjectID, &d.SequenceID,
 		&d.TypeCode, &parentID, &d.Depth, &d.Name,
@@ -151,10 +151,10 @@ func (s *DefectService) GetByID(ctx context.Context, wsID, defectID int64) (*Def
 		v := fixVerID.Int64
 		d.FixVersionID = &v
 	}
-	d.Assignees, _ = loadIntArray(ctx, s.db, `SELECT user_id FROM issue_assignees WHERE issue_id = $1`, defectID)
-	d.Labels, _ = loadIntArray(ctx, s.db, `SELECT label_id FROM issue_labels WHERE issue_id = $1`, defectID)
-	d.Modules, _ = loadIntArray(ctx, s.db, `SELECT module_id FROM issue_modules WHERE issue_id = $1`, defectID)
-	d.Watchers, _ = loadIntArray(ctx, s.db, `SELECT user_id FROM issue_watchers WHERE issue_id = $1`, defectID)
+	d.Assignees, _ = loadIntArray(ctx, s.db, `SELECT user_id FROM defect_assignees WHERE defect_id = $1`, defectID)
+	d.Labels, _ = loadIntArray(ctx, s.db, `SELECT label_id FROM defect_labels WHERE defect_id = $1`, defectID)
+	d.Modules, _ = loadIntArray(ctx, s.db, `SELECT module_id FROM defect_modules WHERE defect_id = $1`, defectID)
+	d.Watchers, _ = loadIntArray(ctx, s.db, `SELECT user_id FROM defect_watchers WHERE defect_id = $1`, defectID)
 
 	return &d, nil
 }
@@ -175,11 +175,11 @@ func (s *DefectService) Update(ctx context.Context, wsID, defectID int64, in Upd
 
 		sets, args := buildDefectUpdateSet(in)
 		if len(sets) == 0 {
-			return s.updateM2M(ctx, tx, defectID, in.Assignees, in.Labels, in.Modules)
+			return s.updateM2M(ctx, tx, wsID, current.ProjectID, defectID, in.Assignees, in.Labels, in.Modules)
 		}
 
 		sets = append(sets, "updated_at = now()")
-		query := fmt.Sprintf(`UPDATE defect SET %s WHERE id = $%d AND workspace_id = $%d AND version = $%d AND deleted_at IS NULL`,
+		query := fmt.Sprintf(`UPDATE defect SET %s WHERE id = $%d AND workspace_id = $%d AND version = $%d AND deleted = false`,
 			strings.Join(sets, ", "), len(args)+1, len(args)+2, len(args)+3)
 		args = append(args, defectID, wsID, in.Version)
 
@@ -190,7 +190,7 @@ func (s *DefectService) Update(ctx context.Context, wsID, defectID int64, in Upd
 		if tag.RowsAffected() == 0 {
 			return errs.ErrVersionConflict
 		}
-		return s.updateM2M(ctx, tx, defectID, in.Assignees, in.Labels, in.Modules)
+		return s.updateM2M(ctx, tx, wsID, current.ProjectID, defectID, in.Assignees, in.Labels, in.Modules)
 	})
 	if err != nil {
 		return nil, err
@@ -201,12 +201,12 @@ func (s *DefectService) Update(ctx context.Context, wsID, defectID int64, in Upd
 // SoftDelete 归档。
 func (s *DefectService) SoftDelete(ctx context.Context, wsID, defectID int64) error {
 	return s.withTx(ctx, wsID, func(tx pgx.Tx) error {
-		if _, err := tx.Exec(ctx, `DELETE FROM sprint_issues WHERE issue_id = $1`, defectID); err != nil {
+		if _, err := tx.Exec(ctx, `DELETE FROM sprint_defects WHERE defect_id = $1`, defectID); err != nil {
 			return err
 		}
 		tag, err := tx.Exec(ctx, `
-			UPDATE defect SET deleted_at = now(), updated_at = now()
-			WHERE id = $1 AND workspace_id = $2 AND deleted_at IS NULL`, defectID, wsID)
+			UPDATE defect SET deleted = true, updated_at = now()
+			WHERE id = $1 AND workspace_id = $2 AND deleted = false`, defectID, wsID)
 		if err != nil {
 			return err
 		}
@@ -220,8 +220,8 @@ func (s *DefectService) SoftDelete(ctx context.Context, wsID, defectID int64) er
 // Restore 从回收站恢复。
 func (s *DefectService) Restore(ctx context.Context, wsID, defectID int64) error {
 	tag, err := s.db.Exec(ctx, `
-		UPDATE defect SET deleted_at = NULL, updated_at = now()
-		WHERE id = $1 AND workspace_id = $2 AND deleted_at IS NOT NULL`, defectID, wsID)
+		UPDATE defect SET deleted = false, updated_at = now()
+		WHERE id = $1 AND workspace_id = $2 AND deleted = true`, defectID, wsID)
 	if err != nil {
 		return errs.ErrInternal.Wrap(err)
 	}
@@ -278,13 +278,13 @@ func (s *DefectService) Transition(ctx context.Context, wsID, projectID, defectI
 		}
 		query := fmt.Sprintf(`UPDATE defect SET state_id = $1, completed_at = %s,
 			progress = $2, version = version + 1, updated_at = now()
-			WHERE id = $3 AND workspace_id = $4 AND deleted_at IS NULL`, completedAtClause)
+			WHERE id = $3 AND workspace_id = $4 AND deleted = false`, completedAtClause)
 		if _, err := tx.Exec(ctx, query, toStateID, progress, defectID, wsID); err != nil {
 			return err
 		}
 		d.StateID = toStateID
 
-		assignees := loadIntArrayTx(ctx, tx, `SELECT user_id FROM issue_assignees WHERE issue_id = $1`, defectID)
+		assignees := loadIntArrayTx(ctx, tx, `SELECT user_id FROM defect_assignees WHERE defect_id = $1`, defectID)
 		var identifier, defectName string
 		_ = tx.QueryRow(ctx, `SELECT p.identifier, d.name
 			FROM defect d JOIN projects p ON p.id = d.project_id
@@ -332,7 +332,7 @@ func (s *DefectService) insertDefect(ctx context.Context, in CreateDefectInput, 
 		if err != nil {
 			return mapPgDefectErr(err)
 		}
-		if err := insertM2M(ctx, tx, defectID, in.Assignees, in.Labels, in.Modules); err != nil {
+		if err := insertM2M(ctx, tx, TypeDefect, in.WorkspaceID, in.ProjectID, defectID, in.Assignees, in.Labels, in.Modules); err != nil {
 			return err
 		}
 		var identifier string
@@ -350,7 +350,7 @@ func (s *DefectService) getByIDTx(ctx context.Context, tx pgx.Tx, defectID, wsID
 	err := tx.QueryRow(ctx, `
 		SELECT id, workspace_id, project_id, sequence_id, 'defect'::text, parent_id, depth,
 		       name, state_id, priority, severity, found_phase, version, created_by
-		FROM defect WHERE id = $1 AND workspace_id = $2 AND deleted_at IS NULL`, defectID, wsID).Scan(
+		FROM defect WHERE id = $1 AND workspace_id = $2 AND deleted = false`, defectID, wsID).Scan(
 		&d.ID, &d.WorkspaceID, &d.ProjectID, &d.SequenceID,
 		&d.TypeCode, &parentID, &d.Depth,
 		&d.Name, &d.StateID, &d.Priority, &d.Severity, &d.FoundPhase, &d.Version, &d.CreatedBy)
@@ -395,8 +395,8 @@ func (s *DefectService) withTx(ctx context.Context, wsID int64, fn func(tx pgx.T
 	return tx.Commit(ctx)
 }
 
-func (s *DefectService) updateM2M(ctx context.Context, tx pgx.Tx, defectID int64, assignees, labels, modules []int64) error {
-	return sharedUpdateM2M(ctx, tx, defectID, assignees, labels, modules)
+func (s *DefectService) updateM2M(ctx context.Context, tx pgx.Tx, wsID, projectID, defectID int64, assignees, labels, modules []int64) error {
+	return sharedUpdateM2M(ctx, tx, TypeDefect, wsID, projectID, defectID, assignees, labels, modules)
 }
 
 func buildDefectUpdateSet(in UpdateDefectInput) ([]string, []interface{}) {

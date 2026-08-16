@@ -837,14 +837,14 @@ func (e *Engine) resolveLeastLoaded(ctx context.Context, wsID, projectID int64, 
 		ORDER BY (
 			SELECT count(*)
 			FROM (
-			    SELECT id, project_id, state_id, assignee_ids, deleted_at FROM task
+			    SELECT id, project_id, state_id, assignee_ids, deleted FROM task
 			    UNION ALL
-			    SELECT id, project_id, state_id, assignee_ids, deleted_at FROM requirement
+			    SELECT id, project_id, state_id, assignee_ids, deleted FROM requirement
 			    UNION ALL
-			    SELECT id, project_id, state_id, assignee_ids, deleted_at FROM defect
+			    SELECT id, project_id, state_id, assignee_ids, deleted FROM defect
 			) i
 			JOIN states st ON st.id = i.state_id
-			WHERE wm.user_id = ANY(i.assignee_ids) AND i.project_id = $1 AND i.deleted_at IS NULL
+			WHERE wm.user_id = ANY(i.assignee_ids) AND i.project_id = $1 AND i.deleted = false
 			  AND st."group" != 'completed'
 		) ASC, wm.user_id ASC
 		LIMIT 1`, projectID, wsID, role).Scan(&userID)
@@ -889,7 +889,7 @@ func (e *Engine) getIssueAssigneeIDs(ctx context.Context, issueID int64) []int64
 	if e.db == nil {
 		return nil
 	}
-	rows, err := e.db.Query(ctx, `SELECT user_id FROM issue_assignees WHERE issue_id = $1`, issueID)
+	rows, err := e.db.Query(ctx, `SELECT user_id FROM (SELECT task_id AS issue_id, user_id FROM task_assignees UNION ALL SELECT requirement_id, user_id FROM requirement_assignees UNION ALL SELECT defect_id, user_id FROM defect_assignees) WHERE issue_id = $1`, issueID)
 	if err != nil {
 		return nil
 	}
@@ -912,7 +912,7 @@ func (e *Engine) getProjectTechLead(ctx context.Context, projectID int64) (int64
 	}
 	var leadID int64
 	err := e.db.QueryRow(ctx,
-		`SELECT created_by FROM projects WHERE id = $1 AND deleted_at IS NULL`, projectID).Scan(&leadID)
+		`SELECT created_by FROM projects WHERE id = $1 AND deleted = false`, projectID).Scan(&leadID)
 	if err != nil {
 		return 0, fmt.Errorf("getProjectTechLead: %w", err)
 	}
@@ -984,16 +984,16 @@ func (p *DefaultContextProvider) loadIssue(ctx context.Context, issueID int64) (
 		       i.started_at, i.completed_at
 		FROM (
 		    SELECT id, identifier, name, 'task' as type_code, state_id, priority, severity, estimate_points,
-		           created_by, parent_id, project_id, created_at, updated_at, started_at, completed_at, deleted_at FROM task
+		           created_by, parent_id, project_id, created_at, updated_at, started_at, completed_at, deleted FROM task
 		    UNION ALL
 		    SELECT id, identifier, name, 'requirement', state_id, priority, severity, estimate_points,
-		           created_by, parent_id, project_id, created_at, updated_at, started_at, completed_at, deleted_at FROM requirement
+		           created_by, parent_id, project_id, created_at, updated_at, started_at, completed_at, deleted FROM requirement
 		    UNION ALL
 		    SELECT id, identifier, name, 'defect', state_id, priority, severity, estimate_points,
-		           created_by, parent_id, project_id, created_at, updated_at, started_at, completed_at, deleted_at FROM defect
+		           created_by, parent_id, project_id, created_at, updated_at, started_at, completed_at, deleted FROM defect
 		) i
 		JOIN states st ON st.id = i.state_id
-		WHERE i.id = $1 AND i.deleted_at IS NULL`, issueID).Scan(
+		WHERE i.id = $1 AND i.deleted = false`, issueID).Scan(
 		&iss.ID, &iss.Identifier, &iss.Name, &iss.TypeCode, &iss.StateID,
 		&iss.StateName, &iss.StateGroup, &iss.Priority, &iss.Severity, &iss.EstimatePoints,
 		&iss.CreatedBy, &iss.ParentID, &iss.ProjectID, &iss.CreatedAt, &iss.UpdatedAt,

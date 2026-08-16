@@ -59,14 +59,14 @@ type UpdatePageInput struct {
 // pageColumns 与 pages 表列一一对应（List/Get 共用）。
 const pageColumns = `id, public_id, workspace_id, project_id, name,
 	description_json, description_html, description_stripped,
-	parent_id, sort_order, category, created_by, created_at, updated_at, deleted_at, version`
+	parent_id, sort_order, category, created_by, created_at, updated_at, deleted, version`
 
 // List 列出项目下全部未删除页面，按 sort_order、created_at 排序。
 func (s *Service) List(ctx context.Context, wsID, projectID int64) ([]Page, error) {
 	rows, err := s.db.Query(ctx, `
 		SELECT `+pageColumns+`
 		FROM pages
-		WHERE workspace_id = $1 AND project_id = $2 AND deleted_at IS NULL
+		WHERE workspace_id = $1 AND project_id = $2 AND deleted = false
 		ORDER BY sort_order ASC, created_at ASC`, wsID, projectID)
 	if err != nil {
 		return nil, errs.ErrInternal.Wrap(fmt.Errorf("pages.List: %w", err))
@@ -90,7 +90,7 @@ func (s *Service) Get(ctx context.Context, wsID, projectID, pageID int64) (*Page
 	err := s.db.QueryRow(ctx, `
 		SELECT `+pageColumns+`
 		FROM pages
-		WHERE id = $1 AND workspace_id = $2 AND project_id = $3 AND deleted_at IS NULL`,
+		WHERE id = $1 AND workspace_id = $2 AND project_id = $3 AND deleted = false`,
 		pageID, wsID, projectID).Scan(
 		&p.ID, &p.PublicID, &p.WorkspaceID, &p.ProjectID, &p.Name,
 		&p.DescriptionJSON, &p.DescriptionHTML, &p.DescriptionStripped,
@@ -167,7 +167,7 @@ func (s *Service) Update(ctx context.Context, wsID, projectID, pageID, userID in
 	verIdx := len(args)
 
 	query := fmt.Sprintf(`UPDATE pages SET %s
-		WHERE id = $%d AND workspace_id = $%d AND project_id = $%d AND version = $%d AND deleted_at IS NULL`,
+		WHERE id = $%d AND workspace_id = $%d AND project_id = $%d AND version = $%d AND deleted = false`,
 		strings.Join(sets, ", "), idIdx, wsIdx, pidIdx, verIdx)
 
 	tag, err := s.db.Exec(ctx, query, args...)
@@ -206,8 +206,8 @@ func (s *Service) Delete(ctx context.Context, wsID, projectID, pageID, userID in
 	_ = userID
 
 	tag, err := s.db.Exec(ctx, `
-		UPDATE pages SET deleted_at = now(), updated_at = now()
-		WHERE id = $1 AND workspace_id = $2 AND project_id = $3 AND deleted_at IS NULL`,
+		UPDATE pages SET deleted = true, updated_at = now()
+		WHERE id = $1 AND workspace_id = $2 AND project_id = $3 AND deleted = false`,
 		pageID, wsID, projectID)
 	if err != nil {
 		return errs.ErrInternal.Wrap(fmt.Errorf("pages.Delete: %w", err))

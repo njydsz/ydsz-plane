@@ -333,7 +333,7 @@ func (e *Engine) runScheduledActions(ctx context.Context, rule *Rule, execCtx *E
 func (e *Engine) findScheduledCandidates(ctx context.Context, rule *Rule) ([]int64, error) {
 	projectID := *rule.ProjectID
 
-	where := []string{"i.project_id = $1", "i.deleted_at IS NULL"}
+	where := []string{"i.project_id = $1", "i.deleted = false"}
 	args := []any{projectID}
 	argID := 2
 
@@ -346,11 +346,11 @@ func (e *Engine) findScheduledCandidates(ctx context.Context, rule *Rule) ([]int
 	sql := fmt.Sprintf(`
 		SELECT i.id
 		FROM (
-		    SELECT id, project_id, deleted_at, target_date FROM task
+		    SELECT id, project_id, deleted, target_date FROM task
 		    UNION ALL
-		    SELECT id, project_id, deleted_at, target_date FROM requirement
+		    SELECT id, project_id, deleted, target_date FROM requirement
 		    UNION ALL
-		    SELECT id, project_id, deleted_at, target_date FROM defect
+		    SELECT id, project_id, deleted, target_date FROM defect
 		) i
 		WHERE %s
 		ORDER BY i.id ASC

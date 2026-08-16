@@ -53,7 +53,7 @@ func (s *DigestService) PendingDigests(ctx context.Context, now time.Time) ([]Pe
 		           (SELECT array_agg(u.email)
 		            FROM users u
 		            WHERE u.id = np.user_id
-		              AND u.deleted_at IS NULL
+		              AND u.deleted = false
 		              AND u.is_active
 		          ),
 		           ARRAY[]::text[]

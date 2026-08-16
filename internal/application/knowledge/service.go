@@ -32,7 +32,7 @@ func NewService(db *pgxpool.Pool) *Service {
 
 // spaceColumns 与 knowledge_spaces 表列共用。
 const spaceColumns = `id, workspace_id, project_id, name, slug, description, owner_id,
-	default_permission, is_private, cover_image, created_at, updated_at, deleted_at`
+	default_permission, is_private, cover_image, created_at, updated_at, deleted`
 
 // ListSpaces 列出空间（过滤 workspace_id / project_id / keyword，支持分页）。
 func (s *Service) ListSpaces(ctx context.Context, opts ListSpacesOptions) ([]KnowledgeSpace, int64, error) {
@@ -44,7 +44,7 @@ func (s *Service) ListSpaces(ctx context.Context, opts ListSpacesOptions) ([]Kno
 	args = append(args, opts.WorkspaceID)
 	arg++
 
-	sets = append(sets, "deleted_at IS NULL")
+	sets = append(sets, "deleted = false")
 
 	if opts.ProjectID != nil {
 		sets = append(sets, fmt.Sprintf("project_id = $%d", arg))
@@ -108,7 +108,7 @@ func (s *Service) GetSpace(ctx context.Context, id, wsID int64) (*KnowledgeSpace
 	err := s.db.QueryRow(ctx, `
 		SELECT `+spaceColumns+`
 		FROM knowledge_spaces
-		WHERE id = $1 AND workspace_id = $2 AND deleted_at IS NULL`,
+		WHERE id = $1 AND workspace_id = $2 AND deleted = false`,
 		id, wsID).Scan(
 		&sp.ID, &sp.WorkspaceID, &sp.ProjectID, &sp.Name, &sp.Slug, &sp.Description,
 		&sp.OwnerID, &sp.DefaultPermission, &sp.IsPrivate, &sp.CoverImage,
@@ -172,7 +172,7 @@ func (s *Service) UpdateSpace(ctx context.Context, id, wsID int64, in UpdateSpac
 	wsIdx := len(args)
 
 	query := fmt.Sprintf(`UPDATE knowledge_spaces SET %s
-		WHERE id = $%d AND workspace_id = $%d AND deleted_at IS NULL`,
+		WHERE id = $%d AND workspace_id = $%d AND deleted = false`,
 		strings.Join(sets, ", "), idIdx, wsIdx)
 
 	tag, err := s.db.Exec(ctx, query, args...)
@@ -185,11 +185,11 @@ func (s *Service) UpdateSpace(ctx context.Context, id, wsID int64, in UpdateSpac
 	return s.GetSpace(ctx, id, wsID)
 }
 
-// DeleteSpace 软删除空间（设置 deleted_at）。
+// DeleteSpace 软删除空间（设置 deleted）。
 func (s *Service) DeleteSpace(ctx context.Context, id, wsID int64) error {
 	tag, err := s.db.Exec(ctx, `
-		UPDATE knowledge_spaces SET deleted_at = now(), updated_at = now()
-		WHERE id = $1 AND workspace_id = $2 AND deleted_at IS NULL`,
+		UPDATE knowledge_spaces SET deleted = true, updated_at = now()
+		WHERE id = $1 AND workspace_id = $2 AND deleted = false`,
 		id, wsID)
 	if err != nil {
 		return errs.ErrInternal.Wrap(fmt.Errorf("knowledge.DeleteSpace: %w", err))
@@ -207,14 +207,14 @@ func (s *Service) DeleteSpace(ctx context.Context, id, wsID int64) error {
 // pageColumns 与 knowledge_pages 表列共用。
 const pageColumns = `id, workspace_id, space_id, parent_id, lft, rgt, depth,
 	title, path, content_md, content_html, version, status, sort_order,
-	is_pinned, is_featured, view_count, created_by, updated_by, created_at, updated_at, deleted_at`
+	is_pinned, is_featured, view_count, created_by, updated_by, created_at, updated_at, deleted`
 
 // ListPageTree 获取 space 下所有未删除文档，在 Go 端组装为无限层级树。
 func (s *Service) ListPageTree(ctx context.Context, wsID, spaceID int64) ([]KnowledgePageNode, error) {
 	rows, err := s.db.Query(ctx, `
 		`+pageColumns+`
 		FROM knowledge_pages
-		WHERE workspace_id = $1 AND space_id = $2 AND deleted_at IS NULL
+		WHERE workspace_id = $1 AND space_id = $2 AND deleted = false
 		ORDER BY depth ASC, sort_order ASC, created_at ASC`,
 		wsID, spaceID)
 	if err != nil {
@@ -278,7 +278,7 @@ func (s *Service) GetPage(ctx context.Context, id, wsID int64) (*KnowledgePage, 
 	err := s.db.QueryRow(ctx, `
 		SELECT `+pageColumns+`
 		FROM knowledge_pages
-		WHERE id = $1 AND workspace_id = $2 AND deleted_at IS NULL`,
+		WHERE id = $1 AND workspace_id = $2 AND deleted = false`,
 		id, wsID).Scan(
 		&p.ID, &p.WorkspaceID, &p.SpaceID, &p.ParentID, &p.Lft, &p.Rgt, &p.Depth,
 		&p.Title, &p.Path, &p.ContentMD, &p.ContentHTML, &p.Version, &p.Status,
@@ -306,7 +306,7 @@ func (s *Service) CreatePage(ctx context.Context, in CreatePageInput, actorID in
 		var p KnowledgePage
 		err := s.db.QueryRow(ctx, `
 			SELECT id, depth, path FROM knowledge_pages
-			WHERE id = $1 AND workspace_id = $2 AND space_id = $3 AND deleted_at IS NULL`,
+			WHERE id = $1 AND workspace_id = $2 AND space_id = $3 AND deleted = false`,
 			*in.ParentID, in.WorkspaceID, in.SpaceID).Scan(&p.ID, &p.Depth, &p.Path)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
@@ -369,7 +369,7 @@ func (s *Service) UpdatePage(ctx context.Context, id, wsID, version int64, in Up
 	verIdx := len(args)
 
 	query := fmt.Sprintf(`UPDATE knowledge_pages SET %s
-		WHERE id = $%d AND workspace_id = $%d AND version = $%d AND deleted_at IS NULL`,
+		WHERE id = $%d AND workspace_id = $%d AND version = $%d AND deleted = false`,
 		strings.Join(sets, ", "), idIdx, wsIdx, verIdx)
 
 	tag, err := s.db.Exec(ctx, query, args...)
@@ -421,7 +421,7 @@ func (s *Service) softDeletePage(ctx context.Context, id, wsID int64) error {
 	// 先获取 space_id 以支持批量删除同 space 子节点
 	var spaceID int64
 	err := s.db.QueryRow(ctx, `
-		SELECT space_id FROM knowledge_pages WHERE id = $1 AND workspace_id = $2 AND deleted_at IS NULL`,
+		SELECT space_id FROM knowledge_pages WHERE id = $1 AND workspace_id = $2 AND deleted = false`,
 		id, wsID).Scan(&spaceID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -432,14 +432,14 @@ func (s *Service) softDeletePage(ctx context.Context, id, wsID int64) error {
 
 	// 删除该文档及 space 下所有后代
 	tag, err := s.db.Exec(ctx, `
-		UPDATE knowledge_pages SET deleted_at = now(), updated_at = now()
+		UPDATE knowledge_pages SET deleted = true, updated_at = now()
 		WHERE workspace_id = $1 AND space_id = $2 AND id IN (
 			WITH RECURSIVE subtree AS (
 				SELECT id FROM knowledge_pages WHERE id = $3 AND workspace_id = $1 AND space_id = $2
 				UNION ALL
 				SELECT p.id FROM knowledge_pages p
 				JOIN subtree st ON p.parent_id = st.id
-				WHERE p.workspace_id = $1 AND p.space_id = $2 AND p.deleted_at IS NULL
+				WHERE p.workspace_id = $1 AND p.space_id = $2 AND p.deleted = false
 			)
 			SELECT id FROM subtree
 		)`,
@@ -536,7 +536,7 @@ func (s *Service) Search(ctx context.Context, wsID int64, keyword string, spaceI
 	}
 	var q = `SELECT ` + pageColumns + `
 			   FROM knowledge_pages
-			   WHERE workspace_id = $1 AND deleted_at IS NULL
+			   WHERE workspace_id = $1 AND deleted = false
 			     AND tsv @@ websearch_to_tsquery('simple', $2)
 			   ` + spaceFilter + `
 			   ORDER BY ts_rank(tsv, websearch_to_tsquery('simple', $2)) DESC, updated_at DESC
@@ -570,7 +570,7 @@ func (s *Service) AddPageRelation(ctx context.Context, in AddPageRelationInput) 
 	var wsID int64
 	err := s.db.QueryRow(ctx, `
 		SELECT workspace_id FROM knowledge_pages
-		WHERE id = $1 AND deleted_at IS NULL`, in.PageID).Scan(&wsID)
+		WHERE id = $1 AND deleted = false`, in.PageID).Scan(&wsID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, errs.ErrNotFound
@@ -581,7 +581,7 @@ func (s *Service) AddPageRelation(ctx context.Context, in AddPageRelationInput) 
 	// 校验工作项同属一个 workspace
 	var issueWsID int64
 	err = s.db.QueryRow(ctx, `
-		SELECT workspace_id FROM (SELECT id, public_id, workspace_id, project_id, sequence_id, 'requirement'::text AS type_code, parent_id, depth, name, description_json, description_html, description_stripped, state_id, priority, NULL::smallint AS severity, NULL::text AS found_phase, NULL::text AS root_cause_category, NULL::bigint AS verifier_id, NULL::jsonb AS environment, NULL::jsonb AS reproduce_steps, NULL::text AS category, NULL::numeric AS actual_effort, NULL::numeric AS remaining_effort, NULL::text AS delay_reason, source, point, sprint_id, progress, start_date, target_date, completed_at, is_draft, sort_order, version, version_id, found_version_id, fix_version_id, external_id, created_by, created_at, updated_at, deleted_at FROM requirement WHERE deleted_at IS NULL UNION ALL SELECT id, public_id, workspace_id, project_id, sequence_id, 'task'::text, parent_id, depth, name, description_json, description_html, description_stripped, state_id, priority, NULL::smallint, NULL::text, NULL::text, NULL::bigint, NULL::jsonb, NULL::jsonb, category, actual_effort, remaining_effort, delay_reason, NULL::text, point, sprint_id, progress, start_date, target_date, completed_at, is_draft, sort_order, version, version_id, found_version_id, fix_version_id, external_id, created_by, created_at, updated_at, deleted_at FROM task WHERE deleted_at IS NULL UNION ALL SELECT id, public_id, workspace_id, project_id, sequence_id, 'defect'::text, parent_id, depth, name, description_json, description_html, description_stripped, state_id, priority, severity, found_phase, root_cause_category, verifier_id, environment, reproduce_steps, NULL::text, NULL::numeric, NULL::numeric, NULL::text, NULL::text, point, sprint_id, progress, start_date, target_date, completed_at, is_draft, sort_order, version, version_id, found_version_id, fix_version_id, external_id, created_by, created_at, updated_at, deleted_at FROM defect WHERE deleted_at IS NULL) AS w WHERE id = $1 AND deleted_at IS NULL`, in.IssueID).Scan(&issueWsID)
+		SELECT workspace_id FROM (SELECT id, public_id, workspace_id, project_id, sequence_id, 'requirement'::text AS type_code, parent_id, depth, name, description_json, description_html, description_stripped, state_id, priority, NULL::smallint AS severity, NULL::text AS found_phase, NULL::text AS root_cause_category, NULL::bigint AS verifier_id, NULL::jsonb AS environment, NULL::jsonb AS reproduce_steps, NULL::text AS category, NULL::numeric AS actual_effort, NULL::numeric AS remaining_effort, NULL::text AS delay_reason, source, point, sprint_id, progress, start_date, target_date, completed_at, is_draft, sort_order, version, version_id, NULL::bigint AS found_version_id, NULL::bigint AS fix_version_id, created_by, created_at, updated_at, deleted FROM requirement WHERE deleted = false UNION ALL SELECT id, public_id, workspace_id, project_id, sequence_id, 'task'::text, parent_id, depth, name, description_json, description_html, description_stripped, state_id, priority, NULL::smallint, NULL::text, NULL::text, NULL::bigint, NULL::jsonb, NULL::jsonb, category, actual_effort, remaining_effort, delay_reason, NULL::text, point, sprint_id, progress, start_date, target_date, completed_at, is_draft, sort_order, version, version_id, NULL::bigint AS found_version_id, NULL::bigint AS fix_version_id, created_by, created_at, updated_at, deleted FROM task WHERE deleted = false UNION ALL SELECT id, public_id, workspace_id, project_id, sequence_id, 'defect'::text, parent_id, depth, name, description_json, description_html, description_stripped, state_id, priority, severity, found_phase, root_cause_category, verifier_id, environment, reproduce_steps, NULL::text, NULL::numeric, NULL::numeric, NULL::text, NULL::text, point, sprint_id, progress, start_date, target_date, completed_at, is_draft, sort_order, version, version_id, found_version_id, fix_version_id, created_by, created_at, updated_at, deleted FROM defect WHERE deleted = false) AS w WHERE id = $1 AND deleted = false`, in.IssueID).Scan(&issueWsID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, errs.ErrValidation.WithDetails(errs.FieldDetail{Field: "issue_id", Reason: "工作项不存在"})
@@ -616,7 +616,7 @@ func (s *Service) RemovePageRelation(ctx context.Context, id, pageID, wsID int64
 	tag, err := s.db.Exec(ctx, `
 		DELETE FROM knowledge_page_relations
 		WHERE id = $1 AND page_id = $2 AND page_id IN (
-			SELECT id FROM knowledge_pages WHERE id = $2 AND workspace_id = $3 AND deleted_at IS NULL
+			SELECT id FROM knowledge_pages WHERE id = $2 AND workspace_id = $3 AND deleted = false
 		)`,
 		id, pageID, wsID)
 	if err != nil {

@@ -177,7 +177,7 @@ func (s *ProjectService) Get(ctx context.Context, wsID, projectID int64) (*Proje
 	var p Project
 	err := s.db.QueryRow(ctx, `
 		SELECT id, workspace_id, name, slug, identifier, description, network, icon, color, cover_image_url, template, status, sort_order, modules, created_by, created_at, updated_at
-		FROM projects WHERE id = $1 AND workspace_id = $2 AND deleted_at IS NULL`,
+		FROM projects WHERE id = $1 AND workspace_id = $2 AND deleted = false`,
 		projectID, wsID).
 		Scan(&p.ID, &p.WorkspaceID, &p.Name, &p.Slug, &p.Identifier, &p.Description,
 			&p.Network, &p.Icon, &p.Color, &p.CoverImageUrl, &p.Template, &p.Status, &p.SortOrder, &p.Modules, &p.CreatedBy, &p.CreatedAt, &p.UpdatedAt)
@@ -194,7 +194,7 @@ func (s *ProjectService) Get(ctx context.Context, wsID, projectID int64) (*Proje
 func (s *ProjectService) ListByWorkspace(ctx context.Context, wsID int64) ([]Project, error) {
 	rows, err := s.db.Query(ctx, `
 		SELECT id, workspace_id, name, slug, identifier, description, network, icon, color, cover_image_url, template, status, sort_order, modules, created_by, created_at, updated_at
-		FROM projects WHERE workspace_id = $1 AND deleted_at IS NULL
+		FROM projects WHERE workspace_id = $1 AND deleted = false
 		ORDER BY sort_order, created_at ASC`, wsID)
 	if err != nil {
 		return nil, errs.ErrInternal.Wrap(err)
@@ -276,7 +276,7 @@ func (s *ProjectService) Update(ctx context.Context, wsID, projectID int64, in P
 	}
 	sets = append(sets, "updated_at = now()")
 	query := "UPDATE projects SET " + strings.Join(sets, ", ") +
-		" WHERE id = $" + strconv.Itoa(arg) + " AND workspace_id = $" + strconv.Itoa(arg+1) + " AND deleted_at IS NULL " +
+		" WHERE id = $" + strconv.Itoa(arg) + " AND workspace_id = $" + strconv.Itoa(arg+1) + " AND deleted = false " +
 		"RETURNING id, workspace_id, name, slug, identifier, description, network, icon, color, cover_image_url, template, status, sort_order, modules, created_by, created_at, updated_at"
 	args = append(args, projectID, wsID)
 

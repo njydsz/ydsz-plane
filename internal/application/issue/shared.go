@@ -138,26 +138,73 @@ func getUserNameTx(ctx context.Context, tx pgx.Tx, userID int64) string {
 	return name
 }
 
+// workitemM2MPrefix 返回工作项类型对应的 M2M 表前缀（task / requirement / defect）。
+// 关联表结构：{prefix}_assignees / {prefix}_labels / {prefix}_modules / {prefix}_watchers。
+func workitemM2MPrefix(t IssueTypeCode) string {
+	switch t {
+	case TypeTask, TypeRequirement, TypeDefect:
+		return string(t)
+	default:
+		return string(TypeTask)
+	}
+}
+
+// detectWorkitemType 通过三主表推断工作项类型。
+// 雪花 ID 全局唯一，仅按 id 命中，无需 workspace_id。
+func detectWorkitemType(ctx context.Context, db *pgxpool.Pool, workitemID int64) (IssueTypeCode, error) {
+	var tc string
+	err := db.QueryRow(ctx, `
+		SELECT 'task' FROM task WHERE id = $1
+		UNION ALL SELECT 'requirement' FROM requirement WHERE id = $1
+		UNION ALL SELECT 'defect' FROM defect WHERE id = $1
+		LIMIT 1`, workitemID).Scan(&tc)
+	if err != nil {
+		return "", errs.ErrNotFound
+	}
+	return IssueTypeCode(tc), nil
+}
+
+// subresourceTable 返回某工作项类型的子资源表名（suffix 形如 "_comments"）。
+func subresourceTable(t IssueTypeCode, suffix string) string {
+	return workitemM2MPrefix(t) + suffix
+}
+
+// locateSubresourceTable 在三个分表（task/requirement/defect）中定位子资源记录所属表。
+// 用于 Update/Delete 这类仅凭子资源 id 无法直接推断类型的场景。
+func locateSubresourceTable(ctx context.Context, db *pgxpool.Pool, suffix string, id int64) (string, error) {
+	for _, p := range []string{"task", "requirement", "defect"} {
+		tbl := p + suffix
+		var found int64
+		if err := db.QueryRow(ctx, fmt.Sprintf(`SELECT id FROM %s WHERE id = $1`, tbl), id).Scan(&found); err == nil {
+			return tbl, nil
+		}
+	}
+	return "", errs.ErrNotFound
+}
+
 // insertM2M 写入 M2M 关联（assignees / labels / modules），仅当切片非 nil 时操作。
-func insertM2M(ctx context.Context, tx pgx.Tx, issueID int64, assignees, labels, modules []int64) error {
+// tenant_id / created_by / updated_by / status / deleted 依赖表 DEFAULT 兜底。
+func insertM2M(ctx context.Context, tx pgx.Tx, typeCode IssueTypeCode, wsID, projectID, workitemID int64, assignees, labels, modules []int64) error {
+	prefix := workitemM2MPrefix(typeCode)
+	idCol := prefix + "_id"
 	for _, uid := range assignees {
-		if _, err := tx.Exec(ctx,
-			`INSERT INTO issue_assignees (issue_id, user_id) VALUES ($1,$2) ON CONFLICT DO NOTHING`,
-			issueID, uid); err != nil {
+		if _, err := tx.Exec(ctx, fmt.Sprintf(
+			`INSERT INTO %s_assignees (workspace_id, project_id, %s, user_id) VALUES ($1,$2,$3,$4) ON CONFLICT DO NOTHING`,
+			prefix, idCol), wsID, projectID, workitemID, uid); err != nil {
 			return errs.ErrInternal.Wrap(err)
 		}
 	}
 	for _, lid := range labels {
-		if _, err := tx.Exec(ctx,
-			`INSERT INTO issue_labels (issue_id, label_id) VALUES ($1,$2) ON CONFLICT DO NOTHING`,
-			issueID, lid); err != nil {
+		if _, err := tx.Exec(ctx, fmt.Sprintf(
+			`INSERT INTO %s_labels (workspace_id, project_id, %s, label_id) VALUES ($1,$2,$3,$4) ON CONFLICT DO NOTHING`,
+			prefix, idCol), wsID, projectID, workitemID, lid); err != nil {
 			return errs.ErrInternal.Wrap(err)
 		}
 	}
 	for _, mid := range modules {
-		if _, err := tx.Exec(ctx,
-			`INSERT INTO issue_modules (issue_id, module_id) VALUES ($1,$2) ON CONFLICT DO NOTHING`,
-			issueID, mid); err != nil {
+		if _, err := tx.Exec(ctx, fmt.Sprintf(
+			`INSERT INTO %s_modules (workspace_id, project_id, %s, module_id) VALUES ($1,$2,$3,$4) ON CONFLICT DO NOTHING`,
+			prefix, idCol), wsID, projectID, workitemID, mid); err != nil {
 			return errs.ErrInternal.Wrap(err)
 		}
 	}
@@ -165,38 +212,40 @@ func insertM2M(ctx context.Context, tx pgx.Tx, issueID int64, assignees, labels,
 }
 
 // updateM2M 覆盖写入 M2M 关联；assignees / labels / modules 为 nil 表示不处理。
-func updateM2M(ctx context.Context, tx pgx.Tx, issueID int64, assignees, labels, modules []int64) error {
-	return sharedUpdateM2M(ctx, tx, issueID, assignees, labels, modules)
+func updateM2M(ctx context.Context, tx pgx.Tx, typeCode IssueTypeCode, wsID, projectID, workitemID int64, assignees, labels, modules []int64) error {
+	return sharedUpdateM2M(ctx, tx, typeCode, wsID, projectID, workitemID, assignees, labels, modules)
 }
 
 // sharedUpdateM2M 是 package-level 的 M2M 更新实现，被三个服务复用。
-func sharedUpdateM2M(ctx context.Context, tx pgx.Tx, issueID int64, assignees, labels, modules []int64) error {
+func sharedUpdateM2M(ctx context.Context, tx pgx.Tx, typeCode IssueTypeCode, wsID, projectID, workitemID int64, assignees, labels, modules []int64) error {
+	prefix := workitemM2MPrefix(typeCode)
+	idCol := prefix + "_id"
 	if assignees != nil {
-		if _, err := tx.Exec(ctx, `DELETE FROM issue_assignees WHERE issue_id = $1`, issueID); err != nil {
+		if _, err := tx.Exec(ctx, fmt.Sprintf(`DELETE FROM %s_assignees WHERE %s = $1`, prefix, idCol), workitemID); err != nil {
 			return err
 		}
 		for _, uid := range assignees {
-			if _, err := tx.Exec(ctx, `INSERT INTO issue_assignees (issue_id, user_id) VALUES ($1,$2) ON CONFLICT DO NOTHING`, issueID, uid); err != nil {
+			if _, err := tx.Exec(ctx, fmt.Sprintf(`INSERT INTO %s_assignees (workspace_id, project_id, %s, user_id) VALUES ($1,$2,$3,$4) ON CONFLICT DO NOTHING`, prefix, idCol), wsID, projectID, workitemID, uid); err != nil {
 				return err
 			}
 		}
 	}
 	if labels != nil {
-		if _, err := tx.Exec(ctx, `DELETE FROM issue_labels WHERE issue_id = $1`, issueID); err != nil {
+		if _, err := tx.Exec(ctx, fmt.Sprintf(`DELETE FROM %s_labels WHERE %s = $1`, prefix, idCol), workitemID); err != nil {
 			return err
 		}
 		for _, lid := range labels {
-			if _, err := tx.Exec(ctx, `INSERT INTO issue_labels (issue_id, label_id) VALUES ($1,$2) ON CONFLICT DO NOTHING`, issueID, lid); err != nil {
+			if _, err := tx.Exec(ctx, fmt.Sprintf(`INSERT INTO %s_labels (workspace_id, project_id, %s, label_id) VALUES ($1,$2,$3,$4) ON CONFLICT DO NOTHING`, prefix, idCol), wsID, projectID, workitemID, lid); err != nil {
 				return err
 			}
 		}
 	}
 	if modules != nil {
-		if _, err := tx.Exec(ctx, `DELETE FROM issue_modules WHERE issue_id = $1`, issueID); err != nil {
+		if _, err := tx.Exec(ctx, fmt.Sprintf(`DELETE FROM %s_modules WHERE %s = $1`, prefix, idCol), workitemID); err != nil {
 			return err
 		}
 		for _, mid := range modules {
-			if _, err := tx.Exec(ctx, `INSERT INTO issue_modules (issue_id, module_id) VALUES ($1,$2) ON CONFLICT DO NOTHING`, issueID, mid); err != nil {
+			if _, err := tx.Exec(ctx, fmt.Sprintf(`INSERT INTO %s_modules (workspace_id, project_id, %s, module_id) VALUES ($1,$2,$3,$4) ON CONFLICT DO NOTHING`, prefix, idCol), wsID, projectID, workitemID, mid); err != nil {
 				return err
 			}
 		}
@@ -213,7 +262,7 @@ func triggerProgressRollup(ctx context.Context, tx pgx.Tx, parentID int64, table
 		))
 		FROM %s WHERE parent_id = $1 AND workspace_id = (
 		    SELECT workspace_id FROM %s WHERE id = $1
-		) AND deleted_at IS NULL`, tableName, tableName), parentID).Scan(&total, &completed)
+		) AND deleted = false`, tableName, tableName), parentID).Scan(&total, &completed)
 	if err != nil || total == 0 {
 		return
 	}

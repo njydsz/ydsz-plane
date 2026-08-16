@@ -312,7 +312,7 @@ func (s *OIDCService) samlFindOrCreateUser(ctx context.Context, providerID int64
 	var user UserBrief
 	err := s.db.QueryRow(ctx, `
 		SELECT id, email, display_name, coalesce(avatar_url, '')
-		FROM users WHERE sso_provider = $1 AND sso_subject = $2 AND deleted_at IS NULL`,
+		FROM users WHERE sso_provider = $1 AND sso_subject = $2 AND deleted = false`,
 		providerKey, subject).Scan(&user.ID, &user.Email, &user.DisplayName, &user.AvatarURL)
 	if err == nil {
 		return &user, nil
@@ -322,7 +322,7 @@ func (s *OIDCService) samlFindOrCreateUser(ctx context.Context, providerID int64
 	if email != "" {
 		err = s.db.QueryRow(ctx, `
 			SELECT id, email, display_name, coalesce(avatar_url, '')
-			FROM users WHERE email = $1 AND deleted_at IS NULL`, email).
+			FROM users WHERE email = $1 AND deleted = false`, email).
 			Scan(&user.ID, &user.Email, &user.DisplayName, &user.AvatarURL)
 		if err == nil {
 			_, _ = s.db.Exec(ctx,

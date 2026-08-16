@@ -391,7 +391,7 @@ func (c *consumer) resolveRecipient(ctx context.Context, ch Channel, userID int6
 
 func (c *consumer) userEmail(ctx context.Context, userID int64) (string, bool) {
 	var email string
-	if err := c.db.QueryRow(ctx, "SELECT email FROM users WHERE id = $1 AND deleted_at IS NULL", userID).Scan(&email); err != nil {
+	if err := c.db.QueryRow(ctx, "SELECT email FROM users WHERE id = $1 AND deleted = false", userID).Scan(&email); err != nil {
 		return "", false
 	}
 	if email == "" {

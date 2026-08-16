@@ -73,11 +73,11 @@ func (s *TimeLogService) Create(ctx context.Context, in CreateTimeLogInput) (*Ti
 
 		// 更新 issue 汇总
 		_, err = tx.Exec(ctx, `
-			UPDATE issues SET
+			UPDATE task SET
 				actual_effort = coalesce(actual_effort,0) + $1 / 60.0,
 				remaining_effort = greatest(coalesce(remaining_effort,0) - $1 / 60.0, 0),
 				updated_at = now()
-			WHERE id = $2 AND deleted_at IS NULL`,
+			WHERE id = $2 AND deleted = false`,
 			in.DurationMinutes, in.IssueID)
 		return err
 	})
@@ -97,7 +97,7 @@ func (s *TimeLogService) ListByIssue(ctx context.Context, wsID, issueID int64, l
 	rows, err := s.db.Query(ctx, `
 		SELECT id, workspace_id, project_id, issue_id, user_id, spent_date, duration_minutes, description, created_at, updated_at
 		FROM time_logs
-		WHERE issue_id = $1 AND workspace_id = $2 AND deleted_at IS NULL
+		WHERE issue_id = $1 AND workspace_id = $2 AND deleted = false
 		ORDER BY spent_date DESC, created_at DESC
 		LIMIT $3 OFFSET $4`, issueID, wsID, limit, offset)
 	if err != nil {
@@ -116,7 +116,7 @@ func (s *TimeLogService) ListByIssue(ctx context.Context, wsID, issueID int64, l
 	}
 
 	var total int64
-	_ = s.db.QueryRow(ctx, `SELECT count(*) FROM time_logs WHERE issue_id = $1 AND workspace_id = $2 AND deleted_at IS NULL`,
+	_ = s.db.QueryRow(ctx, `SELECT count(*) FROM time_logs WHERE issue_id = $1 AND workspace_id = $2 AND deleted = false`,
 		issueID, wsID).Scan(&total)
 
 	return logs, total, rows.Err()
@@ -135,7 +135,7 @@ func (s *TimeLogService) Update(ctx context.Context, wsID, logID int64, duration
 		var issueID int64
 		var oldMinutes int
 		err := tx.QueryRow(ctx, `
-			SELECT issue_id, duration_minutes FROM time_logs WHERE id = $1 AND workspace_id = $2 AND deleted_at IS NULL`,
+			SELECT issue_id, duration_minutes FROM time_logs WHERE id = $1 AND workspace_id = $2 AND deleted = false`,
 			logID, wsID).Scan(&issueID, &oldMinutes)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
@@ -148,7 +148,7 @@ func (s *TimeLogService) Update(ctx context.Context, wsID, logID int64, duration
 		err = tx.QueryRow(ctx, `
 			UPDATE time_logs
 			SET duration_minutes = $1, description = $2, spent_date = $3, updated_at = now()
-			WHERE id = $4 AND workspace_id = $5 AND deleted_at IS NULL
+			WHERE id = $4 AND workspace_id = $5 AND deleted = false
 			RETURNING id, workspace_id, project_id, issue_id, user_id, spent_date, duration_minutes, description, created_at, updated_at`,
 			durationMinutes, description, spentDate, logID, wsID).
 			Scan(&tl.ID, &tl.WorkspaceID, &tl.ProjectID, &tl.IssueID, &tl.UserID,
@@ -160,11 +160,11 @@ func (s *TimeLogService) Update(ctx context.Context, wsID, logID int64, duration
 		// 差值回写 issue 汇总
 		diff := durationMinutes - oldMinutes
 		_, err = tx.Exec(ctx, `
-			UPDATE issues SET
+			UPDATE task SET
 				actual_effort = greatest(coalesce(actual_effort,0) + $1 / 60.0, 0),
 				remaining_effort = greatest(coalesce(remaining_effort,0) - $1 / 60.0, 0),
 				updated_at = now()
-			WHERE id = $2 AND deleted_at IS NULL`, diff, issueID)
+			WHERE id = $2 AND deleted = false`, diff, issueID)
 		return err
 	})
 	if err != nil {
@@ -179,7 +179,7 @@ func (s *TimeLogService) Delete(ctx context.Context, wsID, logID int64) error {
 		var issueID int64
 		var minutes int
 		err := tx.QueryRow(ctx, `
-			SELECT issue_id, duration_minutes FROM time_logs WHERE id = $1 AND workspace_id = $2 AND deleted_at IS NULL`,
+			SELECT issue_id, duration_minutes FROM time_logs WHERE id = $1 AND workspace_id = $2 AND deleted = false`,
 			logID, wsID).Scan(&issueID, &minutes)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
@@ -188,12 +188,12 @@ func (s *TimeLogService) Delete(ctx context.Context, wsID, logID int64) error {
 			return err
 		}
 		if _, err := tx.Exec(ctx,
-			`UPDATE time_logs SET deleted_at = now() WHERE id = $1`, logID); err != nil {
+			`UPDATE time_logs SET deleted = true WHERE id = $1`, logID); err != nil {
 			return err
 		}
 		// 回写
 		_, err = tx.Exec(ctx, `
-			UPDATE issues SET
+			UPDATE task SET
 				actual_effort = greatest(coalesce(actual_effort,0) - $1 / 60.0, 0),
 				remaining_effort = coalesce(remaining_effort,0) + $1 / 60.0,
 				updated_at = now()

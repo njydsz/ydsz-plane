@@ -650,7 +650,7 @@ func IssueMapping() map[string]any {
 				"target_date":     map[string]any{"type": "date"},
 				"created_at":      map[string]any{"type": "date"},
 				"updated_at":      map[string]any{"type": "date"},
-				"deleted_at":      map[string]any{"type": "date"},
+				"deleted":      map[string]any{"type": "date"},
 				"parent_id":       map[string]any{"type": "long"},
 			},
 		},

@@ -51,7 +51,7 @@ type KnowledgeSpace struct {
 	CoverImage        string         `json:"cover_image,omitempty"`
 	CreatedAt         time.Time      `json:"created_at"`
 	UpdatedAt         time.Time      `json:"updated_at"`
-	DeletedAt         *time.Time     `json:"deleted_at,omitempty"`
+	DeletedAt         *time.Time     `json:"deleted,omitempty"`
 }
 
 // KnowledgePage 知识库文档。
@@ -77,7 +77,7 @@ type KnowledgePage struct {
 	UpdatedBy   *int64     `json:"updated_by,omitempty"`
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
-	DeletedAt   *time.Time `json:"deleted_at,omitempty"`
+	DeletedAt   *time.Time `json:"deleted,omitempty"`
 }
 
 // KnowledgePageVersion 版本快照。

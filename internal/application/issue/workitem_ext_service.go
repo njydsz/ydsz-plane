@@ -106,7 +106,7 @@ func (s *WorkitemExtService) GetByEntity(ctx context.Context, wsID int64, entity
 	rows, err := s.db.Query(ctx, fmt.Sprintf(`
 		SELECT id, workspace_id, project_id, %s, field_name, field_value, field_schema, created_by, created_at, updated_at
 		FROM %s 
-		WHERE workspace_id = $1 AND %s = $2 AND deleted_at IS NULL
+		WHERE workspace_id = $1 AND %s = $2 AND deleted = false
 	`, entityColName, tableName, entityColName), wsID, entityID)
 	if err != nil {
 		return nil, err

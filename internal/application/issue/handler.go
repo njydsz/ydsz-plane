@@ -69,6 +69,7 @@ func (h *IssueHandler) Register(r *gin.RouterGroup, wsMiddleware []gin.HandlerFu
 	r.GET("/issues", h.listIssues)
 	r.POST("/issues", h.createIssue)
 	r.POST("/issues/import", h.importIssues)
+	r.POST("/issues/import/preview", h.previewImport)
 	r.POST("/issues/batch", h.batchIssues)
 	r.GET("/issues/export", h.exportIssues)
 	r.GET("/issues/trash", h.listTrash)
@@ -114,6 +115,10 @@ func (h *IssueHandler) Register(r *gin.RouterGroup, wsMiddleware []gin.HandlerFu
 		issue.POST("/comments", h.createComment)
 		issue.PATCH("/comments/:comment_id", h.updateComment)
 		issue.DELETE("/comments/:comment_id", h.deleteComment)
+		// 需求评审工作流
+		issue.GET("/reviews", h.listReviews)
+		issue.POST("/review", h.submitReview)
+		issue.POST("/review/decision", h.decideReview)
 		// 版本快照审计（历史回溯 / 字段 diff）
 		verHandler := NewVersionHandler(NewVersionService(h.d.IssueSvc.db))
 		verHandler.Register(issue)
@@ -436,7 +441,7 @@ func (h *IssueHandler) hardDeleteIssue(c *gin.Context) {
 	totalTag := int64(0)
 	for _, table := range []string{"task", "requirement", "defect"} {
 		tag, err := h.d.IssueSvc.db.Exec(ctx,
-			`DELETE FROM `+table+` WHERE id = $1 AND workspace_id = $2 AND deleted_at IS NOT NULL`,
+			`DELETE FROM `+table+` WHERE id = $1 AND workspace_id = $2 AND deleted = true`,
 			issueID, wsID)
 		if err != nil {
 			writeErr(c, errs.ErrInternal.Wrap(err))
@@ -464,10 +469,10 @@ func (h *IssueHandler) listTrash(c *gin.Context) {
 
 	rows, err := h.d.IssueSvc.db.Query(c.Request.Context(), `
 		SELECT i.id, i.project_id, i.sequence_id, i.type_code, i.name,
-		       i.state_id, i.priority, i.deleted_at
-		FROM (SELECT id, public_id, workspace_id, project_id, sequence_id, 'requirement'::text AS type_code, parent_id, depth, name, description_json, description_html, description_stripped, state_id, priority, NULL::smallint AS severity, NULL::text AS found_phase, NULL::text AS root_cause_category, NULL::bigint AS verifier_id, NULL::jsonb AS environment, NULL::jsonb AS reproduce_steps, NULL::text AS category, NULL::numeric AS actual_effort, NULL::numeric AS remaining_effort, NULL::text AS delay_reason, source, point, sprint_id, progress, start_date, target_date, completed_at, is_draft, sort_order, version, version_id, found_version_id, fix_version_id, external_id, created_by, created_at, updated_at, deleted_at FROM requirement WHERE deleted_at IS NULL UNION ALL SELECT id, public_id, workspace_id, project_id, sequence_id, 'task'::text, parent_id, depth, name, description_json, description_html, description_stripped, state_id, priority, NULL::smallint, NULL::text, NULL::text, NULL::bigint, NULL::jsonb, NULL::jsonb, category, actual_effort, remaining_effort, delay_reason, NULL::text, point, sprint_id, progress, start_date, target_date, completed_at, is_draft, sort_order, version, version_id, found_version_id, fix_version_id, external_id, created_by, created_at, updated_at, deleted_at FROM task WHERE deleted_at IS NULL UNION ALL SELECT id, public_id, workspace_id, project_id, sequence_id, 'defect'::text, parent_id, depth, name, description_json, description_html, description_stripped, state_id, priority, severity, found_phase, root_cause_category, verifier_id, environment, reproduce_steps, NULL::text, NULL::numeric, NULL::numeric, NULL::text, NULL::text, point, sprint_id, progress, start_date, target_date, completed_at, is_draft, sort_order, version, version_id, found_version_id, fix_version_id, external_id, created_by, created_at, updated_at, deleted_at FROM defect WHERE deleted_at IS NULL) AS w i
-		WHERE i.workspace_id = $1 AND i.project_id = $2 AND i.deleted_at IS NOT NULL
-		ORDER BY i.deleted_at DESC
+		       i.state_id, i.priority, i.deleted
+		FROM (SELECT id, public_id, workspace_id, project_id, sequence_id, 'requirement'::text AS type_code, parent_id, depth, name, description_json, description_html, description_stripped, state_id, priority, NULL::smallint AS severity, NULL::text AS found_phase, NULL::text AS root_cause_category, NULL::bigint AS verifier_id, NULL::jsonb AS environment, NULL::jsonb AS reproduce_steps, NULL::text AS category, NULL::numeric AS actual_effort, NULL::numeric AS remaining_effort, NULL::text AS delay_reason, source, point, sprint_id, progress, start_date, target_date, completed_at, is_draft, sort_order, version, version_id, NULL::bigint AS found_version_id, NULL::bigint AS fix_version_id, created_by, created_at, updated_at, deleted FROM requirement WHERE deleted = false UNION ALL SELECT id, public_id, workspace_id, project_id, sequence_id, 'task'::text, parent_id, depth, name, description_json, description_html, description_stripped, state_id, priority, NULL::smallint, NULL::text, NULL::text, NULL::bigint, NULL::jsonb, NULL::jsonb, category, actual_effort, remaining_effort, delay_reason, NULL::text, point, sprint_id, progress, start_date, target_date, completed_at, is_draft, sort_order, version, version_id, NULL::bigint AS found_version_id, NULL::bigint AS fix_version_id, created_by, created_at, updated_at, deleted FROM task WHERE deleted = false UNION ALL SELECT id, public_id, workspace_id, project_id, sequence_id, 'defect'::text, parent_id, depth, name, description_json, description_html, description_stripped, state_id, priority, severity, found_phase, root_cause_category, verifier_id, environment, reproduce_steps, NULL::text, NULL::numeric, NULL::numeric, NULL::text, NULL::text, point, sprint_id, progress, start_date, target_date, completed_at, is_draft, sort_order, version, version_id, found_version_id, fix_version_id, created_by, created_at, updated_at, deleted FROM defect WHERE deleted = false) AS w i
+		WHERE i.workspace_id = $1 AND i.project_id = $2 AND i.deleted = true
+		ORDER BY i.deleted DESC
 		LIMIT 200`, wsID, projectID)
 	if err != nil {
 		writeErr(c, errs.ErrInternal.Wrap(err))
@@ -483,7 +488,7 @@ func (h *IssueHandler) listTrash(c *gin.Context) {
 		Name       string     `json:"name"`
 		StateID    int64      `json:"state_id"`
 		Priority   string     `json:"priority"`
-		DeletedAt  *time.Time `json:"deleted_at"`
+		DeletedAt  *time.Time `json:"deleted"`
 	}
 
 	var items []TrashItem
@@ -836,6 +841,68 @@ func (h *IssueHandler) importIssues(c *gin.Context) {
 
 	result := h.d.ImportSvc.Import(c.Request.Context(), wsID, projectID, userID, reader, opts)
 	c.JSON(http.StatusOK, result)
+}
+
+// previewImport 预览导入文件（CSV / XLSX）的 header 与前几行，供前端配置字段映射。
+// 前端在本地无法解析二进制 XLSX，因此统一走后端预览端点。
+//
+//	@Summary		预览导入文件表头
+//	@Description	上传 CSV/XLSX 文件，返回表头与前 3 行预览
+//	@Tags			issue
+//	@Accept			multipart/form-data
+//	@Produce		json
+//	@Param			file	formData	file	true	"CSV 或 XLSX 文件"
+//	@Success		200		{object}	map[string]any
+//	@Router			/issues/import/preview [post]
+func (h *IssueHandler) previewImport(c *gin.Context) {
+	file, err := c.FormFile("file")
+	if err != nil {
+		writeErr(c, errs.ErrValidation.WithDetails(
+			errs.FieldDetail{Field: "file", Reason: "请上传 CSV 或 XLSX 文件"},
+		))
+		return
+	}
+	f, err := file.Open()
+	if err != nil {
+		writeErr(c, errs.ErrInternal.Wrap(err))
+		return
+	}
+	defer f.Close()
+
+	filename := strings.ToLower(file.Filename)
+	var reader io.Reader = f
+	if strings.HasSuffix(filename, ".xlsx") {
+		cr, xerr := xlsxToCSVReader(f)
+		if xerr != nil {
+			writeErr(c, xerr)
+			return
+		}
+		reader = cr
+	} else if !strings.HasSuffix(filename, ".csv") {
+		writeErr(c, errs.ErrValidation.WithDetails(
+			errs.FieldDetail{Field: "file", Reason: "仅支持 CSV (.csv) 或 Excel (.xlsx) 格式"},
+		))
+		return
+	}
+
+	csvReader := csv.NewReader(reader)
+	csvReader.FieldsPerRecord = -1
+	headerRow, err := csvReader.Read()
+	if err != nil {
+		writeErr(c, errs.ErrValidation.WithDetails(
+			errs.FieldDetail{Field: "file", Reason: "无法读取表头: " + err.Error()},
+		))
+		return
+	}
+	var preview [][]string
+	for i := 0; i < 3; i++ {
+		rec, err := csvReader.Read()
+		if err != nil {
+			break
+		}
+		preview = append(preview, rec)
+	}
+	c.JSON(http.StatusOK, gin.H{"headers": headerRow, "preview_rows": preview})
 }
 
 // --- import handler end ---

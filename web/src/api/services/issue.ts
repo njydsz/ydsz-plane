@@ -425,6 +425,17 @@ export const issueApi = {
     );
   },
 
+  /** 预览导入文件的表头与前几行（CSV/XLSX 通用，XLSX 由后端解析） */
+  previewImport: (wsId: number, projectId: number, file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    return wrap<{ headers: string[]; preview_rows: string[][] }>(
+      http.post(`/workspaces/${wsId}/projects/${projectId}/issues/import/preview`, form, {
+        headers: { "Content-Type": "multipart/form-data" },
+      }),
+    );
+  },
+
   // --- 活动日志 ---
   listActivities: (wsId: number, projectId: number, issueId: number, limit = 50, offset = 0) =>
     wrap<{ results: IssueActivity[]; total: number }>(
@@ -535,7 +546,40 @@ export const issueApi = {
     wrap<void>(http.post(`/workspaces/${wsId}/projects/${projectId}/issues/${issueId}/restore`)),
   permanentDelete: (wsId: number, projectId: number, issueId: number) =>
     wrap<void>(http.delete(`/workspaces/${wsId}/projects/${projectId}/issues/${issueId}/permanent`)),
+
+  // --- 需求评审工作流 ---
+  listReviews: (wsId: number, projectId: number, issueId: number) =>
+    wrap<{ results: ReviewRecord[]; total: number }>(
+      http.get(`/workspaces/${wsId}/projects/${projectId}/issues/${issueId}/reviews`),
+    ),
+  submitReview: (wsId: number, projectId: number, issueId: number, input: { name?: string; reviewers?: number[] }) =>
+    wrap<ReviewRecord>(
+      http.post(`/workspaces/${wsId}/projects/${projectId}/issues/${issueId}/review`, input),
+    ),
+  decideReview: (wsId: number, projectId: number, issueId: number, decision: "approved" | "rejected") =>
+    wrap<{ ok: boolean }>(
+      http.post(`/workspaces/${wsId}/projects/${projectId}/issues/${issueId}/review/decision`, { decision }),
+    ),
 };
+
+/** 评审活动记录 */
+export interface ReviewRecord {
+  id: number;
+  workspace_id: number;
+  project_id?: number | null;
+  name: string;
+  review_type: string;
+  entity_type: string;
+  entity_id?: number | null;
+  status: string;
+  description?: string;
+  due_date?: string | null;
+  created_date?: string | null;
+  completed_date?: string | null;
+  created_by: number;
+  created_at: string;
+  reviewers?: number[];
+}
 
 export interface TrashItem {
   id: number;

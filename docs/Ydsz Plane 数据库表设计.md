@@ -622,6 +622,7 @@ tenants ──< users ──< user_roles >── roles ──< role_menus >─�
 | content_json | JSONB | NOT NULL | 内容（JSON） |
 | content_html | TEXT | NOT NULL | 内容（HTML） |
 | parent_id | BIGINT | | 父评论 |
+| status | entity_status | NOT NULL DEFAULT 'active' | 状态 |
 | deleted | BOOLEAN | DEFAULT false | 软删除 |
 | created_by | BIGINT | NOT NULL | 创建人 |
 | created_at | TIMESTAMPTZ | DEFAULT now() | 创建时间 |
@@ -774,6 +775,7 @@ tenants ──< users ──< user_roles >── roles ──< role_menus >─�
 | progress | JSONB | DEFAULT '{}' | 进度快照 |
 | quality | JSONB | DEFAULT '{}' | 质量快照 |
 | release_notes | TEXT | | 发布说明 |
+| snapshot_at | TIMESTAMPTZ | DEFAULT now() | 快照时间 |
 | status | entity_status | NOT NULL DEFAULT 'active' | 状态 |
 | deleted | BOOLEAN | DEFAULT false | 软删除 |
 | created_by | BIGINT | NOT NULL | 创建人 |
@@ -1013,6 +1015,7 @@ tenants ──< users ──< user_roles >── roles ──< role_menus >─�
 | tenant_id | BIGINT | NOT NULL | 租户ID |
 | workspace_id | BIGINT | NOT NULL | 工作空间ID |
 | project_id | BIGINT | NOT NULL | 项目ID |
+| dashboard_id | BIGINT | NOT NULL | 仪表盘ID |
 | widget_type | VARCHAR(50) | NOT NULL | 组件类型 |
 | refreshed_at | TIMESTAMPTZ | DEFAULT now() | 刷新时间 |
 | data | JSONB | DEFAULT '{}' | 快照数据 |
@@ -2015,6 +2018,578 @@ tenants ──< users ──< user_roles >── roles ──< role_menus >─�
 | created_at | TIMESTAMPTZ | DEFAULT now() | 创建时间 |
 | updated_by | BIGINT | NOT NULL | 更新人 |
 | updated_at | TIMESTAMPTZ | DEFAULT now() | 更新时间 |
+
+---
+
+## 22、ER 范式展开与系统支撑表
+
+以下表由 ER 总览中的 `xxx_*` 范式隐含或作为系统支撑表，在初始化脚本中与编号表同等建表，字段结构与 task_* 同构。
+
+### 81. `task_attachments` — 任务附件
+
+| 字段 | 类型 | 约束 | 说明 |
+|------|------|------|------|
+| id | BIGINT | PK | 雪花ID |
+| tenant_id | BIGINT | NOT NULL | 租户ID |
+| workspace_id | BIGINT | NOT NULL | 工作空间ID |
+| project_id | BIGINT | NOT NULL | 项目ID |
+| task_id | BIGINT | NOT NULL | 任务ID |
+| file_name | VARCHAR(255) | NOT NULL | 文件名 |
+| file_size | BIGINT | NOT NULL | 文件大小 |
+| file_type | VARCHAR(100) | NOT NULL | 文件类型 |
+| storage_path | TEXT | NOT NULL | 存储路径 |
+| thumbnail_path | TEXT | | 缩略图路径 |
+| status | attachment_status | NOT NULL DEFAULT 'available' | 状态 |
+| deleted | BOOLEAN | DEFAULT false | 软删除 |
+| created_by | BIGINT | NOT NULL | 创建人 |
+| created_at | TIMESTAMPTZ | DEFAULT now() | 创建时间 |
+| updated_by | BIGINT | NOT NULL | 更新人 |
+| updated_at | TIMESTAMPTZ | DEFAULT now() | 更新时间 |
+
+### 82. `task_timelogs` — 任务工时
+
+| 字段 | 类型 | 约束 | 说明 |
+|------|------|------|------|
+| id | BIGINT | PK | 雪花ID |
+| tenant_id | BIGINT | NOT NULL | 租户ID |
+| workspace_id | BIGINT | NOT NULL | 工作空间ID |
+| project_id | BIGINT | NOT NULL | 项目ID |
+| task_id | BIGINT | NOT NULL | 任务ID |
+| user_id | BIGINT | NOT NULL | 记录人 |
+| spent_date | DATE | NOT NULL DEFAULT CURRENT_DATE | 日期 |
+| duration_minutes | INT | NOT NULL CHECK(>0 <=1440) | 时长(分) |
+| description | TEXT | | 描述 |
+| status | entity_status | NOT NULL DEFAULT 'active' | 状态 |
+| deleted | BOOLEAN | DEFAULT false | 软删除 |
+| created_by | BIGINT | NOT NULL | 创建人 |
+| created_at | TIMESTAMPTZ | DEFAULT now() | 创建时间 |
+| updated_by | BIGINT | NOT NULL | 更新人 |
+| updated_at | TIMESTAMPTZ | DEFAULT now() | 更新时间 |
+
+### 83. `requirement_assignees` — 需求执行人
+
+| 字段 | 类型 | 约束 | 说明 |
+|------|------|------|------|
+| id | BIGINT | PK | 雪花ID |
+| tenant_id | BIGINT | NOT NULL | 租户ID |
+| workspace_id | BIGINT | NOT NULL | 工作空间ID |
+| project_id | BIGINT | NOT NULL | 项目ID |
+| requirement_id | BIGINT | NOT NULL | 需求ID |
+| user_id | BIGINT | NOT NULL | 用户ID |
+| status | entity_status | NOT NULL DEFAULT 'active' | 状态 |
+| deleted | BOOLEAN | DEFAULT false | 软删除 |
+| created_by | BIGINT | NOT NULL | 创建人 |
+| created_at | TIMESTAMPTZ | DEFAULT now() | 创建时间 |
+| updated_by | BIGINT | NOT NULL | 更新人 |
+| updated_at | TIMESTAMPTZ | DEFAULT now() | 更新时间 |
+
+> UNIQUE(requirement_id, user_id)
+
+### 84. `requirement_labels` — 需求标签
+
+| 字段 | 类型 | 约束 | 说明 |
+|------|------|------|------|
+| id | BIGINT | PK | 雪花ID |
+| tenant_id | BIGINT | NOT NULL | 租户ID |
+| workspace_id | BIGINT | NOT NULL | 工作空间ID |
+| project_id | BIGINT | NOT NULL | 项目ID |
+| requirement_id | BIGINT | NOT NULL | 需求ID |
+| label_id | BIGINT | NOT NULL | 标签ID |
+| status | entity_status | NOT NULL DEFAULT 'active' | 状态 |
+| deleted | BOOLEAN | DEFAULT false | 软删除 |
+| created_by | BIGINT | NOT NULL | 创建人 |
+| created_at | TIMESTAMPTZ | DEFAULT now() | 创建时间 |
+| updated_by | BIGINT | NOT NULL | 更新人 |
+| updated_at | TIMESTAMPTZ | DEFAULT now() | 更新时间 |
+
+> UNIQUE(requirement_id, label_id)
+
+### 85. `requirement_modules` — 需求模块关联
+
+| 字段 | 类型 | 约束 | 说明 |
+|------|------|------|------|
+| id | BIGINT | PK | 雪花ID |
+| tenant_id | BIGINT | NOT NULL | 租户ID |
+| workspace_id | BIGINT | NOT NULL | 工作空间ID |
+| project_id | BIGINT | NOT NULL | 项目ID |
+| requirement_id | BIGINT | NOT NULL | 需求ID |
+| module_id | BIGINT | NOT NULL | 模块ID |
+| status | entity_status | NOT NULL DEFAULT 'active' | 状态 |
+| deleted | BOOLEAN | DEFAULT false | 软删除 |
+| created_by | BIGINT | NOT NULL | 创建人 |
+| created_at | TIMESTAMPTZ | DEFAULT now() | 创建时间 |
+| updated_by | BIGINT | NOT NULL | 更新人 |
+| updated_at | TIMESTAMPTZ | DEFAULT now() | 更新时间 |
+
+> UNIQUE(requirement_id, module_id)
+
+### 86. `requirement_watchers` — 需求关注人
+
+| 字段 | 类型 | 约束 | 说明 |
+|------|------|------|------|
+| id | BIGINT | PK | 雪花ID |
+| tenant_id | BIGINT | NOT NULL | 租户ID |
+| workspace_id | BIGINT | NOT NULL | 工作空间ID |
+| project_id | BIGINT | NOT NULL | 项目ID |
+| requirement_id | BIGINT | NOT NULL | 需求ID |
+| user_id | BIGINT | NOT NULL | 用户ID |
+| status | entity_status | NOT NULL DEFAULT 'active' | 状态 |
+| deleted | BOOLEAN | DEFAULT false | 软删除 |
+| created_by | BIGINT | NOT NULL | 创建人 |
+| created_at | TIMESTAMPTZ | DEFAULT now() | 创建时间 |
+| updated_by | BIGINT | NOT NULL | 更新人 |
+| updated_at | TIMESTAMPTZ | DEFAULT now() | 更新时间 |
+
+> UNIQUE(requirement_id, user_id)
+
+### 87. `requirement_relations` — 需求关联关系
+
+| 字段 | 类型 | 约束 | 说明 |
+|------|------|------|------|
+| id | BIGINT | PK | 雪花ID |
+| tenant_id | BIGINT | NOT NULL | 租户ID |
+| workspace_id | BIGINT | NOT NULL | 工作空间ID |
+| project_id | BIGINT | NOT NULL | 项目ID |
+| source_requirement_id | BIGINT | NOT NULL | 源需求ID |
+| target_requirement_id | BIGINT | NOT NULL | 目标需求ID |
+| relation_type | VARCHAR(50) | NOT NULL CHECK | 关系类型 |
+| status | entity_status | NOT NULL DEFAULT 'active' | 状态 |
+| deleted | BOOLEAN | DEFAULT false | 软删除 |
+| created_by | BIGINT | NOT NULL | 创建人 |
+| created_at | TIMESTAMPTZ | DEFAULT now() | 创建时间 |
+| updated_by | BIGINT | NOT NULL | 更新人 |
+| updated_at | TIMESTAMPTZ | DEFAULT now() | 更新时间 |
+
+> UNIQUE(source_requirement_id, target_requirement_id, relation_type)
+
+### 88. `requirement_comments` — 需求评论
+
+| 字段 | 类型 | 约束 | 说明 |
+|------|------|------|------|
+| id | BIGINT | PK | 雪花ID |
+| tenant_id | BIGINT | NOT NULL | 租户ID |
+| workspace_id | BIGINT | NOT NULL | 工作空间ID |
+| project_id | BIGINT | NOT NULL | 项目ID |
+| requirement_id | BIGINT | NOT NULL | 需求ID |
+| content_json | JSONB | NOT NULL | 内容 JSON |
+| content_html | TEXT | NOT NULL | 内容 HTML |
+| parent_id | BIGINT | | 父评论ID |
+| status | entity_status | NOT NULL DEFAULT 'active' | 状态 |
+| deleted | BOOLEAN | DEFAULT false | 软删除 |
+| created_by | BIGINT | NOT NULL | 创建人 |
+| created_at | TIMESTAMPTZ | DEFAULT now() | 创建时间 |
+| updated_by | BIGINT | | 更新人 |
+| updated_at | TIMESTAMPTZ | DEFAULT now() | 更新时间 |
+
+### 89. `requirement_activities` — 需求活动日志
+
+| 字段 | 类型 | 约束 | 说明 |
+|------|------|------|------|
+| id | BIGINT | PK | 雪花ID |
+| tenant_id | BIGINT | NOT NULL | 租户ID |
+| workspace_id | BIGINT | NOT NULL | 工作空间ID |
+| project_id | BIGINT | NOT NULL | 项目ID |
+| requirement_id | BIGINT | NOT NULL | 需求ID |
+| verb | VARCHAR(50) | NOT NULL | 动作 |
+| field_name | VARCHAR(100) | | 字段名 |
+| old_value | TEXT | | 旧值 |
+| new_value | TEXT | | 新值 |
+| actor_id | BIGINT | NOT NULL | 操作人 |
+| status | entity_status | NOT NULL DEFAULT 'active' | 状态 |
+| deleted | BOOLEAN | DEFAULT false | 软删除 |
+| created_by | BIGINT | NOT NULL | 创建人 |
+| created_at | TIMESTAMPTZ | DEFAULT now() | 创建时间 |
+| updated_by | BIGINT | NOT NULL | 更新人 |
+| updated_at | TIMESTAMPTZ | DEFAULT now() | 更新时间 |
+
+### 90. `requirement_timelogs` — 需求工时
+
+| 字段 | 类型 | 约束 | 说明 |
+|------|------|------|------|
+| id | BIGINT | PK | 雪花ID |
+| tenant_id | BIGINT | NOT NULL | 租户ID |
+| workspace_id | BIGINT | NOT NULL | 工作空间ID |
+| project_id | BIGINT | NOT NULL | 项目ID |
+| requirement_id | BIGINT | NOT NULL | 需求ID |
+| user_id | BIGINT | NOT NULL | 记录人 |
+| spent_date | DATE | NOT NULL DEFAULT CURRENT_DATE | 日期 |
+| duration_minutes | INT | NOT NULL CHECK(>0 <=1440) | 时长(分) |
+| description | TEXT | | 描述 |
+| status | entity_status | NOT NULL DEFAULT 'active' | 状态 |
+| deleted | BOOLEAN | DEFAULT false | 软删除 |
+| created_by | BIGINT | NOT NULL | 创建人 |
+| created_at | TIMESTAMPTZ | DEFAULT now() | 创建时间 |
+| updated_by | BIGINT | NOT NULL | 更新人 |
+| updated_at | TIMESTAMPTZ | DEFAULT now() | 更新时间 |
+
+### 91. `requirement_attachments` — 需求附件
+
+| 字段 | 类型 | 约束 | 说明 |
+|------|------|------|------|
+| id | BIGINT | PK | 雪花ID |
+| tenant_id | BIGINT | NOT NULL | 租户ID |
+| workspace_id | BIGINT | NOT NULL | 工作空间ID |
+| project_id | BIGINT | NOT NULL | 项目ID |
+| requirement_id | BIGINT | NOT NULL | 需求ID |
+| file_name | VARCHAR(255) | NOT NULL | 文件名 |
+| file_size | BIGINT | NOT NULL | 文件大小 |
+| file_type | VARCHAR(100) | NOT NULL | 文件类型 |
+| storage_path | TEXT | NOT NULL | 存储路径 |
+| thumbnail_path | TEXT | | 缩略图路径 |
+| status | attachment_status | NOT NULL DEFAULT 'available' | 状态 |
+| deleted | BOOLEAN | DEFAULT false | 软删除 |
+| created_by | BIGINT | NOT NULL | 创建人 |
+| created_at | TIMESTAMPTZ | DEFAULT now() | 创建时间 |
+| updated_by | BIGINT | NOT NULL | 更新人 |
+| updated_at | TIMESTAMPTZ | DEFAULT now() | 更新时间 |
+
+### 92. `requirement_ext` — 需求扩展字段
+
+| 字段 | 类型 | 约束 | 说明 |
+|------|------|------|------|
+| id | BIGINT | PK | 雪花ID |
+| tenant_id | BIGINT | NOT NULL | 租户ID |
+| workspace_id | BIGINT | NOT NULL | 工作空间ID |
+| project_id | BIGINT | NOT NULL | 项目ID |
+| requirement_id | BIGINT | NOT NULL | 需求ID |
+| field_name | VARCHAR(100) | NOT NULL | 字段名 |
+| field_value | JSONB | NOT NULL | 字段值 |
+| field_schema | JSONB | | 字段元数据 |
+| status | entity_status | NOT NULL DEFAULT 'active' | 状态 |
+| deleted | BOOLEAN | DEFAULT false | 软删除 |
+| created_by | BIGINT | NOT NULL | 创建人 |
+| created_at | TIMESTAMPTZ | DEFAULT now() | 创建时间 |
+| updated_by | BIGINT | NOT NULL | 更新人 |
+| updated_at | TIMESTAMPTZ | DEFAULT now() | 更新时间 |
+
+> UNIQUE(requirement_id, field_name)
+
+### 93. `defect_assignees` — 缺陷处理人
+
+| 字段 | 类型 | 约束 | 说明 |
+|------|------|------|------|
+| id | BIGINT | PK | 雪花ID |
+| tenant_id | BIGINT | NOT NULL | 租户ID |
+| workspace_id | BIGINT | NOT NULL | 工作空间ID |
+| project_id | BIGINT | NOT NULL | 项目ID |
+| defect_id | BIGINT | NOT NULL | 缺陷ID |
+| user_id | BIGINT | NOT NULL | 用户ID |
+| status | entity_status | NOT NULL DEFAULT 'active' | 状态 |
+| deleted | BOOLEAN | DEFAULT false | 软删除 |
+| created_by | BIGINT | NOT NULL | 创建人 |
+| created_at | TIMESTAMPTZ | DEFAULT now() | 创建时间 |
+| updated_by | BIGINT | NOT NULL | 更新人 |
+| updated_at | TIMESTAMPTZ | DEFAULT now() | 更新时间 |
+
+> UNIQUE(defect_id, user_id)
+
+### 94. `defect_labels` — 缺陷标签
+
+| 字段 | 类型 | 约束 | 说明 |
+|------|------|------|------|
+| id | BIGINT | PK | 雪花ID |
+| tenant_id | BIGINT | NOT NULL | 租户ID |
+| workspace_id | BIGINT | NOT NULL | 工作空间ID |
+| project_id | BIGINT | NOT NULL | 项目ID |
+| defect_id | BIGINT | NOT NULL | 缺陷ID |
+| label_id | BIGINT | NOT NULL | 标签ID |
+| status | entity_status | NOT NULL DEFAULT 'active' | 状态 |
+| deleted | BOOLEAN | DEFAULT false | 软删除 |
+| created_by | BIGINT | NOT NULL | 创建人 |
+| created_at | TIMESTAMPTZ | DEFAULT now() | 创建时间 |
+| updated_by | BIGINT | NOT NULL | 更新人 |
+| updated_at | TIMESTAMPTZ | DEFAULT now() | 更新时间 |
+
+> UNIQUE(defect_id, label_id)
+
+### 95. `defect_modules` — 缺陷模块关联
+
+| 字段 | 类型 | 约束 | 说明 |
+|------|------|------|------|
+| id | BIGINT | PK | 雪花ID |
+| tenant_id | BIGINT | NOT NULL | 租户ID |
+| workspace_id | BIGINT | NOT NULL | 工作空间ID |
+| project_id | BIGINT | NOT NULL | 项目ID |
+| defect_id | BIGINT | NOT NULL | 缺陷ID |
+| module_id | BIGINT | NOT NULL | 模块ID |
+| status | entity_status | NOT NULL DEFAULT 'active' | 状态 |
+| deleted | BOOLEAN | DEFAULT false | 软删除 |
+| created_by | BIGINT | NOT NULL | 创建人 |
+| created_at | TIMESTAMPTZ | DEFAULT now() | 创建时间 |
+| updated_by | BIGINT | NOT NULL | 更新人 |
+| updated_at | TIMESTAMPTZ | DEFAULT now() | 更新时间 |
+
+> UNIQUE(defect_id, module_id)
+
+### 96. `defect_watchers` — 缺陷关注人
+
+| 字段 | 类型 | 约束 | 说明 |
+|------|------|------|------|
+| id | BIGINT | PK | 雪花ID |
+| tenant_id | BIGINT | NOT NULL | 租户ID |
+| workspace_id | BIGINT | NOT NULL | 工作空间ID |
+| project_id | BIGINT | NOT NULL | 项目ID |
+| defect_id | BIGINT | NOT NULL | 缺陷ID |
+| user_id | BIGINT | NOT NULL | 用户ID |
+| status | entity_status | NOT NULL DEFAULT 'active' | 状态 |
+| deleted | BOOLEAN | DEFAULT false | 软删除 |
+| created_by | BIGINT | NOT NULL | 创建人 |
+| created_at | TIMESTAMPTZ | DEFAULT now() | 创建时间 |
+| updated_by | BIGINT | NOT NULL | 更新人 |
+| updated_at | TIMESTAMPTZ | DEFAULT now() | 更新时间 |
+
+> UNIQUE(defect_id, user_id)
+
+### 97. `defect_relations` — 缺陷关联关系
+
+| 字段 | 类型 | 约束 | 说明 |
+|------|------|------|------|
+| id | BIGINT | PK | 雪花ID |
+| tenant_id | BIGINT | NOT NULL | 租户ID |
+| workspace_id | BIGINT | NOT NULL | 工作空间ID |
+| project_id | BIGINT | NOT NULL | 项目ID |
+| source_defect_id | BIGINT | NOT NULL | 源缺陷ID |
+| target_defect_id | BIGINT | NOT NULL | 目标缺陷ID |
+| relation_type | VARCHAR(50) | NOT NULL CHECK | 关系类型 |
+| status | entity_status | NOT NULL DEFAULT 'active' | 状态 |
+| deleted | BOOLEAN | DEFAULT false | 软删除 |
+| created_by | BIGINT | NOT NULL | 创建人 |
+| created_at | TIMESTAMPTZ | DEFAULT now() | 创建时间 |
+| updated_by | BIGINT | NOT NULL | 更新人 |
+| updated_at | TIMESTAMPTZ | DEFAULT now() | 更新时间 |
+
+> UNIQUE(source_defect_id, target_defect_id, relation_type)
+
+### 98. `defect_comments` — 缺陷评论
+
+| 字段 | 类型 | 约束 | 说明 |
+|------|------|------|------|
+| id | BIGINT | PK | 雪花ID |
+| tenant_id | BIGINT | NOT NULL | 租户ID |
+| workspace_id | BIGINT | NOT NULL | 工作空间ID |
+| project_id | BIGINT | NOT NULL | 项目ID |
+| defect_id | BIGINT | NOT NULL | 缺陷ID |
+| content_json | JSONB | NOT NULL | 内容 JSON |
+| content_html | TEXT | NOT NULL | 内容 HTML |
+| parent_id | BIGINT | | 父评论ID |
+| status | entity_status | NOT NULL DEFAULT 'active' | 状态 |
+| deleted | BOOLEAN | DEFAULT false | 软删除 |
+| created_by | BIGINT | NOT NULL | 创建人 |
+| created_at | TIMESTAMPTZ | DEFAULT now() | 创建时间 |
+| updated_by | BIGINT | | 更新人 |
+| updated_at | TIMESTAMPTZ | DEFAULT now() | 更新时间 |
+
+### 99. `defect_activities` — 缺陷活动日志
+
+| 字段 | 类型 | 约束 | 说明 |
+|------|------|------|------|
+| id | BIGINT | PK | 雪花ID |
+| tenant_id | BIGINT | NOT NULL | 租户ID |
+| workspace_id | BIGINT | NOT NULL | 工作空间ID |
+| project_id | BIGINT | NOT NULL | 项目ID |
+| defect_id | BIGINT | NOT NULL | 缺陷ID |
+| verb | VARCHAR(50) | NOT NULL | 动作 |
+| field_name | VARCHAR(100) | | 字段名 |
+| old_value | TEXT | | 旧值 |
+| new_value | TEXT | | 新值 |
+| actor_id | BIGINT | NOT NULL | 操作人 |
+| status | entity_status | NOT NULL DEFAULT 'active' | 状态 |
+| deleted | BOOLEAN | DEFAULT false | 软删除 |
+| created_by | BIGINT | NOT NULL | 创建人 |
+| created_at | TIMESTAMPTZ | DEFAULT now() | 创建时间 |
+| updated_by | BIGINT | NOT NULL | 更新人 |
+| updated_at | TIMESTAMPTZ | DEFAULT now() | 更新时间 |
+
+### 100. `defect_timelogs` — 缺陷工时
+
+| 字段 | 类型 | 约束 | 说明 |
+|------|------|------|------|
+| id | BIGINT | PK | 雪花ID |
+| tenant_id | BIGINT | NOT NULL | 租户ID |
+| workspace_id | BIGINT | NOT NULL | 工作空间ID |
+| project_id | BIGINT | NOT NULL | 项目ID |
+| defect_id | BIGINT | NOT NULL | 缺陷ID |
+| user_id | BIGINT | NOT NULL | 记录人 |
+| spent_date | DATE | NOT NULL DEFAULT CURRENT_DATE | 日期 |
+| duration_minutes | INT | NOT NULL CHECK(>0 <=1440) | 时长(分) |
+| description | TEXT | | 描述 |
+| status | entity_status | NOT NULL DEFAULT 'active' | 状态 |
+| deleted | BOOLEAN | DEFAULT false | 软删除 |
+| created_by | BIGINT | NOT NULL | 创建人 |
+| created_at | TIMESTAMPTZ | DEFAULT now() | 创建时间 |
+| updated_by | BIGINT | NOT NULL | 更新人 |
+| updated_at | TIMESTAMPTZ | DEFAULT now() | 更新时间 |
+
+### 101. `defect_attachments` — 缺陷附件
+
+| 字段 | 类型 | 约束 | 说明 |
+|------|------|------|------|
+| id | BIGINT | PK | 雪花ID |
+| tenant_id | BIGINT | NOT NULL | 租户ID |
+| workspace_id | BIGINT | NOT NULL | 工作空间ID |
+| project_id | BIGINT | NOT NULL | 项目ID |
+| defect_id | BIGINT | NOT NULL | 缺陷ID |
+| file_name | VARCHAR(255) | NOT NULL | 文件名 |
+| file_size | BIGINT | NOT NULL | 文件大小 |
+| file_type | VARCHAR(100) | NOT NULL | 文件类型 |
+| storage_path | TEXT | NOT NULL | 存储路径 |
+| thumbnail_path | TEXT | | 缩略图路径 |
+| status | attachment_status | NOT NULL DEFAULT 'available' | 状态 |
+| deleted | BOOLEAN | DEFAULT false | 软删除 |
+| created_by | BIGINT | NOT NULL | 创建人 |
+| created_at | TIMESTAMPTZ | DEFAULT now() | 创建时间 |
+| updated_by | BIGINT | NOT NULL | 更新人 |
+| updated_at | TIMESTAMPTZ | DEFAULT now() | 更新时间 |
+
+### 102. `defect_ext` — 缺陷扩展字段
+
+| 字段 | 类型 | 约束 | 说明 |
+|------|------|------|------|
+| id | BIGINT | PK | 雪花ID |
+| tenant_id | BIGINT | NOT NULL | 租户ID |
+| workspace_id | BIGINT | NOT NULL | 工作空间ID |
+| project_id | BIGINT | NOT NULL | 项目ID |
+| defect_id | BIGINT | NOT NULL | 缺陷ID |
+| field_name | VARCHAR(100) | NOT NULL | 字段名 |
+| field_value | JSONB | NOT NULL | 字段值 |
+| field_schema | JSONB | | 字段元数据 |
+| status | entity_status | NOT NULL DEFAULT 'active' | 状态 |
+| deleted | BOOLEAN | DEFAULT false | 软删除 |
+| created_by | BIGINT | NOT NULL | 创建人 |
+| created_at | TIMESTAMPTZ | DEFAULT now() | 创建时间 |
+| updated_by | BIGINT | NOT NULL | 更新人 |
+| updated_at | TIMESTAMPTZ | DEFAULT now() | 更新时间 |
+
+> UNIQUE(defect_id, field_name)
+
+### 103. `biz_entity_relations` — 跨类型实体关联
+
+| 字段 | 类型 | 约束 | 说明 |
+|------|------|------|------|
+| id | BIGINT | PK | 雪花ID |
+| tenant_id | BIGINT | NOT NULL | 租户ID |
+| workspace_id | BIGINT | NOT NULL | 工作空间ID |
+| project_id | BIGINT | NOT NULL | 项目ID |
+| source_type | VARCHAR(20) | NOT NULL CHECK | 源类型(task/requirement/defect) |
+| source_id | BIGINT | NOT NULL | 源ID |
+| target_type | VARCHAR(20) | NOT NULL CHECK | 目标类型 |
+| target_id | BIGINT | NOT NULL | 目标ID |
+| relation_type | VARCHAR(50) | NOT NULL CHECK | 关系类型 |
+| status | entity_status | NOT NULL DEFAULT 'active' | 状态 |
+| deleted | BOOLEAN | DEFAULT false | 软删除 |
+| created_by | BIGINT | NOT NULL | 创建人 |
+| created_at | TIMESTAMPTZ | DEFAULT now() | 创建时间 |
+| updated_by | BIGINT | NOT NULL | 更新人 |
+| updated_at | TIMESTAMPTZ | DEFAULT now() | 更新时间 |
+
+> UNIQUE(source_type, source_id, target_type, target_id, relation_type)
+
+### 104. `pages` — 项目文档页面
+
+| 字段 | 类型 | 约束 | 说明 |
+|------|------|------|------|
+| id | BIGINT | PK | 雪花ID |
+| public_id | UUID | NOT NULL DEFAULT gen_random_uuid() | 公开ID |
+| tenant_id | BIGINT | NOT NULL | 租户ID |
+| workspace_id | BIGINT | NOT NULL | 工作空间ID |
+| project_id | BIGINT | NOT NULL | 项目ID |
+| name | VARCHAR(255) | NOT NULL | 页面名 |
+| description_json | JSONB | | 描述 JSON |
+| description_html | TEXT | | 描述 HTML |
+| description_stripped | TEXT | | 纯文本 |
+| parent_id | BIGINT | | 父页面ID |
+| sort_order | DOUBLE PRECISION | NOT NULL DEFAULT 65535 | 排序 |
+| version | INT | NOT NULL DEFAULT 1 | 乐观锁 |
+| status | entity_status | NOT NULL DEFAULT 'active' | 状态 |
+| deleted | BOOLEAN | DEFAULT false | 软删除 |
+| created_by | BIGINT | NOT NULL | 创建人 |
+| created_at | TIMESTAMPTZ | DEFAULT now() | 创建时间 |
+| updated_by | BIGINT | NOT NULL | 更新人 |
+| updated_at | TIMESTAMPTZ | DEFAULT now() | 更新时间 |
+
+### 105. `deployment_events` — 部署事件
+
+| 字段 | 类型 | 约束 | 说明 |
+|------|------|------|------|
+| id | BIGINT | PK | 雪花ID |
+| tenant_id | BIGINT | NOT NULL | 租户ID |
+| workspace_id | BIGINT | NOT NULL | 工作空间ID |
+| project_id | BIGINT | | 项目ID |
+| deployment_id | VARCHAR(64) | | 部署ID |
+| env | VARCHAR(20) | NOT NULL CHECK | 环境 |
+| status | VARCHAR(20) | NOT NULL CHECK | 状态 |
+| version | VARCHAR(100) | | 版本 |
+| deployed_at | TIMESTAMPTZ | NOT NULL DEFAULT now() | 部署时间 |
+| deleted | BOOLEAN | DEFAULT false | 软删除 |
+| created_by | BIGINT | NOT NULL | 创建人 |
+| created_at | TIMESTAMPTZ | DEFAULT now() | 创建时间 |
+| updated_by | BIGINT | NOT NULL | 更新人 |
+| updated_at | TIMESTAMPTZ | DEFAULT now() | 更新时间 |
+
+> UNIQUE(deployment_id, env, project_id)
+
+### 106. `processed_events` — 事件消费记录
+
+| 字段 | 类型 | 约束 | 说明 |
+|------|------|------|------|
+| event_id | BIGINT | NOT NULL | 事件ID |
+| consumer_id | VARCHAR(100) | NOT NULL | 消费者ID |
+| processed_at | TIMESTAMPTZ | NOT NULL DEFAULT now() | 处理时间 |
+| retry_count | INT | NOT NULL DEFAULT 1 | 重试次数 |
+
+> PRIMARY KEY(event_id, consumer_id)
+
+### 107. `dlq_events` — 死信队列事件
+
+| 字段 | 类型 | 约束 | 说明 |
+|------|------|------|------|
+| id | BIGINT | PK | 雪花ID |
+| event_id | BIGINT | | 事件ID |
+| tenant_id | BIGINT | | 租户ID |
+| workspace_id | BIGINT | | 工作空间ID |
+| queue | VARCHAR(100) | NOT NULL | 队列 |
+| exchange | VARCHAR(100) | NOT NULL | 交换机 |
+| routing_key | VARCHAR(200) | DEFAULT '' | 路由键 |
+| payload | JSONB | | 载荷 |
+| error_reason | TEXT | | 错误原因 |
+| resolved_at | TIMESTAMPTZ | | 解决时间 |
+| resolved_by | VARCHAR(100) | | 解决人 |
+| created_at | TIMESTAMPTZ | NOT NULL DEFAULT now() | 创建时间 |
+
+### 108. `password_reset_tokens` — 密码重置令牌
+
+| 字段 | 类型 | 约束 | 说明 |
+|------|------|------|------|
+| id | BIGINT | PK | 雪花ID |
+| user_id | BIGINT | NOT NULL | 用户ID |
+| token_hash | VARCHAR(255) | NOT NULL | 令牌哈希 |
+| expires_at | TIMESTAMPTZ | NOT NULL | 过期时间 |
+| used_at | TIMESTAMPTZ | | 使用时间 |
+| status | entity_status | NOT NULL DEFAULT 'active' | 状态 |
+| deleted | BOOLEAN | DEFAULT false | 软删除 |
+| created_at | TIMESTAMPTZ | DEFAULT now() | 创建时间 |
+
+> UNIQUE(token_hash)
+
+### 109. `idempotency_keys` — API 幂等键
+
+| 字段 | 类型 | 约束 | 说明 |
+|------|------|------|------|
+| key | VARCHAR(255) | PK | 幂等键 |
+| user_id | BIGINT | | 用户ID |
+| response_status | INT | | 响应状态码 |
+| response_body | JSONB | | 响应体 |
+| expires_at | TIMESTAMPTZ | NOT NULL | 过期时间 |
+| created_at | TIMESTAMPTZ | NOT NULL DEFAULT now() | 创建时间 |
+
+### 110. `schema_migrations` — 迁移版本
+
+| 字段 | 类型 | 约束 | 说明 |
+|------|------|------|------|
+| version | BIGINT | PK | 版本号 |
+| dirty | BOOLEAN | NOT NULL DEFAULT false | 脏标记 |
+
+> 建表总数：1-80 编号表 + 81-110 范式展开/系统支撑表 = **110 张表**，与 `sql/ydsz-plane-init.sql` 完全一致。
 
 ### 需要租户数据隔离的表
 

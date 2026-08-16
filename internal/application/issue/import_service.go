@@ -334,7 +334,7 @@ func (s *ImportService) buildInput(ctx context.Context, wsID, projectID int64, r
 	if v := raw["state_name"]; v != "" {
 		var sid int64
 		if e := s.svc.db.QueryRow(ctx,
-			`SELECT id FROM states WHERE workspace_id=$1 AND project_id=$2 AND name=$3 AND deleted_at IS NULL`,
+			`SELECT id FROM states WHERE workspace_id=$1 AND project_id=$2 AND name=$3 AND deleted = false`,
 			wsID, projectID, v).Scan(&sid); e != nil {
 			errs = append(errs, rowFieldError{Field: "state_name", Message: "未找到状态: " + v})
 		} else {
@@ -372,7 +372,7 @@ func (s *ImportService) buildInput(ctx context.Context, wsID, projectID int64, r
 	if v := raw["found_version"]; v != "" {
 		var vid int64
 		if e := s.svc.db.QueryRow(ctx,
-			`SELECT id FROM versions WHERE workspace_id=$1 AND project_id=$2 AND name=$3 AND deleted_at IS NULL`,
+			`SELECT id FROM versions WHERE workspace_id=$1 AND project_id=$2 AND name=$3 AND deleted = false`,
 			wsID, projectID, v).Scan(&vid); e != nil {
 			errs = append(errs, rowFieldError{Field: "found_version", Message: "未找到版本: " + v})
 		} else {
@@ -383,7 +383,7 @@ func (s *ImportService) buildInput(ctx context.Context, wsID, projectID int64, r
 	if v := raw["fix_version"]; v != "" {
 		var vid int64
 		if e := s.svc.db.QueryRow(ctx,
-			`SELECT id FROM versions WHERE workspace_id=$1 AND project_id=$2 AND name=$3 AND deleted_at IS NULL`,
+			`SELECT id FROM versions WHERE workspace_id=$1 AND project_id=$2 AND name=$3 AND deleted = false`,
 			wsID, projectID, v).Scan(&vid); e != nil {
 			errs = append(errs, rowFieldError{Field: "fix_version", Message: "未找到版本: " + v})
 		} else {
@@ -394,8 +394,8 @@ func (s *ImportService) buildInput(ctx context.Context, wsID, projectID int64, r
 	if v := raw["parent_identifier"]; v != "" {
 		var pid int64
 		if e := s.svc.db.QueryRow(ctx,
-			`SELECT i.id FROM (SELECT id, public_id, workspace_id, project_id, sequence_id, 'requirement'::text AS type_code, parent_id, depth, name, description_json, description_html, description_stripped, state_id, priority, NULL::smallint AS severity, NULL::text AS found_phase, NULL::text AS root_cause_category, NULL::bigint AS verifier_id, NULL::jsonb AS environment, NULL::jsonb AS reproduce_steps, NULL::text AS category, NULL::numeric AS actual_effort, NULL::numeric AS remaining_effort, NULL::text AS delay_reason, source, point, sprint_id, progress, start_date, target_date, completed_at, is_draft, sort_order, version, version_id, found_version_id, fix_version_id, external_id, created_by, created_at, updated_at, deleted_at FROM requirement WHERE deleted_at IS NULL UNION ALL SELECT id, public_id, workspace_id, project_id, sequence_id, 'task'::text, parent_id, depth, name, description_json, description_html, description_stripped, state_id, priority, NULL::smallint, NULL::text, NULL::text, NULL::bigint, NULL::jsonb, NULL::jsonb, category, actual_effort, remaining_effort, delay_reason, NULL::text, point, sprint_id, progress, start_date, target_date, completed_at, is_draft, sort_order, version, version_id, found_version_id, fix_version_id, external_id, created_by, created_at, updated_at, deleted_at FROM task WHERE deleted_at IS NULL UNION ALL SELECT id, public_id, workspace_id, project_id, sequence_id, 'defect'::text, parent_id, depth, name, description_json, description_html, description_stripped, state_id, priority, severity, found_phase, root_cause_category, verifier_id, environment, reproduce_steps, NULL::text, NULL::numeric, NULL::numeric, NULL::text, NULL::text, point, sprint_id, progress, start_date, target_date, completed_at, is_draft, sort_order, version, version_id, found_version_id, fix_version_id, external_id, created_by, created_at, updated_at, deleted_at FROM defect WHERE deleted_at IS NULL) AS w i JOIN projects p ON p.id=i.project_id
-			 WHERE i.workspace_id=$1 AND i.project_id=$2 AND p.identifier || '-' || i.sequence_id=$3 AND i.deleted_at IS NULL`,
+			`SELECT i.id FROM (SELECT id, public_id, workspace_id, project_id, sequence_id, 'requirement'::text AS type_code, parent_id, depth, name, description_json, description_html, description_stripped, state_id, priority, NULL::smallint AS severity, NULL::text AS found_phase, NULL::text AS root_cause_category, NULL::bigint AS verifier_id, NULL::jsonb AS environment, NULL::jsonb AS reproduce_steps, NULL::text AS category, NULL::numeric AS actual_effort, NULL::numeric AS remaining_effort, NULL::text AS delay_reason, source, point, sprint_id, progress, start_date, target_date, completed_at, is_draft, sort_order, version, version_id, NULL::bigint AS found_version_id, NULL::bigint AS fix_version_id, created_by, created_at, updated_at, deleted FROM requirement WHERE deleted = false UNION ALL SELECT id, public_id, workspace_id, project_id, sequence_id, 'task'::text, parent_id, depth, name, description_json, description_html, description_stripped, state_id, priority, NULL::smallint, NULL::text, NULL::text, NULL::bigint, NULL::jsonb, NULL::jsonb, category, actual_effort, remaining_effort, delay_reason, NULL::text, point, sprint_id, progress, start_date, target_date, completed_at, is_draft, sort_order, version, version_id, NULL::bigint AS found_version_id, NULL::bigint AS fix_version_id, created_by, created_at, updated_at, deleted FROM task WHERE deleted = false UNION ALL SELECT id, public_id, workspace_id, project_id, sequence_id, 'defect'::text, parent_id, depth, name, description_json, description_html, description_stripped, state_id, priority, severity, found_phase, root_cause_category, verifier_id, environment, reproduce_steps, NULL::text, NULL::numeric, NULL::numeric, NULL::text, NULL::text, point, sprint_id, progress, start_date, target_date, completed_at, is_draft, sort_order, version, version_id, found_version_id, fix_version_id, created_by, created_at, updated_at, deleted FROM defect WHERE deleted = false) AS w i JOIN projects p ON p.id=i.project_id
+			 WHERE i.workspace_id=$1 AND i.project_id=$2 AND p.identifier || '-' || i.sequence_id=$3 AND i.deleted = false`,
 			wsID, projectID, v).Scan(&pid); e != nil {
 			errs = append(errs, rowFieldError{Field: "parent_identifier", Message: "未找到父工作项: " + v})
 		} else {
@@ -567,14 +567,14 @@ func (s *ImportService) importAuto(ctx context.Context, wsID, projectID, userID 
 func (s *ImportService) sameNameExists(ctx context.Context, wsID, projectID int64, name string) bool {
 	var count int
 	err := s.svc.db.QueryRow(ctx,
-		`SELECT COUNT(*) FROM (SELECT id, public_id, workspace_id, project_id, sequence_id, 'requirement'::text AS type_code, parent_id, depth, name, description_json, description_html, description_stripped, state_id, priority, NULL::smallint AS severity, NULL::text AS found_phase, NULL::text AS root_cause_category, NULL::bigint AS verifier_id, NULL::jsonb AS environment, NULL::jsonb AS reproduce_steps, NULL::text AS category, NULL::numeric AS actual_effort, NULL::numeric AS remaining_effort, NULL::text AS delay_reason, source, point, sprint_id, progress, start_date, target_date, completed_at, is_draft, sort_order, version, version_id, found_version_id, fix_version_id, external_id, created_by, created_at, updated_at, deleted_at FROM requirement WHERE deleted_at IS NULL UNION ALL SELECT id, public_id, workspace_id, project_id, sequence_id, 'task'::text, parent_id, depth, name, description_json, description_html, description_stripped, state_id, priority, NULL::smallint, NULL::text, NULL::text, NULL::bigint, NULL::jsonb, NULL::jsonb, category, actual_effort, remaining_effort, delay_reason, NULL::text, point, sprint_id, progress, start_date, target_date, completed_at, is_draft, sort_order, version, version_id, found_version_id, fix_version_id, external_id, created_by, created_at, updated_at, deleted_at FROM task WHERE deleted_at IS NULL UNION ALL SELECT id, public_id, workspace_id, project_id, sequence_id, 'defect'::text, parent_id, depth, name, description_json, description_html, description_stripped, state_id, priority, severity, found_phase, root_cause_category, verifier_id, environment, reproduce_steps, NULL::text, NULL::numeric, NULL::numeric, NULL::text, NULL::text, point, sprint_id, progress, start_date, target_date, completed_at, is_draft, sort_order, version, version_id, found_version_id, fix_version_id, external_id, created_by, created_at, updated_at, deleted_at FROM defect WHERE deleted_at IS NULL) AS w WHERE workspace_id = $1 AND project_id = $2 AND name = $3 AND deleted_at IS NULL`,
+		`SELECT COUNT(*) FROM (SELECT id, public_id, workspace_id, project_id, sequence_id, 'requirement'::text AS type_code, parent_id, depth, name, description_json, description_html, description_stripped, state_id, priority, NULL::smallint AS severity, NULL::text AS found_phase, NULL::text AS root_cause_category, NULL::bigint AS verifier_id, NULL::jsonb AS environment, NULL::jsonb AS reproduce_steps, NULL::text AS category, NULL::numeric AS actual_effort, NULL::numeric AS remaining_effort, NULL::text AS delay_reason, source, point, sprint_id, progress, start_date, target_date, completed_at, is_draft, sort_order, version, version_id, NULL::bigint AS found_version_id, NULL::bigint AS fix_version_id, created_by, created_at, updated_at, deleted FROM requirement WHERE deleted = false UNION ALL SELECT id, public_id, workspace_id, project_id, sequence_id, 'task'::text, parent_id, depth, name, description_json, description_html, description_stripped, state_id, priority, NULL::smallint, NULL::text, NULL::text, NULL::bigint, NULL::jsonb, NULL::jsonb, category, actual_effort, remaining_effort, delay_reason, NULL::text, point, sprint_id, progress, start_date, target_date, completed_at, is_draft, sort_order, version, version_id, NULL::bigint AS found_version_id, NULL::bigint AS fix_version_id, created_by, created_at, updated_at, deleted FROM task WHERE deleted = false UNION ALL SELECT id, public_id, workspace_id, project_id, sequence_id, 'defect'::text, parent_id, depth, name, description_json, description_html, description_stripped, state_id, priority, severity, found_phase, root_cause_category, verifier_id, environment, reproduce_steps, NULL::text, NULL::numeric, NULL::numeric, NULL::text, NULL::text, point, sprint_id, progress, start_date, target_date, completed_at, is_draft, sort_order, version, version_id, found_version_id, fix_version_id, created_by, created_at, updated_at, deleted FROM defect WHERE deleted = false) AS w WHERE workspace_id = $1 AND project_id = $2 AND name = $3 AND deleted = false`,
 		wsID, projectID, name).Scan(&count)
 	return err == nil && count > 0
 }
 
 func (s *ImportService) findByExternalID(ctx context.Context, wsID int64, externalID string) (id int64, version int, found bool) {
 	err := s.svc.db.QueryRow(ctx,
-		`SELECT id, version FROM (SELECT id, public_id, workspace_id, project_id, sequence_id, 'requirement'::text AS type_code, parent_id, depth, name, description_json, description_html, description_stripped, state_id, priority, NULL::smallint AS severity, NULL::text AS found_phase, NULL::text AS root_cause_category, NULL::bigint AS verifier_id, NULL::jsonb AS environment, NULL::jsonb AS reproduce_steps, NULL::text AS category, NULL::numeric AS actual_effort, NULL::numeric AS remaining_effort, NULL::text AS delay_reason, source, point, sprint_id, progress, start_date, target_date, completed_at, is_draft, sort_order, version, version_id, found_version_id, fix_version_id, external_id, created_by, created_at, updated_at, deleted_at FROM requirement WHERE deleted_at IS NULL UNION ALL SELECT id, public_id, workspace_id, project_id, sequence_id, 'task'::text, parent_id, depth, name, description_json, description_html, description_stripped, state_id, priority, NULL::smallint, NULL::text, NULL::text, NULL::bigint, NULL::jsonb, NULL::jsonb, category, actual_effort, remaining_effort, delay_reason, NULL::text, point, sprint_id, progress, start_date, target_date, completed_at, is_draft, sort_order, version, version_id, found_version_id, fix_version_id, external_id, created_by, created_at, updated_at, deleted_at FROM task WHERE deleted_at IS NULL UNION ALL SELECT id, public_id, workspace_id, project_id, sequence_id, 'defect'::text, parent_id, depth, name, description_json, description_html, description_stripped, state_id, priority, severity, found_phase, root_cause_category, verifier_id, environment, reproduce_steps, NULL::text, NULL::numeric, NULL::numeric, NULL::text, NULL::text, point, sprint_id, progress, start_date, target_date, completed_at, is_draft, sort_order, version, version_id, found_version_id, fix_version_id, external_id, created_by, created_at, updated_at, deleted_at FROM defect WHERE deleted_at IS NULL) AS w WHERE workspace_id = $1 AND external_id = $2 AND deleted_at IS NULL`,
+		`SELECT id, version FROM (SELECT id, public_id, workspace_id, project_id, sequence_id, 'requirement'::text AS type_code, parent_id, depth, name, description_json, description_html, description_stripped, state_id, priority, NULL::smallint AS severity, NULL::text AS found_phase, NULL::text AS root_cause_category, NULL::bigint AS verifier_id, NULL::jsonb AS environment, NULL::jsonb AS reproduce_steps, NULL::text AS category, NULL::numeric AS actual_effort, NULL::numeric AS remaining_effort, NULL::text AS delay_reason, source, point, sprint_id, progress, start_date, target_date, completed_at, is_draft, sort_order, version, version_id, NULL::bigint AS found_version_id, NULL::bigint AS fix_version_id, created_by, created_at, updated_at, deleted FROM requirement WHERE deleted = false UNION ALL SELECT id, public_id, workspace_id, project_id, sequence_id, 'task'::text, parent_id, depth, name, description_json, description_html, description_stripped, state_id, priority, NULL::smallint, NULL::text, NULL::text, NULL::bigint, NULL::jsonb, NULL::jsonb, category, actual_effort, remaining_effort, delay_reason, NULL::text, point, sprint_id, progress, start_date, target_date, completed_at, is_draft, sort_order, version, version_id, NULL::bigint AS found_version_id, NULL::bigint AS fix_version_id, created_by, created_at, updated_at, deleted FROM task WHERE deleted = false UNION ALL SELECT id, public_id, workspace_id, project_id, sequence_id, 'defect'::text, parent_id, depth, name, description_json, description_html, description_stripped, state_id, priority, severity, found_phase, root_cause_category, verifier_id, environment, reproduce_steps, NULL::text, NULL::numeric, NULL::numeric, NULL::text, NULL::text, point, sprint_id, progress, start_date, target_date, completed_at, is_draft, sort_order, version, version_id, found_version_id, fix_version_id, created_by, created_at, updated_at, deleted FROM defect WHERE deleted = false) AS w WHERE workspace_id = $1 AND external_id = $2 AND deleted = false`,
 		wsID, externalID).Scan(&id, &version)
 	if err != nil {
 		return 0, 0, false
@@ -586,7 +586,7 @@ func (s *ImportService) resolveModuleIDs(ctx context.Context, wsID, projectID in
 	for _, n := range names {
 		var id int64
 		if err := s.svc.db.QueryRow(ctx,
-			`SELECT id FROM modules WHERE workspace_id=$1 AND project_id=$2 AND name=$3 AND deleted_at IS NULL`,
+			`SELECT id FROM modules WHERE workspace_id=$1 AND project_id=$2 AND name=$3 AND deleted = false`,
 			wsID, projectID, n).Scan(&id); err != nil {
 			return nil, "未找到模块: " + n
 		}
@@ -599,7 +599,7 @@ func (s *ImportService) resolveLabelIDs(ctx context.Context, wsID, projectID int
 	for _, n := range names {
 		var id int64
 		if err := s.svc.db.QueryRow(ctx,
-			`SELECT id FROM labels WHERE workspace_id=$1 AND project_id=$2 AND name=$3 AND deleted_at IS NULL`,
+			`SELECT id FROM labels WHERE workspace_id=$1 AND project_id=$2 AND name=$3 AND deleted = false`,
 			wsID, projectID, n).Scan(&id); err != nil {
 			return nil, "未找到标签: " + n
 		}
@@ -612,7 +612,7 @@ func (s *ImportService) resolveUserIDsByEmail(ctx context.Context, wsID int64, e
 	for _, e := range emails {
 		var id int64
 		if err := s.svc.db.QueryRow(ctx,
-			`SELECT u.id FROM users u JOIN workspace_memberships wm ON wm.user_id = u.id
+			`SELECT u.id FROM users u JOIN workspace_members wm ON wm.user_id = u.id
 			 WHERE wm.workspace_id=$1 AND u.email=$2`,
 			wsID, e).Scan(&id); err != nil {
 			return nil, "未找到成员邮箱: " + e

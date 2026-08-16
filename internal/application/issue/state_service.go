@@ -27,7 +27,7 @@ func (s *StateService) GetProjectStates(ctx context.Context, wsID, projectID int
 	rows, err := s.db.Query(ctx, `
 		SELECT id, workspace_id, project_id, name, "group", color, sequence, is_default, created_at, updated_at
 		FROM states
-		WHERE project_id = $1 AND workspace_id = $2 AND deleted_at IS NULL
+		WHERE project_id = $1 AND workspace_id = $2 AND deleted = false
 		ORDER BY sequence, id`, projectID, wsID)
 	if err != nil {
 		return nil, errs.ErrInternal.Wrap(err)
@@ -51,7 +51,7 @@ func (s *StateService) GetStateByID(ctx context.Context, wsID, stateID int64) (*
 	var st State
 	err := s.db.QueryRow(ctx, `
 		SELECT id, workspace_id, project_id, name, "group", color, sequence, is_default, created_at, updated_at
-		FROM states WHERE id = $1 AND workspace_id = $2 AND deleted_at IS NULL`,
+		FROM states WHERE id = $1 AND workspace_id = $2 AND deleted = false`,
 		stateID, wsID).Scan(&st.ID, &st.WorkspaceID, &st.ProjectID, &st.Name,
 		&st.Group, &st.Color, &st.Sequence, &st.IsDefault, &st.CreatedAt, &st.UpdatedAt)
 	if err != nil {
@@ -70,7 +70,7 @@ func (s *StateService) GetDefaultState(ctx context.Context, wsID, projectID int6
 	err := s.db.QueryRow(ctx, `
 		SELECT id, workspace_id, project_id, name, "group", color, sequence, is_default, created_at, updated_at
 		FROM states
-		WHERE project_id = $1 AND workspace_id = $2 AND deleted_at IS NULL
+		WHERE project_id = $1 AND workspace_id = $2 AND deleted = false
 		ORDER BY is_default DESC, sequence ASC
 		LIMIT 1`, projectID, wsID).Scan(&st.ID, &st.WorkspaceID, &st.ProjectID, &st.Name,
 		&st.Group, &st.Color, &st.Sequence, &st.IsDefault, &st.CreatedAt, &st.UpdatedAt)
@@ -215,7 +215,7 @@ func (s *StateService) InitializeProjectStates(ctx context.Context, wsID, projec
 // StateGroupByID 根据 state ID 查询其 group。
 func (s *StateService) StateGroupByID(ctx context.Context, stateID int64) (StateGroup, error) {
 	var group StateGroup
-	err := s.db.QueryRow(ctx, `SELECT "group" FROM states WHERE id = $1 AND deleted_at IS NULL`, stateID).Scan(&group)
+	err := s.db.QueryRow(ctx, `SELECT "group" FROM states WHERE id = $1 AND deleted = false`, stateID).Scan(&group)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return "", errs.ErrNotFound

@@ -25,7 +25,7 @@ type Page struct {
 	CreatedBy           int64           `json:"created_by"`
 	CreatedAt           time.Time       `json:"created_at"`
 	UpdatedAt           time.Time       `json:"updated_at"`
-	DeletedAt           *time.Time      `json:"deleted_at,omitempty"`
+	DeletedAt           *time.Time      `json:"deleted,omitempty"`
 	Version             int32           `json:"version"`
 }
 

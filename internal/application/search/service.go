@@ -538,7 +538,7 @@ func toTSQuery(input string) string {
 func (s *Service) lookupStateName(ctx context.Context, wsID, stateID int64) string {
 	var name string
 	_ = s.db.QueryRow(ctx,
-		`SELECT name FROM states WHERE id = $1 AND workspace_id = $2 AND deleted_at IS NULL`,
+		`SELECT name FROM states WHERE id = $1 AND workspace_id = $2 AND deleted = false`,
 		stateID, wsID).Scan(&name)
 	return name
 }
