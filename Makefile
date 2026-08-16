@@ -79,27 +79,27 @@ reindex:
 # 可用环境变量：BASE_URL / TEST_USER_EMAIL / TEST_USER_PASSWORD
 perf-smoke:
 	k6 run -e BASE_URL=$(or $(BASE_URL),http://127.0.0.1:8080/api/v1) \
-		-e TEST_USER_EMAIL=$(or $(TEST_USER_EMAIL),admin@ydsz.dev) \
-		-e TEST_USER_PASSWORD=$(or $(TEST_USER_PASSWORD),Admin@123) \
+		-e TEST_USER_EMAIL=$(or $(TEST_USER_EMAIL),admin@njydsz.com) \
+		-e TEST_USER_PASSWORD=$(or $(TEST_USER_PASSWORD),Admin@1020) \
 		tests/perf/smoke-test.js
 
 perf-load:
 	k6 run -e BASE_URL=$(or $(BASE_URL),http://127.0.0.1:8080/api/v1) \
-		-e TEST_USER_EMAIL=$(or $(TEST_USER_EMAIL),admin@ydsz.dev) \
-		-e TEST_USER_PASSWORD=$(or $(TEST_USER_PASSWORD),Admin@123) \
+		-e TEST_USER_EMAIL=$(or $(TEST_USER_EMAIL),admin@njydsz.com) \
+		-e TEST_USER_PASSWORD=$(or $(TEST_USER_PASSWORD),Admin@1020) \
 		tests/perf/load-test.js
 
 perf-stress:
 	k6 run -e BASE_URL=$(or $(BASE_URL),http://127.0.0.1:8080/api/v1) \
-		-e TEST_USER_EMAIL=$(or $(TEST_USER_EMAIL),admin@ydsz.dev) \
-		-e TEST_USER_PASSWORD=$(or $(TEST_USER_PASSWORD),Admin@123) \
+		-e TEST_USER_EMAIL=$(or $(TEST_USER_EMAIL),admin@njydsz.com) \
+		-e TEST_USER_PASSWORD=$(or $(TEST_USER_PASSWORD),Admin@1020) \
 		tests/perf/stress-test.js
 
 perf-json:
 	k6 run --out json=docs/perf/result.json \
 		-e BASE_URL=$(or $(BASE_URL),http://127.0.0.1:8080/api/v1) \
-		-e TEST_USER_EMAIL=$(or $(TEST_USER_EMAIL),admin@ydsz.dev) \
-		-e TEST_USER_PASSWORD=$(or $(TEST_USER_PASSWORD),Admin@123) \
+		-e TEST_USER_EMAIL=$(or $(TEST_USER_EMAIL),admin@njydsz.com) \
+		-e TEST_USER_PASSWORD=$(or $(TEST_USER_PASSWORD),Admin@1020) \
 		tests/perf/load-test.js
 
 fmt:

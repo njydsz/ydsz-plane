@@ -10,8 +10,8 @@
 //   k6 run tests/perf/stress-test.js
 //   或：
 //   k6 run -e BASE_URL=http://localhost:8080 \
-//          -e TEST_USER_EMAIL=admin@ydsz.dev \
-//          -e TEST_USER_PASSWORD=Admin@123 \
+//          -e TEST_USER_EMAIL=admin@njydsz.com \
+//          -e TEST_USER_PASSWORD=Admin@1020 \
 //          -e STRESS_VUS=200 \
 //          -e STRESS_DURATION=3m \
 //          tests/perf/stress-test.js
@@ -35,8 +35,8 @@ const totalReqs   = new Counter('ydsz_total_requests');
 // -------------------------------------------------------------------------
 
 const BASE_URL = __ENV.BASE_URL || 'http://127.0.0.1:8080/api/v1';
-const EMAIL    = __ENV.TEST_USER_EMAIL || 'admin@ydsz.dev';
-const PASSWORD = __ENV.TEST_USER_PASSWORD || 'Admin@123';
+const EMAIL    = __ENV.TEST_USER_EMAIL || 'admin@njydsz.com';
+const PASSWORD = __ENV.TEST_USER_PASSWORD || 'Admin@1020';
 const VUS      = Number(__ENV.STRESS_VUS) || 200;
 const DURATION = __ENV.STRESS_DURATION || '3m';
 

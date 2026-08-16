@@ -3,14 +3,15 @@
  * 工作空间列表 — 首页，展示当前用户加入的所有工作空间 + 新建入口。
  * 数据来源：workspaceApi.list / create。
  */
-import { onMounted, ref } from "vue";
-import { useRouter } from "vue-router";
+import { onMounted, ref, watch } from "vue";
+import { useRoute, useRouter } from "vue-router";
 
 import { workspaceApi, type Workspace } from "@/api/services/workspace";
 import { AppEmptyState, AppErrorState, AppSkeleton } from "@/components";
 import { toast } from "@/lib/toast";
 
 const router = useRouter();
+const route = useRoute();
 
 const loading = ref(true);
 const error = ref("");
@@ -28,6 +29,17 @@ async function load() {
     error.value = err instanceof Error ? err.message : "加载失败";
   } finally {
     loading.value = false;
+  }
+}
+
+/** 当通过 `/?action=create` 进入时（例如侧栏「新建空间」按钮），
+ *  自动展开新建工作空间表单，并清掉 URL 上的 query，避免刷新再次触发。 */
+function maybeOpenCreateFromQuery() {
+  if (route.query.action === "create") {
+    showForm.value = true;
+    const { action: _omit, ...rest } = route.query;
+    void _omit;
+    router.replace({ path: "/", query: rest });
   }
 }
 
@@ -54,7 +66,20 @@ function open(ws: Workspace) {
   router.push(`/${ws.id}/workbench`);
 }
 
-onMounted(load);
+onMounted(async () => {
+  await load();
+  maybeOpenCreateFromQuery();
+});
+
+// 兜底：用户后续以编程式导航回 home（带 action=create）时仍能自动展开
+watch(
+  () => route.query.action,
+  (action) => {
+    if (action === "create") {
+      maybeOpenCreateFromQuery();
+    }
+  },
+);
 </script>
 
 <template>

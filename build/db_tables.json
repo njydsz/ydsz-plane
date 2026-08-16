@@ -5267,252 +5267,6 @@
   "pks": [],
   "notes": []
  },
- "intake_channels": {
-  "num": 49,
-  "title": "入口渠道",
-  "fields": [
-   {
-    "name": "id",
-    "type": "BIGINT",
-    "constraint": "PK",
-    "desc": "雪花ID"
-   },
-   {
-    "name": "code",
-    "type": "VARCHAR(50)",
-    "constraint": "",
-    "desc": "渠道编码"
-   },
-   {
-    "name": "name",
-    "type": "VARCHAR(255)",
-    "constraint": "NOT NULL",
-    "desc": "渠道名称"
-   },
-   {
-    "name": "tenant_id",
-    "type": "BIGINT",
-    "constraint": "NOT NULL",
-    "desc": "租户ID"
-   },
-   {
-    "name": "workspace_id",
-    "type": "BIGINT",
-    "constraint": "NOT NULL",
-    "desc": "工作空间ID"
-   },
-   {
-    "name": "project_id",
-    "type": "BIGINT",
-    "constraint": "",
-    "desc": "项目ID"
-   },
-   {
-    "name": "slug",
-    "type": "VARCHAR(100)",
-    "constraint": "NOT NULL",
-    "desc": "URL标识"
-   },
-   {
-    "name": "description",
-    "type": "TEXT",
-    "constraint": "",
-    "desc": "描述"
-   },
-   {
-    "name": "is_active",
-    "type": "BOOLEAN",
-    "constraint": "DEFAULT true",
-    "desc": "是否启用"
-   },
-   {
-    "name": "config",
-    "type": "JSONB",
-    "constraint": "DEFAULT '{}'",
-    "desc": "渠道配置"
-   },
-   {
-    "name": "status",
-    "type": "entity_status",
-    "constraint": "NOT NULL DEFAULT 'active'",
-    "desc": "状态"
-   },
-   {
-    "name": "deleted",
-    "type": "BOOLEAN",
-    "constraint": "DEFAULT false",
-    "desc": "软删除"
-   },
-   {
-    "name": "created_by",
-    "type": "BIGINT",
-    "constraint": "NOT NULL",
-    "desc": "创建人"
-   },
-   {
-    "name": "created_at",
-    "type": "TIMESTAMPTZ",
-    "constraint": "DEFAULT now()",
-    "desc": "创建时间"
-   },
-   {
-    "name": "updated_by",
-    "type": "BIGINT",
-    "constraint": "NOT NULL",
-    "desc": "更新人"
-   },
-   {
-    "name": "updated_at",
-    "type": "TIMESTAMPTZ",
-    "constraint": "DEFAULT now()",
-    "desc": "更新时间"
-   }
-  ],
-  "uniques": [],
-  "pks": [],
-  "notes": []
- },
- "intake_issues": {
-  "num": 50,
-  "title": "入口工单",
-  "fields": [
-   {
-    "name": "id",
-    "type": "BIGINT",
-    "constraint": "PK",
-    "desc": "雪花ID"
-   },
-   {
-    "name": "code",
-    "type": "VARCHAR(50)",
-    "constraint": "",
-    "desc": "工单编码"
-   },
-   {
-    "name": "name",
-    "type": "VARCHAR(255)",
-    "constraint": "NOT NULL",
-    "desc": "工单标题"
-   },
-   {
-    "name": "tenant_id",
-    "type": "BIGINT",
-    "constraint": "NOT NULL",
-    "desc": "租户ID"
-   },
-   {
-    "name": "workspace_id",
-    "type": "BIGINT",
-    "constraint": "NOT NULL",
-    "desc": "工作空间ID"
-   },
-   {
-    "name": "project_id",
-    "type": "BIGINT",
-    "constraint": "",
-    "desc": "项目ID"
-   },
-   {
-    "name": "channel_id",
-    "type": "BIGINT",
-    "constraint": "NOT NULL",
-    "desc": "渠道ID"
-   },
-   {
-    "name": "tracking_id",
-    "type": "VARCHAR(50)",
-    "constraint": "",
-    "desc": "跟踪ID"
-   },
-   {
-    "name": "submitter_name",
-    "type": "VARCHAR(255)",
-    "constraint": "",
-    "desc": "提交人姓名"
-   },
-   {
-    "name": "submitter_email",
-    "type": "VARCHAR(255)",
-    "constraint": "NOT NULL",
-    "desc": "提交人邮箱"
-   },
-   {
-    "name": "description",
-    "type": "TEXT",
-    "constraint": "",
-    "desc": "描述"
-   },
-   {
-    "name": "priority",
-    "type": "VARCHAR(20)",
-    "constraint": "DEFAULT 'medium'",
-    "desc": "优先级"
-   },
-   {
-    "name": "status",
-    "type": "intake_issue_status",
-    "constraint": "NOT NULL DEFAULT 'open'",
-    "desc": "状态"
-   },
-   {
-    "name": "linked_entity_type",
-    "type": "VARCHAR(50)",
-    "constraint": "",
-    "desc": "关联实体类型"
-   },
-   {
-    "name": "linked_entity_id",
-    "type": "BIGINT",
-    "constraint": "",
-    "desc": "关联实体ID"
-   },
-   {
-    "name": "resolved_at",
-    "type": "TIMESTAMPTZ",
-    "constraint": "",
-    "desc": "解决时间"
-   },
-   {
-    "name": "resolved_by",
-    "type": "BIGINT",
-    "constraint": "",
-    "desc": "解决人"
-   },
-   {
-    "name": "deleted",
-    "type": "BOOLEAN",
-    "constraint": "DEFAULT false",
-    "desc": "软删除"
-   },
-   {
-    "name": "created_by",
-    "type": "BIGINT",
-    "constraint": "NOT NULL",
-    "desc": "创建人"
-   },
-   {
-    "name": "created_at",
-    "type": "TIMESTAMPTZ",
-    "constraint": "DEFAULT now()",
-    "desc": "创建时间"
-   },
-   {
-    "name": "updated_by",
-    "type": "BIGINT",
-    "constraint": "NOT NULL",
-    "desc": "更新人"
-   },
-   {
-    "name": "updated_at",
-    "type": "TIMESTAMPTZ",
-    "constraint": "DEFAULT now()",
-    "desc": "更新时间"
-   }
-  ],
-  "uniques": [],
-  "pks": [],
-  "notes": []
- },
  "webhooks": {
   "num": 51,
   "title": "Webhook 配置",
@@ -7350,6 +7104,30 @@
     "desc": "需求ID"
    },
    {
+    "name": "added_at",
+    "type": "TIMESTAMPTZ",
+    "constraint": "DEFAULT now()",
+    "desc": "添加时间"
+   },
+   {
+    "name": "added_by",
+    "type": "BIGINT",
+    "constraint": "",
+    "desc": "添加人"
+   },
+   {
+    "name": "sort_order",
+    "type": "DOUBLE PRECISION",
+    "constraint": "DEFAULT 65535",
+    "desc": "排序权重"
+   },
+   {
+    "name": "added_midway",
+    "type": "BOOLEAN",
+    "constraint": "DEFAULT false",
+    "desc": "中途加入标记"
+   },
+   {
     "name": "status",
     "type": "entity_status",
     "constraint": "NOT NULL DEFAULT 'active'",
@@ -7440,6 +7218,30 @@
     "desc": "任务ID"
    },
    {
+    "name": "added_at",
+    "type": "TIMESTAMPTZ",
+    "constraint": "DEFAULT now()",
+    "desc": "添加时间"
+   },
+   {
+    "name": "added_by",
+    "type": "BIGINT",
+    "constraint": "",
+    "desc": "添加人"
+   },
+   {
+    "name": "sort_order",
+    "type": "DOUBLE PRECISION",
+    "constraint": "DEFAULT 65535",
+    "desc": "排序权重"
+   },
+   {
+    "name": "added_midway",
+    "type": "BOOLEAN",
+    "constraint": "DEFAULT false",
+    "desc": "中途加入标记"
+   },
+   {
     "name": "status",
     "type": "entity_status",
     "constraint": "NOT NULL DEFAULT 'active'",
@@ -7528,6 +7330,30 @@
     "type": "BIGINT",
     "constraint": "NOT NULL",
     "desc": "缺陷ID"
+   },
+   {
+    "name": "added_at",
+    "type": "TIMESTAMPTZ",
+    "constraint": "DEFAULT now()",
+    "desc": "添加时间"
+   },
+   {
+    "name": "added_by",
+    "type": "BIGINT",
+    "constraint": "",
+    "desc": "添加人"
+   },
+   {
+    "name": "sort_order",
+    "type": "DOUBLE PRECISION",
+    "constraint": "DEFAULT 65535",
+    "desc": "排序权重"
+   },
+   {
+    "name": "added_midway",
+    "type": "BOOLEAN",
+    "constraint": "DEFAULT false",
+    "desc": "中途加入标记"
    },
    {
     "name": "status",

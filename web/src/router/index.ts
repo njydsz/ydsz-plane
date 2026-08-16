@@ -16,8 +16,12 @@ import { useWorkspaceStore } from "@/stores/workspace";
  *  留空 string 表示"仅 owner / admin 可访问"（跳过 permission 集合判断，直接校验角色）。 */
 const WORKSPACE_PERMISSIOND_ROUTES: Record<string, string> = {
   "workspace-settings": "workspace:update",
+  "workspace-members": "member:change_role",
+  "workspace-versions": "version:read",
+  "workspace-sprints": "sprint:read",
+  "workspace-analytics": "analytics:read",
+  "workspace-automation": "automation:manage",
   "webhook-settings": "webhook:manage",
-  "intake-settings": "intake:manage",
   "audit-logs": "audit:read",
   "workspace-dlq": "",
   "workspace-rbac": "",
@@ -56,20 +60,6 @@ const router = createRouter({
       name: "reset-password",
       component: () => import("@/views/auth/ResetPasswordView.vue"),
       meta: { public: true },
-    },
-    {
-      path: "/intake/:wsId/:slug",
-      name: "intake-public",
-      component: () => import("@/views/IntakePublicView.vue"),
-      meta: { public: true },
-      props: (route) => ({ mode: "submit" as const, wsId: Number(route.params.wsId), slug: String(route.params.slug) }),
-    },
-    {
-      path: "/intake/track",
-      name: "intake-track",
-      component: () => import("@/views/IntakePublicView.vue"),
-      meta: { public: true },
-      props: { mode: "track" as const },
     },
     // 文档公开分享只读视图（免登录）
     {
@@ -143,12 +133,6 @@ const router = createRouter({
           name: "webhook-settings",
           component: () => import("@/views/workspace/WebhookSettingsView.vue"),
         },
-        // S10 收件箱管理
-        {
-          path: ":workspaceId(\\d+)/settings/intake",
-          name: "intake-settings",
-          component: () => import("@/views/workspace/IntakeSettingsView.vue"),
-        },
         {
           path: ":workspaceId(\\d+)/settings/notifications",
           name: "notification-preferences",
@@ -179,6 +163,41 @@ const router = createRouter({
           path: ":workspaceId(\\d+)/dashboard",
           name: "workspace-dashboard",
           component: () => import("@/views/workspace/WorkspaceDashboardView.vue"),
+          props: (route) => ({ workspaceId: Number(route.params.workspaceId) }),
+        },
+        // S13 工作空间级成员管理（不严控 — 普通成员可看列表，操作列在视图内按角色控制）
+        {
+          path: ":workspaceId(\\d+)/members",
+          name: "workspace-members",
+          component: () => import("@/views/workspace/WorkspaceMembersView.vue"),
+          props: (route) => ({ workspaceId: Number(route.params.workspaceId) }),
+        },
+        // 工作空间级版本跳板页（项目选择器 + 跨项目摘要）
+        {
+          path: ":workspaceId(\\d+)/versions",
+          name: "workspace-versions",
+          component: () => import("@/views/workspace/WorkspaceVersionsView.vue"),
+          props: (route) => ({ workspaceId: Number(route.params.workspaceId) }),
+        },
+        // 工作空间级迭代跳板页
+        {
+          path: ":workspaceId(\\d+)/sprints",
+          name: "workspace-sprints",
+          component: () => import("@/views/workspace/WorkspaceSprintsView.vue"),
+          props: (route) => ({ workspaceId: Number(route.params.workspaceId) }),
+        },
+        // 工作空间级报表跳板页（跨项目完成率/缺陷/迭代对比）
+        {
+          path: ":workspaceId(\\d+)/analytics",
+          name: "workspace-analytics",
+          component: () => import("@/views/workspace/WorkspaceAnalyticsView.vue"),
+          props: (route) => ({ workspaceId: Number(route.params.workspaceId) }),
+        },
+        // 工作空间级自动化跳板页（项目选择器）
+        {
+          path: ":workspaceId(\\d+)/automation",
+          name: "workspace-automation",
+          component: () => import("@/views/workspace/WorkspaceAutomationView.vue"),
           props: (route) => ({ workspaceId: Number(route.params.workspaceId) }),
         },
         // 知识库：空间列表

@@ -192,8 +192,10 @@ function applyColumnConfig() {
 
 // ========== P1-2: Batch assign/tags ==========
 const members = ref<Member[]>([]);
-/** 标签列表 — 通过 project-level labels 获取（当前版本无独立标签 API，使用空列表占位，UI 保留扩展点） */
+/** 标签列表 — 后端暂无 GET /projects/:id/labels 端点（labels 表存在，但 CRUD 接口未实现）。
+ *  批量标签按钮暂不可用，避免空下拉误导用户；待后端补齐 `web/src/api/services/issue.ts` 的 labelApi 后启用。 */
 const labels = ref<{ id: number; name: string }[]>([]);
+const LABEL_API_AVAILABLE = false;
 const showBatchAssign = ref(false);
 const showBatchLabel = ref(false);
 const batchAssignId = ref<number | null>(null);
@@ -713,17 +715,23 @@ const isCurrentPageAllSelected = computed(() => {
         </div>
       </div>
 
-      <!-- 批量标签 -->
+      <!-- 批量标签 — 后端标签 API 暂未提供，按钮禁用以避免空下拉误导 -->
       <div class="batch-inline-dropdown">
-        <button class="btn btn--sm" :class="{ 'btn--active': showBatchLabel }" @click="showBatchLabel = !showBatchLabel">
+        <button
+          class="btn btn--sm"
+          :class="{ 'btn--active': showBatchLabel }"
+          :disabled="!LABEL_API_AVAILABLE"
+          :title="LABEL_API_AVAILABLE ? '' : '标签 API 暂未上线，待后端实现 GET /projects/:id/labels'"
+          @click="showBatchLabel = !showBatchLabel"
+        >
           批量标签
         </button>
         <div v-if="showBatchLabel" class="batch-inline-panel">
-          <select v-model="batchLabelId" class="batch-select">
-            <option :value="null" disabled>选择标签...</option>
+          <select v-model="batchLabelId" class="batch-select" :disabled="!LABEL_API_AVAILABLE">
+            <option :value="null" disabled>{{ LABEL_API_AVAILABLE ? '选择标签...' : '标签 API 暂未上线' }}</option>
             <option v-for="l in labels" :key="l.id" :value="l.id">{{ l.name }}</option>
           </select>
-          <button class="btn btn--sm btn--primary" :disabled="batchLabelId == null || batchOperating" @click="batchAddLabel">
+          <button class="btn btn--sm btn--primary" :disabled="batchLabelId == null || batchOperating || !LABEL_API_AVAILABLE" @click="batchAddLabel">
             {{ batchOperating ? '处理中...' : '确认' }}
           </button>
         </div>

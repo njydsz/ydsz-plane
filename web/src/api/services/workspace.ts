@@ -93,7 +93,6 @@ export interface Project {
 }
 
 export interface ProjectModuleToggles {
-  intake: boolean;
   sprint: boolean;
   version: boolean;
   estimate: boolean;

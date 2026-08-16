@@ -198,12 +198,12 @@ func seedIssue(t *testing.T, pool *pgxpool.Pool, ctx context.Context, wsID, proj
 
 	var issueID int64
 	err = pool.QueryRow(ctx, `
-		INSERT INTO issues (workspace_id, project_id, name, type_code, state_id, point, created_by)
-		VALUES ($1, $2, $3, 'task', $4, $5, $6)
+		INSERT INTO task (workspace_id, project_id, name, state_id, point, created_by)
+		VALUES ($1, $2, $3, $4, $5, $6)
 		RETURNING id`,
 		wsID, projectID, "集成测试工作项"+time.Now().Format("150405.000"), stateID, point, 1).Scan(&issueID)
 	if err != nil {
-		t.Fatalf("插入 issue: %v", err)
+		t.Fatalf("插入工作项: %v", err)
 	}
 	return issueID, point
 }

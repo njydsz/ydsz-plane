@@ -13,8 +13,8 @@ import { APIRequestContext } from "@playwright/test";
 
 export const API_URL = process.env.API_URL || "http://127.0.0.1:8080/api/v1";
 export const apiURL = API_URL;
-export const TEST_EMAIL = "admin@ydsz.dev";
-export const TEST_PASSWORD = "Admin@123";
+export const TEST_EMAIL = "admin@njydsz.com";
+export const TEST_PASSWORD = "Admin@1020";
 
 export interface AuthSession {
   token: string;

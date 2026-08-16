@@ -594,7 +594,7 @@ onMounted(() => {
           </span>
         </div>
 
-        <!-- 社交反馈栏：投票 / 表情反应 / 关注 -->
+        <!-- 关注栏 -->
         <IssueSocialBar
           v-if="ws && issue"
           :workspace-id="ws.id"

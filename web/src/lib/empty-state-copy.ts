@@ -19,7 +19,6 @@ export type EmptyScenario =
   | "sprints"
   | "modules"
   | "search"
-  | "intake"
   | "notifications"
   | "labels"
   | "members"
@@ -79,11 +78,6 @@ const copy: Record<Exclude<EmptyScenario, "default" | "error">, EmptyStateCopy> 
     title: "未找到匹配结果",
     description: "尝试调整搜索关键字或筛选条件。",
     palette: "neutral",
-  },
-  intake: {
-    title: "收件箱是空的",
-    description: "外部提交的工作项会出现在这里，等待你审核与转正。",
-    palette: "brand",
   },
   notifications: {
     title: "暂无通知",

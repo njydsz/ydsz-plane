@@ -460,15 +460,6 @@ export default {
     unhealthy: "Unhealthy",
   },
 
-  intake: {
-    title: "Intake",
-    channel: "Intake channel",
-    createChannel: "Create channel",
-    review: "Review",
-    convert: "Convert to issue",
-    publicForm: "Public form",
-  },
-
   metrics: {
     title: "Metrics",
     dora: {
@@ -505,7 +496,6 @@ export default {
     analytics: "Analytics",
     knowledge: "Knowledge",
     automation: "Automation",
-    intake: "Intake",
     members: "Space Members",
     settings: "Space Settings",
     // Retained: legacy pages (e.g. /my-issues, /audit-logs, /settings/webhooks)

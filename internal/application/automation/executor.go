@@ -84,7 +84,7 @@ func (x *dbActionExecutor) AssignIssue(ctx context.Context, wsID, projectID, iss
 	if err != nil {
 		return fmt.Errorf("assign: upsert assignee: %w", err)
 	}
-	// 可选审计：写 issue_activities（该表启用 RLS，需设置租户上下文）
+	// 可选审计：写活动日志（按工作项类型分表，需设置租户上下文）
 	newValStr := strconv.FormatInt(userID, 10)
 	x.appendActivity(ctx, wsID, projectID, issueID, "updated",
 		"assignees", nil, &newValStr)
@@ -310,10 +310,13 @@ func (x *dbActionExecutor) appendActivity(ctx context.Context, wsID, projectID, 
 	if _, err := tx.Exec(ctx, "SELECT set_config('app.workspace_id', $1, true)", strconv.FormatInt(wsID, 10)); err != nil {
 		return
 	}
-	_, _ = tx.Exec(ctx, `
-		INSERT INTO issue_activities (workspace_id, project_id, issue_id, verb, field, old_value, new_value)
-		VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-		wsID, projectID, issueID, verb, field, oldVal, newVal)
+	// 按工作项类型写入对应分表（雪花 ID 全局唯一，仅一表命中）
+	for _, tbl := range []string{"task", "requirement", "defect"} {
+		_, _ = tx.Exec(ctx, `
+			INSERT INTO `+tbl+`_activities (workspace_id, project_id, `+tbl+`_id, verb, field_name, old_value, new_value)
+			VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+			wsID, projectID, issueID, verb, field, oldVal, newVal)
+	}
 	_ = tx.Commit(ctx)
 }
 

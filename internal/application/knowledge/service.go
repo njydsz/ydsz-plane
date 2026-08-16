@@ -599,10 +599,10 @@ func (s *Service) AddPageRelation(ctx context.Context, in AddPageRelationInput) 
 
 	var rel KnowledgePageRelation
 	err = s.db.QueryRow(ctx, `
-		INSERT INTO knowledge_page_relations (page_id, issue_id, relation_type)
+		INSERT INTO knowledge_page_relations (page_id, workitem_id, relation_type)
 		VALUES ($1, $2, $3)
-		ON CONFLICT (page_id, issue_id, relation_type) DO UPDATE SET page_id = EXCLUDED.page_id
-		RETURNING id, page_id, issue_id, relation_type, created_at`,
+		ON CONFLICT (page_id, workitem_id, relation_type) DO UPDATE SET page_id = EXCLUDED.page_id
+		RETURNING id, page_id, workitem_id, relation_type, created_at`,
 		in.PageID, in.IssueID, relType).Scan(
 		&rel.ID, &rel.PageID, &rel.IssueID, &rel.RelationType, &rel.CreatedAt)
 	if err != nil {
@@ -636,7 +636,7 @@ func (s *Service) ListPageRelations(ctx context.Context, wsID, pageID int64) ([]
 	}
 
 	rows, err := s.db.Query(ctx, `
-		SELECT id, page_id, issue_id, relation_type, created_at
+		SELECT id, page_id, workitem_id, relation_type, created_at
 		FROM knowledge_page_relations
 		WHERE page_id = $1
 		ORDER BY created_at DESC`,

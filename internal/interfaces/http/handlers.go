@@ -375,7 +375,6 @@ func listProjects(d *Deps) gin.HandlerFunc {
 // modulesDTOToDomain 将创建请求中的 Modules DTO 转换为域模型指针。
 // nil 输入表示使用默认值（全部启用）。
 func modulesDTOToDomain(m *struct {
-	Intake   *bool `json:"intake,omitempty"`
 	Sprint   *bool `json:"sprint,omitempty"`
 	Version  *bool `json:"version,omitempty"`
 	Estimate *bool `json:"estimate,omitempty"`
@@ -384,9 +383,6 @@ func modulesDTOToDomain(m *struct {
 		return nil
 	}
 	t := workspace.ProjectModuleAllEnabled()
-	if m.Intake != nil {
-		t.Intake = *m.Intake
-	}
 	if m.Sprint != nil {
 		t.Sprint = *m.Sprint
 	}
@@ -402,7 +398,6 @@ func modulesDTOToDomain(m *struct {
 // modulesDTOToUpdateDomain 将更新请求中的 Modules DTO 转换为域模型指针。
 // nil 输入表示不更新（返回 nil）。
 func modulesDTOToUpdateDomain(m *struct {
-	Intake   *bool `json:"intake,omitempty"`
 	Sprint   *bool `json:"sprint,omitempty"`
 	Version  *bool `json:"version,omitempty"`
 	Estimate *bool `json:"estimate,omitempty"`
@@ -411,9 +406,6 @@ func modulesDTOToUpdateDomain(m *struct {
 		return nil
 	}
 	t := workspace.ProjectModuleAllEnabled()
-	if m.Intake != nil {
-		t.Intake = *m.Intake
-	}
 	if m.Sprint != nil {
 		t.Sprint = *m.Sprint
 	}

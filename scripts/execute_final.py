@@ -404,22 +404,13 @@ def verify():
             all_good = False
         print(f"  {status}: {v}")
 
-    print("\n[保留历史表 - 必须 EXISTS]")
-    for t in ['sprint_issues']:
-        cur.execute(
-            "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public' AND table_name=%s",
-            (t,))
-        exists = cur.fetchone()[0]
-        status = "OK" if exists else "MISSING!"
-        if not exists:
-            all_good = False
-        print(f"  {status}: {t}")
-
     print("\n[旧表 - 必须 DROPPED]")
     old_tables = ['issues', 'issue_comments', 'issue_reactions', 'issue_votes',
                   'issue_activities', 'issue_dependencies', 'issue_relations',
                   'issue_watchers', 'issue_modules', 'issue_labels', 'issue_assignees',
-                  'issue_subscriptions', 'issue_sequences', 'project_sequences']
+                  'issue_subscriptions', 'issue_sequences', 'project_sequences',
+                  'sprint_issues', 'issue_versions', 'module_issues', 'time_logs',
+                  'intake_issues', 'intake_channels']
     for t in old_tables:
         cur.execute(
             "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public' AND table_name=%s",

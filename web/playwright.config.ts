@@ -6,7 +6,7 @@ import { defineConfig, devices } from "@playwright/test";
  * 运行前提：
  *   1. 后端 API 已启动（默认 http://localhost:8080）
  *   2. 前端 dev server 已启动（默认 http://localhost:5173）
- *   3. 已执行 make migrate && make seed（含种子账号 admin@ydsz.dev）
+ *   3. 已执行 make migrate && make seed（含种子账号 admin@njydsz.com）
  *
  * 运行：pnpm exec playwright test
  */

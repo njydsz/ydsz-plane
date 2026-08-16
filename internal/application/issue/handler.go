@@ -33,7 +33,6 @@ type HandlerDeps struct {
 	TimeLogSvc     *TimeLogService
 	RelationSvc    *RelationService
 	CommentSvc     *CommentService
-	SocialSvc      *SocialService
 	ProjectInit    *ProjectInitService
 	WorkspaceStore *auth.WorkspaceMembershipStore
 	// 通知与实时推送（可为 nil，未配置时静默跳过）
@@ -95,16 +94,6 @@ func (h *IssueHandler) Register(r *gin.RouterGroup, wsMiddleware []gin.HandlerFu
 		issue.GET("/relations", h.listRelations)
 		issue.POST("/relations", h.createRelation)
 		issue.DELETE("/relations/:relation_id", h.deleteRelation)
-		issue.GET("/dependencies", h.listDependencies)
-		issue.POST("/dependencies", h.createDependency)
-		issue.DELETE("/dependencies/:dep_id", h.deleteDependency)
-		// 社交反馈：表情反应 + 投票
-		issue.GET("/reactions", h.listReactions)
-		issue.POST("/reactions", h.addReaction)
-		issue.DELETE("/reactions/:reaction_type", h.removeReaction)
-		issue.GET("/vote", h.voteSummary)
-		issue.POST("/vote", h.voteIssue)
-		issue.DELETE("/vote", h.removeVote)
 		// 关注（watchers 订阅）
 		issue.POST("/watch", h.watchIssue)
 		issue.DELETE("/watch", h.unwatchIssue)
@@ -119,9 +108,6 @@ func (h *IssueHandler) Register(r *gin.RouterGroup, wsMiddleware []gin.HandlerFu
 		issue.GET("/reviews", h.listReviews)
 		issue.POST("/review", h.submitReview)
 		issue.POST("/review/decision", h.decideReview)
-		// 版本快照审计（历史回溯 / 字段 diff）
-		verHandler := NewVersionHandler(NewVersionService(h.d.IssueSvc.db))
-		verHandler.Register(issue)
 	}
 }
 
@@ -1319,69 +1305,6 @@ func (h *IssueHandler) deleteRelation(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
-// --- Dependency handlers ---
-
-func (h *IssueHandler) listDependencies(c *gin.Context) {
-	wsID := c.GetInt64(middleware.CtxWorkspaceID)
-	issueID := int64Param(c, "issue_id")
-
-	predecessors, successors, err := h.d.RelationSvc.ListDependencies(c.Request.Context(), wsID, issueID)
-	if err != nil {
-		writeErr(c, err)
-		return
-	}
-	if predecessors == nil {
-		predecessors = []IssueDependency{}
-	}
-	if successors == nil {
-		successors = []IssueDependency{}
-	}
-	c.JSON(http.StatusOK, gin.H{"predecessors": predecessors, "successors": successors})
-}
-
-func (h *IssueHandler) createDependency(c *gin.Context) {
-	wsID := c.GetInt64(middleware.CtxWorkspaceID)
-	projectID := c.GetInt64(middleware.CtxProjectID)
-	userID := c.GetInt64(middleware.CtxUserID)
-
-	var req struct {
-		PredecessorID  int64  `json:"predecessor_id" binding:"required"`
-		SuccessorID    int64  `json:"successor_id" binding:"required"`
-		DependencyType string `json:"dependency_type" binding:"required,oneof=FS SS FF SF"`
-		LagDays        int    `json:"lag_days"`
-	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.AbortWithError(c, errs.ErrValidation.WithDetails(fieldDetail(err)))
-		return
-	}
-
-	dep, err := h.d.RelationSvc.CreateDependency(c.Request.Context(), CreateDependencyInput{
-		WorkspaceID:    wsID,
-		ProjectID:      projectID,
-		PredecessorID:  req.PredecessorID,
-		SuccessorID:    req.SuccessorID,
-		DependencyType: req.DependencyType,
-		LagDays:        req.LagDays,
-		CreatedBy:      userID,
-	})
-	if err != nil {
-		writeErr(c, err)
-		return
-	}
-	c.JSON(http.StatusCreated, dep)
-}
-
-func (h *IssueHandler) deleteDependency(c *gin.Context) {
-	wsID := c.GetInt64(middleware.CtxWorkspaceID)
-	depID := int64Param(c, "dep_id")
-
-	if err := h.d.RelationSvc.DeleteDependency(c.Request.Context(), wsID, depID); err != nil {
-		writeErr(c, err)
-		return
-	}
-	c.Status(http.StatusNoContent)
-}
-
 // --- Comment handlers ---
 
 func (h *IssueHandler) listComments(c *gin.Context) {
@@ -1490,117 +1413,7 @@ func (h *IssueHandler) deleteComment(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
-// --- Social handlers (Reaction / Vote / Watch) ---
-
-func (h *IssueHandler) listReactions(c *gin.Context) {
-	wsID := c.GetInt64(middleware.CtxWorkspaceID)
-	issueID := int64Param(c, "issue_id")
-	userID := c.GetInt64(middleware.CtxUserID)
-
-	if h.d.SocialSvc == nil {
-		middleware.AbortWithError(c, errs.ErrInternal.WithDetails(errs.FieldDetail{Field: "service", Reason: "社交服务未启用"}))
-		return
-	}
-	reactions, err := h.d.SocialSvc.ListReactions(c.Request.Context(), wsID, issueID, userID)
-	if err != nil {
-		writeErr(c, err)
-		return
-	}
-	if reactions == nil {
-		reactions = []ReactionSummary{}
-	}
-	c.JSON(http.StatusOK, gin.H{"results": reactions})
-}
-
-func (h *IssueHandler) addReaction(c *gin.Context) {
-	wsID := c.GetInt64(middleware.CtxWorkspaceID)
-	projectID := c.GetInt64(middleware.CtxProjectID)
-	issueID := int64Param(c, "issue_id")
-	userID := c.GetInt64(middleware.CtxUserID)
-
-	var req struct {
-		ReactionType string `json:"reaction_type" binding:"required"`
-	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.AbortWithError(c, errs.ErrValidation.WithDetails(fieldDetail(err)))
-		return
-	}
-
-	reaction, created, err := h.d.SocialSvc.AddReaction(c.Request.Context(), wsID, projectID, issueID, userID, req.ReactionType)
-	if err != nil {
-		writeErr(c, err)
-		return
-	}
-	status := http.StatusCreated
-	if !created {
-		status = http.StatusOK
-	}
-	c.JSON(status, reaction)
-}
-
-func (h *IssueHandler) removeReaction(c *gin.Context) {
-	wsID := c.GetInt64(middleware.CtxWorkspaceID)
-	issueID := int64Param(c, "issue_id")
-	userID := c.GetInt64(middleware.CtxUserID)
-	reactionType := c.Param("reaction_type")
-
-	if err := h.d.SocialSvc.RemoveReaction(c.Request.Context(), wsID, issueID, userID, reactionType); err != nil {
-		writeErr(c, err)
-		return
-	}
-	c.Status(http.StatusNoContent)
-}
-
-func (h *IssueHandler) voteSummary(c *gin.Context) {
-	wsID := c.GetInt64(middleware.CtxWorkspaceID)
-	issueID := int64Param(c, "issue_id")
-	userID := c.GetInt64(middleware.CtxUserID)
-
-	summary, err := h.d.SocialSvc.VoteSummary(c.Request.Context(), wsID, issueID, userID)
-	if err != nil {
-		writeErr(c, err)
-		return
-	}
-	c.JSON(http.StatusOK, summary)
-}
-
-func (h *IssueHandler) voteIssue(c *gin.Context) {
-	wsID := c.GetInt64(middleware.CtxWorkspaceID)
-	projectID := c.GetInt64(middleware.CtxProjectID)
-	issueID := int64Param(c, "issue_id")
-	userID := c.GetInt64(middleware.CtxUserID)
-
-	var req struct {
-		Vote int `json:"vote" binding:"required"`
-	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.AbortWithError(c, errs.ErrValidation.WithDetails(fieldDetail(err)))
-		return
-	}
-
-	vote, err := h.d.SocialSvc.VoteIssue(c.Request.Context(), wsID, projectID, issueID, userID, req.Vote)
-	if err != nil {
-		writeErr(c, err)
-		return
-	}
-	c.JSON(http.StatusOK, vote)
-}
-
-func (h *IssueHandler) removeVote(c *gin.Context) {
-	wsID := c.GetInt64(middleware.CtxWorkspaceID)
-	issueID := int64Param(c, "issue_id")
-	userID := c.GetInt64(middleware.CtxUserID)
-
-	if err := h.d.SocialSvc.RemoveVote(c.Request.Context(), wsID, issueID, userID); err != nil {
-		writeErr(c, err)
-		return
-	}
-	c.Status(http.StatusNoContent)
-}
-
-// ============================================================
-// XLSX 支持 stub
-// ============================================================
+// --- Watch handlers ---// ============================================================
 
 // xlsxToCSVReader 将上传的 .xlsx 文件转换为 CSV reader 供 Import 解析。
 //

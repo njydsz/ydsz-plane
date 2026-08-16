@@ -202,15 +202,17 @@ func (s *ModuleService) DeleteModule(ctx context.Context, moduleID int64, wsID i
 
 // ---- 工作项-模块关联 ----
 
-// AssignIssues 分配工作项到模块（幂等）。
+// AssignIssues 分配工作项到模块（幂等，按类型写入分表）。
 func (s *ModuleService) AssignIssues(ctx context.Context, in AssignIssuesInput) error {
 	for _, issueID := range in.IssueIDs {
-		_, err := s.db.Exec(ctx, `
-			INSERT INTO module_issues (module_id, issue_id) VALUES ($1,$2)
-			ON CONFLICT (module_id, issue_id) DO NOTHING`,
-			in.ModuleID, issueID)
-		if err != nil {
-			return errs.ErrInternal.Wrap(err)
+		for _, tbl := range []string{"task", "requirement", "defect"} {
+			_, err := s.db.Exec(ctx, `
+				INSERT INTO `+tbl+`_modules (`+tbl+`_id, module_id) VALUES ($1,$2)
+				ON CONFLICT DO NOTHING`,
+				issueID, in.ModuleID)
+			if err != nil {
+				return errs.ErrInternal.Wrap(err)
+			}
 		}
 	}
 	return nil
@@ -218,16 +220,22 @@ func (s *ModuleService) AssignIssues(ctx context.Context, in AssignIssuesInput) 
 
 // UnassignIssue 从模块移除工作项。
 func (s *ModuleService) UnassignIssue(ctx context.Context, moduleID int64, issueID int64) error {
-	_, err := s.db.Exec(ctx,
-		`DELETE FROM module_issues WHERE module_id = $1 AND issue_id = $2`,
-		moduleID, issueID)
-	return err
+	for _, tbl := range []string{"task", "requirement", "defect"} {
+		_, _ = s.db.Exec(ctx,
+			`DELETE FROM `+tbl+`_modules WHERE `+tbl+`_id = $1 AND module_id = $2`,
+			issueID, moduleID)
+	}
+	return nil
 }
 
-// ListModuleIssues 列出模块下的工作项 ID。
+// ListModuleIssues 列出模块下的工作项 ID（跨类型合并）。
 func (s *ModuleService) ListModuleIssues(ctx context.Context, moduleID int64) ([]int64, error) {
-	rows, err := s.db.Query(ctx,
-		`SELECT issue_id FROM module_issues WHERE module_id = $1`, moduleID)
+	rows, err := s.db.Query(ctx, `
+		SELECT workitem_id FROM (
+		    SELECT task_id AS workitem_id FROM task_modules WHERE module_id = $1
+		    UNION ALL SELECT requirement_id FROM requirement_modules WHERE module_id = $1
+		    UNION ALL SELECT defect_id FROM defect_modules WHERE module_id = $1
+		) t`, moduleID)
 	if err != nil {
 		return nil, err
 	}

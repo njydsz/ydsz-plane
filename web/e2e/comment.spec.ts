@@ -7,8 +7,8 @@
 import { expect, test } from "@playwright/test";
 
 // 测试常量
-const TEST_EMAIL = "admin@ydsz.dev";
-const TEST_PASSWORD = "Admin@123";
+const TEST_EMAIL = "admin@njydsz.com";
+const TEST_PASSWORD = "Admin@1020";
 
 test.describe("评论域", () => {
   test("工作项评论 CRUD 完整旅程", async ({ page }) => {

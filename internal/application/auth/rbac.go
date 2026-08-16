@@ -92,10 +92,9 @@ const (
 	PermAutomationManage = "automation:manage"
 	PermDeployReport     = "deploy:report"
 
-	// 审计 / 收件箱 / 知识库 / Webhook
+	// 审计 / 知识库 / Webhook
 	PermAuditRead     = "audit:read"
 	PermWebhookManage = "webhook:manage"
-	PermIntakeManage  = "intake:manage"
 	PermPagesManage   = "pages:manage"
 
 	// 知识库

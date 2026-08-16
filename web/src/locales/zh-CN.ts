@@ -461,15 +461,6 @@ export default {
     unhealthy: "异常",
   },
 
-  intake: {
-    title: "收件箱",
-    channel: "收件通道",
-    createChannel: "创建通道",
-    review: "审核",
-    convert: "转正为工作项",
-    publicForm: "公开表单",
-  },
-
   metrics: {
     title: "效能度量",
     dora: {
@@ -528,7 +519,6 @@ export default {
     analytics: "报表",
     knowledge: "知识库",
     automation: "自动化",
-    intake: "收件箱",
     members: "空间成员",
     settings: "空间设置",
     // 保留：部分历史页面（如 /my-issues、/audit-logs、/settings/webhooks）仍可能通过 URL 访问

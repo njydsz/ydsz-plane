@@ -22,7 +22,6 @@ import (
 // ProjectModuleToggles — 项目功能模块开关集合。
 // 实现 driver.Valuer / sql.Scanner 以透明持久化为 JSONB。
 type ProjectModuleToggles struct {
-	Intake   bool `json:"intake"`
 	Sprint   bool `json:"sprint"`
 	Version  bool `json:"version"`
 	Estimate bool `json:"estimate"`
@@ -54,7 +53,7 @@ func (m *ProjectModuleToggles) Scan(src any) error {
 
 // ProjectModuleAllEnabled 返回全部模块启用的默认开关集合。
 func ProjectModuleAllEnabled() ProjectModuleToggles {
-	return ProjectModuleToggles{Intake: true, Sprint: true, Version: true, Estimate: true}
+	return ProjectModuleToggles{Sprint: true, Version: true, Estimate: true}
 }
 
 // Project 项目 DTO。

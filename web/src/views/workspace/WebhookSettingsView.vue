@@ -28,7 +28,7 @@ const ALL_EVENTS: WebhookEvent[] = [
   "issue.created", "issue.updated", "issue.status_changed", "issue.commented",
   "issue.assigned", "sprint.started", "sprint.completed", "version.released",
   "project.created", "member.joined", "member.removed", "comment.created",
-  "attachment.uploaded", "intake.submitted",
+  "attachment.uploaded",
 ];
 
 const form = ref({
@@ -114,7 +114,7 @@ function eventLabel(ev: WebhookEvent): string {
     "sprint.completed": "迭代完成", "version.released": "版本发布",
     "project.created": "项目创建", "member.joined": "成员加入",
     "member.removed": "成员移除", "comment.created": "评论创建",
-    "attachment.uploaded": "附件上传", "intake.submitted": "工单提交",
+    "attachment.uploaded": "附件上传",
   };
   return map[ev] ?? ev;
 }

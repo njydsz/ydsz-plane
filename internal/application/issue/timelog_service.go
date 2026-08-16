@@ -1,12 +1,14 @@
 // Package issue — 工时记录。
 //
-// 记录用户在某工作项上花费的耗时（分钟），同步更新 issue.actual_effort / remaining_effort 汇总字段。
+// 记录用户在某工作项上花费的耗时（分钟），同步更新 task.actual_effort / remaining_effort 汇总字段。
 // 所有写操作均通过 withTx() 在同一事务内完成「插入记录 + 更新汇总」，保证统计一致性。
+// 数据按工作项类型存储于 task_timelogs / requirement_timelogs / defect_timelogs。
 package issue
 
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strconv"
 	"time"
 
@@ -37,7 +39,7 @@ type CreateTimeLogInput struct {
 	Description     string    // 工作内容描述（可选）。
 }
 
-// Create 添加工时记录（同步更新 issue.actual_effort, remaining_effort）。
+// Create 添加工时记录（同步更新 task.actual_effort, remaining_effort）。
 func (s *TimeLogService) Create(ctx context.Context, in CreateTimeLogInput) (*TimeLog, error) {
 	if in.DurationMinutes <= 0 || in.DurationMinutes > 1440 {
 		return nil, errs.ErrValidation.WithDetails(errs.FieldDetail{
@@ -52,15 +54,24 @@ func (s *TimeLogService) Create(ctx context.Context, in CreateTimeLogInput) (*Ti
 
 	var tl TimeLog
 	err := s.withTx(ctx, in.WorkspaceID, func(tx pgx.Tx) error {
-		err := tx.QueryRow(ctx, `
-			INSERT INTO time_logs (workspace_id, project_id, issue_id, user_id, spent_date, duration_minutes, description)
-			VALUES ($1,$2,$3,$4,$5,$6,$7)
-			RETURNING id, created_at, updated_at`,
-			in.WorkspaceID, in.ProjectID, in.IssueID, in.UserID,
-			in.SpentDate, in.DurationMinutes, in.Description).Scan(
-			&tl.ID, &tl.CreatedAt, &tl.UpdatedAt)
-		if err != nil {
-			return err
+		// 按类型写入对应分表（雪花 ID 全局唯一，仅一表命中）
+		var inserted bool
+		for _, tbl := range []string{"task", "requirement", "defect"} {
+			idCol := tbl + "_id"
+			err := tx.QueryRow(ctx, `
+				INSERT INTO `+tbl+`_timelogs (workspace_id, project_id, `+idCol+`, user_id, spent_date, duration_minutes, description)
+				VALUES ($1,$2,$3,$4,$5,$6,$7)
+				RETURNING id, created_at, updated_at`,
+				in.WorkspaceID, in.ProjectID, in.IssueID, in.UserID,
+				in.SpentDate, in.DurationMinutes, in.Description).Scan(
+				&tl.ID, &tl.CreatedAt, &tl.UpdatedAt)
+			if err == nil {
+				inserted = true
+				break
+			}
+		}
+		if !inserted {
+			return errs.ErrNotFound
 		}
 
 		tl.WorkspaceID = in.WorkspaceID
@@ -72,7 +83,7 @@ func (s *TimeLogService) Create(ctx context.Context, in CreateTimeLogInput) (*Ti
 		tl.Description = in.Description
 
 		// 更新 issue 汇总
-		_, err = tx.Exec(ctx, `
+		_, err := tx.Exec(ctx, `
 			UPDATE task SET
 				actual_effort = coalesce(actual_effort,0) + $1 / 60.0,
 				remaining_effort = greatest(coalesce(remaining_effort,0) - $1 / 60.0, 0),
@@ -95,9 +106,17 @@ func (s *TimeLogService) ListByIssue(ctx context.Context, wsID, issueID int64, l
 	}
 
 	rows, err := s.db.Query(ctx, `
-		SELECT id, workspace_id, project_id, issue_id, user_id, spent_date, duration_minutes, description, created_at, updated_at
-		FROM time_logs
-		WHERE issue_id = $1 AND workspace_id = $2 AND deleted = false
+		SELECT id, workspace_id, project_id, workitem_id AS issue_id, user_id, spent_date, duration_minutes, description, created_at, updated_at
+		FROM (
+		    SELECT id, workspace_id, project_id, task_id AS workitem_id, user_id, spent_date, duration_minutes, description, created_at, updated_at
+		    FROM task_timelogs WHERE task_id = $1 AND workspace_id = $2 AND deleted = false
+		    UNION ALL
+		    SELECT id, workspace_id, project_id, requirement_id, user_id, spent_date, duration_minutes, description, created_at, updated_at
+		    FROM requirement_timelogs WHERE requirement_id = $1 AND workspace_id = $2 AND deleted = false
+		    UNION ALL
+		    SELECT id, workspace_id, project_id, defect_id, user_id, spent_date, duration_minutes, description, created_at, updated_at
+		    FROM defect_timelogs WHERE defect_id = $1 AND workspace_id = $2 AND deleted = false
+		) tl
 		ORDER BY spent_date DESC, created_at DESC
 		LIMIT $3 OFFSET $4`, issueID, wsID, limit, offset)
 	if err != nil {
@@ -116,8 +135,12 @@ func (s *TimeLogService) ListByIssue(ctx context.Context, wsID, issueID int64, l
 	}
 
 	var total int64
-	_ = s.db.QueryRow(ctx, `SELECT count(*) FROM time_logs WHERE issue_id = $1 AND workspace_id = $2 AND deleted = false`,
-		issueID, wsID).Scan(&total)
+	_ = s.db.QueryRow(ctx, `
+		SELECT count(*) FROM (
+		    SELECT 1 FROM task_timelogs WHERE task_id = $1 AND workspace_id = $2 AND deleted = false
+		    UNION ALL SELECT 1 FROM requirement_timelogs WHERE requirement_id = $1 AND workspace_id = $2 AND deleted = false
+		    UNION ALL SELECT 1 FROM defect_timelogs WHERE defect_id = $1 AND workspace_id = $2 AND deleted = false
+		) t`, issueID, wsID).Scan(&total)
 
 	return logs, total, rows.Err()
 }
@@ -131,11 +154,16 @@ func (s *TimeLogService) Update(ctx context.Context, wsID, logID int64, duration
 
 	var tl TimeLog
 	err := s.withTx(ctx, wsID, func(tx pgx.Tx) error {
-		// 读取当前值
+		// 定位所属分表并读取当前值
 		var issueID int64
 		var oldMinutes int
+		tbl := locateTimelogTable(ctx, tx, logID, wsID)
+		if tbl == "" {
+			return errs.ErrNotFound
+		}
+		idCol := tbl + "_id"
 		err := tx.QueryRow(ctx, `
-			SELECT issue_id, duration_minutes FROM time_logs WHERE id = $1 AND workspace_id = $2 AND deleted = false`,
+			SELECT `+idCol+`, duration_minutes FROM `+tbl+`_timelogs WHERE id = $1 AND workspace_id = $2 AND deleted = false`,
 			logID, wsID).Scan(&issueID, &oldMinutes)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
@@ -146,10 +174,10 @@ func (s *TimeLogService) Update(ctx context.Context, wsID, logID int64, duration
 
 		// 更新记录
 		err = tx.QueryRow(ctx, `
-			UPDATE time_logs
+			UPDATE `+tbl+`_timelogs
 			SET duration_minutes = $1, description = $2, spent_date = $3, updated_at = now()
 			WHERE id = $4 AND workspace_id = $5 AND deleted = false
-			RETURNING id, workspace_id, project_id, issue_id, user_id, spent_date, duration_minutes, description, created_at, updated_at`,
+			RETURNING id, workspace_id, project_id, `+idCol+`, user_id, spent_date, duration_minutes, description, created_at, updated_at`,
 			durationMinutes, description, spentDate, logID, wsID).
 			Scan(&tl.ID, &tl.WorkspaceID, &tl.ProjectID, &tl.IssueID, &tl.UserID,
 				&tl.SpentDate, &tl.DurationMinutes, &tl.Description, &tl.CreatedAt, &tl.UpdatedAt)
@@ -176,10 +204,15 @@ func (s *TimeLogService) Update(ctx context.Context, wsID, logID int64, duration
 // Delete 删除工时记录（回写汇总）。
 func (s *TimeLogService) Delete(ctx context.Context, wsID, logID int64) error {
 	return s.withTx(ctx, wsID, func(tx pgx.Tx) error {
+		tbl := locateTimelogTable(ctx, tx, logID, wsID)
+		if tbl == "" {
+			return errs.ErrNotFound
+		}
+		idCol := tbl + "_id"
 		var issueID int64
 		var minutes int
 		err := tx.QueryRow(ctx, `
-			SELECT issue_id, duration_minutes FROM time_logs WHERE id = $1 AND workspace_id = $2 AND deleted = false`,
+			SELECT `+idCol+`, duration_minutes FROM `+tbl+`_timelogs WHERE id = $1 AND workspace_id = $2 AND deleted = false`,
 			logID, wsID).Scan(&issueID, &minutes)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
@@ -188,7 +221,7 @@ func (s *TimeLogService) Delete(ctx context.Context, wsID, logID int64) error {
 			return err
 		}
 		if _, err := tx.Exec(ctx,
-			`UPDATE time_logs SET deleted = true WHERE id = $1`, logID); err != nil {
+			`UPDATE `+tbl+`_timelogs SET deleted = true WHERE id = $1`, logID); err != nil {
 			return err
 		}
 		// 回写
@@ -200,6 +233,17 @@ func (s *TimeLogService) Delete(ctx context.Context, wsID, logID int64) error {
 			WHERE id = $2`, minutes, issueID)
 		return err
 	})
+}
+
+// locateTimelogTable 在三个分表中定位工时记录所属表。
+func locateTimelogTable(ctx context.Context, tx pgx.Tx, logID, wsID int64) string {
+	for _, tbl := range []string{"task", "requirement", "defect"} {
+		var found int64
+		if err := tx.QueryRow(ctx, fmt.Sprintf(`SELECT id FROM %s_timelogs WHERE id = $1 AND workspace_id = $2`, tbl), logID, wsID).Scan(&found); err == nil {
+			return tbl
+		}
+	}
+	return ""
 }
 
 // withTx 在事务内执行 fn，并自动设置 RLS app.workspace_id。

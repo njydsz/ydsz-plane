@@ -88,6 +88,22 @@ function openSettings() {
   router.push(`/${wsId.value}/settings`);
 }
 
+/** 点击项目卡片：进入项目仪表盘。
+ *  进入后 WorkspaceLayout 中的 currentProjectId 会随之变化，
+ *  左侧导航会自动从「工作空间菜单」切换为「项目子菜单」展示项目内的全部能力。 */
+function openProject(projectId: number) {
+  if (!wsId.value) return;
+  router.push(`/${wsId.value}/projects/${projectId}/dashboard`);
+}
+
+/** 键盘可达性：Enter / Space 也能触发打开项目 */
+function handleCardKey(event: KeyboardEvent, projectId: number) {
+  if (event.key === "Enter" || event.key === " ") {
+    event.preventDefault();
+    openProject(projectId);
+  }
+}
+
 onMounted(load);
 </script>
 
@@ -115,7 +131,17 @@ onMounted(load);
       <button class="btn btn--primary" @click="openCreateModal">创建项目</button>
     </AppEmptyState>
     <div v-else class="project-grid">
-      <div v-for="p in projects" :key="p.id" class="project-card" :style="{ borderTopColor: p.color || 'var(--brand-500)' }">
+      <div
+        v-for="p in projects"
+        :key="p.id"
+        class="project-card"
+        :style="{ borderTopColor: p.color || 'var(--brand-500)' }"
+        role="link"
+        tabindex="0"
+        :aria-label="`打开项目 ${p.name}`"
+        @click="openProject(p.id)"
+        @keydown="handleCardKey($event, p.id)"
+      >
         <div
           v-if="p.cover_image_url"
           class="project-card__cover"
@@ -131,6 +157,7 @@ onMounted(load);
           </div>
           <p v-if="p.description" class="project-card__desc">{{ p.description }}</p>
         </div>
+        <span class="project-card__enter" aria-hidden="true">→</span>
       </div>
     </div>
 
@@ -208,6 +235,7 @@ onMounted(load);
 }
 
 .project-card {
+  position: relative;
   padding: 16px;
   border: 1px solid var(--border-default);
   border-top: 3px solid var(--brand-500);
@@ -217,6 +245,50 @@ onMounted(load);
   display: flex;
   flex-direction: column;
   gap: 8px;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  color: inherit;
+  transition: border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.project-card:hover {
+  border-color: var(--brand-300);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  transform: translateY(-1px);
+}
+
+.project-card:focus-visible {
+  outline: none;
+  border-color: var(--brand-500);
+  box-shadow: 0 0 0 3px var(--brand-50);
+}
+
+.project-card:active {
+  transform: translateY(0);
+}
+
+.project-card__enter {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: var(--text-tertiary);
+  font-size: 14px;
+  opacity: 0;
+  transition: opacity 0.15s ease, color 0.15s ease, background-color 0.15s ease;
+}
+
+.project-card:hover .project-card__enter,
+.project-card:focus-visible .project-card__enter {
+  opacity: 1;
+  color: var(--brand-600);
+  background: var(--brand-50);
 }
 
 .project-card__cover {

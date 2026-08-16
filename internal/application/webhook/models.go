@@ -74,13 +74,6 @@ const (
 	EventVersionUpdated  = "version.updated"
 	EventVersionDeleted  = "version.deleted"
 	EventVersionReleased = "version.released"
-
-	// --- Intake 事件 ---
-	EventIntakeSubmitted = "intake.submitted"
-	EventIntakeConverted = "intake.converted"
-	EventIntakeCreated   = "intake.created"
-	EventIntakeDeleted   = "intake.deleted"
-	EventIntakeMerged    = "intake.merged"
 )
 
 // AllEvents 返回完整事件目录（用于前端多选框或全订阅）。
@@ -106,9 +99,6 @@ func AllEvents() []string {
 		EventUserInvited, EventUserRemoved, EventUserRoleUpdated,
 		// Version
 		EventVersionCreated, EventVersionUpdated, EventVersionDeleted, EventVersionReleased,
-		// Intake
-		EventIntakeSubmitted, EventIntakeConverted,
-		EventIntakeCreated, EventIntakeDeleted, EventIntakeMerged,
 	}
 }
 

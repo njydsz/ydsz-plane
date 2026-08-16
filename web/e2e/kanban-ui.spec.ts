@@ -9,8 +9,8 @@
  */
 import { expect, test } from "@playwright/test";
 
-const TEST_EMAIL = "admin@ydsz.dev";
-const TEST_PASSWORD = "Admin@123";
+const TEST_EMAIL = "admin@njydsz.com";
+const TEST_PASSWORD = "Admin@1020";
 
 test.describe("看板 UI", () => {
   test.beforeEach(async ({ page }) => {

@@ -47,10 +47,6 @@ DO $$ BEGIN
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 DO $$ BEGIN
-    CREATE TYPE intake_issue_status AS ENUM ('open', 'accepted', 'rejected', 'archived');
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-
-DO $$ BEGIN
     CREATE TYPE notification_status AS ENUM ('pending', 'sent', 'failed', 'read');
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
@@ -1086,52 +1082,6 @@ CREATE TABLE IF NOT EXISTS metric_adjustments (
     updated_at               TIMESTAMPTZ DEFAULT now()
 );
 
---  49. intake_channels — 入口渠道
-CREATE TABLE IF NOT EXISTS intake_channels (
-    id                       BIGINT PRIMARY KEY,
-    code                     VARCHAR(50),
-    name                     VARCHAR(255) NOT NULL,
-    tenant_id                BIGINT NOT NULL DEFAULT 1,
-    workspace_id             BIGINT NOT NULL DEFAULT 0,
-    project_id               BIGINT,
-    slug                     VARCHAR(100) NOT NULL,
-    description              TEXT,
-    is_active                BOOLEAN DEFAULT true,
-    config                   JSONB DEFAULT '{}',
-    status                   entity_status NOT NULL DEFAULT 'active',
-    deleted                  BOOLEAN DEFAULT false,
-    created_by               BIGINT NOT NULL DEFAULT 0,
-    created_at               TIMESTAMPTZ DEFAULT now(),
-    updated_by               BIGINT NOT NULL DEFAULT 0,
-    updated_at               TIMESTAMPTZ DEFAULT now()
-);
-
---  50. intake_issues — 入口工单
-CREATE TABLE IF NOT EXISTS intake_issues (
-    id                       BIGINT PRIMARY KEY,
-    code                     VARCHAR(50),
-    name                     VARCHAR(255) NOT NULL,
-    tenant_id                BIGINT NOT NULL DEFAULT 1,
-    workspace_id             BIGINT NOT NULL DEFAULT 0,
-    project_id               BIGINT,
-    channel_id               BIGINT NOT NULL,
-    tracking_id              VARCHAR(50),
-    submitter_name           VARCHAR(255),
-    submitter_email          VARCHAR(255) NOT NULL,
-    description              TEXT,
-    priority                 VARCHAR(20) DEFAULT 'medium',
-    status                   intake_issue_status NOT NULL DEFAULT 'open',
-    linked_entity_type       VARCHAR(50),
-    linked_entity_id         BIGINT,
-    resolved_at              TIMESTAMPTZ,
-    resolved_by              BIGINT,
-    deleted                  BOOLEAN DEFAULT false,
-    created_by               BIGINT NOT NULL DEFAULT 0,
-    created_at               TIMESTAMPTZ DEFAULT now(),
-    updated_by               BIGINT NOT NULL DEFAULT 0,
-    updated_at               TIMESTAMPTZ DEFAULT now()
-);
-
 --  51. webhooks — Webhook 配置
 CREATE TABLE IF NOT EXISTS webhooks (
     id                       BIGINT PRIMARY KEY,
@@ -1479,6 +1429,10 @@ CREATE TABLE IF NOT EXISTS sprint_requirements (
     project_id               BIGINT NOT NULL DEFAULT 0,
     sprint_id                BIGINT NOT NULL,
     requirement_id           BIGINT NOT NULL,
+    added_midway             BOOLEAN DEFAULT false,
+    sort_order               DOUBLE PRECISION DEFAULT 65535,
+    added_by                 BIGINT,
+    added_at                 TIMESTAMPTZ DEFAULT now(),
     status                   entity_status NOT NULL DEFAULT 'active',
     deleted                  BOOLEAN DEFAULT false,
     created_by               BIGINT NOT NULL DEFAULT 0,
@@ -1496,6 +1450,10 @@ CREATE TABLE IF NOT EXISTS sprint_tasks (
     project_id               BIGINT NOT NULL DEFAULT 0,
     sprint_id                BIGINT NOT NULL,
     task_id                  BIGINT NOT NULL,
+    added_midway             BOOLEAN DEFAULT false,
+    sort_order               DOUBLE PRECISION DEFAULT 65535,
+    added_by                 BIGINT,
+    added_at                 TIMESTAMPTZ DEFAULT now(),
     status                   entity_status NOT NULL DEFAULT 'active',
     deleted                  BOOLEAN DEFAULT false,
     created_by               BIGINT NOT NULL DEFAULT 0,
@@ -1513,6 +1471,10 @@ CREATE TABLE IF NOT EXISTS sprint_defects (
     project_id               BIGINT NOT NULL DEFAULT 0,
     sprint_id                BIGINT NOT NULL,
     defect_id                BIGINT NOT NULL,
+    added_midway             BOOLEAN DEFAULT false,
+    sort_order               DOUBLE PRECISION DEFAULT 65535,
+    added_by                 BIGINT,
+    added_at                 TIMESTAMPTZ DEFAULT now(),
     status                   entity_status NOT NULL DEFAULT 'active',
     deleted                  BOOLEAN DEFAULT false,
     created_by               BIGINT NOT NULL DEFAULT 0,
@@ -3163,48 +3125,6 @@ COMMENT ON COLUMN metric_adjustments.created_at IS '创建时间';
 COMMENT ON COLUMN metric_adjustments.updated_by IS '更新人';
 COMMENT ON COLUMN metric_adjustments.updated_at IS '更新时间';
 
-COMMENT ON TABLE intake_channels IS '入口渠道 (主键为雪花ID/BIGINT, 应用层生成)';
-COMMENT ON COLUMN intake_channels.id IS '雪花ID';
-COMMENT ON COLUMN intake_channels.code IS '渠道编码';
-COMMENT ON COLUMN intake_channels.name IS '渠道名称';
-COMMENT ON COLUMN intake_channels.tenant_id IS '租户ID';
-COMMENT ON COLUMN intake_channels.workspace_id IS '工作空间ID';
-COMMENT ON COLUMN intake_channels.project_id IS '项目ID';
-COMMENT ON COLUMN intake_channels.slug IS 'URL标识';
-COMMENT ON COLUMN intake_channels.description IS '描述';
-COMMENT ON COLUMN intake_channels.is_active IS '是否启用';
-COMMENT ON COLUMN intake_channels.config IS '渠道配置';
-COMMENT ON COLUMN intake_channels.status IS '状态';
-COMMENT ON COLUMN intake_channels.deleted IS '软删除';
-COMMENT ON COLUMN intake_channels.created_by IS '创建人';
-COMMENT ON COLUMN intake_channels.created_at IS '创建时间';
-COMMENT ON COLUMN intake_channels.updated_by IS '更新人';
-COMMENT ON COLUMN intake_channels.updated_at IS '更新时间';
-
-COMMENT ON TABLE intake_issues IS '入口工单 (主键为雪花ID/BIGINT, 应用层生成)';
-COMMENT ON COLUMN intake_issues.id IS '雪花ID';
-COMMENT ON COLUMN intake_issues.code IS '工单编码';
-COMMENT ON COLUMN intake_issues.name IS '工单标题';
-COMMENT ON COLUMN intake_issues.tenant_id IS '租户ID';
-COMMENT ON COLUMN intake_issues.workspace_id IS '工作空间ID';
-COMMENT ON COLUMN intake_issues.project_id IS '项目ID';
-COMMENT ON COLUMN intake_issues.channel_id IS '渠道ID';
-COMMENT ON COLUMN intake_issues.tracking_id IS '跟踪ID';
-COMMENT ON COLUMN intake_issues.submitter_name IS '提交人姓名';
-COMMENT ON COLUMN intake_issues.submitter_email IS '提交人邮箱';
-COMMENT ON COLUMN intake_issues.description IS '描述';
-COMMENT ON COLUMN intake_issues.priority IS '优先级';
-COMMENT ON COLUMN intake_issues.status IS '状态';
-COMMENT ON COLUMN intake_issues.linked_entity_type IS '关联实体类型';
-COMMENT ON COLUMN intake_issues.linked_entity_id IS '关联实体ID';
-COMMENT ON COLUMN intake_issues.resolved_at IS '解决时间';
-COMMENT ON COLUMN intake_issues.resolved_by IS '解决人';
-COMMENT ON COLUMN intake_issues.deleted IS '软删除';
-COMMENT ON COLUMN intake_issues.created_by IS '创建人';
-COMMENT ON COLUMN intake_issues.created_at IS '创建时间';
-COMMENT ON COLUMN intake_issues.updated_by IS '更新人';
-COMMENT ON COLUMN intake_issues.updated_at IS '更新时间';
-
 COMMENT ON TABLE webhooks IS 'Webhook 配置 (主键为雪花ID/BIGINT, 应用层生成)';
 COMMENT ON COLUMN webhooks.id IS '雪花ID';
 COMMENT ON COLUMN webhooks.code IS 'Webhook编码';
@@ -4236,8 +4156,6 @@ DECLARE
     'risk_alerts',
     'metric_snapshots',
     'metric_adjustments',
-    'intake_channels',
-    'intake_issues',
     'webhooks',
     'webhook_logs',
     'workbench_configs',
@@ -4484,13 +4402,6 @@ CREATE INDEX IF NOT EXISTS idx_metric_snapshots_ref_id ON metric_snapshots (tena
 
 CREATE INDEX IF NOT EXISTS idx_metric_adjustments_snapshot_id ON metric_adjustments (tenant_id, snapshot_id) WHERE NOT deleted;
 
-CREATE INDEX IF NOT EXISTS idx_intake_channels_code ON intake_channels (tenant_id, code) WHERE code IS NOT NULL AND NOT deleted;
-
-CREATE INDEX IF NOT EXISTS idx_intake_issues_channel_id ON intake_issues (tenant_id, channel_id) WHERE NOT deleted;
-CREATE INDEX IF NOT EXISTS idx_intake_issues_tracking_id ON intake_issues (tenant_id, tracking_id) WHERE NOT deleted;
-CREATE INDEX IF NOT EXISTS idx_intake_issues_linked_entity_id ON intake_issues (tenant_id, linked_entity_id) WHERE NOT deleted;
-CREATE INDEX IF NOT EXISTS idx_intake_issues_code ON intake_issues (tenant_id, code) WHERE code IS NOT NULL AND NOT deleted;
-
 CREATE INDEX IF NOT EXISTS idx_webhooks_code ON webhooks (tenant_id, code) WHERE code IS NOT NULL AND NOT deleted;
 
 CREATE INDEX IF NOT EXISTS idx_webhook_logs_webhook_id ON webhook_logs (tenant_id, webhook_id) WHERE NOT deleted;
@@ -4683,165 +4594,8 @@ INSERT INTO schema_migrations (version, dirty) VALUES (1, false) ON CONFLICT DO 
 
 
 -- ===========================================================================
--- 补充：跨类型轻量反馈表（PRD 社交能力，雪花 ID 全局唯一故无需按类型分表）
--- ===========================================================================
-
--- 工作项表情反应
-CREATE TABLE IF NOT EXISTS issue_reactions (
-    id                       BIGINT PRIMARY KEY,
-    tenant_id                BIGINT NOT NULL DEFAULT 1,
-    workspace_id             BIGINT NOT NULL DEFAULT 0,
-    project_id               BIGINT NOT NULL DEFAULT 0,
-    issue_id                 BIGINT NOT NULL,
-    user_id                  BIGINT NOT NULL,
-    reaction_type            VARCHAR(50) NOT NULL,
-    status                   entity_status NOT NULL DEFAULT 'active',
-    deleted                  BOOLEAN DEFAULT false,
-    created_by               BIGINT NOT NULL DEFAULT 0,
-    created_at               TIMESTAMPTZ DEFAULT now(),
-    updated_by               BIGINT NOT NULL DEFAULT 0,
-    updated_at               TIMESTAMPTZ DEFAULT now()
-);
-
--- 工作项投票
-CREATE TABLE IF NOT EXISTS issue_votes (
-    id                       BIGINT PRIMARY KEY,
-    tenant_id                BIGINT NOT NULL DEFAULT 1,
-    workspace_id             BIGINT NOT NULL DEFAULT 0,
-    project_id               BIGINT NOT NULL DEFAULT 0,
-    issue_id                 BIGINT NOT NULL,
-    user_id                  BIGINT NOT NULL,
-    vote                     SMALLINT NOT NULL DEFAULT 0,
-    status                   entity_status NOT NULL DEFAULT 'active',
-    deleted                  BOOLEAN DEFAULT false,
-    created_by               BIGINT NOT NULL DEFAULT 0,
-    created_at               TIMESTAMPTZ DEFAULT now(),
-    updated_by               BIGINT NOT NULL DEFAULT 0,
-    updated_at               TIMESTAMPTZ DEFAULT now()
-);
-
-
--- 工作项关联（跨类型：雪花 ID 全局唯一，source/target 可跨 task/requirement/defect）
-CREATE TABLE IF NOT EXISTS issue_relations (
-    id                       BIGINT PRIMARY KEY,
-    tenant_id                BIGINT NOT NULL DEFAULT 1,
-    workspace_id             BIGINT NOT NULL DEFAULT 0,
-    project_id               BIGINT NOT NULL DEFAULT 0,
-    source_issue_id          BIGINT NOT NULL,
-    target_issue_id          BIGINT NOT NULL,
-    relation_type            VARCHAR(50) NOT NULL,
-    status                   entity_status NOT NULL DEFAULT 'active',
-    deleted                  BOOLEAN DEFAULT false,
-    created_by               BIGINT NOT NULL DEFAULT 0,
-    created_at               TIMESTAMPTZ DEFAULT now(),
-    updated_by               BIGINT NOT NULL DEFAULT 0,
-    updated_at               TIMESTAMPTZ DEFAULT now()
-);
-
--- 工作项依赖（跨类型有向 DAG）
-CREATE TABLE IF NOT EXISTS issue_dependencies (
-    id                       BIGINT PRIMARY KEY,
-    tenant_id                BIGINT NOT NULL DEFAULT 1,
-    workspace_id             BIGINT NOT NULL DEFAULT 0,
-    project_id               BIGINT NOT NULL DEFAULT 0,
-    predecessor_id           BIGINT NOT NULL,
-    successor_id             BIGINT NOT NULL,
-    dependency_type          VARCHAR(2) NOT NULL,
-    lag_days                 INTEGER DEFAULT 0,
-    status                   entity_status NOT NULL DEFAULT 'active',
-    deleted                  BOOLEAN DEFAULT false,
-    created_by               BIGINT NOT NULL DEFAULT 0,
-    created_at               TIMESTAMPTZ DEFAULT now(),
-    updated_by               BIGINT NOT NULL DEFAULT 0,
-    updated_at               TIMESTAMPTZ DEFAULT now()
-);
-
--- 工作项活动日志（跨类型）
-CREATE TABLE IF NOT EXISTS issue_activities (
-    id                       BIGINT PRIMARY KEY,
-    tenant_id                BIGINT NOT NULL DEFAULT 1,
-    workspace_id             BIGINT NOT NULL DEFAULT 0,
-    project_id               BIGINT NOT NULL DEFAULT 0,
-    issue_id                 BIGINT NOT NULL,
-    verb                     VARCHAR(50) NOT NULL,
-    field                    VARCHAR(100),
-    old_value                TEXT,
-    new_value                TEXT,
-    old_ref                  JSONB,
-    new_ref                  JSONB,
-    actor_id                 BIGINT,
-    actor_email              VARCHAR(255),
-    actor_name               VARCHAR(255),
-    status                   entity_status NOT NULL DEFAULT 'active',
-    deleted                  BOOLEAN DEFAULT false,
-    created_by               BIGINT NOT NULL DEFAULT 0,
-    created_at               TIMESTAMPTZ DEFAULT now(),
-    updated_by               BIGINT NOT NULL DEFAULT 0,
-    updated_at               TIMESTAMPTZ DEFAULT now()
-);
--- 工时记录（跨类型；汇总回写仅对 task 有效）
-CREATE TABLE IF NOT EXISTS time_logs (
-    id                       BIGINT PRIMARY KEY,
-    tenant_id                BIGINT NOT NULL DEFAULT 1,
-    workspace_id             BIGINT NOT NULL DEFAULT 0,
-    project_id               BIGINT NOT NULL DEFAULT 0,
-    issue_id                 BIGINT NOT NULL,
-    user_id                  BIGINT NOT NULL,
-    spent_date               DATE,
-    duration_minutes         INTEGER NOT NULL,
-    description              TEXT,
-    status                   entity_status NOT NULL DEFAULT 'active',
-    deleted                  BOOLEAN DEFAULT false,
-    created_by               BIGINT NOT NULL DEFAULT 0,
-    created_at               TIMESTAMPTZ DEFAULT now(),
-    updated_by               BIGINT NOT NULL DEFAULT 0,
-    updated_at               TIMESTAMPTZ DEFAULT now()
-);
-
-
--- ===========================================================================
--- 补充：迭代-工作项关联（保留历史表，跨类型：sprint 可含 task/requirement/defect）
--- ===========================================================================
-CREATE TABLE IF NOT EXISTS sprint_issues (
-    id                       BIGINT PRIMARY KEY,
-    tenant_id                BIGINT NOT NULL DEFAULT 1,
-    workspace_id             BIGINT NOT NULL DEFAULT 0,
-    project_id               BIGINT NOT NULL DEFAULT 0,
-    sprint_id                BIGINT NOT NULL,
-    issue_id                 BIGINT NOT NULL,
-    added_midway             BOOLEAN DEFAULT false,
-    sort_order               DOUBLE PRECISION DEFAULT 65535,
-    added_by                 BIGINT,
-    added_at                 TIMESTAMPTZ DEFAULT now(),
-    status                   entity_status NOT NULL DEFAULT 'active',
-    deleted                  BOOLEAN DEFAULT false,
-    created_by               BIGINT NOT NULL DEFAULT 0,
-    created_at               TIMESTAMPTZ DEFAULT now(),
-    updated_by               BIGINT NOT NULL DEFAULT 0,
-    updated_at               TIMESTAMPTZ DEFAULT now(),
-    CONSTRAINT uq_sprint_issues UNIQUE (sprint_id, issue_id)
-);
-
--- ===========================================================================
 -- 补充表（代码需要、设计文档遗漏的支撑表）
 -- ===========================================================================
-CREATE TABLE IF NOT EXISTS issue_versions (
-    id                       BIGINT PRIMARY KEY,
-    tenant_id                BIGINT NOT NULL DEFAULT 1,
-    workspace_id             BIGINT NOT NULL DEFAULT 0,
-    project_id               BIGINT NOT NULL DEFAULT 0,
-    issue_id                 BIGINT NOT NULL,
-    version                  INTEGER NOT NULL DEFAULT 1,
-    snapshot                 JSONB,
-    changed_fields           JSONB,
-    change_type              VARCHAR(50),
-    status                   entity_status NOT NULL DEFAULT 'active',
-    deleted                  BOOLEAN DEFAULT false,
-    created_by               BIGINT NOT NULL DEFAULT 0,
-    created_at               TIMESTAMPTZ DEFAULT now(),
-    updated_by               BIGINT NOT NULL DEFAULT 0,
-    updated_at               TIMESTAMPTZ DEFAULT now()
-);
 CREATE TABLE IF NOT EXISTS sso_sessions (
     id                       BIGINT PRIMARY KEY,
     tenant_id                BIGINT NOT NULL DEFAULT 1,
@@ -4910,24 +4664,14 @@ CREATE TABLE IF NOT EXISTS knowledge_page_relations (
     id                       BIGINT PRIMARY KEY,
     tenant_id                BIGINT NOT NULL DEFAULT 1,
     page_id                  BIGINT NOT NULL,
-    issue_id                 BIGINT NOT NULL,
+    workitem_id              BIGINT NOT NULL,
     relation_type            VARCHAR(50),
     status                   entity_status NOT NULL DEFAULT 'active',
     deleted                  BOOLEAN DEFAULT false,
     created_by               BIGINT NOT NULL DEFAULT 0,
     created_at               TIMESTAMPTZ DEFAULT now(),
-    updated_at               TIMESTAMPTZ DEFAULT now()
-);
-CREATE TABLE IF NOT EXISTS module_issues (
-    id                       BIGINT PRIMARY KEY,
-    tenant_id                BIGINT NOT NULL DEFAULT 1,
-    module_id                BIGINT NOT NULL,
-    issue_id                 BIGINT NOT NULL,
-    status                   entity_status NOT NULL DEFAULT 'active',
-    deleted                  BOOLEAN DEFAULT false,
-    created_by               BIGINT NOT NULL DEFAULT 0,
-    created_at               TIMESTAMPTZ DEFAULT now(),
-    updated_at               TIMESTAMPTZ DEFAULT now()
+    updated_at               TIMESTAMPTZ DEFAULT now(),
+    UNIQUE (page_id, workitem_id, relation_type)
 );
 CREATE TABLE IF NOT EXISTS document_links (
     id                       BIGINT PRIMARY KEY,
@@ -4987,7 +4731,7 @@ CREATE TABLE IF NOT EXISTS role_permissions (
 CREATE TABLE IF NOT EXISTS defect_extra (
     id                       BIGINT PRIMARY KEY,
     tenant_id                BIGINT NOT NULL DEFAULT 1,
-    issue_id                 BIGINT NOT NULL,
+    defect_id                BIGINT NOT NULL,
     found_phase              VARCHAR(20),
     reopened_at              TIMESTAMPTZ,
     status                   entity_status NOT NULL DEFAULT 'active',

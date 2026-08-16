@@ -19,6 +19,16 @@ import {
   Link,
   Users,
   Settings,
+  KanbanSquare,
+  ClipboardList,
+  SquareCheckBig,
+  Bug,
+  FileText,
+  Calendar,
+  Gauge,
+  LineChart,
+  GanttChart,
+  History,
 } from "@lucide/vue";
 import { computed } from "vue";
 
@@ -47,6 +57,16 @@ const iconMap: Record<string, (typeof LayoutDashboard)> = {
   Link,
   Users,
   Settings,
+  KanbanSquare,
+  ClipboardList,
+  SquareCheckBig,
+  Bug,
+  FileText,
+  Calendar,
+  Gauge,
+  LineChart,
+  GanttChart,
+  History,
 };
 
 const IconComponent = computed(() => iconMap[props.name] ?? Settings);

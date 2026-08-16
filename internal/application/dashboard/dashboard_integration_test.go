@@ -5,7 +5,7 @@
 //   - 设置 YDSZ_TEST_DATABASE_URL 时真实运行（CI 提供测试库）
 //   - 未设置时自动 Skip（本地无库不阻塞）
 //
-// 测试自建租户数据（workspace/project/state/issues），与既有数据隔离。
+// 测试自建租户数据（workspace/project/state/工作项），与既有数据隔离。
 package dashboard
 
 import (
@@ -97,7 +97,7 @@ func TestGetDashboardIntegration(t *testing.T) {
 
 // --- 测试数据辅助 ---
 
-// seedDashboardData 插入独立租户的 project/state/issues。
+// seedDashboardData 插入独立租户的 project/state/工作项。
 func seedDashboardData(t *testing.T, ctx context.Context, pool *persistence.Pool) (int64, int64) {
 	t.Helper()
 	// slug 唯一：避免并发/重复运行冲突
@@ -127,22 +127,19 @@ func seedDashboardData(t *testing.T, ctx context.Context, pool *persistence.Pool
 		RETURNING id`, wsID, projID).Scan(&stateID); err != nil {
 		t.Fatalf("seed state: %v", err)
 	}
-	// 三条 issue：不同优先级/状态（type_code 需满足 issues_type_code_check；defect 需 severity+found_phase）
+	// 三条工作项：不同优先级/状态（按类型分表：requirement/task/defect）
 	types := []string{"requirement", "task", "defect"}
 	priorities := []string{"urgent", "high", "medium"}
 	issueIDs := make([]int64, 0, 3)
 	for i, typ := range types {
 		var id int64
-		err := pool.Pool.QueryRow(ctx, `
-			INSERT INTO issues (workspace_id, project_id, sequence_id, type_code, name, state_id, priority,
-			                    severity, found_phase, created_by)
-			VALUES ($1, $2, $3, $4, $5, $6, $7,
-			        CASE WHEN $4 = 'defect' THEN 2 ELSE NULL END,
-			        CASE WHEN $4 = 'defect' THEN 'integration'::text ELSE NULL END, 1)
-			RETURNING id`,
-			wsID, projID, i+1, typ, "Dash Issue "+typ, stateID, priorities[i]).Scan(&id)
+		err := pool.Pool.QueryRow(ctx, fmt.Sprintf(`
+			INSERT INTO %s (workspace_id, project_id, sequence_id, name, state_id, priority, created_by)
+			VALUES ($1, $2, $3, $4, $5, $6, 1)
+			RETURNING id`, typ),
+			wsID, projID, i+1, "Dash Issue "+typ, stateID, priorities[i]).Scan(&id)
 		if err != nil {
-			t.Fatalf("seed issue %d: %v", i, err)
+			t.Fatalf("seed %s %d: %v", typ, i, err)
 		}
 		issueIDs = append(issueIDs, id)
 	}
@@ -158,24 +155,28 @@ func seedDashboardData(t *testing.T, ctx context.Context, pool *persistence.Pool
 		VALUES ($1, $2, 'Done Sprint', 'completed', 1, now()) RETURNING id`, wsID, projID).Scan(&doneSprintID); err != nil {
 		t.Fatalf("seed done sprint: %v", err)
 	}
-	// sprint_issues：全部 issue 加入两个迭代（驱动 burndown/velocity 计数）
-	for _, id := range issueIDs {
-		if _, err := pool.Pool.Exec(ctx, `
-			INSERT INTO sprint_issues (sprint_id, issue_id) VALUES ($1, $2), ($3, $4)`,
-			activeSprintID, id, doneSprintID, id); err != nil {
-			t.Fatalf("seed sprint_issues %d: %v", id, err)
+	// 迭代关联：全部工作项按类型加入两个迭代（驱动 burndown/velocity 计数）
+	relTables := map[string]string{"requirement": "sprint_requirements", "task": "sprint_tasks", "defect": "sprint_defects"}
+	relCols := map[string]string{"requirement": "requirement_id", "task": "task_id", "defect": "defect_id"}
+	for i, id := range issueIDs {
+		typ := types[i]
+		if _, err := pool.Pool.Exec(ctx, fmt.Sprintf(`
+			INSERT INTO %s (project_id, sprint_id, %s) VALUES ($1, $2, $3), ($1, $4, $3)`,
+			relTables[typ], relCols[typ]),
+			projID, activeSprintID, id, doneSprintID); err != nil {
+			t.Fatalf("seed %s rel %d: %v", typ, id, err)
 		}
 	}
-	// 指派：用户 1 负责第一条 issue（驱动 team_workload）
+	// 指派：用户 1 负责第一条工作项（驱动 team_workload）
 	if _, err := pool.Pool.Exec(ctx, `
-		INSERT INTO issue_assignees (issue_id, user_id, assigned_by) VALUES ($1, 1, 1)`,
+		INSERT INTO requirement_assignees (requirement_id, user_id) VALUES ($1, 1)`,
 		issueIDs[0]); err != nil {
 		t.Fatalf("seed assignee: %v", err)
 	}
 	// 活动记录（驱动 recent_activity）
 	if _, err := pool.Pool.Exec(ctx, `
-		INSERT INTO issue_activities (workspace_id, project_id, issue_id, verb, actor_id, actor_name)
-		VALUES ($1, $2, $3, 'created', 1, 'Admin')`,
+		INSERT INTO requirement_activities (workspace_id, project_id, requirement_id, verb, actor_id)
+		VALUES ($1, $2, $3, 'created', 1)`,
 		wsID, projID, issueIDs[0]); err != nil {
 		t.Fatalf("seed activity: %v", err)
 	}

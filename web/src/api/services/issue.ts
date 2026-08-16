@@ -157,49 +157,6 @@ export interface UpdateCommentInput {
   mentions?: number[];
 }
 
-/**
- * 依赖类型（后端校验 oneof=FS SS FF SF，必须大写）。
- * FS = Finish→Start（完成→开始），SS = Start→Start，
- * FF = Finish→Finish，SF = Start→Finish。
- */
-export type DependencyType = "FS" | "SS" | "FF" | "SF";
-
-/** 依赖类型中文标签 */
-export const DEPENDENCY_TYPE_LABELS: Record<DependencyType, string> = {
-  FS: "完成→开始 (FS)",
-  SS: "开始→开始 (SS)",
-  FF: "完成→完成 (FF)",
-  SF: "开始→完成 (SF)",
-};
-
-/** 工作项依赖关系（前置/后继 + 滞后天数） */
-export interface IssueDependency {
-  id: number;
-  workspace_id: number;
-  project_id: number;
-  predecessor_id: number;
-  successor_id: number;
-  dependency_type: DependencyType;
-  lag_days: number;
-  created_by: number;
-  created_at: string;
-}
-
-/** 表情反应聚合（单种表情的计数 + 当前用户是否已反应） */
-export interface ReactionSummary {
-  reaction_type: string;
-  count: number;
-  reacted: boolean;
-}
-
-/** 投票聚合统计 */
-export interface VoteSummary {
-  upvotes: number;
-  downvotes: number;
-  score: number;
-  voted?: number | null; // 1=赞成 -1=反对 null=未投
-}
-
 /** 创建工作项入参 */
 export interface CreateIssueInput {
   type: IssueType;
@@ -493,45 +450,6 @@ export const issueApi = {
     wrap<IssueComment>(http.patch(`/workspaces/${wsId}/projects/${projectId}/issues/${issueId}/comments/${commentId}`, input)),
   deleteComment: (wsId: number, projectId: number, issueId: number, commentId: number) =>
     wrap<void>(http.delete(`/workspaces/${wsId}/projects/${projectId}/issues/${issueId}/comments/${commentId}`)),
-
-  // --- 依赖关系 ---
-  listDependencies: (wsId: number, projectId: number, issueId: number) =>
-    wrap<{ predecessors: IssueDependency[]; successors: IssueDependency[] }>(
-      http.get(`/workspaces/${wsId}/projects/${projectId}/issues/${issueId}/dependencies`),
-    ),
-  createDependency: (
-    wsId: number,
-    projectId: number,
-    issueId: number,
-    input: { predecessor_id: number; successor_id: number; dependency_type: DependencyType; lag_days?: number },
-  ) =>
-    wrap<IssueDependency>(http.post(`/workspaces/${wsId}/projects/${projectId}/issues/${issueId}/dependencies`, input)),
-  deleteDependency: (wsId: number, projectId: number, issueId: number, depId: number) =>
-    wrap<void>(http.delete(`/workspaces/${wsId}/projects/${projectId}/issues/${issueId}/dependencies/${depId}`)),
-
-  // --- 表情反应 ---
-  listReactions: (wsId: number, projectId: number, issueId: number) =>
-    wrap<{ results: ReactionSummary[] }>(
-      http.get(`/workspaces/${wsId}/projects/${projectId}/issues/${issueId}/reactions`),
-    ),
-  addReaction: (wsId: number, projectId: number, issueId: number, reactionType: string) =>
-    wrap<{ id: number; reaction_type: string }>(
-      http.post(`/workspaces/${wsId}/projects/${projectId}/issues/${issueId}/reactions`, {
-        reaction_type: reactionType,
-      }),
-    ),
-  removeReaction: (wsId: number, projectId: number, issueId: number, reactionType: string) =>
-    wrap<void>(http.delete(`/workspaces/${wsId}/projects/${projectId}/issues/${issueId}/reactions/${encodeURIComponent(reactionType)}`)),
-
-  // --- 投票 ---
-  voteSummary: (wsId: number, projectId: number, issueId: number) =>
-    wrap<VoteSummary>(http.get(`/workspaces/${wsId}/projects/${projectId}/issues/${issueId}/vote`)),
-  vote: (wsId: number, projectId: number, issueId: number, vote: 1 | -1) =>
-    wrap<{ id: number; vote: number }>(
-      http.post(`/workspaces/${wsId}/projects/${projectId}/issues/${issueId}/vote`, { vote }),
-    ),
-  removeVote: (wsId: number, projectId: number, issueId: number) =>
-    wrap<void>(http.delete(`/workspaces/${wsId}/projects/${projectId}/issues/${issueId}/vote`)),
 
   // --- 关注（watchers）---
   watch: (wsId: number, projectId: number, issueId: number) =>

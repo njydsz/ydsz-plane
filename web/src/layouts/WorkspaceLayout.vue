@@ -41,8 +41,6 @@ const searchStore = useSearchStore();
 const collapsed = ref(false);
 const showSwitcher = ref(false);
 const switcherFilter = ref("");
-/** 设置分组是否折叠 */
-const settingsGroupCollapsed = ref(true);
 
 // ===== S13 P1: 移动响应式 =====
 const MOBILE_BREAKPOINT = 768;
@@ -67,6 +65,9 @@ watch(mobileSidebarOpen, (open) => {
 const workspaceId = computed(() => Number(route.params.workspaceId ?? 0));
 const workspaceList = computed(() => wsStore.list);
 const currentWs = computed(() => wsStore.current);
+/** 是否处于首页（工作空间列表/创建页）。首页下侧栏只显示「工作台」入口，
+ *  顶部快速创建按钮也切换为「新建空间」，符合「登录后落点 = 空间管理」的语义。 */
+const isHome = computed(() => route.path === "/");
 const currentProjectId = computed(() => {
   const pid = route.params.projectId;
   return pid ? Number(pid) : null;
@@ -183,8 +184,45 @@ function gotoList() {
   router.push("/");
 }
 
-/** 快速创建：在项目上下文中新建工作项，否则新建项目到空间根 */
+/** 侧栏菜单项：
+ *  - 首页下只显示「工作台」
+ *  - 项目上下文（存在 currentProjectId）下隐藏工作空间主菜单，
+ *    仅由「项目子菜单」承载导航；
+ *  - 其他路由按权限全量展示。 */
+const sidebarMenu = computed(() => {
+  if (isHome.value) {
+    return [
+      {
+        name: "workbench-home",
+        to: { name: "home" },
+        icon: "LayoutDashboard",
+        labelKey: "__workbench__",
+        isRaw: true,
+      },
+    ];
+  }
+  // 进入项目内：屏蔽工作空间级菜单（项目/版本/迭代/知识库/自动化等），
+  // 避免和下方项目子菜单重复，也避免给用户"我在哪儿"的歧义。
+  if (currentProjectId.value) {
+    return [];
+  }
+  return visibleMainMenu.value.map((item) => ({
+    name: item.name,
+    to: `/${wsStore.currentId}/${item.path}`,
+    icon: item.icon,
+    labelKey: item.titleKey,
+    isRaw: false,
+  }));
+});
+
+/** 快速创建：在项目上下文中新建工作项，否则新建项目到空间根；
+ *  在首页（`/`）下，行为切换为新建工作空间，并保留 URL 上的 action 标记
+ *  以让 WorkspaceListView 自动展开新建表单。 */
 function handleQuickCreate() {
+  if (isHome.value) {
+    router.push({ path: "/", query: { action: "create" } });
+    return;
+  }
   if (currentProjectId.value && workspaceId.value) {
     // 注意：直接跳转到项目工作项列表页，用户可在该页新建；
     // 后续可升级为内联创建弹层（P2）。
@@ -250,47 +288,59 @@ watch(
           <span class="ws-switcher__role">{{ roleLabel(currentWs?.role) }}</span>
         </div>
         <span v-if="!collapsed" class="ws-switcher__caret">▾</span>
+
+        <!--
+          切换器下拉：必须放在 .ws-switcher 内部，
+          这样 position: absolute 才会以 ws-switcher (relative) 为参照，
+          否则会跳过 sibling 直接定位到 sidebar，跑到底部。
+        -->
+        <div v-if="showSwitcher" class="ws-switcher__dropdown" @click.stop>
+          <input
+            v-model="switcherFilter"
+            class="ws-switcher__search"
+            placeholder="搜索工作空间..."
+            autofocus
+          />
+          <div class="ws-switcher__list">
+            <button
+              v-for="ws in filteredWorkspaces"
+              :key="ws.id"
+              class="ws-switcher__item"
+              :class="{ active: ws.id === currentWs?.id }"
+              @click="selectWs(ws)"
+            >
+              <span class="ws-item__avatar">{{ ws.name.charAt(0) }}</span>
+              <span class="ws-item__info">
+                <span class="ws-item__name">{{ ws.name }}</span>
+                <span class="ws-item__sub">{{ ws.member_count }} 成员 · {{ roleLabel(ws.role) }}</span>
+              </span>
+            </button>
+          </div>
+          <div class="ws-switcher__actions">
+            <button class="ws-switcher__action" @click="gotoList">📋 查看所有</button>
+            <button class="ws-switcher__action" @click="gotoCreate">＋ 创建新空间</button>
+          </div>
+        </div>
       </div>
 
       <!-- 快速创建按钮（collapsed 时也显示为纯图标） -->
       <button
         class="quick-create"
         :class="{ 'quick-create--collapsed': collapsed }"
-        :title="currentProjectId ? '新建工作项' : '新建项目'"
+        :title="
+          isHome
+            ? '新建空间'
+            : currentProjectId
+            ? '新建工作项'
+            : '新建项目'
+        "
         @click="handleQuickCreate"
       >
-        <span v-if="!collapsed">＋{{ currentProjectId ? "新建工作项" : "新建项目" }}</span>
+        <span v-if="!collapsed">
+          ＋{{ isHome ? "新建空间" : currentProjectId ? "新建工作项" : "新建项目" }}
+        </span>
         <span v-else>＋</span>
       </button>
-
-      <!-- 切换器下拉 -->
-      <div v-if="showSwitcher" class="ws-switcher__dropdown" @click.stop>
-        <input
-          v-model="switcherFilter"
-          class="ws-switcher__search"
-          placeholder="搜索工作空间..."
-          autofocus
-        />
-        <div class="ws-switcher__list">
-          <button
-            v-for="ws in filteredWorkspaces"
-            :key="ws.id"
-            class="ws-switcher__item"
-            :class="{ active: ws.id === currentWs?.id }"
-            @click="selectWs(ws)"
-          >
-            <span class="ws-item__avatar">{{ ws.name.charAt(0) }}</span>
-            <span class="ws-item__info">
-              <span class="ws-item__name">{{ ws.name }}</span>
-              <span class="ws-item__sub">{{ ws.member_count }} 成员 · {{ roleLabel(ws.role) }}</span>
-            </span>
-          </button>
-        </div>
-        <div class="ws-switcher__actions">
-          <button class="ws-switcher__action" @click="gotoList">📋 查看所有</button>
-          <button class="ws-switcher__action" @click="gotoCreate">＋ 创建新空间</button>
-        </div>
-      </div>
 
       <!-- ===== 侧边导航 ===== -->
       <nav class="sidebar__nav">
@@ -312,233 +362,127 @@ watch(
           </div>
         </template>
 
-        <!-- 核心导航（权限驱动） -->
-        <div class="nav-group">
+        <!-- 核心导航（权限驱动）：首页下只渲染「工作台」 -->
+        <div v-if="sidebarMenu.length > 0" class="nav-group">
           <router-link
-            v-for="item in visibleMainMenu"
+            v-for="item in sidebarMenu"
             :key="item.name"
-            :to="`/${wsStore.currentId}/${item.path}`"
+            :to="item.to"
             class="nav-item"
             active-class="is-active"
             exact-active-class="is-active"
           >
             <DynamicIcon :name="item.icon" class="nav-icon" />
-            <span v-if="!collapsed">{{ $t(item.titleKey) }}</span>
+            <span v-if="!collapsed">
+              {{ item.isRaw ? '工作台' : $t(item.labelKey) }}
+            </span>
           </router-link>
         </div>
 
         <!-- 项目子导航 -->
         <template v-if="currentProjectId">
           <div class="nav-group">
-            <span v-if="!collapsed" class="nav-group__label">项目</span>
-            <router-link
-              :to="`/${wsStore.currentId}/projects/${currentProjectId}/dashboard`"
-              class="nav-item nav-item--sub"
-              active-class="is-active"
-            >
-              <span class="nav-icon">📈</span>
-              <span v-if="!collapsed">仪表盘</span>
-            </router-link>
             <router-link
               :to="`/${wsStore.currentId}/projects/${currentProjectId}/board`"
-              class="nav-item nav-item--sub"
+              class="nav-item"
               active-class="is-active"
+              exact-active-class="is-active"
             >
-              <span class="nav-icon">▥</span>
+              <DynamicIcon name="KanbanSquare" class="nav-icon" />
               <span v-if="!collapsed">看板</span>
             </router-link>
             <router-link
               :to="`/${wsStore.currentId}/projects/${currentProjectId}/requirements`"
-              class="nav-item nav-item--sub"
+              class="nav-item"
               active-class="is-active"
+              exact-active-class="is-active"
             >
-              <span class="nav-icon">📋</span>
+              <DynamicIcon name="ClipboardList" class="nav-icon" />
               <span v-if="!collapsed">需求</span>
             </router-link>
             <router-link
               :to="`/${wsStore.currentId}/projects/${currentProjectId}/tasks`"
-              class="nav-item nav-item--sub"
+              class="nav-item"
               active-class="is-active"
+              exact-active-class="is-active"
             >
-              <span class="nav-icon">✅</span>
+              <DynamicIcon name="SquareCheckBig" class="nav-icon" />
               <span v-if="!collapsed">任务</span>
             </router-link>
             <router-link
               :to="`/${wsStore.currentId}/projects/${currentProjectId}/defects`"
-              class="nav-item nav-item--sub"
+              class="nav-item"
               active-class="is-active"
+              exact-active-class="is-active"
             >
-              <span class="nav-icon">🐛</span>
+              <DynamicIcon name="Bug" class="nav-icon" />
               <span v-if="!collapsed">缺陷</span>
             </router-link>
             <router-link
-              :to="`/${wsStore.currentId}/projects/${currentProjectId}/wbs`"
-              class="nav-item nav-item--sub"
-              active-class="is-active"
-            >
-              <span class="nav-icon">🌳</span>
-              <span v-if="!collapsed">WBS 树</span>
-            </router-link>
-            <router-link
               :to="`/${wsStore.currentId}/projects/${currentProjectId}/pages`"
-              class="nav-item nav-item--sub"
+              class="nav-item"
               active-class="is-active"
+              exact-active-class="is-active"
             >
-              <span class="nav-icon">📄</span>
+              <DynamicIcon name="FileText" class="nav-icon" />
               <span v-if="!collapsed">文档</span>
             </router-link>
             <router-link
-              :to="`/${wsStore.currentId}/projects/${currentProjectId}/metrics`"
-              class="nav-item nav-item--sub"
+              :to="`/${wsStore.currentId}/projects/${currentProjectId}/calendar`"
+              class="nav-item"
               active-class="is-active"
+              exact-active-class="is-active"
             >
-              <span class="nav-icon">📉</span>
+              <DynamicIcon name="Calendar" class="nav-icon" />
+              <span v-if="!collapsed">日历</span>
+            </router-link>
+            <router-link
+              :to="`/${wsStore.currentId}/projects/${currentProjectId}/metrics`"
+              class="nav-item"
+              active-class="is-active"
+              exact-active-class="is-active"
+            >
+              <DynamicIcon name="Gauge" class="nav-icon" />
               <span v-if="!collapsed">效能</span>
             </router-link>
             <router-link
               :to="`/${wsStore.currentId}/projects/${currentProjectId}/analytics`"
-              class="nav-item nav-item--sub"
+              class="nav-item"
               active-class="is-active"
+              exact-active-class="is-active"
             >
-              <span class="nav-icon">📋</span>
+              <DynamicIcon name="LineChart" class="nav-icon" />
               <span v-if="!collapsed">分析</span>
             </router-link>
             <router-link
               :to="`/${wsStore.currentId}/projects/${currentProjectId}/gantt`"
-              class="nav-item nav-item--sub"
+              class="nav-item"
               active-class="is-active"
+              exact-active-class="is-active"
             >
-              <span class="nav-icon">📅</span>
+              <DynamicIcon name="GanttChart" class="nav-icon" />
               <span v-if="!collapsed">甘特图</span>
             </router-link>
             <router-link
-              :to="`/${wsStore.currentId}/projects/${currentProjectId}/calendar`"
-              class="nav-item nav-item--sub"
-              active-class="is-active"
-            >
-              <span class="nav-icon">🗓</span>
-              <span v-if="!collapsed">日历</span>
-            </router-link>
-            <router-link
               :to="`/${wsStore.currentId}/projects/${currentProjectId}/timeline`"
-              class="nav-item nav-item--sub"
+              class="nav-item"
               active-class="is-active"
+              exact-active-class="is-active"
             >
-              <span class="nav-icon">📊</span>
+              <DynamicIcon name="History" class="nav-icon" />
               <span v-if="!collapsed">时间线</span>
             </router-link>
             <router-link
-              :to="`/${wsStore.currentId}/projects/${currentProjectId}/automation`"
-              class="nav-item nav-item--sub"
+              :to="`/${wsStore.currentId}/projects/${currentProjectId}/dashboard`"
+              class="nav-item"
               active-class="is-active"
+              exact-active-class="is-active"
             >
-              <span class="nav-icon">⚡</span>
-              <span v-if="!collapsed">自动化</span>
-            </router-link>
-            <router-link
-              :to="`/${wsStore.currentId}/projects/${currentProjectId}/modules`"
-              class="nav-item nav-item--sub"
-              active-class="is-active"
-            >
-              <span class="nav-icon">🧩</span>
-              <span v-if="!collapsed">模块</span>
+              <DynamicIcon name="LayoutDashboard" class="nav-icon" />
+              <span v-if="!collapsed">仪表盘</span>
             </router-link>
           </div>
         </template>
-
-        <!-- 设置分组（可折叠） -->
-        <div v-if="wsStore.canManage" class="nav-group nav-group--collapsible">
-          <button
-            class="nav-group__toggle"
-            @click="settingsGroupCollapsed = !settingsGroupCollapsed"
-          >
-            <span class="nav-icon">⚙</span>
-            <span v-if="!collapsed" class="nav-group__label">管理</span>
-            <span v-if="!collapsed" class="nav-group__chevron">
-              {{ settingsGroupCollapsed ? "▸" : "▾" }}
-            </span>
-          </button>
-          <div v-if="!settingsGroupCollapsed" class="nav-group__items">
-            <router-link
-              v-if="wsStore.hasPermission('workspace:update')"
-              :to="`/${wsStore.currentId}/settings`"
-              class="nav-item nav-item--sub"
-              active-class="is-active"
-            >
-              <span class="nav-icon">⚙</span>
-              <span v-if="!collapsed">工作空间设置</span>
-            </router-link>
-            <router-link
-              v-if="wsStore.hasPermission('member:change_role')"
-              :to="`/${wsStore.currentId}/settings`"
-              class="nav-item nav-item--sub"
-              active-class="is-active"
-            >
-              <span class="nav-icon">👥</span>
-              <span v-if="!collapsed">成员管理</span>
-            </router-link>
-            <router-link
-              v-if="wsStore.hasPermission('intake:manage')"
-              :to="`/${wsStore.currentId}/settings/intake`"
-              class="nav-item nav-item--sub"
-              active-class="is-active"
-            >
-              <span class="nav-icon">📥</span>
-              <span v-if="!collapsed">收件箱</span>
-            </router-link>
-            <router-link
-              v-if="wsStore.hasPermission('webhook:manage')"
-              :to="`/${wsStore.currentId}/settings/webhooks`"
-              class="nav-item nav-item--sub"
-              active-class="is-active"
-            >
-              <span class="nav-icon">🔗</span>
-              <span v-if="!collapsed">Webhook</span>
-            </router-link>
-            <router-link
-              v-if="wsStore.hasPermission('audit:read')"
-              :to="`/${wsStore.currentId}/audit-logs`"
-              class="nav-item nav-item--sub"
-              active-class="is-active"
-            >
-              <span class="nav-icon">📜</span>
-              <span v-if="!collapsed">审计日志</span>
-            </router-link>
-            <router-link
-              v-if="wsStore.hasPermission('automation:manage')"
-              :to="`/${wsStore.currentId}/projects/${currentProjectId}/automation`"
-              class="nav-item nav-item--sub"
-              active-class="is-active"
-            >
-              <span class="nav-icon">⚡</span>
-              <span v-if="!collapsed">自动化</span>
-            </router-link>
-            <router-link
-              :to="`/${wsStore.currentId}/settings/notifications`"
-              class="nav-item nav-item--sub"
-              active-class="is-active"
-            >
-              <span class="nav-icon">🔔</span>
-              <span v-if="!collapsed">通知设置</span>
-            </router-link>
-            <router-link
-              to="/settings/profile"
-              class="nav-item nav-item--sub"
-              active-class="is-active"
-            >
-              <span class="nav-icon">👤</span>
-              <span v-if="!collapsed">个人资料</span>
-            </router-link>
-            <router-link
-              to="/settings/api-tokens"
-              class="nav-item nav-item--sub"
-              active-class="is-active"
-            >
-              <span class="nav-icon">🔑</span>
-              <span v-if="!collapsed">API Tokens</span>
-            </router-link>
-          </div>
-        </div>
       </nav>
 
       <!-- 折叠按钮 -->
@@ -612,11 +556,15 @@ watch(
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 12px 14px;
+  /* 紧贴 sidebar 顶部：去除外侧 padding，靠自身 min-height 撑开 */
+  padding: 0 14px;
+  min-height: var(--header-height);
   border-bottom: 1px solid var(--border-subtle);
   cursor: pointer;
   user-select: none;
   position: relative;
+  box-sizing: border-box;
+  flex-shrink: 0;
 }
 
 .ws-switcher:hover {
@@ -832,45 +780,6 @@ watch(
   letter-spacing: 0.5px;
 }
 
-/* Collapsible group */
-.nav-group--collapsible {
-  margin-bottom: 0;
-}
-
-.nav-group__toggle {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  padding: 8px 10px;
-  background: none;
-  border: none;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  font-family: inherit;
-  font-size: 13px;
-  color: var(--text-secondary);
-  text-align: left;
-}
-
-.nav-group__toggle:hover {
-  background: var(--surface-3);
-  color: var(--text-primary);
-}
-
-.nav-group__chevron {
-  margin-left: auto;
-  font-size: 10px;
-  color: var(--text-tertiary);
-}
-
-.nav-group__items {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  overflow: hidden;
-}
-
 .nav-item {
   display: flex;
   align-items: center;
@@ -891,11 +800,6 @@ watch(
   background: var(--brand-50);
   color: var(--brand-600);
   font-weight: 500;
-}
-
-.nav-item--sub {
-  padding-left: 28px;
-  font-size: 12px;
 }
 
 .nav-item--fav {

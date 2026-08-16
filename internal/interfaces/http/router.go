@@ -24,7 +24,6 @@ import (
 	"github.com/njydsz/ydsz-plane/internal/application/automation"
 	"github.com/njydsz/ydsz-plane/internal/application/dashboard"
 	"github.com/njydsz/ydsz-plane/internal/application/dlq"
-	"github.com/njydsz/ydsz-plane/internal/application/intake"
 	"github.com/njydsz/ydsz-plane/internal/application/issue"
 	"github.com/njydsz/ydsz-plane/internal/application/knowledge"
 	notif "github.com/njydsz/ydsz-plane/internal/application/notification"
@@ -90,9 +89,6 @@ type Deps struct {
 	WSHub                  *ws.Hub
 	// Webhook 域（S10）
 	WebhookHandler *webhook.Handler
-	// Intake 域（S10）
-	IntakeHandler       *intake.Handler
-	IntakePublicHandler *intake.PublicHandler
 	// Pages 公开分享域
 	PagesPublicHandler *pages.PublicShareHandler
 	// Automation 域（S11）
@@ -410,37 +406,6 @@ func RegisterWebhookRoutes(r *gin.Engine, d *Deps) {
 		middleware.RequirePermissionFromDB(d.RBACStore, auth.PermAuditRead),
 	)
 	d.WebhookHandler.Register(ws)
-}
-
-// RegisterIntakeRoutes 注册 Intake 管理路由（需要 audit:read 权限）。
-func RegisterIntakeRoutes(r *gin.Engine, d *Deps) {
-	if d.IntakeHandler == nil {
-		return
-	}
-	ws := r.Group("/api/v1/workspaces/:workspace_id/intake")
-	ws.Use(
-		middleware.RequireAuth(d.principalParser()),
-		middleware.RequireWorkspaceParam(),
-		middleware.RequirePermissionFromDB(d.RBACStore, auth.PermAuditRead),
-	)
-	d.IntakeHandler.Register(ws)
-}
-
-// RegisterIntakePublicRoutes 注册 Intake 公开路由（免登录）。
-// 路由模式：/api/v1/public/intake/...
-func RegisterIntakePublicRoutes(r *gin.Engine, d *Deps) {
-	if d.IntakePublicHandler == nil {
-		return
-	}
-	public := r.Group("/api/v1/public/intake")
-	{
-		// 公开获取通道配置（渲染表单）
-		public.GET("/channels/:workspace/:slug", d.IntakePublicHandler.GetPublicChannel)
-		// 公开提交工单
-		public.POST("/channels/:workspace/:slug/submit", d.IntakePublicHandler.SubmitPublicIssue)
-		// 提交者跟踪查询
-		public.GET("/track", d.IntakePublicHandler.TrackIssue)
-	}
 }
 
 // RegisterPagesPublicRoutes 注册文档公开分享路由（免登录）。

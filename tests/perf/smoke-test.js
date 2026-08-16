@@ -11,8 +11,8 @@
 //   k6 run tests/perf/smoke-test.js
 //   或带环境变量：
 //   k6 run -e BASE_URL=http://localhost:8080 \
-//          -e TEST_USER_EMAIL=admin@ydsz.dev \
-//          -e TEST_USER_PASSWORD=Admin@123 \
+//          -e TEST_USER_EMAIL=admin@njydsz.com \
+//          -e TEST_USER_PASSWORD=Admin@1020 \
 //          tests/perf/smoke-test.js
 //
 // 也可通过 thresholds 快速判断服务基本健康度。
@@ -25,8 +25,8 @@ import { check, sleep } from 'k6';
 // -------------------------------------------------------------------------
 
 const BASE_URL = __ENV.BASE_URL || 'http://127.0.0.1:8080/api/v1';
-const EMAIL    = __ENV.TEST_USER_EMAIL || 'admin@ydsz.dev';
-const PASSWORD = __ENV.TEST_USER_PASSWORD || 'Admin@123';
+const EMAIL    = __ENV.TEST_USER_EMAIL || 'admin@njydsz.com';
+const PASSWORD = __ENV.TEST_USER_PASSWORD || 'Admin@1020';
 
 // -------------------------------------------------------------------------
 // options：恒定 1 VU，仅用于验证可用性

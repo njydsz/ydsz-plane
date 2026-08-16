@@ -373,7 +373,6 @@ const commandGroups = computed<CommandGroupDef[]>(() => {
     title: "设置",
     commands: [
       { id: "st-webhooks", label: "Webhook 集成", icon: "🔗", iconBg: "var(--neutral-200)", action: () => router.push(`/${wsId}/settings/webhooks`) },
-      { id: "st-intake", label: "收件箱设置", icon: "📥", iconBg: "var(--amber-50, #fffbeb)", action: () => router.push(`/${wsId}/settings/intake`) },
       { id: "st-notifications", label: "通知偏好", icon: "🔔", iconBg: "var(--brand-50)", action: () => router.push(`/${wsId}/settings/notifications`) },
       { id: "st-audit", label: "审计日志", icon: "🛡️", iconBg: "var(--extended-color-indigo-50, #eef2fe)", action: () => router.push(`/${wsId}/audit-logs`) },
       { id: "st-apikeys", label: "API Token", icon: "🗝️", iconBg: "var(--danger-50, #fef2f2)", action: () => router.push({ path: `/${wsId}/settings`, query: { tab: "api-tokens" } }) },

@@ -38,7 +38,6 @@ const form = reactive({
   color: "#3f63f1",
   coverImageUrl: "",
   modules: {
-    intake: true,
     sprint: true,
     version: true,
     estimate: true,
@@ -46,7 +45,6 @@ const form = reactive({
 });
 
 const moduleToggles = reactive({
-  intake: true,
   sprint: true,
   version: true,
   estimate: true,
@@ -80,7 +78,6 @@ async function loadProject() {
     form.color = project.value.color ?? "#3f63f1";
     form.coverImageUrl = project.value.cover_image_url ?? "";
     if (project.value.modules) {
-      moduleToggles.intake = project.value.modules.intake;
       moduleToggles.sprint = project.value.modules.sprint;
       moduleToggles.version = project.value.modules.version;
       moduleToggles.estimate = project.value.modules.estimate;
@@ -110,7 +107,6 @@ async function save() {
       color: form.color,
       cover_image_url: form.coverImageUrl.trim() || undefined,
       modules: {
-        intake: moduleToggles.intake,
         sprint: moduleToggles.sprint,
         version: moduleToggles.version,
         estimate: moduleToggles.estimate,
@@ -312,13 +308,6 @@ onMounted(loadProject);
       <h2 class="panel__title">功能模块开关</h2>
       <p class="panel__desc">启用或禁用项目中的功能模块，关闭后在导航中隐藏对应入口。</p>
       <div class="toggle-grid">
-        <label class="toggle-item">
-          <div class="toggle-info">
-            <span class="toggle-name">收件箱 (Intake)</span>
-            <span class="toggle-desc">外部反馈收集与审核通道</span>
-          </div>
-          <input v-model="moduleToggles.intake" type="checkbox" class="toggle-switch" />
-        </label>
         <label class="toggle-item">
           <div class="toggle-info">
             <span class="toggle-name">迭代 (Sprint)</span>

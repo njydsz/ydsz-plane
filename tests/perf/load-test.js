@@ -14,8 +14,8 @@
 //   k6 run tests/perf/load-test.js
 //   或：
 //   k6 run -e BASE_URL=http://localhost:8080 \
-//          -e TEST_USER_EMAIL=admin@ydsz.dev \
-//          -e TEST_USER_PASSWORD=Admin@123 \
+//          -e TEST_USER_EMAIL=admin@njydsz.com \
+//          -e TEST_USER_PASSWORD=Admin@1020 \
 //          tests/perf/load-test.js
 
 import http from 'k6/http';
@@ -36,8 +36,8 @@ const apiErrors = new Rate('ydsz_api_errors');
 // -------------------------------------------------------------------------
 
 const BASE_URL = __ENV.BASE_URL || 'http://127.0.0.1:8080/api/v1';
-const EMAIL    = __ENV.TEST_USER_EMAIL || 'admin@ydsz.dev';
-const PASSWORD = __ENV.TEST_USER_PASSWORD || 'Admin@123';
+const EMAIL    = __ENV.TEST_USER_EMAIL || 'admin@njydsz.com';
+const PASSWORD = __ENV.TEST_USER_PASSWORD || 'Admin@1020';
 
 // -------------------------------------------------------------------------
 // options：渐进 VU + 核心断言

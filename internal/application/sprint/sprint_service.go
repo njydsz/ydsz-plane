@@ -256,8 +256,10 @@ func (s *Service) SoftDelete(ctx context.Context, wsID, sprintID int64) error {
 		}
 
 		// 将工作项退回 Backlog
-		if _, err := tx.Exec(ctx, `DELETE FROM sprint_issues WHERE sprint_id = $1`, sprintID); err != nil {
-			return err
+		for _, tbl := range []string{"task", "requirement", "defect"} {
+			if _, err := tx.Exec(ctx, fmt.Sprintf(`DELETE FROM sprint_%ss WHERE sprint_id = $1`, tbl), sprintID); err != nil {
+				return err
+			}
 		}
 
 		tag, err := tx.Exec(ctx, `UPDATE sprints SET deleted = true, updated_at = now() WHERE id = $1 AND workspace_id = $2`,
@@ -371,9 +373,13 @@ func (s *Service) Complete(ctx context.Context, wsID, sprintID int64, in Complet
 func (s *Service) handleUnfinishedTx(ctx context.Context, tx pgx.Tx, wsID int64, sp *Sprint, in CompleteSprintInput) error {
 	switch in.Strategy {
 	case UnfinishedBacklog, UnfinishedKeep:
-		// 删除 sprint_issues 关联（下次创建时不再属于任何迭代）
-		_, err := tx.Exec(ctx, `DELETE FROM sprint_issues WHERE sprint_id = $1`, sp.ID)
-		return err
+		// 删除迭代关联（下次创建时不再属于任何迭代）
+		for _, tbl := range []string{"task", "requirement", "defect"} {
+			if _, err := tx.Exec(ctx, fmt.Sprintf(`DELETE FROM sprint_%ss WHERE sprint_id = $1`, tbl), sp.ID); err != nil {
+				return err
+			}
+		}
+		return nil
 	case UnfinishedNextSprint:
 		if in.NextSprintID == nil {
 			return errs.New("SPRINT.MISSING_TARGET", "请指定下一迭代", 422)
@@ -390,8 +396,12 @@ func (s *Service) handleUnfinishedTx(ctx context.Context, tx pgx.Tx, wsID int64,
 			return errs.New("SPRINT.INVALID_TARGET", "目标迭代不存在或不在 planned 状态", 422)
 		}
 		// 迁移：先将工作项从当前迭代删除，然后添加到下一迭代
-		_, err = tx.Exec(ctx, `DELETE FROM sprint_issues WHERE sprint_id = $1`, sp.ID)
-		return err
+		for _, tbl := range []string{"task", "requirement", "defect"} {
+			if _, err := tx.Exec(ctx, fmt.Sprintf(`DELETE FROM sprint_%ss WHERE sprint_id = $1`, tbl), sp.ID); err != nil {
+				return err
+			}
+		}
+		return nil
 	}
 	return nil
 }
@@ -406,12 +416,12 @@ func (s *Service) AddIssue(ctx context.Context, wsID int64, in AddIssueInput) er
 			return err
 		}
 
-		// 校验工作项存在并属于同项目
+		// 校验工作项存在并属于同项目（同时取类型，用于按类型写关联表）
 		var issueProjectID int64
-		var statusCode SprintStatusCode
+		var issueType string
 		err = tx.QueryRow(ctx,
-			`SELECT i.project_id FROM (SELECT id, public_id, workspace_id, project_id, sequence_id, 'requirement'::text AS type_code, parent_id, depth, name, description_json, description_html, description_stripped, state_id, priority, NULL::smallint AS severity, NULL::text AS found_phase, NULL::text AS root_cause_category, NULL::bigint AS verifier_id, NULL::jsonb AS environment, NULL::jsonb AS reproduce_steps, NULL::text AS category, NULL::numeric AS actual_effort, NULL::numeric AS remaining_effort, NULL::text AS delay_reason, source, point, sprint_id, progress, start_date, target_date, completed_at, is_draft, sort_order, version, version_id, NULL::bigint AS found_version_id, NULL::bigint AS fix_version_id, created_by, created_at, updated_at, deleted FROM requirement WHERE deleted = false UNION ALL SELECT id, public_id, workspace_id, project_id, sequence_id, 'task'::text, parent_id, depth, name, description_json, description_html, description_stripped, state_id, priority, NULL::smallint, NULL::text, NULL::text, NULL::bigint, NULL::jsonb, NULL::jsonb, category, actual_effort, remaining_effort, delay_reason, NULL::text, point, sprint_id, progress, start_date, target_date, completed_at, is_draft, sort_order, version, version_id, NULL::bigint AS found_version_id, NULL::bigint AS fix_version_id, created_by, created_at, updated_at, deleted FROM task WHERE deleted = false UNION ALL SELECT id, public_id, workspace_id, project_id, sequence_id, 'defect'::text, parent_id, depth, name, description_json, description_html, description_stripped, state_id, priority, severity, found_phase, root_cause_category, verifier_id, environment, reproduce_steps, NULL::text, NULL::numeric, NULL::numeric, NULL::text, NULL::text, point, sprint_id, progress, start_date, target_date, completed_at, is_draft, sort_order, version, version_id, found_version_id, fix_version_id, created_by, created_at, updated_at, deleted FROM defect WHERE deleted = false) AS w i WHERE i.id = $1 AND i.workspace_id = $2 AND i.deleted = false`,
-			in.IssueID, wsID).Scan(&issueProjectID)
+			`SELECT i.project_id, i.type_code FROM (SELECT id, public_id, workspace_id, project_id, sequence_id, 'requirement'::text AS type_code, parent_id, depth, name, description_json, description_html, description_stripped, state_id, priority, NULL::smallint AS severity, NULL::text AS found_phase, NULL::text AS root_cause_category, NULL::bigint AS verifier_id, NULL::jsonb AS environment, NULL::jsonb AS reproduce_steps, NULL::text AS category, NULL::numeric AS actual_effort, NULL::numeric AS remaining_effort, NULL::text AS delay_reason, source, point, sprint_id, progress, start_date, target_date, completed_at, is_draft, sort_order, version, version_id, NULL::bigint AS found_version_id, NULL::bigint AS fix_version_id, created_by, created_at, updated_at, deleted FROM requirement WHERE deleted = false UNION ALL SELECT id, public_id, workspace_id, project_id, sequence_id, 'task'::text, parent_id, depth, name, description_json, description_html, description_stripped, state_id, priority, NULL::smallint, NULL::text, NULL::text, NULL::bigint, NULL::jsonb, NULL::jsonb, category, actual_effort, remaining_effort, delay_reason, NULL::text, point, sprint_id, progress, start_date, target_date, completed_at, is_draft, sort_order, version, version_id, NULL::bigint AS found_version_id, NULL::bigint AS fix_version_id, created_by, created_at, updated_at, deleted FROM task WHERE deleted = false UNION ALL SELECT id, public_id, workspace_id, project_id, sequence_id, 'defect'::text, parent_id, depth, name, description_json, description_html, description_stripped, state_id, priority, severity, found_phase, root_cause_category, verifier_id, environment, reproduce_steps, NULL::text, NULL::numeric, NULL::numeric, NULL::text, NULL::text, point, sprint_id, progress, start_date, target_date, completed_at, is_draft, sort_order, version, version_id, found_version_id, fix_version_id, created_by, created_at, updated_at, deleted FROM defect WHERE deleted = false) AS w i WHERE i.id = $1 AND i.workspace_id = $2 AND i.deleted = false`,
+			in.IssueID, wsID).Scan(&issueProjectID, &issueType)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				return errs.ErrNotFound
@@ -422,7 +432,7 @@ func (s *Service) AddIssue(ctx context.Context, wsID int64, in AddIssueInput) er
 			return errs.New("SPRINT.CROSS_PROJECT", "工作项不属于当前项目", 422)
 		}
 
-		statusCode = sp.Status
+		statusCode := sp.Status
 		var addedMidway bool
 		if statusCode == SprintActive {
 			addedMidway = true
@@ -437,7 +447,11 @@ func (s *Service) AddIssue(ctx context.Context, wsID int64, in AddIssueInput) er
 		// 容量校验：仅对"新加入"的工作项生效（重排 upsert 不校验）
 		var alreadyInSprint bool
 		if err := tx.QueryRow(ctx,
-			`SELECT EXISTS(SELECT 1 FROM sprint_issues WHERE sprint_id = $1 AND issue_id = $2)`,
+			`SELECT EXISTS(
+				SELECT 1 FROM sprint_tasks WHERE sprint_id = $1 AND task_id = $2
+				UNION ALL SELECT 1 FROM sprint_requirements WHERE sprint_id = $1 AND requirement_id = $2
+				UNION ALL SELECT 1 FROM sprint_defects WHERE sprint_id = $1 AND defect_id = $2
+			)`,
 			in.SprintID, in.IssueID).Scan(&alreadyInSprint); err != nil {
 			return errs.ErrInternal.Wrap(err)
 		}
@@ -451,14 +465,29 @@ func (s *Service) AddIssue(ctx context.Context, wsID int64, in AddIssueInput) er
 			}
 		}
 
-		// 写 sprint_issues
-		_, err = tx.Exec(ctx, `
-			INSERT INTO sprint_issues (sprint_id, issue_id, added_midway, sort_order, added_by)
-			VALUES ($1, $2, $3, $4, $5)
-			ON CONFLICT (sprint_id, issue_id) DO UPDATE SET sort_order = EXCLUDED.sort_order`,
-			in.SprintID, in.IssueID, addedMidway, in.SortOrder, in.AddedBy)
+		// 按类型写迭代关联表（sprint_tasks / sprint_requirements / sprint_defects）
+		relTable := sprintRelTable(issueType)
+		idCol := relTable + "_id"
+		_, err = tx.Exec(ctx, fmt.Sprintf(`
+			INSERT INTO %s (project_id, sprint_id, %s, added_midway, sort_order, added_by)
+			VALUES ($1, $2, $3, $4, $5, $6)
+			ON CONFLICT (project_id, sprint_id, %s) DO UPDATE SET sort_order = EXCLUDED.sort_order`,
+			relTable, idCol, idCol),
+			sp.ProjectID, in.SprintID, in.IssueID, addedMidway, in.SortOrder, in.AddedBy)
 		return err
 	})
+}
+
+// sprintRelTable 返回工作项类型对应的迭代关联表（sprint_tasks / sprint_requirements / sprint_defects）。
+func sprintRelTable(typeCode string) string {
+	switch typeCode {
+	case "requirement":
+		return "sprint_requirements"
+	case "defect":
+		return "sprint_defects"
+	default:
+		return "sprint_tasks"
+	}
 }
 
 // wouldExceedCapacityTx 判断加入 in.IssueID 后迭代总点数是否超出容量。
@@ -476,7 +505,11 @@ func (s *Service) wouldExceedCapacityTx(ctx context.Context, tx pgx.Tx, sp *Spri
 	var currentPoints int
 	if err := tx.QueryRow(ctx, `
 		SELECT COALESCE(SUM(sub.point), 0)
-		FROM sprint_issues si
+		FROM (
+			SELECT sprint_id, task_id AS issue_id FROM sprint_tasks
+			UNION ALL SELECT sprint_id, requirement_id FROM sprint_requirements
+			UNION ALL SELECT sprint_id, defect_id FROM sprint_defects
+		) si
 		JOIN (SELECT id, point FROM requirement WHERE deleted = false
 		    UNION ALL SELECT id, point FROM task WHERE deleted = false
 		    UNION ALL SELECT id, point FROM defect WHERE deleted = false) sub ON sub.id = si.issue_id
@@ -496,13 +529,18 @@ func (s *Service) RemoveIssue(ctx context.Context, wsID int64, in RemoveIssueInp
 			return err
 		}
 
-		// 从 sprint_issues 删除
-		tag, err := tx.Exec(ctx, `DELETE FROM sprint_issues WHERE sprint_id = $1 AND issue_id = $2`,
-			in.SprintID, in.IssueID)
-		if err != nil {
-			return err
+		// 从迭代关联表删除（按类型尝试，雪花 ID 全局唯一，仅一表命中）
+		var removed int64
+		for _, tbl := range []string{"task", "requirement", "defect"} {
+			tag, err := tx.Exec(ctx,
+				fmt.Sprintf(`DELETE FROM sprint_%ss WHERE sprint_id = $1 AND %s_id = $2`, tbl, tbl),
+				in.SprintID, in.IssueID)
+			if err != nil {
+				return err
+			}
+			removed += tag.RowsAffected()
 		}
-		if tag.RowsAffected() == 0 {
+		if removed == 0 {
 			return errs.ErrNotFound
 		}
 
@@ -527,14 +565,24 @@ func (s *Service) ListSprintIssues(ctx context.Context, wsID, sprintID int64, li
 
 	var total int64
 	_ = s.db.QueryRow(ctx,
-		`SELECT count(*) FROM sprint_issues WHERE sprint_id = $1`, sprintID).Scan(&total)
+		`SELECT count(*) FROM (
+			SELECT 1 FROM sprint_tasks WHERE sprint_id = $1
+			UNION ALL SELECT 1 FROM sprint_requirements WHERE sprint_id = $1
+			UNION ALL SELECT 1 FROM sprint_defects WHERE sprint_id = $1
+		) t`, sprintID).Scan(&total)
 
 	rows, err := s.db.Query(ctx, `
 		SELECT si.issue_id, si.added_midway, si.sort_order,
 			sub.name, sub.type_code, sub.priority, sub.point, sub.severity,
 			sub.state_id, st.name AS state_name, st.color AS state_color, st."group" AS state_group,
 			sub.created_at
-		FROM sprint_issues si
+		FROM (
+			SELECT sprint_id, task_id AS issue_id, added_midway, sort_order, added_at FROM sprint_tasks
+			UNION ALL
+			SELECT sprint_id, requirement_id, added_midway, sort_order, added_at FROM sprint_requirements
+			UNION ALL
+			SELECT sprint_id, defect_id, added_midway, sort_order, added_at FROM sprint_defects
+		) si
 		JOIN (SELECT id, name, type_code, priority, point, severity, state_id, created_at FROM requirement WHERE deleted = false
 		    UNION ALL SELECT id, name, type_code, priority, point, severity, state_id, created_at FROM task WHERE deleted = false
 		    UNION ALL SELECT id, name, type_code, priority, point, severity, state_id, created_at FROM defect WHERE deleted = false) sub ON sub.id = si.issue_id
@@ -579,7 +627,11 @@ func (s *Service) ListSprintIssues(ctx context.Context, wsID, sprintID int64, li
 func (s *Service) AssigneeIDs(ctx context.Context, wsID, sprintID int64) ([]int64, error) {
 	rows, err := s.db.Query(ctx, `
 		SELECT DISTINCT ia.user_id
-		FROM sprint_issues si
+		FROM (
+			SELECT sprint_id, task_id AS issue_id FROM sprint_tasks
+			UNION ALL SELECT sprint_id, requirement_id FROM sprint_requirements
+			UNION ALL SELECT sprint_id, defect_id FROM sprint_defects
+		) si
 		JOIN (SELECT task_id AS issue_id, user_id FROM task_assignees
 		      UNION ALL SELECT requirement_id, user_id FROM requirement_assignees
 		      UNION ALL SELECT defect_id, user_id FROM defect_assignees) ia ON ia.issue_id = si.issue_id
@@ -814,7 +866,11 @@ func (s *Service) writeSnapshotTx(ctx context.Context, tx pgx.Tx, wsID int64, sp
 			count(*) FILTER (WHERE sg."group" = 'completed'),
 			coalesce(sum(CASE WHEN si.added_midway AND i.point IS NOT NULL THEN i.point ELSE 0 END), 0),
 			coalesce(array_agg(i.id) FILTER (WHERE i.id IS NOT NULL), ARRAY[]::bigint[])
-		FROM sprint_issues si
+		FROM (
+			SELECT sprint_id, task_id AS issue_id, added_midway FROM sprint_tasks
+			UNION ALL SELECT sprint_id, requirement_id, added_midway FROM sprint_requirements
+			UNION ALL SELECT sprint_id, defect_id, added_midway FROM sprint_defects
+		) si
 		JOIN (SELECT id, state_id, point FROM requirement WHERE deleted = false
 		    UNION ALL SELECT id, state_id, point FROM task WHERE deleted = false
 		    UNION ALL SELECT id, state_id, point FROM defect WHERE deleted = false) sub ON sub.id = si.issue_id
@@ -828,7 +884,11 @@ func (s *Service) writeSnapshotTx(ctx context.Context, tx pgx.Tx, wsID int64, sp
 	// by_state
 	rows, err := tx.Query(ctx, `
 		SELECT sg."group", coalesce(sum(CASE WHEN i.point IS NOT NULL THEN i.point ELSE 0 END), 0)
-		FROM sprint_issues si
+		FROM (
+			SELECT sprint_id, task_id AS issue_id, added_midway FROM sprint_tasks
+			UNION ALL SELECT sprint_id, requirement_id, added_midway FROM sprint_requirements
+			UNION ALL SELECT sprint_id, defect_id, added_midway FROM sprint_defects
+		) si
 		JOIN (SELECT id, state_id, point FROM requirement WHERE deleted = false
 		    UNION ALL SELECT id, state_id, point FROM task WHERE deleted = false
 		    UNION ALL SELECT id, state_id, point FROM defect WHERE deleted = false) sub ON sub.id = si.issue_id
@@ -1091,7 +1151,11 @@ func (s *Service) computeProgress(ctx context.Context, wsID int64, sp *Sprint) S
 			count(*),
 			count(*) FILTER (WHERE sg."group" = 'completed'),
 			coalesce(sum(CASE WHEN si.added_midway AND i.point IS NOT NULL THEN i.point ELSE 0 END), 0)
-		FROM sprint_issues si
+		FROM (
+			SELECT sprint_id, task_id AS issue_id, added_midway FROM sprint_tasks
+			UNION ALL SELECT sprint_id, requirement_id, added_midway FROM sprint_requirements
+			UNION ALL SELECT sprint_id, defect_id, added_midway FROM sprint_defects
+		) si
 		JOIN (SELECT id, state_id, point FROM requirement WHERE deleted = false
 		    UNION ALL SELECT id, state_id, point FROM task WHERE deleted = false
 		    UNION ALL SELECT id, state_id, point FROM defect WHERE deleted = false) sub ON sub.id = si.issue_id
@@ -1101,7 +1165,11 @@ func (s *Service) computeProgress(ctx context.Context, wsID int64, sp *Sprint) S
 
 	rows, err := s.db.Query(ctx, `
 		SELECT sg."group", coalesce(sum(CASE WHEN i.point IS NOT NULL THEN i.point ELSE 0 END), 0)
-		FROM sprint_issues si
+		FROM (
+			SELECT sprint_id, task_id AS issue_id, added_midway FROM sprint_tasks
+			UNION ALL SELECT sprint_id, requirement_id, added_midway FROM sprint_requirements
+			UNION ALL SELECT sprint_id, defect_id, added_midway FROM sprint_defects
+		) si
 		JOIN (SELECT id, state_id, point FROM requirement WHERE deleted = false
 		    UNION ALL SELECT id, state_id, point FROM task WHERE deleted = false
 		    UNION ALL SELECT id, state_id, point FROM defect WHERE deleted = false) sub ON sub.id = si.issue_id
@@ -1136,10 +1204,10 @@ func (s *Service) computeProgress(ctx context.Context, wsID int64, sp *Sprint) S
 
 // computeReview 复盘数据。
 func (s *Service) computeReview(ctx context.Context, tx pgx.Tx, wsID int64, sp *Sprint) *ReviewSnapshot {
-	// 承诺：迭代启动时 sprint_issues 的工作项（不含中途加入）
+	// 承诺：迭代启动时迭代关联表（sprint_tasks/requirements/defects）中的工作项（不含中途加入）
 	// 完成：已 completed state 的工作项
 	// 中途加入：added_midway = true
-	// 中途移除：不再在 sprint_issues 中但曾经在的（需通过该字段 tracking；本期初版通过 added_midway 标记）
+	// 中途移除：不再在迭代关联表中但曾经在的（需通过该字段 tracking；本期初版通过 added_midway 标记）
 	var committedPoints, completedPoints, joinedPoints sql.NullFloat64
 	var committedIssues, completedIssues, joinedIssues int
 
@@ -1151,7 +1219,11 @@ func (s *Service) computeReview(ctx context.Context, tx pgx.Tx, wsID int64, sp *
 			count(*) FILTER (WHERE sg."group" = 'completed'),
 			count(*) FILTER (WHERE si.added_midway),
 			coalesce(sum(CASE WHEN si.added_midway AND i.point IS NOT NULL THEN i.point ELSE 0 END), 0)
-		FROM sprint_issues si
+		FROM (
+			SELECT sprint_id, task_id AS issue_id, added_midway FROM sprint_tasks
+			UNION ALL SELECT sprint_id, requirement_id, added_midway FROM sprint_requirements
+			UNION ALL SELECT sprint_id, defect_id, added_midway FROM sprint_defects
+		) si
 		JOIN (SELECT id, state_id, point FROM requirement WHERE deleted = false
 		    UNION ALL SELECT id, state_id, point FROM task WHERE deleted = false
 		    UNION ALL SELECT id, state_id, point FROM defect WHERE deleted = false) sub ON sub.id = si.issue_id

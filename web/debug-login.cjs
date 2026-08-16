@@ -24,8 +24,8 @@ const { chromium } = require("@playwright/test");
 
   await page.goto("http://localhost:5173/login");
   await page.waitForSelector('input[type="email"]', { timeout: 10000 });
-  await page.locator('input[type="email"]').fill("admin@ydsz.dev");
-  await page.locator('input[type="password"]').fill("Admin@123");
+  await page.locator('input[type="email"]').fill("admin@njydsz.com");
+  await page.locator('input[type="password"]').fill("Admin@1020");
   await page.locator("button.submit").click();
   await page.waitForTimeout(5000);
   console.log("[final-url]", page.url());

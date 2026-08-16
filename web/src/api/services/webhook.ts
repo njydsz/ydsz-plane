@@ -26,7 +26,6 @@ export type WebhookEvent =
   | "member.removed"
   | "comment.created"
   | "attachment.uploaded"
-  | "intake.submitted"
   | "automation.triggered"
   | "webhook.tested";
 

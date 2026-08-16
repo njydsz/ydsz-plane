@@ -425,7 +425,7 @@ onUnmounted(() => {
             </div>
           </div>
 
-          <!-- 社交反馈：投票 / 表情反应 / 关注 -->
+          <!-- 关注 -->
           <div v-if="wsId" class="peek__section peek__section--social">
             <IssueSocialBar
               :workspace-id="wsId"

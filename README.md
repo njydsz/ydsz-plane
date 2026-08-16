@@ -127,7 +127,7 @@ make dev-api
 make dev-web
 ```
 
-> 浏览器访问 http://localhost:5173 → 使用默认种子账号 `admin@ydsz.dev` / `Admin@123` 登录
+> 浏览器访问 http://localhost:5173 → 使用默认种子账号 `admin@njydsz.com` / `Admin@1020` 登录
 
 ### 环境变量（最小配置）
 

@@ -69,7 +69,7 @@ export const ROLE_LEVEL = {
 
 export type PermissionCode = string
 
-export type ProjectModuleKey = 'intake' | 'sprint' | 'version' | 'estimate'
+export type ProjectModuleKey = 'sprint' | 'version' | 'estimate'
 
 export interface MenuItem {
   name: string
@@ -96,9 +96,8 @@ export interface MenuItem {
  * | 5   | 报表 (Analytics)        | pm+/techlead     | analytics:read                   |
  * | 6   | 知识库 (Knowledge)      | guest+           | workspace:read                   |
  * | 7   | 自动化 (Automation)     | admin+/owner     | automation:manage                |
- * | 8   | 收件箱 (Intake)         | admin+/owner     | intake:manage                    |
- * | 9   | 空间成员 (Members)      | admin+/owner     | member:change_role               |
- * | 10  | 空间设置 (Settings)     | admin+/owner     | workspace:update                 |
+ * | 8   | 空间成员 (Members)      | admin+/owner     | member:change_role               |
+ * | 9   | 空间设置 (Settings)     | admin+/owner     | workspace:update                 |
  */
 export const WORKSPACE_MENU: MenuItem[] = [
   { name: 'workspace-dashboard', path: 'dashboard', titleKey: 'menu.dashboard', icon: 'LayoutDashboard' },
@@ -108,7 +107,6 @@ export const WORKSPACE_MENU: MenuItem[] = [
   { name: 'workspace-analytics', path: 'analytics', titleKey: 'menu.analytics', icon: 'BarChart3', permissions: ['analytics:read'], minLevel: 50 },
   { name: 'workspace-knowledge', path: 'knowledge', titleKey: 'menu.knowledge', icon: 'BookOpen' },
   { name: 'workspace-automation', path: 'automation', titleKey: 'menu.automation', icon: 'Zap', permissions: ['automation:manage'], minLevel: 80 },
-  { name: 'workspace-intake', path: 'intake', titleKey: 'menu.intake', icon: 'Inbox', permissions: ['intake:manage'], minLevel: 80, moduleKey: 'intake' },
   { name: 'workspace-members', path: 'members', titleKey: 'menu.members', icon: 'Users', permissions: ['member:change_role'], minLevel: 80 },
   { name: 'workspace-settings', path: 'settings', titleKey: 'menu.settings', icon: 'Settings', permissions: ['workspace:update'], minLevel: 80 },
 ]

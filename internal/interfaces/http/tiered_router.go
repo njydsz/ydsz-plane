@@ -79,10 +79,5 @@ func RegisterTieredRoutes(r *gin.Engine, d *Deps) {
 
 		// 邀请预览（公开只读，无需登录）
 		public.GET("/invitations/:token", getInvitationPreview(d))
-
-		// Webhook 接收端点
-		if d.IntakePublicHandler != nil {
-			public.GET("/track", d.IntakePublicHandler.TrackIssue)
-		}
 	}
 }

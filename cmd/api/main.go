@@ -21,7 +21,6 @@ import (
 	"github.com/njydsz/ydsz-plane/internal/application/automation"
 	"github.com/njydsz/ydsz-plane/internal/application/dashboard"
 	"github.com/njydsz/ydsz-plane/internal/application/dlq"
-	"github.com/njydsz/ydsz-plane/internal/application/intake"
 	"github.com/njydsz/ydsz-plane/internal/application/issue"
 	"github.com/njydsz/ydsz-plane/internal/application/knowledge"
 	"github.com/njydsz/ydsz-plane/internal/application/metrics"
@@ -169,7 +168,6 @@ func run() error {
 	timeLogSvc := issue.NewTimeLogService(pool.Pool)
 	relationSvc := issue.NewRelationService(pool.Pool)
 	commentSvc := issue.NewCommentService(pool.Pool)
-	socialSvc := issue.NewSocialService(pool.Pool)
 	issueHandler := issue.NewIssueHandler(&issue.HandlerDeps{
 		IssueSvc:        issueSvc,
 		StateSvc:        stateSvc,
@@ -177,7 +175,6 @@ func run() error {
 		TimeLogSvc:      timeLogSvc,
 		RelationSvc:     relationSvc,
 		CommentSvc:      commentSvc,
-		SocialSvc:       socialSvc,
 		ImportSvc:       issue.NewImportService(issueSvc),
 		WorkspaceStore:  wsStore,
 		NotificationSvc: notifSvc,
@@ -296,14 +293,6 @@ func run() error {
 		Dispatcher:     webhookDispatcher,
 	})
 
-	// ---------- Intake (S10) ----------
-	intakeSvc := intake.NewService(pool.Pool, issueSvc)
-	intakeHandler := intake.NewHandler(&intake.HandlerDeps{
-		IntakeSvc:      intakeSvc,
-		WorkspaceStore: wsStore,
-	})
-	intakePublicHandler := intake.NewPublicHandler(intakeSvc)
-
 	// ---------- AI domain ----------
 	aiSvc := ai.NewService(pool.Pool, ai.Config{
 		Enabled:  cfg.AI.Enabled,
@@ -367,9 +356,6 @@ func run() error {
 		KnowledgeHandler: knowledgeHandler,
 		// Webhook domain (S10)
 		WebhookHandler: webhookHandler,
-		// Intake domain (S10)
-		IntakeHandler:       intakeHandler,
-		IntakePublicHandler: intakePublicHandler,
 		// Pages 公开分享域
 		PagesPublicHandler: pagesPublicHandler,
 		// Automation domain (S11)
@@ -515,20 +501,6 @@ func run() error {
 		WorkspaceStore:  wsStore,
 		RBACStore:       rbacStore,
 		WebhookHandler:  webhookHandler,
-	})
-
-	// 注册 Intake 管理路由（工作空间级）
-	httpapi.RegisterIntakeRoutes(engine, &httpapi.Deps{
-		Auth:            authSvc,
-		PrincipalParser: parsePrincipal,
-		WorkspaceStore:  wsStore,
-		RBACStore:       rbacStore,
-		IntakeHandler:   intakeHandler,
-	})
-
-	// 注册 Intake 公开路由（免登录）
-	httpapi.RegisterIntakePublicRoutes(engine, &httpapi.Deps{
-		IntakePublicHandler: intakePublicHandler,
 	})
 
 	// 注册文档公开分享路由（免登录）

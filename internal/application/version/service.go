@@ -678,7 +678,11 @@ coalesce(sum(CASE WHEN sg."group" = 'completed' AND sub.point IS NOT NULL THEN s
 		count(DISTINCT sub.id),
 		count(DISTINCT sub.id) FILTER (WHERE sg."group" = 'completed')
 	FROM sprints sp
-	JOIN sprint_issues si ON si.sprint_id = sp.id
+	JOIN (
+		SELECT sprint_id, task_id AS issue_id FROM sprint_tasks
+		UNION ALL SELECT sprint_id, requirement_id FROM sprint_requirements
+		UNION ALL SELECT sprint_id, defect_id FROM sprint_defects
+	) si ON si.sprint_id = sp.id
 	JOIN (SELECT id, state_id, point FROM requirement WHERE deleted = false
 	    UNION ALL SELECT id, state_id, point FROM task WHERE deleted = false
 	    UNION ALL SELECT id, state_id, point FROM defect WHERE deleted = false) sub ON sub.id = si.issue_id
@@ -695,7 +699,11 @@ rows2, err := s.db.Query(ctx, `
 		SELECT sg."group",
 		coalesce(sum(CASE WHEN sub.point IS NOT NULL THEN sub.point ELSE 0 END), 0)
 	FROM sprints sp
-	JOIN sprint_issues si ON si.sprint_id = sp.id
+	JOIN (
+		SELECT sprint_id, task_id AS issue_id FROM sprint_tasks
+		UNION ALL SELECT sprint_id, requirement_id FROM sprint_requirements
+		UNION ALL SELECT sprint_id, defect_id FROM sprint_defects
+	) si ON si.sprint_id = sp.id
 	JOIN (SELECT id, state_id, point FROM requirement WHERE deleted = false
 	    UNION ALL SELECT id, state_id, point FROM task WHERE deleted = false
 	    UNION ALL SELECT id, state_id, point FROM defect WHERE deleted = false) sub ON sub.id = si.issue_id
@@ -795,7 +803,11 @@ func (s *Service) buildReleaseNotesSource(ctx context.Context, wsID int64, v *Ve
 rows, err := s.db.Query(ctx, `
 		SELECT DISTINCT sub.identifier, sub.name, st.name
 	FROM sprints sp
-	JOIN sprint_issues si ON si.sprint_id = sp.id
+	JOIN (
+		SELECT sprint_id, task_id AS issue_id FROM sprint_tasks
+		UNION ALL SELECT sprint_id, requirement_id FROM sprint_requirements
+		UNION ALL SELECT sprint_id, defect_id FROM sprint_defects
+	) si ON si.sprint_id = sp.id
 	JOIN (SELECT id, identifier, name, state_id, type_code FROM requirement WHERE deleted = false
 	    UNION ALL SELECT id, identifier, name, state_id, type_code FROM task WHERE deleted = false
 	    UNION ALL SELECT id, identifier, name, state_id, type_code FROM defect WHERE deleted = false) sub ON sub.id = si.issue_id

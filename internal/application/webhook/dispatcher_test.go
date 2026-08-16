@@ -91,7 +91,6 @@ func TestAllEvents(t *testing.T) {
 		EventSprintIssueAdded,
 		EventUserInvited, EventUserRoleUpdated,
 		EventVersionDeleted,
-		EventIntakeMerged,
 		EventSprintCompleted, EventVersionReleased,
 	}
 	for _, r := range required {

@@ -3,7 +3,7 @@ import { test, expect } from "@playwright/test";
 test("diag read-all status", async ({ request }) => {
   const apiURL = process.env.API_URL || "http://127.0.0.1:8080/api/v1";
   const loginRes = await request.post(`${apiURL}/auth/login`, {
-    data: { email: "admin@ydsz.dev", password: "Admin@123" },
+    data: { email: "admin@njydsz.com", password: "Admin@1020" },
   });
   console.log("LOGIN STATUS", loginRes.status());
   const tok = (await loginRes.json()) as any;

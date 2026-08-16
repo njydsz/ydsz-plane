@@ -100,7 +100,6 @@ type CreateProjectRequest struct {
 	CoverImageUrl string `json:"cover_image_url" binding:"omitempty,url,max=500"`
 	// Modules 功能模块开关；null 表示全部启用。
 	Modules *struct {
-		Intake   *bool `json:"intake,omitempty"`
 		Sprint   *bool `json:"sprint,omitempty"`
 		Version  *bool `json:"version,omitempty"`
 		Estimate *bool `json:"estimate,omitempty"`
@@ -125,7 +124,6 @@ type UpdateProjectRequest struct {
 	CoverImageUrl *string `json:"cover_image_url,omitempty" binding:"omitempty,url,max=500"`
 	// Modules 功能模块开关；null 表示不更新（非 nil 则整体替换）。
 	Modules *struct {
-		Intake   *bool `json:"intake,omitempty"`
 		Sprint   *bool `json:"sprint,omitempty"`
 		Version  *bool `json:"version,omitempty"`
 		Estimate *bool `json:"estimate,omitempty"`

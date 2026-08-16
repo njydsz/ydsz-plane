@@ -23,7 +23,6 @@ export type EmptyScenario =
   | "sprints"
   | "modules"
   | "search"
-  | "intake"
   | "notifications"
   | "labels"
   | "members"
@@ -100,10 +99,6 @@ const scenarioMap: Record<Exclude<EmptyScenario, "default" | "error">, { title: 
   search: {
     title: "未找到匹配结果",
     description: "尝试调整搜索关键字或筛选条件。",
-  },
-  intake: {
-    title: "收件箱是空的",
-    description: "外部提交的工作项会出现在这里，等待你审核与转正。",
   },
   notifications: {
     title: "暂无通知",
@@ -242,8 +237,8 @@ const illustrationPx = computed(() => sizeMap[props.illustrationSize])
         <circle cx="44" cy="44" r="8" fill="var(--neutral-200, #e5e7eb)" />
       </g>
 
-      <!-- Intake/Inbox: 收件箱 -->
-      <g v-else-if="scenario === 'intake' || scenario === 'inbox'">
+      <!-- Inbox: 收件箱 -->
+      <g v-else-if="scenario === 'inbox'">
         <rect x="16" y="32" width="64" height="40" rx="6" fill="var(--neutral-200, #e5e7eb)" />
         <path d="M16 32l32 20 32-20" stroke="var(--neutral-400, #9ca3af)" stroke-width="2.5" fill="none" />
         <path d="M32 20h12l8 12H24z" fill="var(--brand-200, #bfdbfe)" />
