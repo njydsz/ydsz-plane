@@ -85,35 +85,30 @@ export interface MenuItem {
 }
 
 /**
- * 工作空间左侧导航所需权限 / 角色级别参考表：
+ * 工作空间左侧导航顺序与所需权限 / 角色级别参考表（按侧栏从上到下）：
  *
- * | 菜单                    | 所需角色         | 所需权限                         |
- * |-------------------------|------------------|----------------------------------|
- * | 工作台 (Dashboard)      | guest+           | workspace:read                   |
- * | 我的工作项 (My Issues)  | guest+           | workspace:read                   |
- * | 项目 (Projects)         | guest+           | project:read                     |
- * | 迭代 (Sprints)          | dev+ (30)        | sprint:read                      |
- * | 版本 (Versions)         | pm+/techlead+/po | version:read                     |
- * | 报表 (Analytics)        | pm+/techlead     | analytics:read                   |
- * | 自动化 (Automation)     | admin+/pm        | automation:manage                |
- * | 审计日志 (Audit Logs)   | admin+/owner     | audit:read                       |
- * | 成员管理 (Members)      | admin+/owner     | member:change_role               |
- * | 工作空间设置 (Settings) | admin+/owner     | workspace:update                 |
- * | 收件箱 (Intake)         | admin+/owner     | intake:manage                    |
- * | Webhooks               | admin+/owner     | webhook:manage                   |
+ * | 顺序 | 菜单                    | 所需角色         | 所需权限                         |
+ * |-----|-------------------------|------------------|----------------------------------|
+ * | 1   | 工作台 (Dashboard)      | guest+           | workspace:read                   |
+ * | 2   | 项目 (Projects)         | guest+           | project:read                     |
+ * | 3   | 版本 (Versions)         | pm+/techlead+/po | version:read                     |
+ * | 4   | 迭代 (Sprints)          | dev+ (30)        | sprint:read                      |
+ * | 5   | 报表 (Analytics)        | pm+/techlead     | analytics:read                   |
+ * | 6   | 知识库 (Knowledge)      | guest+           | workspace:read                   |
+ * | 7   | 自动化 (Automation)     | admin+/owner     | automation:manage                |
+ * | 8   | 收件箱 (Intake)         | admin+/owner     | intake:manage                    |
+ * | 9   | 空间成员 (Members)      | admin+/owner     | member:change_role               |
+ * | 10  | 空间设置 (Settings)     | admin+/owner     | workspace:update                 |
  */
 export const WORKSPACE_MENU: MenuItem[] = [
   { name: 'workspace-dashboard', path: 'dashboard', titleKey: 'menu.dashboard', icon: 'LayoutDashboard' },
-  { name: 'workspace-my-issues', path: 'my-issues', titleKey: 'menu.myIssues', icon: 'UserCircle' },
   { name: 'workspace-projects', path: 'projects', titleKey: 'menu.projects', icon: 'FolderKanban', permissions: ['project:read'] },
-  { name: 'workspace-knowledge', path: 'knowledge', titleKey: 'menu.knowledge', icon: 'BookOpen' },
-  { name: 'workspace-sprints', path: 'sprints', titleKey: 'menu.sprints', icon: 'Clock', permissions: ['sprint:read'], minLevel: 30, moduleKey: 'sprint' },
   { name: 'workspace-versions', path: 'versions', titleKey: 'menu.versions', icon: 'Tag', permissions: ['version:read'], minLevel: 50, moduleKey: 'version' },
+  { name: 'workspace-sprints', path: 'sprints', titleKey: 'menu.sprints', icon: 'Clock', permissions: ['sprint:read'], minLevel: 30, moduleKey: 'sprint' },
   { name: 'workspace-analytics', path: 'analytics', titleKey: 'menu.analytics', icon: 'BarChart3', permissions: ['analytics:read'], minLevel: 50 },
+  { name: 'workspace-knowledge', path: 'knowledge', titleKey: 'menu.knowledge', icon: 'BookOpen' },
   { name: 'workspace-automation', path: 'automation', titleKey: 'menu.automation', icon: 'Zap', permissions: ['automation:manage'], minLevel: 80 },
-  { name: 'workspace-audit', path: 'audit', titleKey: 'menu.audit', icon: 'ScrollText', permissions: ['audit:read'], minLevel: 80 },
   { name: 'workspace-intake', path: 'intake', titleKey: 'menu.intake', icon: 'Inbox', permissions: ['intake:manage'], minLevel: 80, moduleKey: 'intake' },
-  { name: 'workspace-webhooks', path: 'webhooks', titleKey: 'menu.webhooks', icon: 'Link', permissions: ['webhook:manage'], minLevel: 80 },
   { name: 'workspace-members', path: 'members', titleKey: 'menu.members', icon: 'Users', permissions: ['member:change_role'], minLevel: 80 },
   { name: 'workspace-settings', path: 'settings', titleKey: 'menu.settings', icon: 'Settings', permissions: ['workspace:update'], minLevel: 80 },
 ]

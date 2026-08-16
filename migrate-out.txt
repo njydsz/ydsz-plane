@@ -1,2 +1,3 @@
-﻿database already initialized via ydsz-plane-init.sql (2026-08-09T11:28:04+08:00), skipping
-
+migrate: execute ydsz-plane-init.sql: 错误: 未结束的用$符号引用的字符串 在 "$$ BEGIN
+    CREATE TYPE tenant_status AS ENUM ('active', 'disabled', 'archived', 'expired')" 或附近的 (SQLSTATE 42601)
+exit status 1

@@ -12,6 +12,9 @@
 --   5. 状态字段使用 PostgreSQL ENUM 类型
 --   6. 字段排序标准化: id/code/name 开头, status/deleted/tenant_id/created_by/created_at/updated_by/updated_at 结尾
 -- ===========================================================================
+
+BEGIN;
+
 -- ===========================================================================
 
 -- 第一部分: ENUM 类型定义 (幂等)
@@ -497,7 +500,7 @@ CREATE TABLE IF NOT EXISTS task_comments (
     content_html             TEXT NOT NULL,
     content_stripped         TEXT,
     parent_id                BIGINT,
-    mentions                 JSONB DEFAULT '[]',
+    mentions                 JSONB DEFAULT \'[]\',
     is_edited                BOOLEAN DEFAULT false,
     edited_at                TIMESTAMPTZ,
     status                   entity_status NOT NULL DEFAULT 'active',
@@ -643,7 +646,7 @@ CREATE TABLE IF NOT EXISTS states (
     tenant_id                BIGINT NOT NULL DEFAULT 1,
     workspace_id             BIGINT NOT NULL DEFAULT 0,
     project_id               BIGINT NOT NULL DEFAULT 0,
-    "group"                    VARCHAR(50) NOT NULL,
+    group                    VARCHAR(50) NOT NULL,
     color                    VARCHAR(20) DEFAULT '#8DA2C2',
     sequence                 DOUBLE PRECISION DEFAULT 65535,
     is_default               BOOLEAN DEFAULT false,
@@ -1873,7 +1876,7 @@ CREATE TABLE IF NOT EXISTS requirement_comments (
     content_html             TEXT NOT NULL,
     content_stripped         TEXT,
     parent_id                BIGINT,
-    mentions                 JSONB DEFAULT '[]',
+    mentions                 JSONB DEFAULT \'[]\',
     is_edited                BOOLEAN DEFAULT false,
     edited_at                TIMESTAMPTZ,
     status                   entity_status NOT NULL DEFAULT 'active',
@@ -2059,7 +2062,7 @@ CREATE TABLE IF NOT EXISTS defect_comments (
     content_html             TEXT NOT NULL,
     content_stripped         TEXT,
     parent_id                BIGINT,
-    mentions                 JSONB DEFAULT '[]',
+    mentions                 JSONB DEFAULT \'[]\',
     is_edited                BOOLEAN DEFAULT false,
     edited_at                TIMESTAMPTZ,
     status                   entity_status NOT NULL DEFAULT 'active',
@@ -4677,6 +4680,9 @@ CREATE INDEX IF NOT EXISTS idx_notif_subs_user ON notification_subscriptions (te
 -- ===========================================================================
 
 INSERT INTO schema_migrations (version, dirty) VALUES (1, false) ON CONFLICT DO NOTHING;
+
+COMMIT;
+
 -- ===========================================================================
 -- 初始化完毕
 -- ===========================================================================

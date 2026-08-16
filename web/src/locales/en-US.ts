@@ -499,18 +499,20 @@ export default {
 
   menu: {
     dashboard: "Dashboard",
-    myIssues: "My Issues",
     projects: "Projects",
-    knowledge: "Knowledge",
-    sprints: "Sprints",
     versions: "Versions",
+    sprints: "Sprints",
     analytics: "Analytics",
+    knowledge: "Knowledge",
     automation: "Automation",
-    audit: "Audit Logs",
     intake: "Intake",
+    members: "Space Members",
+    settings: "Space Settings",
+    // Retained: legacy pages (e.g. /my-issues, /audit-logs, /settings/webhooks)
+    // may still be reachable via direct URL even though they're not in the sidebar.
+    myIssues: "My Issues",
+    audit: "Audit Logs",
     webhooks: "Webhooks",
-    members: "Members",
-    settings: "Workspace Settings",
   },
 
   knowledge: {

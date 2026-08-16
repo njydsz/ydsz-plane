@@ -522,18 +522,19 @@ export default {
 
   menu: {
     dashboard: "工作台",
-    myIssues: "我的工作项",
     projects: "项目",
-    knowledge: "知识库",
-    sprints: "迭代",
     versions: "版本",
+    sprints: "迭代",
     analytics: "报表",
+    knowledge: "知识库",
     automation: "自动化",
-    audit: "审计日志",
     intake: "收件箱",
+    members: "空间成员",
+    settings: "空间设置",
+    // 保留：部分历史页面（如 /my-issues、/audit-logs、/settings/webhooks）仍可能通过 URL 访问
+    myIssues: "我的工作项",
+    audit: "审计日志",
     webhooks: "Webhooks",
-    members: "成员管理",
-    settings: "工作空间设置",
   },
 
   knowledge: {

@@ -1,8 +1,104 @@
-﻿go : stat D:\Code\open\ydsz-plane\scripts\seed: directory not found
-所在位置 C:\Users\Marvin\AppData\Local\Temp\genie-ps-1786272495234-tvmte2.ps1:262 字符: 29
-+ cd d:/Code/open/ydsz-plane; go run ./scripts/seed 2>&1 | Out-String - ...
-+                             ~~~~~~~~~~~~~~~~~~~~~~~~~~
-    + CategoryInfo          : NotSpecified: (stat D:\Code\op...ctory not found:String) [], RemoteException
-    + FullyQualifiedErrorId : NativeCommandError
- 
+重建数据库 ...
+数据库已重建
 
+共 2166 条语句
+
+======================================================================
+
+  进度: 500/2166 (ok=500 skip=0 fail=0)
+  进度: 1000/2166 (ok=1000 skip=0 fail=0)
+  进度: 1500/2166 (ok=1500 skip=0 fail=0)
+  进度: 2000/2166 (ok=1998 skip=2 fail=0)
+
+======================================================================
+Done: ok=2160 skip=6 fail=0
+======================================================================
+
+======================================================================
+验证数据库
+======================================================================
+
+[新分表 - 必须 EXISTS]
+  OK: task
+  OK: requirement
+  OK: defect
+  OK: task_ext
+  OK: requirement_ext
+  OK: defect_ext
+
+[0001-0003 新增表 - 必须 EXISTS]
+  OK: document_versions
+  OK: document_links
+  OK: page_templates
+  OK: page_shares
+  OK: processed_events
+  OK: dlq_events
+
+[知识库模块 - 必须 EXISTS]
+  OK: knowledge_spaces
+  OK: knowledge_pages
+  OK: knowledge_page_versions
+  OK: knowledge_page_relations
+
+[知识库全文检索 - 必须 EXISTS]
+  MISSING!: knowledge_pages.tsv
+  MISSING!: idx_kp_tsv (GIN)
+
+[通知模块 - 必须 EXISTS]
+  OK: notifications
+  OK: notification_deliveries
+  OK: notification_digests
+  OK: notification_preferences
+
+[视图 - 必须 EXISTS]
+  MISSING!: task_view
+  MISSING!: requirement_view
+  MISSING!: defect_view
+
+[保留历史表 - 必须 EXISTS]
+  OK: sprint_issues
+
+[旧表 - 必须 DROPPED]
+  DROPPED: issues
+  DROPPED: issue_comments
+  STILL EXISTS!: issue_reactions
+  STILL EXISTS!: issue_votes
+  STILL EXISTS!: issue_activities
+  STILL EXISTS!: issue_dependencies
+  STILL EXISTS!: issue_relations
+  DROPPED: issue_watchers
+  DROPPED: issue_modules
+  DROPPED: issue_labels
+  DROPPED: issue_assignees
+  DROPPED: issue_subscriptions
+  DROPPED: issue_sequences
+  STILL EXISTS!: project_sequences
+
+[数据]
+  users: 0 rows
+  workspaces: 0 rows
+  states: 0 rows
+  automation_templates: 0 rows
+
+[新序列]
+  task_id_seq: MISSING
+  requirement_id_seq: MISSING
+  defect_id_seq: MISSING
+
+[知识库序列]
+  knowledge_spaces_id_seq: MISSING
+  knowledge_pages_id_seq: MISSING
+  knowledge_page_versions_id_seq: MISSING
+  knowledge_page_relations_id_seq: MISSING
+
+[通知序列]
+  notifications_id_seq: MISSING
+  notification_deliveries_id_seq: MISSING
+  notification_digests_id_seq: MISSING
+  notification_preferences_id_seq: MISSING
+
+======================================================================
+ISSUES FOUND
+======================================================================
+
+总耗时: 2.3s

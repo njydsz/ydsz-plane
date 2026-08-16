@@ -88,7 +88,7 @@ type RedisConfig struct {
 	Addr string `mapstructure:"addr"`
 
 	// Password 是 Redis AUTH 密码。空字符串禁用 AUTH。
-	// 默认："Limw1020"（本地开发）；生产环境必须覆盖。
+	// 默认：""（本地开发 Redis 未启用 AUTH）；生产环境必须覆盖。
 	Password string `mapstructure:"password"`
 
 	// DB 是 Redis 逻辑数据库编号（标准 Redis 为 0-15，
@@ -246,7 +246,7 @@ func Load() (*Config, error) {
 	v.SetDefault("database.max_conns", 20)
 	v.SetDefault("database.conn_max_lifetime", "30m")
 	v.SetDefault("redis.addr", "127.0.0.1:6379")
-	v.SetDefault("redis.password", "Limw1020")
+	v.SetDefault("redis.password", "")
 	v.SetDefault("redis.db", 0)
 	v.SetDefault("rabbitmq.url", "amqp://guest:guest@127.0.0.1:5672/")
 	v.SetDefault("auth.jwt_issuer", "ydsz-plane")
