@@ -315,6 +315,35 @@ function typeLabel(type: string): string {
   return ({ epic: "史诗", requirement: "需求", task: "任务", defect: "缺陷" } as Record<string, string>)[type] ?? type;
 }
 
+/** 延期原因标签映射 */
+const delayReasonLabels: Record<string, string> = {
+  scope_change: "需求范围变更",
+  resource_lack: "资源不足",
+  tech_blocker: "技术阻塞",
+  dependency: "依赖延期",
+  estimation: "估算不准确",
+  priority_shift: "优先级调整",
+  external: "外部因素",
+  other: "其他",
+};
+
+function delayReasonLabel(reason?: string | null): string {
+  if (!reason) return "—";
+  return delayReasonLabels[reason] ?? reason;
+}
+
+/** 任务是否延期（目标日期已过且未完成） */
+const isOverdue = computed(() => {
+  if (!issue.value) return false;
+  if (!issue.value.target_date) return false;
+  const state = states.value.find((s) => s.id === issue.value!.state_id);
+  if (state && (state.group === "completed" || state.group === "cancelled")) return false;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const target = new Date(issue.value.target_date);
+  return target < today;
+});
+
 const availableTransitions = computed(() => {
   if (!issue.value) return [];
   return states.value.filter((s) => s.id !== issue.value!.state_id);
@@ -453,6 +482,9 @@ async function saveEdit() {
         break;
       case "priority":
         input.priority = editValue.value;
+        break;
+      case "delay_reason":
+        input.delay_reason = editValue.value || undefined;
         break;
       case "severity":
         input.severity = Number(editValue.value);
@@ -593,6 +625,35 @@ onMounted(() => {
               #{{ issue.sprint_id }}
             </router-link>
           </span>
+          <!-- 延期原因（任务延期时显示） -->
+          <template v-if="issue.type_code === 'task' && (isOverdue || issue.delay_reason)">
+            <span v-if="editField === 'delay_reason'" class="edit-row edit-row--inline">
+              <select v-model="editValue" class="edit-select" @change="saveEdit">
+                <option value="">— 请选择 —</option>
+                <option value="scope_change">需求范围变更</option>
+                <option value="resource_lack">资源不足</option>
+                <option value="tech_blocker">技术阻塞</option>
+                <option value="dependency">依赖延期</option>
+                <option value="estimation">估算不准确</option>
+                <option value="priority_shift">优先级调整</option>
+                <option value="external">外部因素</option>
+                <option value="other">其他</option>
+              </select>
+              <button class="btn btn--sm" :disabled="editSaving" @click="cancelEdit">取消</button>
+            </span>
+            <span
+              v-else-if="canEditIssue"
+              class="issue-detail__field issue-detail__delay-reason editable"
+              @click="startEdit('delay_reason', issue.delay_reason ?? '')"
+            >
+              延期原因: <strong>{{ delayReasonLabel(issue.delay_reason) }}</strong>
+              <span v-if="isOverdue && !issue.delay_reason" class="delay-reason--required">（必填）</span>
+              <span class="edit-hint">✎</span>
+            </span>
+            <span v-else class="issue-detail__field">
+              延期原因: <strong>{{ delayReasonLabel(issue.delay_reason) }}</strong>
+            </span>
+          </template>
         </div>
 
         <!-- 关注栏 -->
@@ -1273,6 +1334,16 @@ onMounted(() => {
 .issue-detail__priority, .issue-detail__field {
   font-size: 12px;
   color: var(--text-secondary);
+}
+
+.issue-detail__delay-reason strong {
+  color: var(--text-primary);
+}
+
+.delay-reason--required {
+  color: var(--danger-500, #e5484d);
+  font-size: 11px;
+  margin-left: 4px;
 }
 
 .issue-detail__section {

@@ -1,37 +1,293 @@
-# env / secrets
+# =============================================================================
+# ydsz-plane .gitignore
+# Reference: GitHub / Google / Microsoft gitignore templates
+# Tech Stack: Go + Vue 3 (Vite) + Docker
+# =============================================================================
+
+# ---------------------------------------------------------------------
+# 1. Environment & Secrets — 环境变量与密钥（最高优先级）
+# ---------------------------------------------------------------------
 .env
+.env.*
+!.env.example
+!.env.template
 *.local
 
-# Go
+# 证书与密钥文件
+*.pem
+*.key
+*.cert
+*.p12
+*.pfx
+*.crt
+*.csr
+*.jks
+*.keystore
+
+# 凭证文件
+credentials.json
+service-account*.json
+*credentials*
+*secret*
+secrets.yaml
+secrets.yml
+
+# ---------------------------------------------------------------------
+# 2. Go — 后端语言
+# ---------------------------------------------------------------------
+# 编译产物
 /bin/
 /dist/
+/build/
+/out/
 *.exe
-*.test
-coverage.out
-/coverage
-coverage.html
+*.dll
+*.so
+*.dylib
 
-# Node / web
+# Go workspace (go 1.18+ multi-module)
+go.work
+go.work.sum
+
+# 测试与覆盖率
+*.test
+*.out
+coverage.out
+coverage.html
+/coverage/
+*.cover
+*.cov
+__debug_bin
+__debug_bin*
+
+# Vendor（若项目使用 vendoring 则取消注释下一行）
+# /vendor/
+
+# Go tool cache
+.gocache/
+.gobincache/
+
+# ---------------------------------------------------------------------
+# 3. Node.js / Web — 前端
+# ---------------------------------------------------------------------
 node_modules/
+bower_components/
+jspm_packages/
+
+# 构建产物
 web/dist/
 web/dist-*/
-web/node_modules/
+.next/
+.nuxt/
+.vuepress/dist/
+.docusaurus/
+.serverless/
+.fusebox/
+.dynamodb/
+
+# 缓存与临时
+.npm/
+.yarn/
+.pnpm-store/
+.eslintcache
+.stylelintcache
+.parcel-cache/
+.rpt2_cache/
+.rts2_cache*/
+.cache/
+.webpack/
+.snowpack/
+.turbo/
 *.tsbuildinfo
-web/_tmp_*/
+*.buildinfo
+
+# 测试与覆盖率
 web/coverage/
 web/playwright-report/
 web/test-results/
 web/e2e/.auth/
+.nyc_output/
+htmlcov/
+.tox/
+.coverage
+.pytest_cache/
 
-# IDE
-.idea/
-.vscode/
-*.swp
-
-# OS
-.DS_Store
-Thumbs.db
-
-# misc
-/tmp/
+# 日志
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
 *.log
+
+# 临时文件
+web/_tmp_*/
+tmp/
+temp/
+*.tmp
+*.temp
+
+# ---------------------------------------------------------------------
+# 4. IDE / Editor — 编辑器与 IDE
+# ---------------------------------------------------------------------
+# JetBrains
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# VS Code
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+!.vscode/*.code-snippets
+.history/
+*.vsix
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim / Neovim
+*.swp
+*.swo
+*~
+.netrwhist
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+.elc
+auto-save-list
+tramp
+
+# Eclipse / IntelliJ classic
+.project
+.settings/
+.classpath
+.factorypath
+
+# NetBeans
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+
+# Visual Studio
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Xcode
+*.xcodeproj/*
+!*.xcodeproj/project.pbxproj
+!*.xcodeproj/xcshareddata/
+!*.xcodeproj/xcuserdata/
+*.xcuserdata
+*.moved-assemble
+
+# ---------------------------------------------------------------------
+# 5. OS — 操作系统
+# ---------------------------------------------------------------------
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+# ---------------------------------------------------------------------
+# 6. Docker — 容器化
+# ---------------------------------------------------------------------
+docker-compose.override.yml
+.docker/
+*.pid
+
+# ---------------------------------------------------------------------
+# 7. Database / Storage — 数据库与对象存储
+# ---------------------------------------------------------------------
+*.db
+*.sqlite
+*.sqlite3
+*.sql.gz
+
+# MinIO
+minio-data/
+minio/.minio.sys/
+minio/data/
+data/minio/
+
+# ---------------------------------------------------------------------
+# 8. Misc — 杂项
+# ---------------------------------------------------------------------
+# 压缩包
+*.7z
+*.dmg
+*.gz
+*.iso
+*.jar
+*.rar
+*.tar
+*.zip
+
+# 媒体（仓库中应使用 Git LFS 管理）
+*.mp4
+*.mov
+*.mp3
+*.avi
+*.wmv
+*.flv
+*.mkv
+
+# 字体
+*.ttf
+*.otf
+*.woff
+*.woff2
+*.eot
+
+# 备份
+*.bak
+*.orig
+*.old
+
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+
+# Kubernetes
+*.kubeconfig
+kubeconfig

@@ -375,7 +375,35 @@ type UpdateTaskInput struct {
 	Point             *int
 	TargetDate        *time.Time
 	Progress          *int
+	DelayReason       *string
 	Version           int
+}
+
+// 任务延期原因枚举
+const (
+	DelayReasonScopeChange   = "scope_change"   // 需求范围变更
+	DelayReasonResourceLack  = "resource_lack"  // 资源不足
+	DelayReasonTechBlocker   = "tech_blocker"   // 技术阻塞
+	DelayReasonDependency    = "dependency"     // 依赖延期
+	DelayReasonEstimation    = "estimation"     // 估算不准确
+	DelayReasonPriorityShift = "priority_shift" // 优先级调整
+	DelayReasonExternal      = "external"       // 外部因素
+	DelayReasonOther         = "other"          // 其他
+)
+
+// DelayReasonOptions 延期原因选项列表
+var DelayReasonOptions = []struct {
+	Value string
+	Label string
+}{
+	{DelayReasonScopeChange, "需求范围变更"},
+	{DelayReasonResourceLack, "资源不足"},
+	{DelayReasonTechBlocker, "技术阻塞"},
+	{DelayReasonDependency, "依赖延期"},
+	{DelayReasonEstimation, "估算不准确"},
+	{DelayReasonPriorityShift, "优先级调整"},
+	{DelayReasonExternal, "外部因素"},
+	{DelayReasonOther, "其他"},
 }
 
 // UpdateDefectInput 更新缺陷入参。

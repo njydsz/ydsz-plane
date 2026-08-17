@@ -27,14 +27,15 @@ import (
 
 // HandlerDeps handler 依赖。
 type HandlerDeps struct {
-	IssueSvc       *Service
-	StateSvc       *StateService
-	ActivitySvc    *ActivityService
-	TimeLogSvc     *TimeLogService
-	RelationSvc    *RelationService
-	CommentSvc     *CommentService
-	ProjectInit    *ProjectInitService
-	WorkspaceStore *auth.WorkspaceMembershipStore
+	IssueSvc          *Service
+	StateSvc          *StateService
+	ActivitySvc       *ActivityService
+	TimeLogSvc        *TimeLogService
+	RelationSvc       *RelationService
+	CommentSvc        *CommentService
+	ProjectInit       *ProjectInitService
+	ContentTplSvc     *ContentTemplateService
+	WorkspaceStore    *auth.WorkspaceMembershipStore
 	// 通知与实时推送（可为 nil，未配置时静默跳过）
 	NotificationSvc *notif.Service
 	WSHub           *ws.Hub
@@ -125,6 +126,11 @@ func (h *IssueHandler) Register(r *gin.RouterGroup, wsMiddleware []gin.HandlerFu
 	r.GET("/issue-dependencies", h.listProjectDependencies)
 	// 工时热力图（成员 × 日期）
 	r.GET("/workload-heatmap", h.getWorkloadHeatmap)
+	// 内容模板（需求/任务/缺陷模板库）
+	r.GET("/content-templates", h.listContentTemplates)
+	r.POST("/content-templates", h.createContentTemplate)
+	r.PATCH("/content-templates/:template_id", h.updateContentTemplate)
+	r.DELETE("/content-templates/:template_id", h.deleteContentTemplate)
 }
 
 // --- State handlers ---
@@ -661,6 +667,9 @@ func (h *IssueHandler) updateIssue(c *gin.Context) {
 	}
 	if req.Progress != nil {
 		in.Progress = req.Progress
+	}
+	if req.DelayReason != nil {
+		in.DelayReason = req.DelayReason
 	}
 
 	iss, err := h.d.IssueSvc.Update(c.Request.Context(), wsID, issueID, in)
@@ -1466,6 +1475,7 @@ type updateIssueRequest struct {
 	Point             *int    `json:"point"`
 	TargetDate        *string `json:"target_date"`
 	Progress          *int    `json:"progress"`
+	DelayReason       *string `json:"delay_reason"`
 	Version           int     `json:"version" binding:"required"`
 	FoundVersionID    *int64  `json:"found_version_id"`
 	FixVersionID      *int64  `json:"fix_version_id"`
@@ -1486,6 +1496,105 @@ type batchIssuesRequest struct {
 	AssigneeID *int64  `json:"assignee_id"`
 	Priority   *string `json:"priority"`
 	Delete     bool    `json:"delete"`
+}
+
+// --- Content Template handlers ---
+
+// listContentTemplates 列出内容模板（按类型筛选）。
+func (h *IssueHandler) listContentTemplates(c *gin.Context) {
+	wsID := c.GetInt64(middleware.CtxWorkspaceID)
+
+	templateType := c.Query("template_type")
+	filter := ListTemplatesFilter{
+		WorkspaceID:  wsID,
+		TemplateType: templateType,
+	}
+
+	templates, err := h.d.ContentTplSvc.List(c.Request.Context(), filter)
+	if err != nil {
+		writeErr(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"results": templates})
+}
+
+// createContentTemplateRequest 创建模板请求。
+type createContentTemplateRequest struct {
+	Name         string         `json:"name" binding:"required"`
+	TemplateType string         `json:"template_type" binding:"required,oneof=requirement task defect"`
+	ContentJSON  map[string]any `json:"content_json" binding:"required"`
+	ContentHTML  string         `json:"content_html"`
+	IsDefault    bool           `json:"is_default"`
+}
+
+func (h *IssueHandler) createContentTemplate(c *gin.Context) {
+	wsID := c.GetInt64(middleware.CtxWorkspaceID)
+	userID := c.GetInt64(middleware.CtxUserID)
+
+	var req createContentTemplateRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		writeErr(c, errs.ErrValidation.WithDetails(fieldDetail(err)))
+		return
+	}
+
+	tpl, err := h.d.ContentTplSvc.Create(c.Request.Context(), CreateTemplateInput{
+		WorkspaceID:  wsID,
+		Name:         req.Name,
+		TemplateType: req.TemplateType,
+		ContentJSON:  req.ContentJSON,
+		ContentHTML:  req.ContentHTML,
+		IsDefault:    req.IsDefault,
+		CreatedBy:    userID,
+	})
+	if err != nil {
+		writeErr(c, err)
+		return
+	}
+	c.JSON(http.StatusCreated, tpl)
+}
+
+// updateContentTemplateRequest 更新模板请求。
+type updateContentTemplateRequest struct {
+	Name        *string        `json:"name,omitempty"`
+	ContentJSON map[string]any `json:"content_json,omitempty"`
+	ContentHTML *string        `json:"content_html,omitempty"`
+	IsDefault   *bool          `json:"is_default,omitempty"`
+}
+
+func (h *IssueHandler) updateContentTemplate(c *gin.Context) {
+	wsID := c.GetInt64(middleware.CtxWorkspaceID)
+	templateID := int64Param(c, "template_id")
+
+	var req updateContentTemplateRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		writeErr(c, errs.ErrValidation.WithDetails(fieldDetail(err)))
+		return
+	}
+
+	tpl, err := h.d.ContentTplSvc.Update(c.Request.Context(), UpdateTemplateInput{
+		ID:          templateID,
+		WorkspaceID: wsID,
+		Name:        req.Name,
+		ContentJSON: req.ContentJSON,
+		ContentHTML: req.ContentHTML,
+		IsDefault:   req.IsDefault,
+	})
+	if err != nil {
+		writeErr(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, tpl)
+}
+
+func (h *IssueHandler) deleteContentTemplate(c *gin.Context) {
+	wsID := c.GetInt64(middleware.CtxWorkspaceID)
+	templateID := int64Param(c, "template_id")
+
+	if err := h.d.ContentTplSvc.Delete(c.Request.Context(), wsID, templateID); err != nil {
+		writeErr(c, err)
+		return
+	}
+	c.Status(http.StatusNoContent)
 }
 
 // --- helpers ---

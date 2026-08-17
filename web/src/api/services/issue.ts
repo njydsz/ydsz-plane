@@ -186,28 +186,29 @@ export interface CreateIssueInput {
 
 /** 更新需求/任务/缺陷入参（可选字段 + 乐观锁 version） */
 export interface UpdateIssueInput {
-  name?: string;
-  description_html?: string;
-  priority?: IssuePriority;
-  parent_id?: number;
-  severity?: number;
-  found_phase?: string;
-  root_cause_category?: string;
-  category?: string;
-  assignees?: number[];
-  labels?: number[];
-  modules?: number[];
-  source?: string;
-  version: number;
-  found_version_id?: number;
-  fix_version_id?: number;
-  release_version_id?: number;
-  verifier_id?: number;
-  reproduce_steps?: {
-    steps?: string;
-    expected?: string;
-    actual?: string;
-  };
+	name?: string;
+	description_html?: string;
+	priority?: IssuePriority;
+	parent_id?: number;
+	severity?: number;
+	found_phase?: string;
+	root_cause_category?: string;
+	category?: string;
+	delay_reason?: string;
+	assignees?: number[];
+	labels?: number[];
+	modules?: number[];
+	source?: string;
+	version: number;
+	found_version_id?: number;
+	fix_version_id?: number;
+	release_version_id?: number;
+	verifier_id?: number;
+	reproduce_steps?: {
+		steps?: string;
+		expected?: string;
+		actual?: string;
+	};
 }
 // 注意：state_id不允许通过更新接口修改，所有状态变更必须调用transition接口
 

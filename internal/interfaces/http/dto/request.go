@@ -32,6 +32,8 @@ type UpdateWorkspaceRequest struct {
 	Language *string `json:"language,omitempty" binding:"omitempty,oneof=zh-CN en-US en"`
 	// LogoURL 工作空间 Logo 的公开 URL；nil 表示不更新，传空字符串表示清除。
 	LogoURL *string `json:"logo_url,omitempty" binding:"omitempty,url,max=500"`
+	// BrandColor 工作空间品牌主色（HEX 格式，如 #3B82F6）；nil 表示不更新。
+	BrandColor *string `json:"brand_color,omitempty" binding:"omitempty,hexcolor"`
 }
 
 // --- Member ---

@@ -315,6 +315,9 @@ func buildTaskUpdateSet(in UpdateTaskInput) ([]string, []interface{}) {
 	if in.Progress != nil {
 		sets = append(sets, "progress = $"+strconv.Itoa(arg)); args = append(args, *in.Progress); arg++
 	}
+	if in.DelayReason != nil {
+		sets = append(sets, "delay_reason = $"+strconv.Itoa(arg)); args = append(args, *in.DelayReason); arg++
+	}
 	return sets, args
 }
 

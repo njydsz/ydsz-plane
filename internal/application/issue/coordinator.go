@@ -100,6 +100,7 @@ type UpdateIssueInput struct {
 	VerifierID        *int64
 	ReproduceSteps    json.RawMessage
 	Category          *string
+	DelayReason       *string
 	Assignees         []int64
 	Labels            []int64
 	Modules           []int64
@@ -230,7 +231,7 @@ func (s *Service) Update(ctx context.Context, wsID, issueID int64, in UpdateIssu
 		updated, err := s.Task.Update(ctx, wsID, issueID, UpdateTaskInput{
 			Name: in.Name, DescriptionHTML: in.DescriptionHTML, Priority: in.Priority,
 			ParentID: in.ParentID, Point: in.Point, TargetDate: in.TargetDate, Progress: in.Progress,
-			Version: in.Version, Assignees: in.Assignees, Labels: in.Labels, Modules: in.Modules,
+			DelayReason: in.DelayReason, Version: in.Version, Assignees: in.Assignees, Labels: in.Labels, Modules: in.Modules,
 		})
 		if err != nil { return nil, err }
 		return taskToIssue(updated), nil

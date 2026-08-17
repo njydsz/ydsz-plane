@@ -168,6 +168,7 @@ func run() error {
 	timeLogSvc := issue.NewTimeLogService(pool.Pool)
 	relationSvc := issue.NewRelationService(pool.Pool)
 	commentSvc := issue.NewCommentService(pool.Pool)
+	contentTplSvc := issue.NewContentTemplateService(pool.Pool)
 	issueHandler := issue.NewIssueHandler(&issue.HandlerDeps{
 		IssueSvc:        issueSvc,
 		StateSvc:        stateSvc,
@@ -175,6 +176,7 @@ func run() error {
 		TimeLogSvc:      timeLogSvc,
 		RelationSvc:     relationSvc,
 		CommentSvc:      commentSvc,
+		ContentTplSvc:   contentTplSvc,
 		ImportSvc:       issue.NewImportService(issueSvc),
 		WorkspaceStore:  wsStore,
 		NotificationSvc: notifSvc,

@@ -17,6 +17,8 @@ export interface Workspace {
   updated_at: string;
   role?: string;
   member_count?: number;
+  /** 自定义品牌色（HEX 格式） */
+  brand_color?: string;
 }
 
 /** 工作空间成员 */
@@ -108,7 +110,7 @@ export const workspaceApi = {
   getBySlug: (slug: string) => wrap<Workspace>(http.get(`/workspaces/slug/${slug}`)),
   create: (input: { name: string; slug?: string; timezone?: string; language?: string }) =>
     wrap<Workspace>(http.post("/workspaces", input)),
-  update: (wsId: number, input: { name?: string; timezone?: string; language?: string; logo_url?: string }) =>
+  update: (wsId: number, input: { name?: string; timezone?: string; language?: string; logo_url?: string; brand_color?: string }) =>
     wrap<Workspace>(http.patch(`/workspaces/${wsId}`, input)),
   archive: (wsId: number) => wrap<void>(http.delete(`/workspaces/${wsId}`)),
   /** 上传工作空间 Logo（multipart/form-data，字段名 'file'），返回 { logo_url } */

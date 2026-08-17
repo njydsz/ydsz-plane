@@ -32,6 +32,7 @@ type Workspace struct {
 	UpdatedAt   time.Time `json:"updated_at"`
 	Role        string    `json:"role,omitempty"`
 	MemberCount int64     `json:"member_count,omitempty"`
+	BrandColor  string    `json:"brand_color,omitempty"`
 }
 
 // CreateInput 创建工作空间的入参。
@@ -45,10 +46,16 @@ type CreateInput struct {
 
 // UpdateInput 更新工作空间的入参（仅 owner/admin 可用）。
 type UpdateInput struct {
-	Name     *string
-	Timezone *string
-	Language *string
-	LogoURL  *string
+	Name       *string
+	Timezone   *string
+	Language   *string
+	LogoURL    *string
+	BrandColor *string
+}
+
+// WorkspaceConfig 工作空间配置（存储在 config JSONB 中）。
+type WorkspaceConfig struct {
+	BrandColor string `json:"brand_color,omitempty"`
 }
 
 // Service 提供工作空间应用服务。
@@ -118,10 +125,11 @@ func (s *Service) Get(ctx context.Context, wsID int64) (*Workspace, error) {
 	err := s.db.QueryRow(ctx, `
 		SELECT id, name, slug, coalesce(logo_url,''), timezone, language, status, owner_id,
 		       (SELECT count(*) FROM workspace_members WHERE workspace_id = $1),
+		       coalesce(config->>'brand_color', ''),
 		       created_at, updated_at
 		FROM workspaces WHERE id = $1 AND status = 'active'`, wsID).
 		Scan(&w.ID, &w.Name, &w.Slug, &w.LogoURL, &w.Timezone, &w.Language, &w.Status,
-			&w.OwnerID, &w.MemberCount, &w.CreatedAt, &w.UpdatedAt)
+			&w.OwnerID, &w.MemberCount, &w.BrandColor, &w.CreatedAt, &w.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, errs.ErrNotFound
@@ -137,10 +145,11 @@ func (s *Service) GetBySlug(ctx context.Context, slug string) (*Workspace, error
 	err := s.db.QueryRow(ctx, `
 		SELECT id, name, slug, coalesce(logo_url,''), timezone, language, status, owner_id,
 		       (SELECT count(*) FROM workspace_members wm WHERE wm.workspace_id = w.id),
+		       coalesce(config->>'brand_color', ''),
 		       created_at, updated_at
 		FROM workspaces w WHERE slug = $1 AND status = 'active'`, slug).
 		Scan(&w.ID, &w.Name, &w.Slug, &w.LogoURL, &w.Timezone, &w.Language, &w.Status,
-			&w.OwnerID, &w.MemberCount, &w.CreatedAt, &w.UpdatedAt)
+			&w.OwnerID, &w.MemberCount, &w.BrandColor, &w.CreatedAt, &w.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, errs.ErrNotFound
@@ -156,6 +165,7 @@ func (s *Service) ListByUser(ctx context.Context, userID int64) ([]Workspace, er
 		SELECT w.id, w.name, w.slug, coalesce(w.logo_url,''), w.timezone, w.language, w.status, w.owner_id,
 		       wm.role,
 		       (SELECT count(*) FROM workspace_members WHERE workspace_id = w.id),
+		       coalesce(w.config->>'brand_color', ''),
 		       w.created_at, w.updated_at
 		FROM workspace_members wm
 		JOIN workspaces w ON w.id = wm.workspace_id
@@ -170,7 +180,7 @@ func (s *Service) ListByUser(ctx context.Context, userID int64) ([]Workspace, er
 	for rows.Next() {
 		var w Workspace
 		if err := rows.Scan(&w.ID, &w.Name, &w.Slug, &w.LogoURL, &w.Timezone, &w.Language,
-			&w.Status, &w.OwnerID, &w.Role, &w.MemberCount, &w.CreatedAt, &w.UpdatedAt); err != nil {
+			&w.Status, &w.OwnerID, &w.Role, &w.MemberCount, &w.BrandColor, &w.CreatedAt, &w.UpdatedAt); err != nil {
 			return nil, errs.ErrInternal.Wrap(err)
 		}
 		out = append(out, w)
@@ -208,18 +218,24 @@ func (s *Service) Update(ctx context.Context, wsID int64, in UpdateInput) (*Work
 		args = append(args, *in.LogoURL)
 		arg++
 	}
+	if in.BrandColor != nil {
+		// 更新 config JSONB 中的 brand_color
+		sets = append(sets, "config = jsonb_set(coalesce(config, '{}'::jsonb), '{brand_color}', to_jsonb($"+strconv.Itoa(arg)+"::text))")
+		args = append(args, *in.BrandColor)
+		arg++
+	}
 	if len(sets) == 0 {
 		return s.Get(ctx, wsID)
 	}
 	sets = append(sets, "updated_at = now()")
 	query := "UPDATE workspaces SET " + strings.Join(sets, ", ") +
 		" WHERE id = $" + strconv.Itoa(arg) + " AND status = 'active'" +
-		" RETURNING id, name, slug, coalesce(logo_url,''), timezone, language, status, owner_id, created_at, updated_at"
+		" RETURNING id, name, slug, coalesce(logo_url,''), timezone, language, status, owner_id, coalesce(config->>'brand_color', ''), created_at, updated_at"
 	args = append(args, wsID)
 
 	var w Workspace
 	err := s.db.QueryRow(ctx, query, args...).
-		Scan(&w.ID, &w.Name, &w.Slug, &w.LogoURL, &w.Timezone, &w.Language, &w.Status, &w.OwnerID, &w.CreatedAt, &w.UpdatedAt)
+		Scan(&w.ID, &w.Name, &w.Slug, &w.LogoURL, &w.Timezone, &w.Language, &w.Status, &w.OwnerID, &w.BrandColor, &w.CreatedAt, &w.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, errs.ErrNotFound
@@ -227,6 +243,21 @@ func (s *Service) Update(ctx context.Context, wsID int64, in UpdateInput) (*Work
 		return nil, errs.ErrInternal.Wrap(err)
 	}
 	return &w, nil
+}
+
+// GetBrandColor 获取工作空间品牌色（从 config JSONB 读取）。
+func (s *Service) GetBrandColor(ctx context.Context, wsID int64) (string, error) {
+	var brandColor string
+	err := s.db.QueryRow(ctx, `
+		SELECT coalesce(config->>'brand_color', '')
+		FROM workspaces WHERE id = $1 AND status = 'active'`, wsID).Scan(&brandColor)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "", errs.ErrNotFound
+		}
+		return "", errs.ErrInternal.Wrap(err)
+	}
+	return brandColor, nil
 }
 
 // Archive 归档工作空间（仅 owner 可用）。

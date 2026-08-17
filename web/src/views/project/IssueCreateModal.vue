@@ -6,6 +6,7 @@
 import { computed, ref, watch } from "vue";
 
 import { aiApi, type ClassifyResult, type DuplicateCandidate } from "@/api/services/ai";
+import { contentTemplateApi, type ContentTemplate } from "@/api/services/contentTemplate";
 import { type CreateIssueInput, type IssueType } from "@/api/services/issue";
 import { versionApi, type Version } from "@/api/services/version";
 import { useIssueStore } from "@/stores/issue";
@@ -65,6 +66,11 @@ const aiLoading = ref(false);
 const aiError = ref<string | null>(null);
 let aiAbort: AbortController | null = null;
 let aiTimer: ReturnType<typeof setTimeout> | null = null;
+
+// ---- 内容模板 ----
+const templates = ref<ContentTemplate[]>([]);
+const selectedTemplate = ref<ContentTemplate | null>(null);
+const templatesLoading = ref(false);
 
 /** 检测 AI 功能是否可用 */
 async function checkAiStatus() {
@@ -142,6 +148,38 @@ async function loadVersions() {
   } catch { /* 版本列表不可用时静默忽略 */ }
 }
 
+// 加载内容模板列表
+async function loadTemplates() {
+  templatesLoading.value = true;
+  try {
+    templates.value = await contentTemplateApi.list(props.workspaceId, props.projectId);
+  } catch { /* 模板列表不可用时静默忽略 */ }
+  templatesLoading.value = false;
+}
+
+// 应用模板到表单
+function applyTemplate(tpl: ContentTemplate) {
+  selectedTemplate.value = tpl;
+  const cj = tpl.content_json || {};
+  if (cj.name && typeof cj.name === "string") {
+    name.value = cj.name;
+  }
+  if (tpl.content_html) {
+    description.value = tpl.content_html;
+  }
+  if (cj.priority && typeof cj.priority === "string") {
+    priorityRef.value = cj.priority;
+  }
+  if (cj.point != null && typeof cj.point === "number") {
+    point.value = cj.point;
+  }
+}
+
+// 清除模板选择
+function clearTemplate() {
+  selectedTemplate.value = null;
+}
+
 const typeOptions: { value: IssueType; label: string; desc: string }[] = [
   { value: "epic", label: "史诗", desc: "顶层容器，包含多个需求/任务/缺陷，对标 Plane Epic" },
   { value: "requirement", label: "需求", desc: "产品需求或用户故事，可分解为子需求" },
@@ -176,7 +214,10 @@ watch(
       classifyResult.value = null;
       duplicates.value = [];
       aiError.value = null;
+      selectedTemplate.value = null;
+      templates.value = [];
       loadVersions();
+      void loadTemplates();
       void checkAiStatus();
     }
   },
@@ -352,6 +393,30 @@ function cancel() {
                 </span>
               </div>
             </template>
+          </div>
+
+          <!-- 内容模板选择 -->
+          <div v-if="templates.length > 0" class="form-group">
+            <label class="form-label">从模板创建</label>
+            <div class="template-picker">
+              <div
+                v-for="tpl in templates.filter(t => t.template_type === selectedType || selectedType === 'epic')"
+                :key="tpl.id"
+                class="template-picker__item"
+                :class="{ 'template-picker__item--active': selectedTemplate?.id === tpl.id }"
+                @click="applyTemplate(tpl)"
+              >
+                <span class="template-picker__name">{{ tpl.name }}</span>
+                <span v-if="tpl.is_default" class="template-picker__badge">默认</span>
+              </div>
+              <button
+                v-if="selectedTemplate"
+                class="template-picker__clear"
+                @click="clearTemplate"
+              >
+                清除模板
+              </button>
+            </div>
           </div>
 
           <div class="form-group">
@@ -932,5 +997,58 @@ function cancel() {
 .ai-dup-item {
   color: var(--text-secondary);
   font-size: 11px;
+}
+
+/* ===== Template Picker ===== */
+.template-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.template-picker__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border: 1px solid var(--border-default);
+  border-radius: 14px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  background: var(--bg-primary);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.template-picker__item:hover {
+  border-color: var(--brand-400);
+  color: var(--brand-600);
+}
+.template-picker__item--active {
+  background: var(--brand-50);
+  border-color: var(--brand-500);
+  color: var(--brand-700);
+}
+.template-picker__name {
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.template-picker__badge {
+  font-size: 9px;
+  padding: 1px 5px;
+  background: var(--brand-100);
+  color: var(--brand-700);
+  border-radius: 8px;
+}
+.template-picker__clear {
+  padding: 4px 8px;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+.template-picker__clear:hover {
+  color: var(--danger-500);
 }
 </style>

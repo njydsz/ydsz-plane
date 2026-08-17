@@ -307,6 +307,16 @@ const router = createRouter({
             projectId: Number(route.params.projectId),
           }),
         },
+        // 内容模板库
+        {
+          path: ":workspaceId(\\d+)/projects/:projectId/content-templates",
+          name: "content-templates",
+          component: () => import("@/views/project/ContentTemplateView.vue"),
+          props: (route) => ({
+            workspaceId: Number(route.params.workspaceId),
+            projectId: Number(route.params.projectId),
+          }),
+        },
         // 日历视图
         {
           path: ":workspaceId(\\d+)/projects/:projectId/calendar",

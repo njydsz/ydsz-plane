@@ -13,6 +13,7 @@ import {
 } from "@/api/services/workspace";
 import { AppErrorState, AppSkeleton } from "@/components";
 import { toast } from "@/lib/toast";
+import { useBrandColor, BRAND_COLOR_PRESETS } from "@/composables/useBrandColor";
 
 const route = useRoute();
 const workspaceId = computed(() => Number(route.params.workspaceId ?? 0));
@@ -23,8 +24,13 @@ const ws = ref<Workspace | null>(null);
 const invitations = ref<Invitation[]>([]);
 const saving = ref(false);
 
-const form = ref({ name: "", timezone: "Asia/Shanghai", language: "zh-CN" });
+const form = ref({ name: "", timezone: "Asia/Shanghai", language: "zh-CN", brand_color: "" });
 const invite = ref({ email: "", role: "member" });
+
+// 品牌色
+const workspaceBrandColor = ref<string | undefined>(undefined);
+const brand = useBrandColor(workspaceBrandColor);
+const brandSaving = ref(false);
 
 async function load() {
   if (!workspaceId.value) { loading.value = false; return; }
@@ -36,7 +42,8 @@ async function load() {
       workspaceApi.listInvitations(workspaceId.value).catch(() => [] as Invitation[]),
     ]);
     ws.value = w;
-    form.value = { name: w.name, timezone: w.timezone, language: w.language };
+    form.value = { name: w.name, timezone: w.timezone, language: w.language, brand_color: "" };
+    workspaceBrandColor.value = w.brand_color || undefined;
     invitations.value = inv;
   } catch (err: unknown) {
     error.value = err instanceof Error ? err.message : "加载失败";
@@ -55,6 +62,19 @@ async function save() {
     toast.error(err instanceof Error ? err.message : "保存失败");
   } finally {
     saving.value = false;
+  }
+}
+
+async function saveBrandColor(color: string) {
+  brandSaving.value = true;
+  try {
+    await workspaceApi.update(workspaceId.value, { brand_color: color || undefined });
+    workspaceBrandColor.value = color || undefined;
+    toast.success("品牌色已更新");
+  } catch (err: unknown) {
+    toast.error(err instanceof Error ? err.message : "保存失败");
+  } finally {
+    brandSaving.value = false;
   }
 }
 
@@ -120,6 +140,59 @@ onMounted(load);
         >
           {{ saving ? "保存中…" : "保存" }}
         </button>
+      </section>
+
+      <!-- 品牌定制 -->
+      <section class="space-y-3 rounded-md border border-[var(--border-subtle)] p-4">
+        <h2 class="text-sm font-semibold text-[var(--text-secondary)]">品牌定制</h2>
+        <p class="text-xs text-[var(--text-tertiary)]">自定义工作空间主题色，全局应用</p>
+        <div>
+          <label class="text-xs text-[var(--text-tertiary)]">品牌色</label>
+          <div class="mt-2 flex items-center gap-3">
+            <input
+              v-model="brand.currentColor"
+              type="color"
+              class="h-9 w-12 cursor-pointer rounded border border-[var(--border-subtle)] p-0.5"
+            />
+            <input
+              v-model="brand.currentColor"
+              type="text"
+              placeholder="#2563eb"
+              class="w-28 rounded-md border border-[var(--border-subtle)] px-3 py-1.5 text-sm uppercase"
+            />
+            <button
+              :disabled="brandSaving"
+              class="rounded-md bg-[var(--brand-600)] px-3 py-1.5 text-xs font-medium text-white hover:bg-[var(--brand-700)] disabled:opacity-50"
+              @click="saveBrandColor(brand.currentColor)"
+            >
+              {{ brandSaving ? "保存中…" : "应用" }}
+            </button>
+            <button
+              class="rounded-md border border-[var(--border-subtle)] px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)]"
+              @click="brand.resetBrandColor(); saveBrandColor('')"
+            >
+              重置
+            </button>
+          </div>
+        </div>
+        <div class="mt-2">
+          <label class="text-xs text-[var(--text-tertiary)]">预设色板</label>
+          <div class="mt-2 flex flex-wrap gap-2">
+            <button
+              v-for="preset in brand.presets"
+              :key="preset.value"
+              class="flex items-center gap-1.5 rounded-md border border-[var(--border-subtle)] px-2.5 py-1.5 text-xs transition-all hover:border-[var(--brand-400)] hover:shadow-sm"
+              :class="{ 'ring-2 ring-[var(--brand-500)] ring-offset-1': brand.currentColor === preset.value }"
+              @click="brand.setBrandColor(preset.value); saveBrandColor(preset.value)"
+            >
+              <span
+                class="inline-block h-3.5 w-3.5 rounded-full border border-[var(--border-subtle)]"
+                :style="{ backgroundColor: preset.value }"
+              ></span>
+              {{ preset.name }}
+            </button>
+          </div>
+        </div>
       </section>
 
       <!-- 成员邀请 -->

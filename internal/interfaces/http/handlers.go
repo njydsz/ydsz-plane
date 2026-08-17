@@ -108,7 +108,7 @@ func updateWorkspace(d *Deps) gin.HandlerFunc {
 			return
 		}
 		ws, err := d.WorkspaceSvc.Update(c.Request.Context(), wsID, workspace.UpdateInput{
-			Name: req.Name, Timezone: req.Timezone, Language: req.Language, LogoURL: req.LogoURL,
+			Name: req.Name, Timezone: req.Timezone, Language: req.Language, LogoURL: req.LogoURL, BrandColor: req.BrandColor,
 		})
 		if err != nil {
 			writeError(c, err)

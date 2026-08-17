@@ -6,10 +6,26 @@ import { useRoute } from "vue-router";
 import CommandPalette from "@/components/CommandPalette.vue";
 import AppToast from "@/components/AppToast.vue";
 import OnboardingTour from "@/components/OnboardingTour.vue";
+import { useWorkspaceStore } from "@/stores/workspace";
+import { applyBrandColor, clearBrandColor } from "@/composables/useBrandColor";
 
 const route = useRoute();
+const wsStore = useWorkspaceStore();
 const onboardingWsId = ref<string | null>(null);
 const onboardingWsName = ref<string>("");
+
+/** 监听当前workspace变化，应用品牌色 */
+watch(
+  () => wsStore.current?.brand_color,
+  (color) => {
+    if (color) {
+      applyBrandColor(color);
+    } else {
+      clearBrandColor();
+    }
+  },
+  { immediate: true },
+);
 
 /** 检测是否需要显示新手引导（sessionStorage 中存在 pending-onboarding:{wsId} 且未完成过）。 */
 function checkOnboarding() {
