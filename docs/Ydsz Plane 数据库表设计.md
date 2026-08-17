@@ -89,7 +89,7 @@ CREATE TYPE project_role_enum AS ENUM ('admin', 'member');
 租户（tenants）
   └── 工作空间（workspaces）
         └── 项目（projects）
-              └── 工作项（task / requirement / defect）
+              └── 需求/任务/缺陷（task / requirement / defect）
 ```
 
 - **租户（tenants）**：组织级实体，代表公司/部门/团队
@@ -386,7 +386,7 @@ tenants ──< users ──< user_roles >── roles ──< role_menus >─�
 
 ---
 
-## 3、工作项域
+## 3、需求/任务/缺陷域
 
 ### 11. `task` — 任务
 
@@ -522,7 +522,7 @@ tenants ──< users ──< user_roles >── roles ──< role_menus >─�
 
 ---
 
-## 4、工作项关联表
+## 4、需求/任务/缺陷关联表
 
 ### 14. `task_assignees` — 任务执行人
 
@@ -817,7 +817,7 @@ tenants ──< users ──< user_roles >── roles ──< role_menus >─�
 | tenant_id | BIGINT | NOT NULL | 租户ID |
 | workspace_id | BIGINT | NOT NULL | 工作空间ID |
 | project_id | BIGINT | NOT NULL | 项目ID |
-| type_code | VARCHAR(20) | DEFAULT 'all' | 工作项类型 |
+| type_code | VARCHAR(20) | DEFAULT 'all' | 需求/任务/缺陷类型 |
 | from_state_id | BIGINT | NOT NULL | 起始状态 |
 | to_state_id | BIGINT | NOT NULL | 目标状态 |
 | required_fields | JSONB | DEFAULT '[]' | 必填字段 |
@@ -2598,7 +2598,7 @@ tenants ──< users ──< user_roles >── roles ──< role_menus >─�
 - 租户域：tenants, tenant_members, users, user_roles, roles, menus, role_menus, user_preferences
 - 工作空间域：workspaces, workspace_members, invitations
 - 项目域：projects, project_members, project_sequences, project_configs, modules, labels, estimate_points
-- 工作项域：task, requirement, defect, task_assignees, task_labels, task_modules, task_watchers, task_relations, task_comments, task_activities, task_timelogs, task_attachments, task_ext, requirement_assignees, requirement_labels, requirement_modules, requirement_watchers, requirement_relations, requirement_comments, requirement_activities, requirement_timelogs, requirement_attachments, requirement_ext, defect_assignees, defect_labels, defect_modules, defect_watchers, defect_relations, defect_comments, defect_activities, defect_timelogs, defect_attachments, defect_ext, biz_entity_relations
+- 需求/任务/缺陷域：task, requirement, defect, task_assignees, task_labels, task_modules, task_watchers, task_relations, task_comments, task_activities, task_timelogs, task_attachments, task_ext, requirement_assignees, requirement_labels, requirement_modules, requirement_watchers, requirement_relations, requirement_comments, requirement_activities, requirement_timelogs, requirement_attachments, requirement_ext, defect_assignees, defect_labels, defect_modules, defect_watchers, defect_relations, defect_comments, defect_activities, defect_timelogs, defect_attachments, defect_ext, biz_entity_relations
 - 迭代域：sprints, sprint_snapshots, sprint_requirements, sprint_tasks, sprint_defects, version_sprint_relations
 - 版本域：versions, version_delivery_snapshots
 - 状态域：states, state_transitions

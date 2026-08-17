@@ -161,7 +161,7 @@ internal/application/
 ├── preference/    # 用户偏好
 ├── search/        # 搜索查询编排
 ├── sprint/        # 迭代
-├── version/       # 版本（Version），版本日为其发布日期属性
+├── version/       # 版本（Version），target_date 为其发布日期属性
 ├── webhook/       # Webhook 出站
 ├── workbench/     # 工作台
 └── workspace/     # 工作空间

@@ -8,7 +8,7 @@
  *  - 删除二次确认（AppModal style overlay）
  *  - 软删除归档（status → archived）
  *
- * 注意：模块 schema 中不含 target_version_id，PRD 提到的"目标版本日"列暂缺。
+ * 注意：模块 schema 中不含 target_version_id，PRD 提到的"目标版本"列暂缺。
  */
 import { computed, onMounted, ref } from "vue";
 

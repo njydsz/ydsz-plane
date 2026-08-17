@@ -1,7 +1,7 @@
 # **<font style="color:rgb(31,78,121);">1. 概述</font>**
-本文档是Ydsz Plane 项目管理工具的最终完整产品需求文档 (PRD V1.0)，融合了产品架构框架、工作项属性竞品对比、以及效率增强功能的详细需求描述。文档对标云效、TAPD、ONES、PingCode、Jira 等主流产品，结合 Ydsz Plane 项目现有代码实现，形成从顶层架构到字段级规格再到功能级交互说明的完整需求层次。
+本文档是Ydsz Plane 项目管理工具的最终完整产品需求文档 (PRD V1.0)，融合了产品架构框架、需求/任务/缺陷属性竞品对比、以及效率增强功能的详细需求描述。文档对标云效、TAPD、ONES、PingCode、Jira 等主流产品，结合 Ydsz Plane 项目现有代码实现，形成从顶层架构到字段级规格再到功能级交互说明的完整需求层次。
 
-在产品经理（提需求）、技术经理（提任务）、测试经理（提缺陷）的典型团队协作模式下，需求、任务、缺陷三类工作项通过 WBS 层级结构化解耦关联，实现从宏观规划到微观执行的完整追踪。
+在产品经理（提需求）、技术经理（提任务）、测试经理（提缺陷）的典型团队协作模式下，需求、任务、缺陷三类实体通过 WBS 层级结构化解耦关联，实现从宏观规划到微观执行的完整追踪。
 
 ## **<font style="color:rgb(46,117,182);">1.1 产品定位</font>**
 Ydsz Plane 致力于打造面向中国软件开发团队的开源、自托管项目管理平台，深度融合云效/TAPD/ONES 在需求管理、任务管理、缺陷管理、迭代协同方面的本土化实践，补齐项目仪表盘、个人工作台等效率增强能力，成为真正符合国内软件研发现状的「开源 PM SaaS 底座」。
@@ -11,11 +11,11 @@ Ydsz Plane 是一款开源的现代项目管理工具，提供需求池、迭代
 ## **<font style="color:rgb(46,117,182);">1.2 核心架构</font>**
 工作空间 (Workspace) ⟶ 项目 (Project) ⟶ 需求 (Requirement) / 任务 (Task) / 缺陷 (Defect)
 
-• 需求、任务、缺陷为三类独立的业务实体，各自独立建表、独立追踪（不存在统一的 Issue 单表模型）
+• 需求、任务、缺陷为三类独立的业务实体，各自独立建表、独立追踪（不存在统一的需求/任务/缺陷单表模型）
 
 • 三类实体通过 parent 字段实现 WBS 层级：需求→子需求，任务→子任务，缺陷→子缺陷
 
-• 版本日 (Version) = 1~N 迭代 (Sprint) 的里程碑容器
+• 版本 (Version) = 1~N 迭代 (Sprint) 的里程碑容器
 
 • 模块 (Module) 是需求/任务/缺陷的归档属性，非独立管理对象
 
@@ -27,9 +27,9 @@ Ydsz Plane 是一款开源的现代项目管理工具，提供需求池、迭代
 | <font style="color:rgb(51,51,51);">需求管理</font><font style="color:rgb(51,51,51);"> (含子需求)</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> |
 | <font style="color:rgb(51,51,51);">任务管理</font><font style="color:rgb(51,51,51);"> (含子任务)</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> |
 | <font style="color:rgb(51,51,51);">缺陷管理</font><font style="color:rgb(51,51,51);"> (含子缺陷)</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> |
-| <font style="color:rgb(51,51,51);">模块</font><font style="color:rgb(51,51,51);"> (=工作项归档属性)</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">△ 修正中</font> |
+| <font style="color:rgb(51,51,51);">模块</font><font style="color:rgb(51,51,51);"> (=需求/任务/缺陷归档属性)</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">△ 修正中</font> |
 | <font style="color:rgb(51,51,51);">迭代</font><font style="color:rgb(51,51,51);"> (Sprint)</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> |
-| <font style="color:rgb(51,51,51);">版本日</font><font style="color:rgb(51,51,51);"> (=1~N 迭代)</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">○</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">△ 规划中</font> |
+| <font style="color:rgb(51,51,51);">版本</font><font style="color:rgb(51,51,51);"> (=1~N 迭代)</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">○</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">△ 规划中</font> |
 | <font style="color:rgb(51,51,51);">项目仪表盘</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">△ 增强中</font> |
 | <font style="color:rgb(51,51,51);">个人工作台</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">△ 增强中</font> |
 | <font style="color:rgb(51,51,51);">收件箱</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> |
@@ -43,24 +43,24 @@ Ydsz Plane 是一款开源的现代项目管理工具，提供需求池、迭代
 | --- | --- | --- | --- | --- |
 | <font style="color:rgb(51,51,51);">L0</font> | <font style="color:rgb(51,51,51);">工作空间</font> | <font style="color:rgb(51,51,51);">组织</font> | <font style="color:rgb(51,51,51);">企业</font><font style="color:rgb(51,51,51);">/团队级容器，隔离数据与成员</font> | <font style="color:rgb(51,51,51);">IT 管理员</font> |
 | <font style="color:rgb(51,51,51);">L1</font> | <font style="color:rgb(51,51,51);">项目</font> | <font style="color:rgb(51,51,51);">项目</font> | <font style="color:rgb(51,51,51);">具体产品的研发或交付项目</font> | <font style="color:rgb(51,51,51);">项目经理</font><font style="color:rgb(51,51,51);"> / Scrum Master</font> |
-| <font style="color:rgb(51,51,51);">L2a</font> | <font style="color:rgb(51,51,51);">版本日</font> | <font style="color:rgb(51,51,51);">里程碑</font> | <font style="color:rgb(51,51,51);">产品发版里程碑，含</font><font style="color:rgb(51,51,51);"> 1~N 个迭代</font> | <font style="color:rgb(51,51,51);">产品经理</font><font style="color:rgb(51,51,51);"> / 发布经理</font> |
+| <font style="color:rgb(51,51,51);">L2a</font> | <font style="color:rgb(51,51,51);">版本</font> | <font style="color:rgb(51,51,51);">里程碑</font> | <font style="color:rgb(51,51,51);">产品发版里程碑，含</font><font style="color:rgb(51,51,51);"> 1~N 个迭代</font> | <font style="color:rgb(51,51,51);">产品经理</font><font style="color:rgb(51,51,51);"> / 发布经理</font> |
 | <font style="color:rgb(51,51,51);">L2b</font> | <font style="color:rgb(51,51,51);">迭代</font> | <font style="color:rgb(51,51,51);">时间盒</font> | <font style="color:rgb(51,51,51);">固定周期开发单元</font><font style="color:rgb(51,51,51);"> (Sprint)</font> | <font style="color:rgb(51,51,51);">Scrum Master / Tech Lead</font> |
-| <font style="color:rgb(51,51,51);">L3</font> | <font style="color:rgb(51,51,51);">需求</font> | <font style="color:rgb(51,51,51);">工作项</font> | <font style="color:rgb(51,51,51);">产品经理提出，可拆分子需求</font> | <font style="color:rgb(51,51,51);">产品经理</font> |
-| <font style="color:rgb(51,51,51);">L3</font> | <font style="color:rgb(51,51,51);">任务</font> | <font style="color:rgb(51,51,51);">工作项</font> | <font style="color:rgb(51,51,51);">技术经理提出，可拆分子任务</font> | <font style="color:rgb(51,51,51);">技术经理</font> |
-| <font style="color:rgb(51,51,51);">L3</font> | <font style="color:rgb(51,51,51);">缺陷</font> | <font style="color:rgb(51,51,51);">工作项</font> | <font style="color:rgb(51,51,51);">由需求</font><font style="color:rgb(51,51,51);">/任务产生，可拆分子缺陷</font> | <font style="color:rgb(51,51,51);">测试经理</font><font style="color:rgb(51,51,51);"> / QA</font> |
+| <font style="color:rgb(51,51,51);">L3</font> | <font style="color:rgb(51,51,51);">需求</font> | <font style="color:rgb(51,51,51);">需求/任务/缺陷</font> | <font style="color:rgb(51,51,51);">产品经理提出，可拆分子需求</font> | <font style="color:rgb(51,51,51);">产品经理</font> |
+| <font style="color:rgb(51,51,51);">L3</font> | <font style="color:rgb(51,51,51);">任务</font> | <font style="color:rgb(51,51,51);">需求/任务/缺陷</font> | <font style="color:rgb(51,51,51);">技术经理提出，可拆分子任务</font> | <font style="color:rgb(51,51,51);">技术经理</font> |
+| <font style="color:rgb(51,51,51);">L3</font> | <font style="color:rgb(51,51,51);">缺陷</font> | <font style="color:rgb(51,51,51);">需求/任务/缺陷</font> | <font style="color:rgb(51,51,51);">由需求</font><font style="color:rgb(51,51,51);">/任务产生，可拆分子缺陷</font> | <font style="color:rgb(51,51,51);">测试经理</font><font style="color:rgb(51,51,51);"> / QA</font> |
 | <font style="color:rgb(51,51,51);">属性</font> | <font style="color:rgb(51,51,51);">模块</font> | <font style="color:rgb(51,51,51);">归档属性</font> | <font style="color:rgb(51,51,51);">需求</font><font style="color:rgb(51,51,51);">/任务/缺陷的分类维度</font> | <font style="color:rgb(51,51,51);">产品负责人</font><font style="color:rgb(51,51,51);"> / 架构师</font> |
 
 
-## **<font style="color:rgb(46,117,182);">3.2 版本日-迭代关系模型</font>**
-一个版本日（里程碑）的达成，可能涉及 1 个或者多个迭代周期。Version 是面向市场的发版节奏，迭代是面向团队的开发节奏。
+## **<font style="color:rgb(46,117,182);">3.2 版本-迭代关系模型</font>**
+一个版本（里程碑）的达成，可能涉及 1 个或者多个迭代周期。Version 是面向市场的发版节奏，迭代是面向团队的开发节奏。
 
-• 版本日 v2.6（6月30日发版）包含 Sprint-12（5月）、Sprint-13（6月上）、Sprint-14（6月下）
+• 版本 v2.6（6月30日发版）包含 Sprint-12（5月）、Sprint-13（6月上）、Sprint-14（6月下）
 
-• 版本日 v2.7（9月30日发版）包含 Sprint-15~Sprint-18 共 4 个迭代
+• 版本 v2.7（9月30日发版）包含 Sprint-15~Sprint-18 共 4 个迭代
 
-• 版本日具有独立的交付目标、准出标准、检查清单和 Release Notes
+• 版本具有独立的交付目标、准出标准、检查清单和 Release Notes
 
-• 迭代是版本日的组成单元，迭代完成度汇总到版本日进度
+• 迭代是版本的组成单元，迭代完成度汇总到版本进度
 
 ## **<font style="color:rgb(46,117,182);">3.3 需求-任务-缺陷联动模型（核心）</font>**
 核心原则：
@@ -94,23 +94,23 @@ Ydsz Plane 是一款开源的现代项目管理工具，提供需求池、迭代
 
 • ✅ 三级 WBS 层级 — 子需求/子任务/子缺陷均支持三级层级
 
-## **<font style="color:rgb(46,117,182);">3.4 模块 = 工作项归档属性</font>**
+## **<font style="color:rgb(46,117,182);">3.4 模块 = 需求/任务/缺陷归档属性</font>**
 模块不是单独的对象，而是需求、任务、缺陷的一个归档属性（标签/分类维度）。对标 ONES 模块、云效模块。
 
 • 模块列表在工作空间/项目维度维护：支付模块、订单模块、用户模块、消息模块
 
 • 模块作为必填或选填字段出现在需求/任务/缺陷的创建表单中
 
-• 工作项可按模块过滤、分组、统计
+• 需求/任务/缺陷可按模块过滤、分组、统计
 
-• 模块不独立存在，不能脱离工作项被单独访问
+• 模块不独立存在，不能脱离需求/任务/缺陷被单独访问
 
 • 模块可关联模块负责人（Owner），但不具备独立的权限体系
 
-• 模块可标记目标交付版本日
+• 模块可标记目标交付版本
 
 ## **<font style="color:rgb(46,117,182);">3.5 WBS 三层级结构</font>**
-| **<font style="color:rgb(255,255,255);">工作项类型</font>** | **<font style="color:rgb(255,255,255);">第一层</font>** | **<font style="color:rgb(255,255,255);">第二层</font>** | **<font style="color:rgb(255,255,255);">第三层</font>** |
+| **<font style="color:rgb(255,255,255);">需求/任务/缺陷类型</font>** | **<font style="color:rgb(255,255,255);">第一层</font>** | **<font style="color:rgb(255,255,255);">第二层</font>** | **<font style="color:rgb(255,255,255);">第三层</font>** |
 | --- | --- | --- | --- |
 | <font style="color:rgb(51,51,51);">需求</font> | <font style="color:rgb(51,51,51);">Epic (史诗)</font> | <font style="color:rgb(51,51,51);">Feature (特性)</font> | <font style="color:rgb(51,51,51);">Story (用户故事)</font> |
 | <font style="color:rgb(51,51,51);">任务</font> | <font style="color:rgb(51,51,51);">主任务</font> | <font style="color:rgb(51,51,51);">子任务</font> | <font style="color:rgb(51,51,51);">子子任务</font> |
@@ -120,8 +120,8 @@ Ydsz Plane 是一款开源的现代项目管理工具，提供需求池、迭代
   
 
 
-# **<font style="color:rgb(31,78,121);">4. 工作项属性详细对比（</font>****<font style="color:rgb(31,78,121);">Ydsz Plane</font>****<font style="color:rgb(31,78,121);"> vs 竞品）</font>**
-本章从Ydsz Plane 项目代码模型出发，对比各竞品的工作项属性设计。
+# **<font style="color:rgb(31,78,121);">4. 需求/任务/缺陷属性详细对比（</font>****<font style="color:rgb(31,78,121);">Ydsz Plane</font>****<font style="color:rgb(31,78,121);"> vs 竞品）</font>**
+本章从Ydsz Plane 项目代码模型出发，对比各竞品的需求/任务/缺陷属性设计。
 
 ## **<font style="color:rgb(46,117,182);">4.1 需求 (Requirement) 属性对比</font>**
 需求由产品经理提出，描述产品需要实现的功能或解决的问题。需求可拆分为子需求（Epic→Feature→Story 模式）。
@@ -150,7 +150,7 @@ Ydsz Plane 是一款开源的现代项目管理工具，提供需求池、迭代
 | <font style="color:rgb(51,51,51);">估算工时</font><font style="color:rgb(51,51,51);"> (Estimate)</font> | <font style="color:rgb(51,51,51);">estimate_point FK</font> | <font style="color:rgb(51,51,51);">Estimation</font> | <font style="color:rgb(51,51,51);">预计工作量</font> | <font style="color:rgb(51,51,51);">预计工作量</font> | <font style="color:rgb(51,51,51);">预计工作量</font> |
 | <font style="color:rgb(51,51,51);">完成时间</font><font style="color:rgb(51,51,51);"> (Completed)</font> | <font style="color:rgb(51,51,51);">completed_at</font> | <font style="color:rgb(51,51,51);">Resolved</font> | <font style="color:rgb(51,51,51);">完成时间</font> | <font style="color:rgb(51,51,51);">关闭时间</font> | <font style="color:rgb(51,51,51);">完成时间</font> |
 | <font style="color:rgb(51,51,51);">附件</font><font style="color:rgb(51,51,51);"> (Attachments)</font> | <font style="color:rgb(51,51,51);">IssueAttachment</font> | <font style="color:rgb(51,51,51);">Attachment</font> | <font style="color:rgb(51,51,51);">附件</font> | <font style="color:rgb(51,51,51);">附件</font> | <font style="color:rgb(51,51,51);">附件</font> |
-| <font style="color:rgb(51,51,51);">关联工作项</font><font style="color:rgb(51,51,51);"> (Relations)</font> | <font style="color:rgb(51,51,51);">IssueRelation (6种)</font> | <font style="color:rgb(51,51,51);">Linked Issues</font> | <font style="color:rgb(51,51,51);">关联</font> | <font style="color:rgb(51,51,51);">关联需求</font><font style="color:rgb(51,51,51);">/缺陷</font> | <font style="color:rgb(51,51,51);">关联需求</font><font style="color:rgb(51,51,51);">/缺陷</font> |
+| <font style="color:rgb(51,51,51);">关联需求/任务/缺陷</font><font style="color:rgb(51,51,51);"> (Relations)</font> | <font style="color:rgb(51,51,51);">IssueRelation (6种)</font> | <font style="color:rgb(51,51,51);">Linked Issues</font> | <font style="color:rgb(51,51,51);">关联</font> | <font style="color:rgb(51,51,51);">关联需求</font><font style="color:rgb(51,51,51);">/缺陷</font> | <font style="color:rgb(51,51,51);">关联需求</font><font style="color:rgb(51,51,51);">/缺陷</font> |
 | <font style="color:rgb(51,51,51);">来源</font><font style="color:rgb(51,51,51);"> (Source)</font> | <font style="color:rgb(51,51,51);">— (建议补充)</font> | <font style="color:rgb(51,51,51);">Custom Field</font> | <font style="color:rgb(51,51,51);">客户反馈</font><font style="color:rgb(51,51,51);">/内部</font> | <font style="color:rgb(51,51,51);">来源</font> | <font style="color:rgb(51,51,51);">来源</font> |
 | <font style="color:rgb(51,51,51);">进度</font><font style="color:rgb(51,51,51);"> (%)</font> | <font style="color:rgb(51,51,51);">自动</font><font style="color:rgb(51,51,51);"> (子需求完成率)</font> | <font style="color:rgb(51,51,51);">自动</font> | <font style="color:rgb(51,51,51);">进度</font> | <font style="color:rgb(51,51,51);">进度</font> | <font style="color:rgb(51,51,51);">进度</font> |
 | <font style="color:rgb(51,51,51);">是否草稿</font> | <font style="color:rgb(51,51,51);">is_draft</font> | <font style="color:rgb(51,51,51);">—</font> | <font style="color:rgb(51,51,51);">草稿</font> | <font style="color:rgb(51,51,51);">草稿</font> | <font style="color:rgb(51,51,51);">草稿</font> |
@@ -174,12 +174,12 @@ Ydsz Plane 是一款开源的现代项目管理工具，提供需求池、迭代
 
 3. 需求来源：区分客户反馈、内部需求、竞品需求等
 
-4. 修复/影响版本：关联版本日，便于追溯需求在哪个版本发布
+4. 修复/影响版本：关联版本，便于追溯需求在哪个版本发布
 
 5. 进度自动计算：基于子需求完成状态自动更新
 
 ## **<font style="color:rgb(46,117,182);">4.2 任务 (Task) 属性对比</font>**
-任务由技术经理提出，描述研发侧需要完成的具体工作项。任务可拆分为子任务。
+任务由技术经理提出，描述研发侧需要完成的具体任务。任务可拆分为子任务。
 
 | **<font style="color:rgb(255,255,255);">属性名</font>** | **<font style="color:rgb(255,255,255);">Ydsz Plane</font>** | **<font style="color:rgb(255,255,255);">Jira</font>** | **<font style="color:rgb(255,255,255);">云效</font>** | **<font style="color:rgb(255,255,255);">TAPD</font>** | **<font style="color:rgb(255,255,255);">ONES/PingCode</font>** |
 | --- | --- | --- | --- | --- | --- |
@@ -205,7 +205,7 @@ Ydsz Plane 是一款开源的现代项目管理工具，提供需求池、迭代
 | <font style="color:rgb(51,51,51);">完成时间</font><font style="color:rgb(51,51,51);"> (Completed)</font> | <font style="color:rgb(51,51,51);">completed_at</font> | <font style="color:rgb(51,51,51);">Resolved</font> | <font style="color:rgb(51,51,51);">完成时间</font> | <font style="color:rgb(51,51,51);">关闭时间</font> | <font style="color:rgb(51,51,51);">完成时间</font> |
 | <font style="color:rgb(51,51,51);">延期原因</font><font style="color:rgb(51,51,51);"> (Delay Reason)</font> | <font style="color:rgb(51,51,51);">— (建议补充)</font> | <font style="color:rgb(51,51,51);">Custom Field</font> | <font style="color:rgb(51,51,51);">—</font> | <font style="color:rgb(51,51,51);">—</font> | <font style="color:rgb(51,51,51);">延期原因</font> |
 | <font style="color:rgb(51,51,51);">附件</font><font style="color:rgb(51,51,51);"> (Attachments)</font> | <font style="color:rgb(51,51,51);">IssueAttachment</font> | <font style="color:rgb(51,51,51);">Attachment</font> | <font style="color:rgb(51,51,51);">附件</font> | <font style="color:rgb(51,51,51);">附件</font> | <font style="color:rgb(51,51,51);">附件</font> |
-| <font style="color:rgb(51,51,51);">关联工作项</font><font style="color:rgb(51,51,51);"> (Relations)</font> | <font style="color:rgb(51,51,51);">IssueRelation (6种)</font> | <font style="color:rgb(51,51,51);">Linked Issues</font> | <font style="color:rgb(51,51,51);">关联</font> | <font style="color:rgb(51,51,51);">关联需求</font><font style="color:rgb(51,51,51);">/缺陷</font> | <font style="color:rgb(51,51,51);">关联需求</font><font style="color:rgb(51,51,51);">/缺陷</font> |
+| <font style="color:rgb(51,51,51);">关联需求/任务/缺陷</font><font style="color:rgb(51,51,51);"> (Relations)</font> | <font style="color:rgb(51,51,51);">IssueRelation (6种)</font> | <font style="color:rgb(51,51,51);">Linked Issues</font> | <font style="color:rgb(51,51,51);">关联</font> | <font style="color:rgb(51,51,51);">关联需求</font><font style="color:rgb(51,51,51);">/缺陷</font> | <font style="color:rgb(51,51,51);">关联需求</font><font style="color:rgb(51,51,51);">/缺陷</font> |
 | <font style="color:rgb(51,51,51);">关联需求</font><font style="color:rgb(51,51,51);"> (Related Req)</font> | <font style="color:rgb(51,51,51);">IssueRelation (implemented_by)</font> | <font style="color:rgb(51,51,51);">Linked Issues</font> | <font style="color:rgb(51,51,51);">关联需求</font> | <font style="color:rgb(51,51,51);">关联需求</font> | <font style="color:rgb(51,51,51);">关联需求</font> |
 | <font style="color:rgb(51,51,51);">进度</font><font style="color:rgb(51,51,51);"> (%)</font> | <font style="color:rgb(51,51,51);">自动</font><font style="color:rgb(51,51,51);"> (子任务完成率)</font> | <font style="color:rgb(51,51,51);">自动</font> | <font style="color:rgb(51,51,51);">进度</font> | <font style="color:rgb(51,51,51);">进度</font> | <font style="color:rgb(51,51,51);">进度</font> |
 
@@ -284,7 +284,7 @@ Ydsz Plane 是一款开源的现代项目管理工具，提供需求池、迭代
 
 11. 发现阶段 (Found Phase)：枚举（单元测试/集成测试/UAT/线上/客户反馈），必填
 
-12. 发现/修复版本 (Found/Fix Version)：关联版本日字段，唯一必填
+12. 发现/修复版本 (Found/Fix Version)：关联版本字段，唯一必填
 
 13. 环境信息 (Environment)：可选文本，记录测试环境/浏览器/设备信息
 
@@ -295,8 +295,8 @@ Ydsz Plane 是一款开源的现代项目管理工具，提供需求池、迭代
   
 
 
-# **<font style="color:rgb(31,78,121);">5. 版本日与迭代属性对比</font>**
-## **<font style="color:rgb(46,117,182);">5.1 版本日 (Version) 属性</font>**
+# **<font style="color:rgb(31,78,121);">5. 版本与迭代属性对比</font>**
+## **<font style="color:rgb(46,117,182);">5.1 版本 (Version) 属性</font>**
 | **<font style="color:rgb(255,255,255);">属性名</font>** | **<font style="color:rgb(255,255,255);">Ydsz Plane</font>** | **<font style="color:rgb(255,255,255);">Jira (Fix Version)</font>** | **<font style="color:rgb(255,255,255);">云效</font>****<font style="color:rgb(255,255,255);"> (发布计划)</font>** | **<font style="color:rgb(255,255,255);">ONES (规划)</font>** |
 | --- | --- | --- | --- | --- |
 | <font style="color:rgb(51,51,51);">名称</font> | <font style="color:rgb(51,51,51);">— (需新建)</font> | <font style="color:rgb(51,51,51);">Version Name</font> | <font style="color:rgb(51,51,51);">发布名称</font> | <font style="color:rgb(51,51,51);">版本名称</font> |
@@ -319,10 +319,10 @@ Ydsz Plane 是一款开源的现代项目管理工具，提供需求池、迭代
 | <font style="color:rgb(51,51,51);">状态</font> | <font style="color:rgb(51,51,51);">— (active/closed)</font> | <font style="color:rgb(51,51,51);">Active/Closed</font> | <font style="color:rgb(51,51,51);">计划中</font><font style="color:rgb(51,51,51);">/进行中/已完成</font> | <font style="color:rgb(51,51,51);">未开始</font><font style="color:rgb(51,51,51);">/进行中/已完成</font> | <font style="color:rgb(51,51,51);">进行中</font><font style="color:rgb(51,51,51);">/已完成</font> |
 | <font style="color:rgb(51,51,51);">进度快照</font> | <font style="color:rgb(51,51,51);">progress_snapshot</font> | <font style="color:rgb(51,51,51);">—</font> | <font style="color:rgb(51,51,51);">—</font> | <font style="color:rgb(51,51,51);">完成进度</font><font style="color:rgb(51,51,51);">%</font> | <font style="color:rgb(51,51,51);">—</font> |
 | <font style="color:rgb(51,51,51);">版本</font> | <font style="color:rgb(51,51,51);">version (FK)</font> | <font style="color:rgb(51,51,51);">—</font> | <font style="color:rgb(51,51,51);">归属版本</font> | <font style="color:rgb(51,51,51);">归属版本</font> | <font style="color:rgb(51,51,51);">—</font> |
-| <font style="color:rgb(51,51,51);">工作项类型过滤</font> | <font style="color:rgb(51,51,51);">display_filters.type</font> | <font style="color:rgb(51,51,51);">—</font> | <font style="color:rgb(51,51,51);">—</font> | <font style="color:rgb(51,51,51);">—</font> | <font style="color:rgb(51,51,51);">—</font> |
+| <font style="color:rgb(51,51,51);">需求/任务/缺陷类型过滤</font> | <font style="color:rgb(51,51,51);">display_filters.type</font> | <font style="color:rgb(51,51,51);">—</font> | <font style="color:rgb(51,51,51);">—</font> | <font style="color:rgb(51,51,51);">—</font> | <font style="color:rgb(51,51,51);">—</font> |
 
 
-## **<font style="color:rgb(46,117,182);">5.3 版本日模型设计建议</font>**
+## **<font style="color:rgb(46,117,182);">5.3 版本模型设计建议</font>**
 • 建议在现有Sprint 模型之上新增 Version 模型，一个 Version 包含 1~N 个 Sprints。
 
 • Version 的状态流转：规划中 ⟶ 开发中 ⟶ 已发布 ⟶ 已归档（可选）。
@@ -341,7 +341,7 @@ Ydsz Plane 是一款开源的现代项目管理工具，提供需求池、迭代
 | <font style="color:rgb(51,51,51);">sequence</font> | <font style="color:rgb(51,51,51);">IntegerField</font> | <font style="color:rgb(51,51,51);">排序权重</font> |
 | <font style="color:rgb(51,51,51);">group</font> | <font style="color:rgb(51,51,51);">Choices: backlog/unstarted/started/completed/cancelled/triage</font> | <font style="color:rgb(51,51,51);">状态分组（决定统计口径）</font> |
 | <font style="color:rgb(51,51,51);">is_triage</font> | <font style="color:rgb(51,51,51);">BooleanField</font> | <font style="color:rgb(51,51,51);">是否为</font><font style="color:rgb(51,51,51);"> Triage（分诊态，默认隐藏）</font> |
-| <font style="color:rgb(51,51,51);">default</font> | <font style="color:rgb(51,51,51);">BooleanField</font> | <font style="color:rgb(51,51,51);">新建工作项的默认状态</font> |
+| <font style="color:rgb(51,51,51);">default</font> | <font style="color:rgb(51,51,51);">BooleanField</font> | <font style="color:rgb(51,51,51);">新建需求/任务/缺陷的默认状态</font> |
 | <font style="color:rgb(51,51,51);">slug</font> | <font style="color:rgb(51,51,51);">CharField</font> | <font style="color:rgb(51,51,51);">机器名（用于</font><font style="color:rgb(51,51,51);"> API/过滤）</font> |
 
 
@@ -372,11 +372,11 @@ Ydsz Plane 是一款开源的现代项目管理工具，提供需求池、迭代
 | <font style="color:rgb(51,51,51);">P0 必补</font> | <font style="color:rgb(51,51,51);">复现步骤</font><font style="color:rgb(51,51,51);"> + 期望/实际结果</font> | <font style="color:rgb(51,51,51);">缺陷</font> | <font style="color:rgb(51,51,51);">新增富文本字段（</font><font style="color:rgb(51,51,51);">description 复用）</font> |
 | <font style="color:rgb(51,51,51);">P0 必补</font> | <font style="color:rgb(51,51,51);">发现阶段</font><font style="color:rgb(51,51,51);"> (Found Phase)</font> | <font style="color:rgb(51,51,51);">缺陷</font> | <font style="color:rgb(51,51,51);">新增必填枚举字段</font> |
 | <font style="color:rgb(51,51,51);">P0 必补</font> | <font style="color:rgb(51,51,51);">发现版本</font><font style="color:rgb(51,51,51);"> + 修复版本</font> | <font style="color:rgb(51,51,51);">缺陷</font> | <font style="color:rgb(51,51,51);">新增</font><font style="color:rgb(51,51,51);"> Version 模型 + FK，1:N</font> |
-| <font style="color:rgb(51,51,51);">P0 必补</font> | <font style="color:rgb(51,51,51);">版本日</font><font style="color:rgb(51,51,51);"> (Version) 模型</font> | <font style="color:rgb(51,51,51);">需求</font><font style="color:rgb(51,51,51);">/任务/缺陷</font> | <font style="color:rgb(51,51,51);">新建模型</font><font style="color:rgb(51,51,51);"> + 跨 </font><font style="color:rgb(51,51,51);">Sprint</font><font style="color:rgb(51,51,51);"> </font><font style="color:rgb(51,51,51);">关联</font> |
+| <font style="color:rgb(51,51,51);">P0 必补</font> | <font style="color:rgb(51,51,51);">版本</font><font style="color:rgb(51,51,51);"> (Version) 模型</font> | <font style="color:rgb(51,51,51);">需求</font><font style="color:rgb(51,51,51);">/任务/缺陷</font> | <font style="color:rgb(51,51,51);">新建模型</font><font style="color:rgb(51,51,51);"> + 跨 </font><font style="color:rgb(51,51,51);">Sprint</font><font style="color:rgb(51,51,51);"> </font><font style="color:rgb(51,51,51);">关联</font> |
 | <font style="color:rgb(51,51,51);">P1 应补</font> | <font style="color:rgb(51,51,51);">参与人</font><font style="color:rgb(51,51,51);">/抄送人 (Watchers)</font> | <font style="color:rgb(51,51,51);">需求</font><font style="color:rgb(51,51,51);">/任务</font> | <font style="color:rgb(51,51,51);">M2M 关联 User，支持通知</font> |
 | <font style="color:rgb(51,51,51);">P1 应补</font> | <font style="color:rgb(51,51,51);">任务分类</font><font style="color:rgb(51,51,51);"> (Category)</font> | <font style="color:rgb(51,51,51);">任务</font> | <font style="color:rgb(51,51,51);">新增可选枚举字段</font> |
 | <font style="color:rgb(51,51,51);">P1 应补</font> | <font style="color:rgb(51,51,51);">需求来源</font><font style="color:rgb(51,51,51);"> (Source)</font> | <font style="color:rgb(51,51,51);">需求</font> | <font style="color:rgb(51,51,51);">新增可选枚举字段</font> |
-| <font style="color:rgb(51,51,51);">P1 应补</font> | <font style="color:rgb(51,51,51);">进度自动计算</font><font style="color:rgb(51,51,51);"> (%)</font> | <font style="color:rgb(51,51,51);">需求</font><font style="color:rgb(51,51,51);">/任务</font> | <font style="color:rgb(51,51,51);">基于子工作项完成率自动更新</font> |
+| <font style="color:rgb(51,51,51);">P1 应补</font> | <font style="color:rgb(51,51,51);">进度自动计算</font><font style="color:rgb(51,51,51);"> (%)</font> | <font style="color:rgb(51,51,51);">需求</font><font style="color:rgb(51,51,51);">/任务</font> | <font style="color:rgb(51,51,51);">基于子需求/子任务完成率自动更新</font> |
 | <font style="color:rgb(51,51,51);">P1 应补</font> | <font style="color:rgb(51,51,51);">根因分类</font><font style="color:rgb(51,51,51);"> (Root Cause)</font> | <font style="color:rgb(51,51,51);">缺陷</font> | <font style="color:rgb(51,51,51);">解决缺陷时必填</font> |
 | <font style="color:rgb(51,51,51);">P2 建议</font> | <font style="color:rgb(51,51,51);">环境信息</font><font style="color:rgb(51,51,51);"> (Environment)</font> | <font style="color:rgb(51,51,51);">缺陷</font> | <font style="color:rgb(51,51,51);">新增可选文本字段</font> |
 | <font style="color:rgb(51,51,51);">P2 建议</font> | <font style="color:rgb(51,51,51);">验证人</font><font style="color:rgb(51,51,51);"> (Verifier)</font> | <font style="color:rgb(51,51,51);">缺陷</font> | <font style="color:rgb(51,51,51);">新增可选</font><font style="color:rgb(51,51,51);"> FK 到 User</font> |
@@ -440,7 +440,7 @@ Ydsz Plane 是一款开源的现代项目管理工具，提供需求池、迭代
 | <font style="color:rgb(51,51,51);">邀请成员</font> | <font style="color:rgb(51,51,51);">通过邮箱链接邀请，支持批量邀请；邀请码有效期</font><font style="color:rgb(51,51,51);"> 7 天，可撤销</font> | <font style="color:rgb(51,51,51);">被邀请人收到邮件，点击链接注册</font><font style="color:rgb(51,51,51);">/加入</font> | <font style="color:rgb(51,51,51);">P0</font> |
 | <font style="color:rgb(51,51,51);">审核成员</font> | <font style="color:rgb(51,51,51);">支持开放（免审核）和邀请制（需管理员审核）两种模式</font> | <font style="color:rgb(51,51,51);">审核模式需管理员批准后才能加入</font> | <font style="color:rgb(51,51,51);">P1</font> |
 | <font style="color:rgb(51,51,51);">角色管理</font> | <font style="color:rgb(51,51,51);">4 级角色：Owner/Admin/Member/Guest，每级有独立权限集</font> | <font style="color:rgb(51,51,51);">角色切换后权限实时生效</font> | <font style="color:rgb(51,51,51);">P0</font> |
-| <font style="color:rgb(51,51,51);">移除成员</font> | <font style="color:rgb(51,51,51);">Owner/Admin 可移除成员，移除后该空间内工作项保留但不再有权限</font> | <font style="color:rgb(51,51,51);">移除操作需二次确认</font> | <font style="color:rgb(51,51,51);">P1</font> |
+| <font style="color:rgb(51,51,51);">移除成员</font> | <font style="color:rgb(51,51,51);">Owner/Admin 可移除成员，移除后该空间内需求/任务/缺陷保留但不再有权限</font> | <font style="color:rgb(51,51,51);">移除操作需二次确认</font> | <font style="color:rgb(51,51,51);">P1</font> |
 | <font style="color:rgb(51,51,51);">成员列表</font> | <font style="color:rgb(51,51,51);">展示成员姓名、邮箱、角色、加入时间、最后活跃时间</font> | <font style="color:rgb(51,51,51);">支持按角色</font><font style="color:rgb(51,51,51);">/加入时间筛选排序</font> | <font style="color:rgb(51,51,51);">P0</font> |
 | <font style="color:rgb(51,51,51);">成员批量导入</font> | <font style="color:rgb(51,51,51);">通过</font><font style="color:rgb(51,51,51);"> CSV 批量导入成员（姓名、邮箱、邮箱已存在则关联）</font> | <font style="color:rgb(51,51,51);">显示导入结果（成功</font><font style="color:rgb(51,51,51);">/失败/已存在统计）</font> | <font style="color:rgb(51,51,51);">P2</font> |
 
@@ -500,10 +500,10 @@ Ydsz Plane 是一款开源的现代项目管理工具，提供需求池、迭代
 
 
 # **<font style="color:rgb(31,78,121);">8.2 项目管理 (Project)</font>**
-项目是Ydsz Plane 系统中最核心的工作容器，承载需求/任务/缺陷/迭代/版本日等工作项。每个项目拥有独立的工作流、模块、类别配置。对标 Jira Project、云效项目、TAPD 项目。
+项目是Ydsz Plane 系统中最核心的工作容器，承载需求/任务/缺陷/迭代/版本等。每个项目拥有独立的工作流、模块、类别配置。对标 Jira Project、云效项目、TAPD 项目。
 
 ## **<font style="color:rgb(46,117,182);">2.1 功能概述</font>**
-项目是具体产品的研发或交付单元，在工作空间下创建。项目包含工作流、模块、迭代、版本日等配置，以及需求/任务/缺陷/文档等工作项。
+项目是具体产品的研发或交付单元，在工作空间下创建。项目包含工作流、模块、迭代、版本等配置，以及需求/任务/缺陷/文档等。
 
 ## **<font style="color:rgb(46,117,182);">2.2 竞品对标</font>**
 | **<font style="color:rgb(255,255,255);">功能点</font>** | **<font style="color:rgb(255,255,255);">Jira Project</font>** | **<font style="color:rgb(255,255,255);">云效项目</font>** | **<font style="color:rgb(255,255,255);">TAPD 项目</font>** | **<font style="color:rgb(255,255,255);">ONES 项目</font>** | **<font style="color:rgb(255,255,255);">Ydsz Plane</font>****<font style="color:rgb(255,255,255);"> </font>****<font style="color:rgb(255,255,255);">现有</font>** |
@@ -535,8 +535,8 @@ Ydsz Plane 是一款开源的现代项目管理工具，提供需求池、迭代
 | --- | --- | --- | --- |
 | <font style="color:rgb(51,51,51);">创建项目</font> | <font style="color:rgb(51,51,51);">支持输入名称、描述、网络类型、选择模板、上传封面</font><font style="color:rgb(51,51,51);">/Emoji，系统自动生成唯一 Identifier</font> | <font style="color:rgb(51,51,51);">创建成功返回项目详情页，</font><font style="color:rgb(51,51,51);">Identifier 唯一</font> | <font style="color:rgb(51,51,51);">P0</font> |
 | <font style="color:rgb(51,51,51);">编辑项目</font> | <font style="color:rgb(51,51,51);">Owner/Admin 可修改项目基本信息、网络类型、封面、功能模块开关</font> | <font style="color:rgb(51,51,51);">修改后立即生效</font> | <font style="color:rgb(51,51,51);">P0</font> |
-| <font style="color:rgb(51,51,51);">归档项目</font> | <font style="color:rgb(51,51,51);">非活跃项目可归档，归档后只读不可新建</font><font style="color:rgb(51,51,51);">/编辑工作项，可恢复</font> | <font style="color:rgb(51,51,51);">归档后工作项列表只读</font> | <font style="color:rgb(51,51,51);">P1</font> |
-| <font style="color:rgb(51,51,51);">删除项目</font> | <font style="color:rgb(51,51,51);">仅无任何工作项时可删除，需二次确认</font> | <font style="color:rgb(51,51,51);">删除后无法恢复</font> | <font style="color:rgb(51,51,51);">P2</font> |
+| <font style="color:rgb(51,51,51);">归档项目</font> | <font style="color:rgb(51,51,51);">非活跃项目可归档，归档后只读不可新建</font><font style="color:rgb(51,51,51);">/编辑需求/任务/缺陷，可恢复</font> | <font style="color:rgb(51,51,51);">归档后需求/任务/缺陷列表只读</font> | <font style="color:rgb(51,51,51);">P1</font> |
+| <font style="color:rgb(51,51,51);">删除项目</font> | <font style="color:rgb(51,51,51);">仅无任何需求/任务/缺陷时可删除，需二次确认</font> | <font style="color:rgb(51,51,51);">删除后无法恢复</font> | <font style="color:rgb(51,51,51);">P2</font> |
 | <font style="color:rgb(51,51,51);">项目列表</font> | <font style="color:rgb(51,51,51);">按最近活跃</font><font style="color:rgb(51,51,51);">/名称排序，支持搜索和筛选（归档状态）</font> | <font style="color:rgb(51,51,51);">显示封面、名称、</font><font style="color:rgb(51,51,51);">Identifier、成员数</font> | <font style="color:rgb(51,51,51);">P0</font> |
 | <font style="color:rgb(51,51,51);">项目模板</font> | <font style="color:rgb(51,51,51);">提供敏捷</font><font style="color:rgb(51,51,51);">/瀑布/通用模板，模板预设工作流和模块</font> | <font style="color:rgb(51,51,51);">基于模板创建项目时自动复制配置</font> | <font style="color:rgb(51,51,51);">P1</font> |
 
@@ -546,7 +546,7 @@ Ydsz Plane 是一款开源的现代项目管理工具，提供需求池、迭代
 
 20. Sprint（迭代）：启用后可创建迭代管理 Sprint。
 
-21. Version（版本日）：启用后可创建版本日管理发版。
+21. Version（版本）：启用后可创建版本管理发版。
 
 22. Estimate（估算）：启用后可配置故事点/工时估算体系。
 
@@ -589,11 +589,11 @@ Ydsz Plane 是一款开源的现代项目管理工具，提供需求池、迭代
   
 
 
-# **<font style="color:rgb(31,78,121);">8.3 版本日管理 (Version)</font>**
-版本日是产品发版的里程碑容器，包含 1~N 个迭代周期。Version 是面向市场的发版节奏，迭代是面向团队的开发节奏。对标云效发布计划、ONES 版本、Jira Fix Version。
+# **<font style="color:rgb(31,78,121);">8.3 版本管理 (Version)</font>**
+版本是产品发版的里程碑容器，包含 1~N 个迭代周期。Version 是面向市场的发版节奏，迭代是面向团队的开发节奏。对标云效发布计划、ONES 版本、Jira Fix Version。
 
 ## **<font style="color:rgb(46,117,182);">3.1 功能概述</font>**
-版本日是产品发版的里程碑，具有独立的交付目标、准出标准、检查清单和 Release Notes。版本日包含 1~N 个迭代，支持进度聚合、变更日志和交付报告。
+版本是产品发版的里程碑，具有独立的交付目标、准出标准、检查清单和 Release Notes。版本包含 1~N 个迭代，支持进度聚合、变更日志和交付报告。
 
 ## **<font style="color:rgb(46,117,182);">3.2 竞品对标</font>**
 | **<font style="color:rgb(255,255,255);">功能点</font>** | **<font style="color:rgb(255,255,255);">云效发布计划</font>** | **<font style="color:rgb(255,255,255);">ONES 版本</font>** | **<font style="color:rgb(255,255,255);">Jira Fix Version</font>** | **<font style="color:rgb(255,255,255);">TAPD 发布</font>** | **<font style="color:rgb(255,255,255);">Ydsz Plane</font>****<font style="color:rgb(255,255,255);"> </font>****<font style="color:rgb(255,255,255);">规划</font>** |
@@ -609,38 +609,38 @@ Ydsz Plane 是一款开源的现代项目管理工具，提供需求池、迭代
 
 
 ## **<font style="color:rgb(46,117,182);">3.3 用户故事</font>**
-• 作为产品经理，我希望创建版本日来管理产品发版的里程碑和交付目标。
+• 作为产品经理，我希望创建版本来管理产品发版的里程碑和交付目标。
 
-• 作为发布经理，我希望查看版本日的聚合进度来评估是否按期发布。
+• 作为发布经理，我希望查看版本的聚合进度来评估是否按期发布。
 
-• 作为 PMO，我希望对比多个版本日的交付质量和准时率。
+• 作为 PMO，我希望对比多个版本的交付质量和准时率。
 
 ## **<font style="color:rgb(46,117,182);">3.4 功能需求详述</font>**
-### **<font style="color:rgb(51,51,51);">3.4.1 版本日生命周期</font>**
+### **<font style="color:rgb(51,51,51);">3.4.1 版本生命周期</font>**
 | **<font style="color:rgb(255,255,255);">功能</font>** | **<font style="color:rgb(255,255,255);">详细描述</font>** | **<font style="color:rgb(255,255,255);">验收标准</font>** | **<font style="color:rgb(255,255,255);">优先级</font>** |
 | --- | --- | --- | --- |
-| <font style="color:rgb(51,51,51);">创建版本日</font> | <font style="color:rgb(51,51,51);">输入版本号（语义化校验）、名称、描述、发布日期、负责人、模板类型</font> | <font style="color:rgb(51,51,51);">创建成功，版本号格式符合</font><font style="color:rgb(51,51,51);"> semver</font> | <font style="color:rgb(51,51,51);">P0</font> |
-| <font style="color:rgb(51,51,51);">编辑版本日</font> | <font style="color:rgb(51,51,51);">修改基本信息、发布日期、负责人、描述</font> | <font style="color:rgb(51,51,51);">修改后关联迭代自动更新</font> | <font style="color:rgb(51,51,51);">P0</font> |
-| <font style="color:rgb(51,51,51);">发布版本日</font> | <font style="color:rgb(51,51,51);">流转状态为「已发布」，自动生成</font><font style="color:rgb(51,51,51);"> Release Notes 和交付报告</font> | <font style="color:rgb(51,51,51);">已发布后只读，不可删除</font> | <font style="color:rgb(51,51,51);">P0</font> |
-| <font style="color:rgb(51,51,51);">归档版本日</font> | <font style="color:rgb(51,51,51);">旧版本可归档，归档后隐藏于主视图但可搜索查看</font> | <font style="color:rgb(51,51,51);">归档后视图默认隐藏</font> | <font style="color:rgb(51,51,51);">P1</font> |
-| <font style="color:rgb(51,51,51);">版本日列表</font> | <font style="color:rgb(51,51,51);">按发布日期倒序，支持按状态筛选</font> | <font style="color:rgb(51,51,51);">显示版本号、名称、发布日期、进度</font><font style="color:rgb(51,51,51);">%</font> | <font style="color:rgb(51,51,51);">P0</font> |
+| <font style="color:rgb(51,51,51);">创建版本</font> | <font style="color:rgb(51,51,51);">输入版本号（语义化校验）、名称、描述、发布日期、负责人、模板类型</font> | <font style="color:rgb(51,51,51);">创建成功，版本号格式符合</font><font style="color:rgb(51,51,51);"> semver</font> | <font style="color:rgb(51,51,51);">P0</font> |
+| <font style="color:rgb(51,51,51);">编辑版本</font> | <font style="color:rgb(51,51,51);">修改基本信息、发布日期、负责人、描述</font> | <font style="color:rgb(51,51,51);">修改后关联迭代自动更新</font> | <font style="color:rgb(51,51,51);">P0</font> |
+| <font style="color:rgb(51,51,51);">发布版本</font> | <font style="color:rgb(51,51,51);">流转状态为「已发布」，自动生成</font><font style="color:rgb(51,51,51);"> Release Notes 和交付报告</font> | <font style="color:rgb(51,51,51);">已发布后只读，不可删除</font> | <font style="color:rgb(51,51,51);">P0</font> |
+| <font style="color:rgb(51,51,51);">归档版本</font> | <font style="color:rgb(51,51,51);">旧版本可归档，归档后隐藏于主视图但可搜索查看</font> | <font style="color:rgb(51,51,51);">归档后视图默认隐藏</font> | <font style="color:rgb(51,51,51);">P1</font> |
+| <font style="color:rgb(51,51,51);">版本列表</font> | <font style="color:rgb(51,51,51);">按发布日期倒序，支持按状态筛选</font> | <font style="color:rgb(51,51,51);">显示版本号、名称、发布日期、进度</font><font style="color:rgb(51,51,51);">%</font> | <font style="color:rgb(51,51,51);">P0</font> |
 
 
 ### **<font style="color:rgb(51,51,51);">3.4.2 聚合视图与报告</font>**
 27. 进度聚合：自动汇总所有关联迭代的需求/任务/缺陷完成度，显示完成故事点/总故事点。
 
-28. 变更日志：自动汇总版本日需求变更记录，生成结构化 Release Notes（可按模板定制）。
+28. 变更日志：自动汇总版本需求变更记录，生成结构化 Release Notes（可按模板定制）。
 
 29. 交付报告：发布时自动生成，包含缺陷数、通过率、准出率、7日留存、30日留存等指标。
 
 30. 检查清单：发布前必填的验证项（如文档完备性、代码冻结、回归通过等）。
 
 ## **<font style="color:rgb(46,117,182);">3.5 交互流程</font>**
-31. 创建版本日：项目→ 版本日模块 →「新建版本日」→ 填写版本号/发布日期/目标 → 选择关联迭代 → 提交
+31. 创建版本：项目→ 版本模块 →「新建版本」→ 填写版本号/发布日期/目标 → 选择关联迭代 → 提交
 
-32. 发布版本日：版本日详情→「发布」→ 确认检查清单 → 生成 Release Notes → 流转状态
+32. 发布版本：版本详情→「发布」→ 确认检查清单 → 生成 Release Notes → 流转状态
 
-33. 查看进度：项目仪表盘→ 版本日卡片 → 点击版本号 → 聚合视图
+33. 查看进度：项目仪表盘→ 版本卡片 → 点击版本号 → 聚合视图
 
 ## **<font style="color:rgb(46,117,182);">3.6 数据模型设计</font>**
 | **<font style="color:rgb(255,255,255);">📋</font>****<font style="color:rgb(255,255,255);"> version</font>** | | |
@@ -667,7 +667,7 @@ Ydsz Plane 是一款开源的现代项目管理工具，提供需求池、迭代
 
 
 # **<font style="color:rgb(31,78,121);">8.4 迭代管理 (</font>****<font style="color:rgb(31,78,121);">Sprint</font>****<font style="color:rgb(31,78,121);">)</font>**
-迭代是固定周期的开发单元（通常 1~4 周），团队在迭代中承诺完成一组工作项。对标 Jira Sprint、云效迭代、ONES Sprint。
+迭代是固定周期的开发单元（通常 1~4 周），团队在迭代中承诺完成一组需求/任务/缺陷。对标 Jira Sprint、云效迭代、ONES Sprint。
 
 ## **<font style="color:rgb(46,117,182);">4.1 功能概述</font>**
 迭代是敏捷开发的基本时间盒，团队在每个迭代中承诺完成一组需求/任务/缺陷。迭代包含规划、执行、复盘三个阶段，支持容量规划、站会、燃尽图和速率分析。
@@ -690,7 +690,7 @@ Ydsz Plane 是一款开源的现代项目管理工具，提供需求池、迭代
 
 
 ## **<font style="color:rgb(46,117,182);">4.3 用户故事</font>**
-• 作为 Scrum Master，我希望在迭代规划时从 Backlog 拖拽工作项进入 Sprint。
+• 作为 Scrum Master，我希望在迭代规划时从 Backlog 拖拽需求/任务/缺陷进入 Sprint。
 
 • 作为团队成员，我希望能看到今天的迭代进度和我的剩余工作。
 
@@ -704,7 +704,7 @@ Ydsz Plane 是一款开源的现代项目管理工具，提供需求池、迭代
 
 36. 容量校验：设置容量后，拖拽时显示饱和度（总故事点/容量），超额高亮警告。
 
-37. 迭代冲突校验：同一工作项不可同时存在于两个活跃迭代中（配置化开关）。
+37. 迭代冲突校验：同一需求/任务/缺陷不可同时存在于两个活跃迭代中（配置化开关）。
 
 38. 团队速率建议：基于近 3~6 个 Sprint 的平均速率，推荐本次迭代承诺范围。
 
@@ -727,7 +727,7 @@ Ydsz Plane 是一款开源的现代项目管理工具，提供需求池、迭代
 46. 迭代复盘文档：基于模板自动生成复盘报告，可指定评审人。
 
 ## **<font style="color:rgb(46,117,182);">4.5 交互流程</font>**
-47. 迭代启动：项目→ Sprint 模块→「新建迭代」→ 填写名称/起止日期/目标 → 从 Backlog 拖拽工作项 → 启动
+47. 迭代启动：项目→ Sprint 模块→「新建迭代」→ 填写名称/起止日期/目标 → 从 Backlog 拖拽需求/任务/缺陷 → 启动
 
 48. 站会模式：迭代详情→ 点击「站会」→ 进入站会视图 → 成员更新状态
 
@@ -779,7 +779,7 @@ Ydsz Plane 是一款开源的现代项目管理工具，提供需求池、迭代
 | <font style="color:rgb(51,51,51);">需求评审工作流</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">○ 规划中</font> |
 | <font style="color:rgb(51,51,51);">需求来源标记</font> | <font style="color:rgb(51,51,51);">○ 自定义字段</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">○</font> |
 | <font style="color:rgb(51,51,51);">关联缺陷一键创建</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> |
-| <font style="color:rgb(51,51,51);">需求进度自动汇总</font> | <font style="color:rgb(51,51,51);">● 子工作项</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> |
+| <font style="color:rgb(51,51,51);">需求进度自动汇总</font> | <font style="color:rgb(51,51,51);">● 子需求/子任务</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> |
 | <font style="color:rgb(51,51,51);">需求复制</font><font style="color:rgb(51,51,51);">/移动</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> |
 | <font style="color:rgb(51,51,51);">需求模板</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">○ 规划中</font> |
 
@@ -793,7 +793,7 @@ Ydsz Plane 是一款开源的现代项目管理工具，提供需求池、迭代
 
 • 作为测试人员，我希望从需求详情一键创建关联缺陷。
 
-• 作为团队成员，我希望能看到需求的历史变更和关联的工作项。
+• 作为团队成员，我希望能看到需求的历史变更和关联的需求/任务/缺陷。
 
 ## **<font style="color:rgb(46,117,182);">5.3 功能需求详述</font>**
 ### **<font style="color:rgb(51,51,51);">5.3.1 需求 CRUD</font>**
@@ -803,7 +803,7 @@ Ydsz Plane 是一款开源的现代项目管理工具，提供需求池、迭代
 | <font style="color:rgb(51,51,51);">编辑需求</font> | <font style="color:rgb(51,51,51);">修改所有字段，支持富文本描述（图片</font><font style="color:rgb(51,51,51);">/表格/链接），变更记录到活动日志</font> | <font style="color:rgb(51,51,51);">编辑后活动日志同步更新</font> | <font style="color:rgb(51,51,51);">P0</font> |
 | <font style="color:rgb(51,51,51);">删除需求</font> | <font style="color:rgb(51,51,51);">软删除，有子需求时需级联删除或转移父级，需二次确认</font> | <font style="color:rgb(51,51,51);">删除后进入回收站可恢复</font> | <font style="color:rgb(51,51,51);">P1</font> |
 | <font style="color:rgb(51,51,51);">复制需求</font> | <font style="color:rgb(51,51,51);">复制当前需求（可连同子需求一起复制），新项目支持跨项目复制</font> | <font style="color:rgb(51,51,51);">复制后</font><font style="color:rgb(51,51,51);"> Identifier 重新生成</font> | <font style="color:rgb(51,51,51);">P1</font> |
-| <font style="color:rgb(51,51,51);">移动需求</font> | <font style="color:rgb(51,51,51);">在同一项目内移动到其他模块</font><font style="color:rgb(51,51,51);">/父需求，跨项目移动工作项</font> | <font style="color:rgb(51,51,51);">移动后关联关系保留</font> | <font style="color:rgb(51,51,51);">P1</font> |
+| <font style="color:rgb(51,51,51);">移动需求</font> | <font style="color:rgb(51,51,51);">在同一项目内移动到其他模块</font><font style="color:rgb(51,51,51);">/父需求，跨项目移动需求/任务/缺陷</font> | <font style="color:rgb(51,51,51);">移动后关联关系保留</font> | <font style="color:rgb(51,51,51);">P1</font> |
 | <font style="color:rgb(51,51,51);">归档需求</font> | <font style="color:rgb(51,51,51);">已关闭且长期无变化的需求自动归档，归档后隐藏于主视图</font> | <font style="color:rgb(51,51,51);">可手动取消归档</font> | <font style="color:rgb(51,51,51);">P2</font> |
 
 
@@ -879,7 +879,7 @@ Ydsz Plane 是一款开源的现代项目管理工具，提供需求池、迭代
 
 
 # **<font style="color:rgb(31,78,121);">8.6 任务管理 (Task)</font>**
-任务由技术经理提出，描述研发侧需要完成的具体工作项。任务可拆分为子任务（主任务→子任务→子子任务）。任务与需求平行存在，不产生任务分解关系。对标 Jira Task、云效任务、ONES 任务。
+任务由技术经理提出，描述研发侧需要完成的具体任务。任务可拆分为子任务（主任务→子任务→子子任务）。任务与需求平行存在，不产生任务分解关系。对标 Jira Task、云效任务、ONES 任务。
 
 ## **<font style="color:rgb(46,117,182);">8.6 功能概述</font>**
 任务管理是面向研发工程师的工作分解执行模块，支持任务创建、WBS 子任务拆分、工时管理、依赖管理。对标 Jira Task, ONES 任务。
@@ -1116,10 +1116,10 @@ Ydsz Plane 是一款开源的现代项目管理工具，提供需求池、迭代
 
 
 # **<font style="color:rgb(31,78,121);">8.8 项目文档归档管理 (Documentation)</font>**
-项目文档归档提供轻量级文档管理能力，聚焦交付物归档而非实时协作编辑。文档可与工作项/迭代/版本日关联，支持版本管理和评审。对标 Confluence Page（简化版）、云效文档。
+项目文档归档提供轻量级文档管理能力，聚焦交付物归档而非实时协作编辑。文档可与需求/任务/缺陷/迭代/版本关联，支持版本管理和评审。对标 Confluence Page（简化版）、云效文档。
 
 ## **<font style="color:rgb(46,117,182);">8.8 功能概述</font>**
-项目文档归档是面向项目团队的轻量级文档管理模块，支持文档创建、版本管理、工作项关联。对标 Confluence Page (简化版), ONES 文档。
+项目文档归档是面向项目团队的轻量级文档管理模块，支持文档创建、版本管理、需求/任务/缺陷关联。对标 Confluence Page (简化版), ONES 文档。
 
 ## **<font style="color:rgb(46,117,182);">10.1 竞品对标</font>**
 | **<font style="color:rgb(255,255,255);">功能点</font>** | **<font style="color:rgb(255,255,255);">Confluence</font>** | **<font style="color:rgb(255,255,255);">云效文档</font>** | **<font style="color:rgb(255,255,255);">ONES 文档</font>** | **<font style="color:rgb(255,255,255);">Jira+Confluence</font>** | **<font style="color:rgb(255,255,255);">Ydsz Plane</font>****<font style="color:rgb(255,255,255);"> </font>****<font style="color:rgb(255,255,255);">规划</font>** |
@@ -1127,8 +1127,8 @@ Ydsz Plane 是一款开源的现代项目管理工具，提供需求池、迭代
 | <font style="color:rgb(51,51,51);">文档</font><font style="color:rgb(51,51,51);"> CRUD</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> |
 | <font style="color:rgb(51,51,51);">Markdown 编辑</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> |
 | <font style="color:rgb(51,51,51);">文档分类</font><font style="color:rgb(51,51,51);">/目录</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> |
-| <font style="color:rgb(51,51,51);">关联工作项</font> | <font style="color:rgb(51,51,51);">● 宏</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> |
-| <font style="color:rgb(51,51,51);">关联版本日</font> | <font style="color:rgb(51,51,51);">● 宏</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> |
+| <font style="color:rgb(51,51,51);">关联需求/任务/缺陷</font> | <font style="color:rgb(51,51,51);">● 宏</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> |
+| <font style="color:rgb(51,51,51);">关联版本</font> | <font style="color:rgb(51,51,51);">● 宏</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> |
 | <font style="color:rgb(51,51,51);">版本管理</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">○ 规划中</font> |
 | <font style="color:rgb(51,51,51);">文档评审</font> | <font style="color:rgb(51,51,51);">● Approval</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">○</font> |
 | <font style="color:rgb(51,51,51);">文档模板库</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">○ 规划中</font> |
@@ -1141,7 +1141,7 @@ Ydsz Plane 是一款开源的现代项目管理工具，提供需求池、迭代
 ## **<font style="color:rgb(46,117,182);">10.2 用户故事</font>**
 • 作为团队成员，我希望能创建和编辑项目文档（PRD/设计文档/复盘报告）。
 
-• 作为团队成员，我希望能将文档关联到对应的需求和版本日。
+• 作为团队成员，我希望能将文档关联到对应的需求和版本。
 
 • 作为团队负责人，我希望能对文档进行评审和审批。
 
@@ -1158,9 +1158,9 @@ Ydsz Plane 是一款开源的现代项目管理工具，提供需求池、迭代
 
 
 ### **<font style="color:rgb(51,51,51);">10.3.2 文档关联</font>**
-89. 关联工作项：文档中 @提及需求/任务/缺陷，自动创建双向关联。
+89. 关联需求/任务/缺陷：文档中 @提及需求/任务/缺陷，自动创建双向关联。
 
-90. 关联迭代/版本日：文档可归属到特定迭代/版本日，在该迭代/版本日详情中展示。
+90. 关联迭代/版本：文档可归属到特定迭代/版本，在该迭代/版本详情中展示。
 
 91. 文档模板：支持从模板创建（PRD 模板、技术方案模板），模板可自定义。
 
@@ -1171,7 +1171,7 @@ Ydsz Plane 是一款开源的现代项目管理工具，提供需求池、迭代
 ## **<font style="color:rgb(46,117,182);">10.4 交互流程</font>**
 94. 创建文档：项目→「文档」→「新建文档」→ 选择分类/模板 → 编辑器中编写 → 保存
 
-95. 关联工作项：文档编辑器中输入 @ → 选择工作项 → 自动插入关联链接
+95. 关联需求/任务/缺陷：文档编辑器中输入 @ → 选择需求/任务/缺陷 → 自动插入关联链接
 
 ## **<font style="color:rgb(46,117,182);">10.5 数据模型设计</font>**
 | **<font style="color:rgb(255,255,255);">📋</font>****<font style="color:rgb(255,255,255);"> document</font>** | | |
@@ -1200,7 +1200,7 @@ Ydsz Plane 是一款开源的现代项目管理工具，提供需求池、迭代
 | **<font style="color:rgb(255,255,255);">字段名</font>** | **<font style="color:rgb(255,255,255);">类型</font>****<font style="color:rgb(255,255,255);">/约束</font>** | **<font style="color:rgb(255,255,255);">说明</font>** |
 | document | **FK → document** | 外键关联 |
 | linkable_type | TEXT |  |
-| linkable_id  // 多态关联到工作项/迭代/版本日 | TEXT |  |
+| linkable_id  // 多态关联到需求/任务/缺陷/迭代/版本 | TEXT |  |
 
 
   
@@ -1214,7 +1214,7 @@ Ydsz Plane 是一款开源的现代项目管理工具，提供需求池、迭代
 ## **<font style="color:rgb(46,117,182);">10.1 功能概述</font>**
 知识库是面向团队的知识沉淀与共享平台，支持结构化文档管理、版本控制、权限管理和全文检索。对标 Confluence、飞书文档、语雀、Notion。
 
-核心定位：团队的技术文档中心、SOP 知识库、新人 onboarding 手册库；与工作项（需求/任务/缺陷）双向关联，实现工作流与知识沉淀的闭环。
+核心定位：团队的技术文档中心、SOP 知识库、新人 onboarding 手册库；与需求/任务/缺陷双向关联，实现业务流程与知识沉淀的闭环。
 
 注意：知识库是独立于「项目文档归档」的模块。项目文档归档是面向单个项目的轻量文档管理，知识库是跨项目的团队级知识管理平台。
 
@@ -1231,7 +1231,7 @@ Ydsz Plane 是一款开源的现代项目管理工具，提供需求池、迭代
 | 文档版本管理 | ● | ● | ● | ○ | ○ 规划中 |
 | 文档协作(多人实时) | ● | ● | ● | ● | ✕ 不做 |
 | 文档评审/审批流 | ● | ● | ○ | ○ | ○ |
-| 关联工作项(双向) | ● Jira | ○ | ○ | ● | ● |
+| 关联需求/任务/缺陷(双向) | ● Jira | ○ | ○ | ● | ● |
 | 权限管理(空间级) | ● 细粒度 | ● | ● | ● | ● |
 | 附件/嵌入内容 | ● 富媒体 | ● 富媒体 | ● | ● 富媒体 | ● |
 | 全文检索 | ● | ● | ● | ● | ● |
@@ -1242,7 +1242,7 @@ Ydsz Plane 是一款开源的现代项目管理工具，提供需求池、迭代
 ## **<font style="color:rgb(46,117,182);">10.3 用户故事</font>**
 技术负责人：我需要一个可以沉淀团队技术方案、架构决策记录（ADR）的地方，新人能自助查阅。
 
-测试负责人：我希望能把测试用例、测试报告模板放在知识库中，工作项提Defect 时能一键关联到知识库文章。
+测试负责人：我希望能把测试用例、测试报告模板放在知识库中，需求/任务/缺陷提 Defect 时能一键关联到知识库文章。
 
 产品经理：我希望 PRD、竞品分析、用户调研报告能结构化管理，支持版本回溯与多人评审。
 
@@ -1262,8 +1262,8 @@ Ydsz Plane 是一款开源的现代项目管理工具，提供需求池、迭代
 | 文档导入 | 支持 Markdown/HTML/Word 批量导入，自动解析目录结构 | P1 |
 | 文档导出 | 导出为 Markdown/HTML/PDF/Word 格式，支持批量导出整个目录 | P1 |
 | 文档评论 | 支持全文评论和段落评论，支持 @提及、评论通知 | P1 |
-| 文档关联工作项 | @提及时关联需求/任务/缺陷，双向可追溯 | P0 |
-| 文档关联版本日 | 文档可归属到版本日，在该版本日详情中展示 | P1 |
+| 文档关联需求/任务/缺陷 | @提及时关联需求/任务/缺陷，双向可追溯 | P0 |
+| 文档关联版本 | 文档可归属到版本，在该版本详情中展示 | P1 |
 | 文档评审 | 指定评审人，评审人可评论和打分；通过后文档状态变为「已评审」，支持审批流 | P1 |
 | 文档标签/分类 | 支持多标签和多分类体系，可按标签聚合展示 | P1 |
 | 文档订阅 | 关注某文档，当有新版本或评论时收到通知 | P2 |
@@ -1277,7 +1277,7 @@ Ydsz Plane 是一款开源的现代项目管理工具，提供需求池、迭代
 
 • 新建/编辑文档 → 选择模板 → 编写 Markdown → 实时预览 → 保存为草稿/发布
 
-• 保存文档后，点击「关联工作项」→ 搜索并关联需求/任务/缺陷，双向追溯
+• 保存文档后，点击「关联需求/任务/缺陷」→ 搜索并关联需求/任务/缺陷，双向追溯
 
 • 文档评审流程：提交评审→ 指定评审人 → 评审人打分/评论 → 通过/驳回
 
@@ -1340,7 +1340,7 @@ Ydsz Plane 是一款开源的现代项目管理工具，提供需求池、迭代
 
 ## **<font style="color:rgb(46,117,182);">8.10 功能需求详述</font>**
 ### **<font style="color:rgb(51,51,51);">9.3.1 收件箱 Channel 配置</font>**
-96. 创建 Channel：配置名称、描述、关联项目、默认工作项类型、自动分配规则。
+96. 创建 Channel：配置名称、描述、关联项目、默认需求/任务/缺陷类型、自动分配规则。
 
 97. 访问控制：公开（无需登录）或私有（仅成员可访问）。
 
@@ -1407,7 +1407,7 @@ DashboardConfig: name, layout(JSON), owner(FK User), is_default, scope(project/s
 项目仪表盘的功能需求详述（详见下方详细功能描述）
 
 ### **<font style="color:rgb(51,51,51);">9.1 功能需求详述</font>**
-选择项目/时间范围 → 查看仪表盘卡片 → 点击卡片元素下钻 → 进入单工作项详情
+选择项目/时间范围 → 查看仪表盘卡片 → 点击卡片元素下钻 → 进入单需求/任务/缺陷详情
 
 ### **<font style="color:rgb(51,51,51);">9.1 交互流程</font>**
 项目经理: 我需要一张报表就能看到全项目的健康状态，发现风险点。 团队成员: 我想快速了解当前迭代的进度和我的贡献占比。 PMO: 我想同时查看多个项目的整体进展，做横向对比。
@@ -1433,8 +1433,8 @@ DashboardConfig: name, layout(JSON), owner(FK User), is_default, scope(project/s
 | --- | --- | --- | --- | --- |
 | <font style="color:rgb(51,51,51);">项目概览</font> | <font style="color:rgb(51,51,51);">需求</font><font style="color:rgb(51,51,51);">/任务/缺陷总数、完成率、遗留数</font> | <font style="color:rgb(51,51,51);">数字</font><font style="color:rgb(51,51,51);"> + 环形进度条</font> | <font style="color:rgb(51,51,51);">实时</font> | <font style="color:rgb(51,51,51);">P0</font> |
 | <font style="color:rgb(51,51,51);">迭代进度</font> | <font style="color:rgb(51,51,51);">当前</font><font style="color:rgb(51,51,51);"> Sprint 完成度、故事点消耗</font> | <font style="color:rgb(51,51,51);">燃尽图</font><font style="color:rgb(51,51,51);"> / 燃起图</font> | <font style="color:rgb(51,51,51);">实时</font> | <font style="color:rgb(51,51,51);">P0</font> |
-| <font style="color:rgb(51,51,51);">版本日进度</font> | <font style="color:rgb(51,51,51);">聚合所有关联迭代完成度</font> | <font style="color:rgb(51,51,51);">甘特图</font><font style="color:rgb(51,51,51);"> + 进度条</font> | <font style="color:rgb(51,51,51);">实时</font> | <font style="color:rgb(51,51,51);">P0</font> |
-| <font style="color:rgb(51,51,51);">模块分布</font> | <font style="color:rgb(51,51,51);">按模块聚合工作项数、完成率</font> | <font style="color:rgb(51,51,51);">柱状图</font><font style="color:rgb(51,51,51);"> / 饼图</font> | <font style="color:rgb(51,51,51);">1小时</font> | <font style="color:rgb(51,51,51);">P0</font> |
+| <font style="color:rgb(51,51,51);">版本进度</font> | <font style="color:rgb(51,51,51);">聚合所有关联迭代完成度</font> | <font style="color:rgb(51,51,51);">甘特图</font><font style="color:rgb(51,51,51);"> + 进度条</font> | <font style="color:rgb(51,51,51);">实时</font> | <font style="color:rgb(51,51,51);">P0</font> |
+| <font style="color:rgb(51,51,51);">模块分布</font> | <font style="color:rgb(51,51,51);">按模块聚合需求/任务/缺陷数、完成率</font> | <font style="color:rgb(51,51,51);">柱状图</font><font style="color:rgb(51,51,51);"> / 饼图</font> | <font style="color:rgb(51,51,51);">1小时</font> | <font style="color:rgb(51,51,51);">P0</font> |
 | <font style="color:rgb(51,51,51);">质量指标</font> | <font style="color:rgb(51,51,51);">缺陷密度、准出率、逃逸率</font> | <font style="color:rgb(51,51,51);">数字</font><font style="color:rgb(51,51,51);"> + 趋势折线</font> | <font style="color:rgb(51,51,51);">1小时</font> | <font style="color:rgb(51,51,51);">P0</font> |
 | <font style="color:rgb(51,51,51);">资源负载</font> | <font style="color:rgb(51,51,51);">成员任务饱和度、工时分布</font> | <font style="color:rgb(51,51,51);">热力图</font><font style="color:rgb(51,51,51);"> / 柱状图</font> | <font style="color:rgb(51,51,51);">4小时</font> | <font style="color:rgb(51,51,51);">P1</font> |
 | <font style="color:rgb(51,51,51);">风险预警</font> | <font style="color:rgb(51,51,51);">逾期项、阻塞项、逾期缺陷</font> | <font style="color:rgb(51,51,51);">红色高亮列表</font> | <font style="color:rgb(51,51,51);">实时</font> | <font style="color:rgb(51,51,51);">P1</font> |
@@ -1446,7 +1446,7 @@ DashboardConfig: name, layout(JSON), owner(FK User), is_default, scope(project/s
 ### **<font style="color:rgb(51,51,51);">交互功能</font>**
 102. 全局时间筛选：支持按日/周/月/季度/年/自定义时间范围切换所有卡片数据。
 
-103. 项目下钻：从项目总览→ 进入单项目 → 进入单迭代 → 查看工作项列表，逐层展开。
+103. 项目下钻：从项目总览→ 进入单项目 → 进入单迭代 → 查看需求/任务/缺陷列表，逐层展开。
 
 104. 卡片联动：点击某个图表元素，其他卡片自动过滤为该维度。
 
@@ -1480,7 +1480,7 @@ DashboardConfig: name, layout(JSON), owner(FK User), is_default, scope(project/s
 
 
 ## **<font style="color:rgb(46,117,182);">9.2 个人工作台 (My Workbench)</font>**
-每个团队成员的首页，聚合与「我」相关的所有工作项、迭代动态、通知提醒。对标 TAPD 工作台、云效工作台、Jira Your Work。
+每个团队成员的首页，聚合与「我」相关的所有需求/任务/缺陷、迭代动态、通知提醒。对标 TAPD 工作台、云效工作台、Jira Your Work。
 
 WorkbenchConfig: user(FK), layout(JSON), widgets(M2M WidgetDef) WidgetDef: name, type(todo/notification/calendar/iteration), default_config(JSON) TodoItem: user(FK), target_type(requirement/task/defect), target_id, is_pinned, order
 
@@ -1488,7 +1488,7 @@ WorkbenchConfig: user(FK), layout(JSON), widgets(M2M WidgetDef) WidgetDef: name,
 个人工作台的功能需求详述（详见下方详细功能描述）
 
 ### **<font style="color:rgb(51,51,51);">9.2 功能需求详述</font>**
-登录系统→ 打开工作台 → 查看待办/通知/日程 → 点击工作项进入详情或批量操作
+登录系统→ 打开工作台 → 查看待办/通知/日程 → 点击需求/任务/缺陷进入详情或批量操作
 
 ### **<font style="color:rgb(51,51,51);">9.2 交互流程</font>**
 开发工程师: 我希望打开工作台就知道今天该做什么，没有切换成本。 产品经理: 我想一目了然看到与我相关的所有事项（我创建的、指派给我的、@我的）。 测试工程师: 我希望快速知道待验证的缺陷数量和优先级。
@@ -1514,8 +1514,8 @@ WorkbenchConfig: user(FK), layout(JSON), widgets(M2M WidgetDef) WidgetDef: name,
 | <font style="color:rgb(51,51,51);">我的待办</font> | <font style="color:rgb(51,51,51);">左侧主区域</font> | <font style="color:rgb(51,51,51);">按优先级排序：今日应开始、进行中、逾期未完成项</font> | <font style="color:rgb(51,51,51);">P0</font> |
 | <font style="color:rgb(51,51,51);">今日日程</font> | <font style="color:rgb(51,51,51);">右侧顶栏</font> | <font style="color:rgb(51,51,51);">今日会议（关联周期性会议）</font><font style="color:rgb(51,51,51);">+ 个人日程</font> | <font style="color:rgb(51,51,51);">P0</font> |
 | <font style="color:rgb(51,51,51);">迭代概览</font> | <font style="color:rgb(51,51,51);">右侧中部</font> | <font style="color:rgb(51,51,51);">我参与的迭代的当前进度、故事点消耗</font> | <font style="color:rgb(51,51,51);">P0</font> |
-| <font style="color:rgb(51,51,51);">关注动态</font> | <font style="color:rgb(51,51,51);">右侧下部</font> | <font style="color:rgb(51,51,51);">我订阅</font><font style="color:rgb(51,51,51);">/参与的工作项变更（状态更新、评论、@提及）</font> | <font style="color:rgb(51,51,51);">P1</font> |
-| <font style="color:rgb(51,51,51);">最近访问</font> | <font style="color:rgb(51,51,51);">底部</font> | <font style="color:rgb(51,51,51);">最近查看的</font><font style="color:rgb(51,51,51);"> 10 个工作项，支持一键跳转</font> | <font style="color:rgb(51,51,51);">P1</font> |
+| <font style="color:rgb(51,51,51);">关注动态</font> | <font style="color:rgb(51,51,51);">右侧下部</font> | <font style="color:rgb(51,51,51);">我订阅</font><font style="color:rgb(51,51,51);">/参与的需求/任务/缺陷变更（状态更新、评论、@提及）</font> | <font style="color:rgb(51,51,51);">P1</font> |
+| <font style="color:rgb(51,51,51);">最近访问</font> | <font style="color:rgb(51,51,51);">底部</font> | <font style="color:rgb(51,51,51);">最近查看的</font><font style="color:rgb(51,51,51);"> 10 个需求/任务/缺陷，支持一键跳转</font> | <font style="color:rgb(51,51,51);">P1</font> |
 | <font style="color:rgb(51,51,51);">个人效率报告</font> | <font style="color:rgb(51,51,51);">底部</font><font style="color:rgb(51,51,51);">/独立页</font> | <font style="color:rgb(51,51,51);">本周完成故事点、工时分布、完成率趋势</font> | <font style="color:rgb(51,51,51);">P2</font> |
 
 
@@ -1561,11 +1561,11 @@ Notification: recipient(FK User), target_type(requirement/task/defect), target_i
 
 ### **<font style="color:rgb(51,51,51);">9.3 功能概述</font>**
 ### **<font style="color:rgb(51,51,51);">通知类型</font>**
-• 工作项变更：状态流转、字段更新、指派变更、评论/@提及。
+• 需求/任务/缺陷变更：状态流转、字段更新、指派变更、评论/@提及。
 
 • 迭代事件：迭代开始/结束提醒、站会提醒。
 
-• 版本日发布：新版本发布、版本日状态变更。
+• 版本发布：新版本发布、版本状态变更。
 
 • 审批事件：需求评审、缺陷关闭请求。
 
@@ -1576,16 +1576,16 @@ Notification: recipient(FK User), target_type(requirement/task/defect), target_i
 ### **<font style="color:rgb(51,51,51);">通知规则（默认）</font>**
 | **<font style="color:rgb(255,255,255);">事件</font>** | **<font style="color:rgb(255,255,255);">站内通知</font>** | **<font style="color:rgb(255,255,255);">邮件</font>** | **<font style="color:rgb(255,255,255);">IM</font>** | **<font style="color:rgb(255,255,255);">默认接收人</font>** |
 | --- | --- | --- | --- | --- |
-| <font style="color:rgb(51,51,51);">我创建的工作项发生变更</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">○</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">创建人</font> |
-| <font style="color:rgb(51,51,51);">指派给我的工作项</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">被指派人</font> |
-| <font style="color:rgb(51,51,51);">我评论的工作项有新回复</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">○</font> | <font style="color:rgb(51,51,51);">评论人</font> |
+| <font style="color:rgb(51,51,51);">我创建的需求/任务/缺陷发生变更</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">○</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">创建人</font> |
+| <font style="color:rgb(51,51,51);">指派给我的需求/任务/缺陷</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">被指派人</font> |
+| <font style="color:rgb(51,51,51);">我评论的需求/任务/缺陷有新回复</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">○</font> | <font style="color:rgb(51,51,51);">评论人</font> |
 | <font style="color:rgb(51,51,51);">@我的</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">被</font><font style="color:rgb(51,51,51);">@人</font> |
 | <font style="color:rgb(51,51,51);">迭代即将结束（剩余</font><font style="color:rgb(51,51,51);">1天）</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">迭代参与者</font> |
-| <font style="color:rgb(51,51,51);">版本日状态变更</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">版本日参与者</font> |
+| <font style="color:rgb(51,51,51);">版本状态变更</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">●</font> | <font style="color:rgb(51,51,51);">版本参与者</font> |
 
 
 ### **<font style="color:rgb(51,51,51);">用户自定义</font>**
-• 通知订阅：用户可在「设置→ 通知」中按项目/空间/工作项类型开启或关闭特定通知。
+• 通知订阅：用户可在「设置→ 通知」中按项目/空间/需求/任务/缺陷类型开启或关闭特定通知。
 
 • 免打扰时段：可设置免打扰时间段（如 22:00-08:00）。
 
@@ -1616,10 +1616,10 @@ SearchQuery: user(FK), query_text, filters(JSON), result_count, created_at Searc
 全局搜索的功能需求详述（详见下方详细功能描述）
 
 ### **<font style="color:rgb(51,51,51);">9.4 功能需求详述</font>**
-点击搜索框/快捷键 → 输入关键字/语法 → 查看结果 → 点击过滤/排序 → 进入工作项详情
+点击搜索框/快捷键 → 输入关键字/语法 → 查看结果 → 点击过滤/排序 → 进入需求/任务/缺陷详情
 
 ### **<font style="color:rgb(51,51,51);">9.4 交互流程</font>**
-所有用户: 我想快速通过关键字找到相关工作项，即使我记不清具体字段。 项目经理: 我想用高级语法（如 project:X status:Y）精确过滤工作项。
+所有用户: 我想快速通过关键字找到相关需求/任务/缺陷，即使我记不清具体字段。 项目经理: 我想用高级语法（如 project:X status:Y）精确过滤需求/任务/缺陷。
 
 ### **<font style="color:rgb(51,51,51);">9.4 用户故事</font>**
 参见下方竞品对标表格
@@ -1633,7 +1633,7 @@ SearchQuery: user(FK), query_text, filters(JSON), result_count, created_at Searc
 | --- | --- | --- |
 | <font style="color:rgb(51,51,51);">全文搜索</font> | <font style="color:rgb(51,51,51);">支持标题、描述、评论全文模糊匹配</font> | <font style="color:rgb(51,51,51);">P0</font> |
 | <font style="color:rgb(51,51,51);">关键词高亮</font> | <font style="color:rgb(51,51,51);">搜索结果中匹配关键词高亮显示</font> | <font style="color:rgb(51,51,51);">P0</font> |
-| <font style="color:rgb(51,51,51);">多对象搜索</font> | <font style="color:rgb(51,51,51);">同时搜索需求</font><font style="color:rgb(51,51,51);">/任务/缺陷/文档/模块/版本日</font> | <font style="color:rgb(51,51,51);">P0</font> |
+| <font style="color:rgb(51,51,51);">多对象搜索</font> | <font style="color:rgb(51,51,51);">同时搜索需求</font><font style="color:rgb(51,51,51);">/任务/缺陷/文档/模块/版本</font> | <font style="color:rgb(51,51,51);">P0</font> |
 | <font style="color:rgb(51,51,51);">过滤器联动</font> | <font style="color:rgb(51,51,51);">左右分栏：左侧过滤器，右侧结果</font> | <font style="color:rgb(51,51,51);">P0</font> |
 | <font style="color:rgb(51,51,51);">高级过滤器</font> | <font style="color:rgb(51,51,51);">支持字段级筛选（如</font><font style="color:rgb(51,51,51);"> priority = high AND assignee = currentUser()）</font> | <font style="color:rgb(51,51,51);">P1</font> |
 | <font style="color:rgb(51,51,51);">搜索语法</font> | <font style="color:rgb(51,51,51);">类</font><font style="color:rgb(51,51,51);"> JQL 语法（如 project:ABC status:todo assignee:me）</font> | <font style="color:rgb(51,51,51);">P1</font> |
@@ -1647,12 +1647,12 @@ SearchQuery: user(FK), query_text, filters(JSON), result_count, created_at Searc
 
 • 排序方式：相关度（默认）、创建时间、更新时间、优先级。
 
-• 结果分组：按工作项类型分组展示，每类最多展示 10 条。
+• 结果分组：按需求/任务/缺陷类型分组展示，每类最多展示 10 条。
 
 • 搜索建议：输入时实时展示搜索建议。
 
 ## **<font style="color:rgb(46,117,182);">9.5 视图与自定义 (Views & Customization)</font>**
-视图与自定义能力让用户可以根据不同场景切换不同的工作项展示形式。对标 Jira Views、TAPD 自定义视图。
+视图与自定义能力让用户可以根据不同场景切换不同的需求/任务/缺陷展示形式。对标 Jira Views、TAPD 自定义视图。
 
 数据模型
 
@@ -1678,7 +1678,7 @@ SearchQuery: user(FK), query_text, filters(JSON), result_count, created_at Searc
 | <font style="color:rgb(51,51,51);">看板</font><font style="color:rgb(51,51,51);"> (Kanban)</font> | <font style="color:rgb(51,51,51);">按状态列展示，支持列内卡片拖拽流转</font> | <font style="color:rgb(51,51,51);">敏捷开发、每日站会</font> | <font style="color:rgb(51,51,51);">P0</font> |
 | <font style="color:rgb(51,51,51);">列表</font><font style="color:rgb(51,51,51);"> (List)</font> | <font style="color:rgb(51,51,51);">行式表格，支持列自定义、排序、批量操作</font> | <font style="color:rgb(51,51,51);">详细查看、批量更新</font> | <font style="color:rgb(51,51,51);">P0</font> |
 | <font style="color:rgb(51,51,51);">甘特图</font><font style="color:rgb(51,51,51);"> (Gantt)</font> | <font style="color:rgb(51,51,51);">时间轴</font><font style="color:rgb(51,51,51);"> + 依赖关系，支持里程碑标记</font> | <font style="color:rgb(51,51,51);">项目计划、里程碑跟踪</font> | <font style="color:rgb(51,51,51);">P1</font> |
-| <font style="color:rgb(51,51,51);">日历</font><font style="color:rgb(51,51,51);"> (Calendar)</font> | <font style="color:rgb(51,51,51);">按日期展示工作项（基于开始</font><font style="color:rgb(51,51,51);">/截止日期）</font> | <font style="color:rgb(51,51,51);">排期规划、资源日历</font> | <font style="color:rgb(51,51,51);">P1</font> |
+| <font style="color:rgb(51,51,51);">日历</font><font style="color:rgb(51,51,51);"> (Calendar)</font> | <font style="color:rgb(51,51,51);">按日期展示需求/任务/缺陷（基于开始</font><font style="color:rgb(51,51,51);">/截止日期）</font> | <font style="color:rgb(51,51,51);">排期规划、资源日历</font> | <font style="color:rgb(51,51,51);">P1</font> |
 | <font style="color:rgb(51,51,51);">电子表格</font><font style="color:rgb(51,51,51);"> (Spreadsheet)</font> | <font style="color:rgb(51,51,51);">类</font><font style="color:rgb(51,51,51);"> Excel 的网格编辑，支持单元格编辑</font> | <font style="color:rgb(51,51,51);">数据批量编辑、导入导出</font> | <font style="color:rgb(51,51,51);">P2</font> |
 | <font style="color:rgb(51,51,51);">时间线</font><font style="color:rgb(51,51,51);"> (Timeline)</font> | <font style="color:rgb(51,51,51);">按创建时间轴展示，适合回顾历史</font> | <font style="color:rgb(51,51,51);">项目复盘、审计</font> | <font style="color:rgb(51,51,51);">P2</font> |
 
@@ -1697,13 +1697,13 @@ SearchQuery: user(FK), query_text, filters(JSON), result_count, created_at Searc
 124. 默认视图：每个项目可配置默认打开视图（如看板或列表）。
 
 ### **<font style="color:rgb(51,51,51);">导入导出</font>**
-• 支持 CSV/Excel 导入：从外部系统批量导入工作项。
+• 支持 CSV/Excel 导入：从外部系统批量导入需求/任务/缺陷。
 
 • 支持 CSV/Excel/JSON 导出：导出当前视图数据。
 
 • 字段映射：导入时可配置外部字段与Ydsz Plane 字段的映射关系。
 
-• 增量导入：支持识别已有工作项（依据 external_id）进行更新而非重复创建。
+• 增量导入：支持识别已有需求/任务/缺陷（依据 external_id）进行更新而非重复创建。
 
   
 
@@ -1732,7 +1732,7 @@ Webhook & API 提供系统集成能力，支持事件订阅、请求签名、自
 ### **<font style="color:rgb(51,51,51);">Webhook 管理</font>**
 125. Webhook CRUD：创建/编辑/删除/启用/禁用 Webhook。
 
-126. 事件订阅：支持工作项 CRUD/迭代/版本日/成员变更等 30+ 事件类型。
+126. 事件订阅：支持需求/任务/缺陷 CRUD/迭代/版本/成员变更等 30+ 事件类型。
 
 127. 请求签名：支持 HMAC-SHA256 签名验证，确保请求来源可信。
 
@@ -1746,7 +1746,7 @@ Webhook & API 提供系统集成能力，支持事件订阅、请求签名、自
 | **<font style="color:rgb(255,255,255);">能力</font>** | **<font style="color:rgb(255,255,255);">描述</font>** | **<font style="color:rgb(255,255,255);">优先级</font>** |
 | --- | --- | --- |
 | <font style="color:rgb(51,51,51);">OpenAPI Schema</font> | <font style="color:rgb(51,51,51);">提供</font><font style="color:rgb(51,51,51);"> OpenAPI 3.0 规范文档，支持 Swagger UI</font> | <font style="color:rgb(51,51,51);">P0</font> |
-| <font style="color:rgb(51,51,51);">CRUD 端点</font> | <font style="color:rgb(51,51,51);">完整的工作项</font><font style="color:rgb(51,51,51);">/项目/迭代/版本日 CRUD API</font> | <font style="color:rgb(51,51,51);">P0</font> |
+| <font style="color:rgb(51,51,51);">CRUD 端点</font> | <font style="color:rgb(51,51,51);">完整的需求/任务/缺陷</font><font style="color:rgb(51,51,51);">/项目/迭代/版本 CRUD API</font> | <font style="color:rgb(51,51,51);">P0</font> |
 | <font style="color:rgb(51,51,51);">认证方式</font> | <font style="color:rgb(51,51,51);">支持</font><font style="color:rgb(51,51,51);"> API Token / OAuth2 / Session 认证</font> | <font style="color:rgb(51,51,51);">P0</font> |
 | <font style="color:rgb(51,51,51);">分页查询</font> | <font style="color:rgb(51,51,51);">支持</font><font style="color:rgb(51,51,51);"> cursor 分页和 offset 分页</font> | <font style="color:rgb(51,51,51);">P0</font> |
 | <font style="color:rgb(51,51,51);">字段筛选</font> | <font style="color:rgb(51,51,51);">支持</font><font style="color:rgb(51,51,51);"> fields 参数控制返回字段，减少传输</font> | <font style="color:rgb(51,51,51);">P1</font> |
@@ -1795,19 +1795,19 @@ AutomationRule: name, project(FK), trigger(JSON), conditions(JSON), actions(JSON
 ### **<font style="color:rgb(51,51,51);">规则结构</font>**
 | **<font style="color:rgb(255,255,255);">组成</font>** | **<font style="color:rgb(255,255,255);">描述</font>** | **<font style="color:rgb(255,255,255);">示例</font>** |
 | --- | --- | --- |
-| <font style="color:rgb(51,51,51);">Trigger (触发器)</font> | <font style="color:rgb(51,51,51);">事件驱动或定时触发</font> | <font style="color:rgb(51,51,51);">Issue Created / Transitioned / Scheduled / Commit Pushed</font> |
+| <font style="color:rgb(51,51,51);">Trigger (触发器)</font> | <font style="color:rgb(51,51,51);">事件驱动或定时触发</font> | <font style="color:rgb(51,51,51);">需求/任务/缺陷 创建/流转/定时/代码提交</font> |
 | <font style="color:rgb(51,51,51);">Condition (条件)</font> | <font style="color:rgb(51,51,51);">过滤条件，决定是否执行后续</font><font style="color:rgb(51,51,51);"> Action</font> | <font style="color:rgb(51,51,51);">Priority = High AND Assignee is Empty</font> |
 | <font style="color:rgb(51,51,51);">Action (动作)</font> | <font style="color:rgb(51,51,51);">执行的操作</font> | <font style="color:rgb(51,51,51);">Transition / Assign / Notify / Create / Webhook</font> |
 
 
 ### **<font style="color:rgb(51,51,51);">内置规则模板</font>**
-131. 子任务全完成时自动完成父工作项（Issue Trigger + Condition + Transition Action）
+131. 子任务全完成时自动完成父需求/任务/缺陷（需求/任务/缺陷 Trigger + Condition + Transition Action）
 
 132. 新缺陷自动指派关注者（缺陷创建时通知 Tech Lead）
 
 133. 任务逾期自动提醒经办人（Scheduled Trigger + 3天未更新条件 + 邮件通知）
 
-134. 版本发布时自动流转该版本中所有工作项为已完成
+134. 版本发布时自动流转该版本中所有需求/任务/缺陷为已完成
 
 135. 故事点变更时自动汇总 Epic 层故事点总数
 
@@ -1822,7 +1822,7 @@ AutomationRule: name, project(FK), trigger(JSON), conditions(JSON), actions(JSON
 
 • 定时触发：支持 Cron 表达式配置（如每天 9:00 检查逾期任务）。
 
-• 字段值复制：跨工作项复制字段值（如子需求继承父需求模块）。
+• 字段值复制：跨需求/任务/缺陷复制字段值（如子需求继承父需求模块）。
 
 • Webhook 动作：执行时向外部系统发送自定义 HTTP 请求。
 
@@ -1835,7 +1835,7 @@ AutomationRule: name, project(FK), trigger(JSON), conditions(JSON), actions(JSON
 
 • 失败告警：连续 3 次执行失败时禁用规则并通知管理员。
 
-• 并发控制：同一工作项的自动化规则串行执行，避免状态竞争。
+• 并发控制：同一需求/任务/缺陷的自动化规则串行执行，避免状态竞争。
 
   
 
@@ -1902,7 +1902,7 @@ AutomationRule: name, project(FK), trigger(JSON), conditions(JSON), actions(JSON
 147. 仪表盘模板：预置「工程效能仪表盘」「QA 质量仪表盘」「PMO 战略仪表盘」。
 
 ### **<font style="color:rgb(51,51,51);">数据采集与权限</font>**
-• 自动采集：基于工作项状态变更、迭代状态自动计算指标。
+• 自动采集：基于需求/任务/缺陷状态变更、迭代状态自动计算指标。
 
 • 数据校准：允许管理员修正异常数据点。
 
@@ -1930,7 +1930,7 @@ AutomationRule: name, project(FK), trigger(JSON), conditions(JSON), actions(JSON
 
 • 需求池中 5 条 P0 加星标
 
-• 创建 v2.6 版本日 → 规划 3 个迭代 → 拆分大需求为子需求
+• 创建 v2.6 版本 → 规划 3 个迭代 → 拆分大需求为子需求
 
 • 进入 Sprint-14 规划 → 将 8 个需求拖拽入迭代
 
@@ -1947,29 +1947,29 @@ AutomationRule: name, project(FK), trigger(JSON), conditions(JSON), actions(JSON
 
 • 周四：处理测试反馈缺陷→ 关联到任务
 
-• 周五：迭代复盘→ 回顾 velocity → 归档完成工作项
+• 周五：迭代复盘→ 回顾 velocity → 归档完成需求/任务/缺陷
 
 ## **<font style="color:rgb(46,117,182);">11.3 测试经理的版本交付</font>**
-• 版本日前 2 周：编写测试用例、规划测试计划
+• 版本前 2 周：编写测试用例、规划测试计划
 
-• 版本日前 1 周：执行回归测试
+• 版本前 1 周：执行回归测试
 
 • 需求测试发现Defect → 一键提 Defect → 关联到需求
 
 • Defect 修复后验证通过→ 流转 '已关闭' → 关联修复 PR
 
-• 版本日交付日：查看版本日交付报告
+• 版本交付日：查看版本交付报告
 
-• 查看项目仪表盘：版本日进度、模块缺陷分布
+• 查看项目仪表盘：版本进度、模块缺陷分布
 
 # **<font style="color:rgb(31,78,121);">12. 成功指标</font>**
 | **<font style="color:rgb(255,255,255);">指标</font>** | **<font style="color:rgb(255,255,255);">目标</font>** | **<font style="color:rgb(255,255,255);">周期</font>** | **<font style="color:rgb(255,255,255);">说明</font>** |
 | --- | --- | --- | --- |
-| <font style="color:rgb(51,51,51);">新用户</font><font style="color:rgb(51,51,51);"> 7 日激活率</font> | <font style="color:rgb(51,51,51);">≥ 60%</font> | <font style="color:rgb(51,51,51);">周</font> | <font style="color:rgb(51,51,51);">首次创建工作项</font> |
-| <font style="color:rgb(51,51,51);">工作项创建数</font><font style="color:rgb(51,51,51);">/用户/周</font> | <font style="color:rgb(51,51,51);">≥ 5</font> | <font style="color:rgb(51,51,51);">周</font> | <font style="color:rgb(51,51,51);">核心活跃度</font> |
-| <font style="color:rgb(51,51,51);">Issue 平均完成周期</font> | <font style="color:rgb(51,51,51);">≤ 5 天</font> | <font style="color:rgb(51,51,51);">月</font> | <font style="color:rgb(51,51,51);">从创建到完成</font> |
+| <font style="color:rgb(51,51,51);">新用户</font><font style="color:rgb(51,51,51);"> 7 日激活率</font> | <font style="color:rgb(51,51,51);">≥ 60%</font> | <font style="color:rgb(51,51,51);">周</font> | <font style="color:rgb(51,51,51);">首次创建需求/任务/缺陷</font> |
+| <font style="color:rgb(51,51,51);">需求/任务/缺陷创建数</font><font style="color:rgb(51,51,51);">/用户/周</font> | <font style="color:rgb(51,51,51);">≥ 5</font> | <font style="color:rgb(51,51,51);">周</font> | <font style="color:rgb(51,51,51);">核心活跃度</font> |
+| <font style="color:rgb(51,51,51);">需求/任务/缺陷平均完成周期</font> | <font style="color:rgb(51,51,51);">≤ 5 天</font> | <font style="color:rgb(51,51,51);">月</font> | <font style="color:rgb(51,51,51);">从创建到完成</font> |
 | <font style="color:rgb(51,51,51);">Sprint</font><font style="color:rgb(51,51,51);"> </font><font style="color:rgb(51,51,51);">按时完成率</font> | <font style="color:rgb(51,51,51);">≥ 70%</font> | <font style="color:rgb(51,51,51);">每</font><font style="color:rgb(51,51,51);">Sprint</font> | <font style="color:rgb(51,51,51);">交付准时性</font> |
-| <font style="color:rgb(51,51,51);">版本日按期发布率</font> | <font style="color:rgb(51,51,51);">≥ 80%</font> | <font style="color:rgb(51,51,51);">每</font><font style="color:rgb(51,51,51);"> Version</font> | <font style="color:rgb(51,51,51);">里程碑达成</font> |
+| <font style="color:rgb(51,51,51);">版本按期发布率</font> | <font style="color:rgb(51,51,51);">≥ 80%</font> | <font style="color:rgb(51,51,51);">每</font><font style="color:rgb(51,51,51);"> Version</font> | <font style="color:rgb(51,51,51);">里程碑达成</font> |
 | <font style="color:rgb(51,51,51);">30 日用户留存</font> | <font style="color:rgb(51,51,51);">≥ 40%</font> | <font style="color:rgb(51,51,51);">月</font> | <font style="color:rgb(51,51,51);">用户粘性</font> |
 | <font style="color:rgb(51,51,51);">DAU/MAU</font> | <font style="color:rgb(51,51,51);">≥ 35%</font> | <font style="color:rgb(51,51,51);">月</font> | <font style="color:rgb(51,51,51);">月活占比</font> |
 | <font style="color:rgb(51,51,51);">GitHub Stars / 月增长</font> | <font style="color:rgb(51,51,51);">8%+</font> | <font style="color:rgb(51,51,51);">月</font> | <font style="color:rgb(51,51,51);">开源热度</font> |
@@ -1981,7 +1981,7 @@ AutomationRule: name, project(FK), trigger(JSON), conditions(JSON), actions(JSON
 | <font style="color:rgb(51,51,51);">多租户隔离：</font><font style="color:rgb(51,51,51);">Schema-per-tenant 还是 RLS？</font> | <font style="color:rgb(51,51,51);">是</font> | <font style="color:rgb(51,51,51);">架构师</font> | <font style="color:rgb(51,51,51);">方案讨论</font> |
 | <font style="color:rgb(51,51,51);">IM 集成：仅 Webhook 还是原生机器人？</font> | <font style="color:rgb(51,51,51);">否</font> | <font style="color:rgb(51,51,51);">前端</font> | <font style="color:rgb(51,51,51);">评估中</font> |
 | <font style="color:rgb(51,51,51);">测试用例：自建</font><font style="color:rgb(51,51,51);"> vs 对接 KiwiTCMS？</font> | <font style="color:rgb(51,51,51);">是</font> | <font style="color:rgb(51,51,51);">产品</font><font style="color:rgb(51,51,51);">+QA</font> | <font style="color:rgb(51,51,51);">待定</font> |
-| <font style="color:rgb(51,51,51);">版本日</font><font style="color:rgb(51,51,51);">-迭代映射规则与自动化策略</font> | <font style="color:rgb(51,51,51);">否</font> | <font style="color:rgb(51,51,51);">产品</font><font style="color:rgb(51,51,51);">+后端</font> | <font style="color:rgb(51,51,51);">待讨论</font> |
+| <font style="color:rgb(51,51,51);">版本</font><font style="color:rgb(51,51,51);">-迭代映射规则与自动化策略</font> | <font style="color:rgb(51,51,51);">否</font> | <font style="color:rgb(51,51,51);">产品</font><font style="color:rgb(51,51,51);">+后端</font> | <font style="color:rgb(51,51,51);">待讨论</font> |
 | <font style="color:rgb(51,51,51);">仪表盘小部件开放策略</font> | <font style="color:rgb(51,51,51);">否</font> | <font style="color:rgb(51,51,51);">产品</font><font style="color:rgb(51,51,51);">+架构</font> | <font style="color:rgb(51,51,51);">调研中</font> |
 | <font style="color:rgb(51,51,51);">商业版</font><font style="color:rgb(51,51,51);"> vs 开源版功能边界</font> | <font style="color:rgb(51,51,51);">否</font> | <font style="color:rgb(51,51,51);">CEO</font> | <font style="color:rgb(51,51,51);">战略讨论</font> |
 
@@ -1991,15 +1991,15 @@ AutomationRule: name, project(FK), trigger(JSON), conditions(JSON), actions(JSON
 | --- | --- | --- |
 | <font style="color:rgb(51,51,51);">工作空间</font> | <font style="color:rgb(51,51,51);">Workspace</font> | <font style="color:rgb(51,51,51);">组织级容器，隔离企业</font><font style="color:rgb(51,51,51);">/团队数据</font> |
 | <font style="color:rgb(51,51,51);">项目</font> | <font style="color:rgb(51,51,51);">Project</font> | <font style="color:rgb(51,51,51);">具体产品的研发项目，承载需求</font><font style="color:rgb(51,51,51);">/任务/缺陷</font> |
-| <font style="color:rgb(51,51,51);">版本日</font> | <font style="color:rgb(51,51,51);">Version</font> | <font style="color:rgb(51,51,51);">产品发版里程碑，含</font><font style="color:rgb(51,51,51);"> 1~N 个迭代</font> |
+| <font style="color:rgb(51,51,51);">版本</font> | <font style="color:rgb(51,51,51);">Version</font> | <font style="color:rgb(51,51,51);">产品发版里程碑，含</font><font style="color:rgb(51,51,51);"> 1~N 个迭代</font> |
 | <font style="color:rgb(51,51,51);">迭代</font> | <font style="color:rgb(51,51,51);">Sprint</font> | <font style="color:rgb(51,51,51);">固定周期开发单元</font> |
 | <font style="color:rgb(51,51,51);">需求</font> | <font style="color:rgb(51,51,51);">Requirement</font> | <font style="color:rgb(51,51,51);">产品经理提出，可拆分子需求</font> |
-| <font style="color:rgb(51,51,51);">子需求</font> | <font style="color:rgb(51,51,51);">Sub-requirement</font> | <font style="color:rgb(51,51,51);">需求拆分后的子工作项</font> |
+| <font style="color:rgb(51,51,51);">子需求</font> | <font style="color:rgb(51,51,51);">Sub-requirement</font> | <font style="color:rgb(51,51,51);">需求拆分后的子需求/任务/缺陷</font> |
 | <font style="color:rgb(51,51,51);">任务</font> | <font style="color:rgb(51,51,51);">Task</font> | <font style="color:rgb(51,51,51);">技术经理提出，可拆分子任务</font> |
-| <font style="color:rgb(51,51,51);">子任务</font> | <font style="color:rgb(51,51,51);">Sub-task</font> | <font style="color:rgb(51,51,51);">任务拆分后的子工作项</font> |
+| <font style="color:rgb(51,51,51);">子任务</font> | <font style="color:rgb(51,51,51);">Sub-task</font> | <font style="color:rgb(51,51,51);">任务拆分后的子需求/任务/缺陷</font> |
 | <font style="color:rgb(51,51,51);">缺陷</font> | <font style="color:rgb(51,51,51);">Defect</font> | <font style="color:rgb(51,51,51);">由需求</font><font style="color:rgb(51,51,51);">/任务产生，可拆分子缺陷</font> |
 | <font style="color:rgb(51,51,51);">子缺陷</font> | <font style="color:rgb(51,51,51);">Sub-defect</font> | <font style="color:rgb(51,51,51);">缺陷拆分后的子单元</font> |
-| <font style="color:rgb(51,51,51);">模块</font> | <font style="color:rgb(51,51,51);">Module</font> | <font style="color:rgb(51,51,51);">工作项归档属性，非独立对象</font> |
+| <font style="color:rgb(51,51,51);">模块</font> | <font style="color:rgb(51,51,51);">Module</font> | <font style="color:rgb(51,51,51);">需求/任务/缺陷归档属性，非独立对象</font> |
 | <font style="color:rgb(51,51,51);">收件箱</font> | <font style="color:rgb(51,51,51);">Intake / Inbox</font> | <font style="color:rgb(51,51,51);">反馈收集通道</font> |
 | <font style="color:rgb(51,51,51);">项目仪表盘</font> | <font style="color:rgb(51,51,51);">Project Dashboard</font> | <font style="color:rgb(51,51,51);">面向</font><font style="color:rgb(51,51,51);"> PM 的项目级聚合视图</font> |
 | <font style="color:rgb(51,51,51);">个人工作台</font> | <font style="color:rgb(51,51,51);">My Work</font> | <font style="color:rgb(51,51,51);">面向成员的个人级聚合视图</font> |
@@ -2011,7 +2011,7 @@ AutomationRule: name, project(FK), trigger(JSON), conditions(JSON), actions(JSON
 | --- | --- | --- | --- |
 | <font style="color:rgb(51,51,51);">v0.1</font> | <font style="color:rgb(51,51,51);">2026-08-06</font> | <font style="color:rgb(51,51,51);">Marvin Lee</font> | <font style="color:rgb(51,51,51);">初版</font><font style="color:rgb(51,51,51);"> PRD，基于 code base 结构分析</font> |
 | <font style="color:rgb(51,51,51);">V</font><font style="color:rgb(51,51,51);">0</font><font style="color:rgb(51,51,51);">.</font><font style="color:rgb(51,51,51);">2</font> | <font style="color:rgb(51,51,51);">2026-08-06</font> | <font style="color:rgb(51,51,51);">Marvin Lee</font> | <font style="color:rgb(51,51,51);">竞品对标</font><font style="color:rgb(51,51,51);"> + 角色-需求-任务-缺陷 + 用户旅程</font> |
-| <font style="color:rgb(51,51,51);">V</font><font style="color:rgb(51,51,51);">0</font><font style="color:rgb(51,51,51);">.</font><font style="color:rgb(51,51,51);">3</font> | <font style="color:rgb(51,51,51);">2026-08-06</font> | <font style="color:rgb(51,51,51);">Marvin Lee</font> | <font style="color:rgb(51,51,51);">模块</font><font style="color:rgb(51,51,51);">=归档属性 + 版本日=1~N迭代</font> |
+| <font style="color:rgb(51,51,51);">V</font><font style="color:rgb(51,51,51);">0</font><font style="color:rgb(51,51,51);">.</font><font style="color:rgb(51,51,51);">3</font> | <font style="color:rgb(51,51,51);">2026-08-06</font> | <font style="color:rgb(51,51,51);">Marvin Lee</font> | <font style="color:rgb(51,51,51);">模块</font><font style="color:rgb(51,51,51);">=归档属性 + 版本=1~N迭代</font> |
 | <font style="color:rgb(51,51,51);">V</font><font style="color:rgb(51,51,51);">0</font><font style="color:rgb(51,51,51);">.</font><font style="color:rgb(51,51,51);">4</font> | <font style="color:rgb(51,51,51);">2026-08-06</font> | <font style="color:rgb(51,51,51);">Marvin Lee</font> | <font style="color:rgb(51,51,51);">核心修正：需求拆解不产生任务</font> |
 | <font style="color:rgb(51,51,51);">V</font><font style="color:rgb(51,51,51);">0.5</font> | <font style="color:rgb(51,51,51);">2026-08-06</font> | <font style="color:rgb(51,51,51);">Marvin Lee</font> | <font style="color:rgb(51,51,51);">融合</font><font style="color:rgb(51,51,51);"> v</font><font style="color:rgb(51,51,51);">0.4</font><font style="color:rgb(51,51,51);"> </font><font style="color:rgb(51,51,51);">功能框架</font><font style="color:rgb(51,51,51);"> + v</font><font style="color:rgb(51,51,51);">0.5</font><font style="color:rgb(51,51,51);"> </font><font style="color:rgb(51,51,51);">属性竞品对比</font> |
 | <font style="color:rgb(51,51,51);">V</font><font style="color:rgb(51,51,51);">0.6</font> | <font style="color:rgb(51,51,51);">2026-08-06</font> | <font style="color:rgb(51,51,51);">Marvin Lee</font> | <font style="color:rgb(51,51,51);">效率增强功能详细需求细化</font> |

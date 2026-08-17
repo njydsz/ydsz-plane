@@ -1,7 +1,7 @@
 ﻿<script setup lang="ts">
 /**
  * 版本列表页 — 展示版本列表，支持创建与状态流转。
- * 业务规则：一个版本聚合多个迭代（1:N），target_date（版本日）只是版本的一个属性。
+ * 业务规则：一个版本聚合多个迭代（1:N），target_date 只是版本的一个属性。
  */
 
 import { computed, onMounted, ref } from "vue";
