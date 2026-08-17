@@ -5082,3 +5082,14 @@ CREATE TABLE IF NOT EXISTS intake_issues (
     updated_at               TIMESTAMPTZ DEFAULT now()
 );
 
+
+-- ============================================================
+-- 收件箱（Intake）权限种子 — 幂等（新库可直接启用收件箱管理）
+-- 角色：owner / pm / po / techlead / qalead 授予读+管理
+-- ============================================================
+INSERT INTO role_permissions (id, tenant_id, role_slug, permission_code)
+SELECT (abs(hashtext('intake:' || r.role_slug || ':' || x.p)) % 4611686018427387904)::bigint,
+       1, r.role_slug, x.p
+FROM (VALUES ('owner'), ('pm'), ('po'), ('techlead'), ('qalead')) AS r(role_slug),
+     (VALUES ('intake:read'), ('intake:manage')) AS x(p)
+ON CONFLICT DO NOTHING;

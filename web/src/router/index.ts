@@ -22,6 +22,7 @@ const WORKSPACE_PERMISSIOND_ROUTES: Record<string, string> = {
   "workspace-analytics": "analytics:read",
   "workspace-automation": "automation:manage",
   "webhook-settings": "webhook:manage",
+  "intake-settings": "intake:manage",
   "audit-logs": "audit:read",
   "workspace-dlq": "",
   "workspace-rbac": "",
@@ -68,6 +69,20 @@ const router = createRouter({
       component: () => import("@/views/project/PublicPageView.vue"),
       meta: { public: true },
       props: (route) => ({ token: String(route.params.token) }),
+    },
+    // 收件箱公开提报页（免登录，按渠道 slug）
+    {
+      path: "/intake/:workspaceId(\\d+)/:slug",
+      name: "intake-public",
+      component: () => import("@/views/workspace/IntakePublicView.vue"),
+      meta: { public: true },
+    },
+    // 收件箱公开跟踪页（免登录）
+    {
+      path: "/intake/track",
+      name: "intake-track",
+      component: () => import("@/views/workspace/IntakePublicView.vue"),
+      meta: { public: true },
     },
     {
       path: "/settings/api-tokens",
@@ -132,6 +147,12 @@ const router = createRouter({
           path: ":workspaceId(\\d+)/settings/webhooks",
           name: "webhook-settings",
           component: () => import("@/views/workspace/WebhookSettingsView.vue"),
+        },
+        // 收件箱设置（提报渠道 + 工单审核）
+        {
+          path: ":workspaceId(\\d+)/settings/intake",
+          name: "intake-settings",
+          component: () => import("@/views/workspace/IntakeSettingsView.vue"),
         },
         {
           path: ":workspaceId(\\d+)/settings/notifications",
@@ -404,6 +425,22 @@ const router = createRouter({
           path: ":workspaceId(\\d+)/projects/:projectId/modules",
           name: "project-modules-list",
           component: () => import("@/views/project/ModulesView.vue"),
+          props: (route) => ({
+            workspaceId: Number(route.params.workspaceId),
+            projectId: Number(route.params.projectId),
+          }),
+        },
+        // 标签管理（项目设置子页）
+        {
+          path: ":workspaceId(\\d+)/projects/:projectId/settings/labels",
+          name: "project-label-settings",
+          component: () => import("@/views/project/LabelSettingsView.vue"),
+        },
+        // 标签管理独立页（对标模块的独立入口）
+        {
+          path: ":workspaceId(\\d+)/projects/:projectId/labels",
+          name: "project-labels-list",
+          component: () => import("@/views/project/LabelSettingsView.vue"),
           props: (route) => ({
             workspaceId: Number(route.params.workspaceId),
             projectId: Number(route.params.projectId),

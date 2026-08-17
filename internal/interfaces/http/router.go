@@ -25,6 +25,7 @@ import (
 	"github.com/njydsz/ydsz-plane/internal/application/dashboard"
 	"github.com/njydsz/ydsz-plane/internal/application/dlq"
 	"github.com/njydsz/ydsz-plane/internal/application/issue"
+	"github.com/njydsz/ydsz-plane/internal/application/intake"
 	"github.com/njydsz/ydsz-plane/internal/application/knowledge"
 	notif "github.com/njydsz/ydsz-plane/internal/application/notification"
 	"github.com/njydsz/ydsz-plane/internal/application/pages"
@@ -105,6 +106,9 @@ type Deps struct {
 	OIDCService *auth.OIDCService
 	// 知识库域
 	KnowledgeHandler *knowledge.Handler
+	// 收件箱域（Intake，匿名提报）
+	IntakeHandler       *intake.Handler
+	IntakePublicHandler *intake.PublicHandler
 }
 
 // RegisterIssueRoutes 注册工作项路由（在 NewEngine 之后调用）。
@@ -418,6 +422,44 @@ func RegisterPagesPublicRoutes(r *gin.Engine, d *Deps) {
 	{
 		public.GET("/:token", d.PagesPublicHandler.GetSharedPage)
 	}
+}
+
+// RegisterIntakeRoutes 注册收件箱管理路由（工作空间级）。
+// 路由前缀：/api/v1/workspaces/:workspace_id/intake
+// 权限分层：读操作 workspace:read；写操作（渠道管理/工单流转/转正）intake:manage。
+func RegisterIntakeRoutes(r *gin.Engine, d *Deps) {
+	if d.IntakeHandler == nil {
+		return
+	}
+	wsRead := r.Group("/api/v1/workspaces/:workspace_id")
+	wsRead.Use(
+		middleware.RequireAuth(d.principalParser()),
+		middleware.RequireWorkspaceParam(),
+		middleware.RequirePermissionFromDB(d.RBACStore, auth.PermWorkspaceRead),
+	)
+	// 读操作（渠道列表/详情、工单列表/详情）
+	read := wsRead.Group("")
+	d.IntakeHandler.RegisterRead(read)
+
+	wsWrite := r.Group("/api/v1/workspaces/:workspace_id")
+	wsWrite.Use(
+		middleware.RequireAuth(d.principalParser()),
+		middleware.RequireWorkspaceParam(),
+		middleware.RequirePermissionFromDB(d.RBACStore, auth.PermIntakeManage),
+	)
+	write := wsWrite.Group("")
+	d.IntakeHandler.RegisterWrite(write)
+}
+
+// RegisterIntakePublicRoutes 注册收件箱公开路由（免登录）。
+// 路由前缀：/api/v1/public/intake
+// 提供：按 slug 查渠道、提交工单、按 tracking_id + 邮箱跟踪。
+func RegisterIntakePublicRoutes(r *gin.Engine, d *Deps) {
+	if d.IntakePublicHandler == nil {
+		return
+	}
+	public := r.Group("/api/v1/public")
+	d.IntakePublicHandler.RegisterPublic(public)
 }
 
 // RegisterAutomationRoutes 注册自动化规则路由（项目级）。

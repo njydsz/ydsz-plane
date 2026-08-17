@@ -143,8 +143,7 @@ onMounted(load);
               <router-link
                 v-else
                 :to="`/${workspaceId}/projects/${p.id}/versions`"
-                class="inline-flex items-center gap-1 rounded-sm px-3 py-1.5 text-sm font-medium text-white transition hover:opacity-90"
-                style="background: var(--brand-500)"
+                class="inline-flex items-center gap-1 rounded-md bg-[var(--bg-accent-primary)] px-3 py-1.5 text-sm font-medium text-white hover:bg-[var(--bg-accent-primary-hover)] active:bg-[var(--bg-accent-primary-active)] disabled:opacity-50"
               >
                 版本 <span aria-hidden="true">→</span>
               </router-link>

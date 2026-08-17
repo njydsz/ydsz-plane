@@ -8,6 +8,7 @@ import { useRoute } from "vue-router";
 
 import { type IssueType, type IssuePriority, type ListIssuesParams, type State, issueApi } from "@/api/services/issue";
 import { workspaceApi, type Member } from "@/api/services/workspace";
+import { labelApi } from "@/api/services/label";
 import { preferenceApi } from "@/api/services/preference";
 import type { SavedView } from "@/api/services/preference";
 import { useIssueStore } from "@/stores/issue";
@@ -192,10 +193,9 @@ function applyColumnConfig() {
 
 // ========== P1-2: Batch assign/tags ==========
 const members = ref<Member[]>([]);
-/** 标签列表 — 后端暂无 GET /projects/:id/labels 端点（labels 表存在，但 CRUD 接口未实现）。
- *  批量标签按钮暂不可用，避免空下拉误导用户；待后端补齐 `web/src/api/services/issue.ts` 的 labelApi 后启用。 */
-const labels = ref<{ id: number; name: string }[]>([]);
-const LABEL_API_AVAILABLE = false;
+/** 标签列表 — 后端 GET /projects/:id/labels 已上线（label CRUD 完整实现），批量打标签可用。 */
+const labels = ref<{ id: number; name: string; color?: string }[]>([]);
+const LABEL_API_AVAILABLE = true;
 const showBatchAssign = ref(false);
 const showBatchLabel = ref(false);
 const batchAssignId = ref<number | null>(null);
@@ -212,8 +212,13 @@ async function loadMembers() {
 }
 
 async function loadLabels() {
-  /* 未来对接标签 API 时在此加载 */
-  labels.value = [];
+  if (!wsId.value || !projectId.value) return;
+  try {
+    const r = await labelApi.list(wsId.value, projectId.value);
+    labels.value = (r.results ?? []).map((l) => ({ id: l.id, name: l.name, color: l.color }));
+  } catch {
+    labels.value = [];
+  }
 }
 
 /** 批量指派 */
@@ -715,13 +720,13 @@ const isCurrentPageAllSelected = computed(() => {
         </div>
       </div>
 
-      <!-- 批量标签 — 后端标签 API 暂未提供，按钮禁用以避免空下拉误导 -->
+      <!-- 批量标签 -->
       <div class="batch-inline-dropdown">
         <button
           class="btn btn--sm"
           :class="{ 'btn--active': showBatchLabel }"
           :disabled="!LABEL_API_AVAILABLE"
-          :title="LABEL_API_AVAILABLE ? '' : '标签 API 暂未上线，待后端实现 GET /projects/:id/labels'"
+          :title="LABEL_API_AVAILABLE ? '' : '标签 API 暂未上线'"
           @click="showBatchLabel = !showBatchLabel"
         >
           批量标签

@@ -22,6 +22,7 @@ import (
 	"github.com/njydsz/ydsz-plane/internal/application/dashboard"
 	"github.com/njydsz/ydsz-plane/internal/application/dlq"
 	"github.com/njydsz/ydsz-plane/internal/application/issue"
+	"github.com/njydsz/ydsz-plane/internal/application/intake"
 	"github.com/njydsz/ydsz-plane/internal/application/knowledge"
 	"github.com/njydsz/ydsz-plane/internal/application/metrics"
 	notif "github.com/njydsz/ydsz-plane/internal/application/notification"
@@ -310,6 +311,12 @@ func run() error {
 	dlqSvc := dlq.NewService(pool.Pool)
 	dlqHandler := dlq.NewHandler(dlqSvc)
 
+	// ---------- Intake 收件箱（匿名提报） ----------
+	// 转正能力依赖 issue.Service（在 Issue domain 之后装配）。
+	intakeSvc := intake.NewService(pool.Pool).WithIssueCreator(issueSvc)
+	intakeHandler := intake.NewHandler(&intake.HandlerDeps{Svc: intakeSvc})
+	intakePublicHandler := intake.NewPublicHandler(&intake.HandlerDeps{Svc: intakeSvc})
+
 	// ---------- HTTP Engine ----------
 	engine := httpapi.NewEngine(&httpapi.Deps{
 		Cfg:              cfg,
@@ -369,6 +376,9 @@ func run() error {
 		AiHandler: aiHandler,
 		// DLQ 域（死信队列管理）
 		DLQHandler: dlqHandler,
+		// Intake 收件箱域（匿名提报）
+		IntakeHandler:       intakeHandler,
+		IntakePublicHandler: intakePublicHandler,
 		// S13 OIDC / SSO 域（单点登录）
 		OIDCService: oidcService,
 		// Storage 客户端（Logo 上传等）
@@ -570,6 +580,20 @@ func run() error {
 		WorkspaceStore:  wsStore,
 		RBACStore:       rbacStore,
 		OIDCService:     oidcService,
+	})
+
+	// 注册收件箱管理路由（工作空间级）
+	httpapi.RegisterIntakeRoutes(engine, &httpapi.Deps{
+		Auth:            authSvc,
+		PrincipalParser: parsePrincipal,
+		WorkspaceStore:  wsStore,
+		RBACStore:       rbacStore,
+		IntakeHandler:   intakeHandler,
+	})
+
+	// 注册收件箱公开路由（免登录：匿名提报 + 提交跟踪）
+	httpapi.RegisterIntakePublicRoutes(engine, &httpapi.Deps{
+		IntakePublicHandler: intakePublicHandler,
 	})
 
 	errCh := make(chan error, 1)

@@ -8,6 +8,7 @@ import { computed, ref, watch } from "vue";
 import { aiApi, type ClassifyResult, type DuplicateCandidate } from "@/api/services/ai";
 import { contentTemplateApi, type ContentTemplate } from "@/api/services/contentTemplate";
 import { type CreateIssueInput, type IssueType } from "@/api/services/issue";
+import { labelApi, type Label } from "@/api/services/label";
 import { versionApi, type Version } from "@/api/services/version";
 import { useIssueStore } from "@/stores/issue";
 import { RichTextEditor } from "@/components";
@@ -57,6 +58,19 @@ const fixVersionId = ref<number | null>(null);
 const rootCauseCategory = ref("");
 const verifierId = ref("");
 const versions = ref<Version[]>([]);
+
+// ---- 标签（独立 CRUD，创建时多选） ----
+const labelOptions = ref<Label[]>([]);
+const selectedLabelIds = ref<number[]>([]);
+
+async function loadLabels() {
+  try {
+    const r = await labelApi.list(props.workspaceId, props.projectId);
+    labelOptions.value = r.results ?? [];
+  } catch {
+    labelOptions.value = [];
+  }
+}
 
 // ---- AI 智能辅助 ----
 const aiEnabled = ref(false);
@@ -216,9 +230,11 @@ watch(
       aiError.value = null;
       selectedTemplate.value = null;
       templates.value = [];
+      selectedLabelIds.value = [];
       loadVersions();
       void loadTemplates();
       void checkAiStatus();
+      void loadLabels();
     }
   },
 );
@@ -256,6 +272,9 @@ async function submit() {
   }
   if (point.value != null) {
     input.point = point.value;
+  }
+  if (selectedLabelIds.value.length > 0) {
+    input.labels = [...selectedLabelIds.value];
   }
   if (parentIdInput.value != null) {
     input.parent_id = parentIdInput.value;
@@ -446,6 +465,28 @@ function cancel() {
             <div v-if="selectedType !== 'defect'" class="form-group form-group--inline">
               <label class="form-label">故事点</label>
               <input v-model.number="point" type="number" class="form-input form-input--sm" min="0" max="100" placeholder="--" />
+            </div>
+          </div>
+
+          <!-- 标签多选 -->
+          <div v-if="labelOptions.length > 0" class="form-group">
+            <label class="form-label">标签</label>
+            <div class="label-picker">
+              <label
+                v-for="l in labelOptions"
+                :key="l.id"
+                class="label-picker__item"
+                :class="{ 'label-picker__item--active': selectedLabelIds.includes(l.id) }"
+              >
+                <input
+                  v-model="selectedLabelIds"
+                  type="checkbox"
+                  :value="l.id"
+                  class="label-picker__input"
+                />
+                <span class="label-picker__dot" :style="{ backgroundColor: l.color || '#3b82f6' }" />
+                {{ l.name }}
+              </label>
             </div>
           </div>
 
@@ -1050,5 +1091,39 @@ function cancel() {
 }
 .template-picker__clear:hover {
   color: var(--danger-500);
+}
+.label-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.label-picker__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.label-picker__item:hover {
+  border-color: var(--brand-400);
+}
+.label-picker__item--active {
+  color: var(--brand-600);
+  border-color: var(--brand-400);
+  background: var(--brand-50);
+}
+.label-picker__input {
+  display: none;
+}
+.label-picker__dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
 }
 </style>

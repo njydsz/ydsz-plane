@@ -142,8 +142,7 @@ onMounted(load);
             <div class="mt-4 border-t border-[var(--border-subtle)] pt-3">
               <router-link
                 :to="`/${workspaceId}/projects/${p.id}/analytics`"
-                class="inline-flex items-center gap-1 rounded-sm px-3 py-1.5 text-sm font-medium text-white transition hover:opacity-90"
-                style="background: var(--brand-500)"
+                class="inline-flex items-center gap-1 rounded-md bg-[var(--bg-accent-primary)] px-3 py-1.5 text-sm font-medium text-white hover:bg-[var(--bg-accent-primary-hover)] active:bg-[var(--bg-accent-primary-active)] disabled:opacity-50"
               >
                 报表 <span aria-hidden="true">→</span>
               </router-link>

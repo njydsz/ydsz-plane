@@ -520,11 +520,14 @@ type Module struct {
 // Label 项目标签。
 type Label struct {
 	ID          int64     `json:"id"`
+	Code        string    `json:"code,omitempty"`
 	WorkspaceID int64     `json:"workspace_id"`
 	ProjectID   int64     `json:"project_id"`
 	Name        string    `json:"name"`
 	Color       string    `json:"color"`
 	Description string    `json:"description,omitempty"`
+	Status      string    `json:"status,omitempty"`
+	IssueCount  int       `json:"issue_count,omitempty"`
 	CreatedBy   int64     `json:"created_by"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`

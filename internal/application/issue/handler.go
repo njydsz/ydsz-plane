@@ -85,6 +85,10 @@ func (h *IssueHandler) Register(r *gin.RouterGroup, wsMiddleware []gin.HandlerFu
 	modHandler := NewModuleHandler(NewModuleService(h.d.IssueSvc.db))
 	modHandler.Register(r)
 
+	// 标签（Label 独立 CRUD，对标 Plane / Linear 的 Label 概念）
+	labelHandler := NewLabelHandler(NewLabelService(h.d.IssueSvc.db))
+	labelHandler.Register(r)
+
 	// 单资源
 	issue := r.Group("/issues/:issue_id")
 	{
