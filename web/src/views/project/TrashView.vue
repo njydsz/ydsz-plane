@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /**
  * TrashView — 回收站页面。
- * 展示已删除（软删除）的工作项，支持恢复和彻底删除。
+ * 展示已删除（软删除）的需求/任务/缺陷，支持恢复和彻底删除。
  */
 import { onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
@@ -38,7 +38,7 @@ async function restoreItem(id: number) {
   restoring.value.add(id);
   try {
     await issueApi.restoreIssue(workspaceId, projectId, id);
-    toast.success("工作项已恢复");
+    toast.success("需求/任务/缺陷已恢复");
     await load();
   } catch (e: unknown) {
     toast.error(e instanceof Error ? e.message : "恢复失败");
@@ -48,7 +48,7 @@ async function restoreItem(id: number) {
 }
 
 async function deletePermanently(id: number) {
-  if (!confirm("此操作不可撤销，确定要彻底删除该工作项吗？")) return;
+  if (!confirm("此操作不可撤销，确定要彻底删除该需求/任务/缺陷吗？")) return;
   if (deleting.value.has(id)) return;
   deleting.value.add(id);
   try {
@@ -74,7 +74,7 @@ onMounted(load);
     <header class="trash-view__header">
       <div>
         <h1>回收站</h1>
-        <p class="meta">被归档的工作项会保留 30 天后自动清理，你可以在此恢复。</p>
+        <p class="meta">被归档的需求/任务/缺陷会保留 30 天后自动清理，你可以在此恢复。</p>
       </div>
       <button class="btn btn--ghost" @click="router.back()">← 返回</button>
     </header>
@@ -84,7 +84,7 @@ onMounted(load);
     <AppEmptyState
       v-else-if="items.length === 0"
       title="回收站为空"
-      description="暂无已删除的工作项"
+      description="暂无已删除的需求/任务/缺陷"
     />
 
     <div v-else class="trash-table">

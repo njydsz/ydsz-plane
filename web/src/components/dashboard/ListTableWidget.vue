@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * ListTableWidget — 通用表格 widget，用于逾期/阻塞工作项。
+ * ListTableWidget — 通用表格 widget，用于逾期/阻塞需求/任务/缺陷。
  * 通过 config.kind 区分数据模式。
  */
 import type { OverdueItem, BlockedItem } from "@/api/services/dashboard";

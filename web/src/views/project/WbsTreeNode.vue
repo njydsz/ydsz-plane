@@ -1,13 +1,13 @@
 <script setup lang="ts">
 /**
- * WbsTreeNode — WBS 工作项树节点（递归组件）。
+ * WbsTreeNode — WBS 需求/任务/缺陷树节点（递归组件）。
  *
  * 通过 children 递归渲染三层 WBS 层级：
  *   - 需求：Epic → Feature → Story
  *   - 任务：主任务 → 子任务 → 子子任务
  *   - 缺陷：主缺陷 → 子缺陷 → 子子缺陷
  *
- * 支持：展开/折叠、选中、行内重命名、新建子工作项、删除。
+ * 支持：展开/折叠、选中、行内重命名、新建子需求/任务/缺陷、删除。
  */
 import { computed } from "vue";
 
@@ -21,7 +21,7 @@ const props = defineProps<{
   node: WbsNode;
   /** 折叠的节点 ID 集合 */
   collapsed: Set<number>;
-  /** 当前选中的工作项 ID */
+  /** 当前选中的需求/任务/缺陷 ID */
   selectedId: number | null;
 }>();
 
@@ -36,7 +36,7 @@ const emit = defineEmits<{
 const isExpanded = computed(() => !props.collapsed.has(props.node.issue.id));
 const hasChildren = computed(() => props.node.children.length > 0);
 
-/** 工作项类型图标 */
+/** 需求/任务/缺陷类型图标 */
 const typeIcon = computed(() => {
   switch (props.node.issue.type_code) {
     case "epic": return "🎯";
@@ -54,7 +54,7 @@ const typeLabel = computed(() => {
     case "requirement": return "需求";
     case "task": return "任务";
     case "defect": return "缺陷";
-    default: return "工作项";
+    default: return "需求/任务/缺陷";
   }
 });
 
@@ -96,7 +96,7 @@ const depthBorderStyle = computed(() => {
   };
 });
 
-/** 子工作项数量徽章 */
+/** 子需求/任务/缺陷数量徽章 */
 const childCount = computed(() => props.node.children.length);
 </script>
 
@@ -133,14 +133,14 @@ export interface WbsNode {
       <!-- 类型图标 -->
       <span class="wbs-type-icon" :title="typeLabel">{{ typeIcon }}</span>
 
-      <!-- 工作项标识符 -->
+      <!-- 需求/任务/缺陷标识符 -->
       <span class="wbs-identifier">{{ node.issue.identifier }}</span>
 
       <!-- 名称（可内联编辑） -->
       <InlineEdit
         class="wbs-name"
         :model-value="node.issue.name"
-        placeholder="未命名工作项"
+        placeholder="未命名需求/任务/缺陷"
         :max-length="200"
         @submit="(v) => emit('rename', node.issue, v)"
       />
@@ -156,7 +156,7 @@ export interface WbsNode {
       <span v-if="progressText" class="wbs-progress">{{ progressText }}</span>
 
       <!-- 子项数量徽章 -->
-      <span v-if="childCount > 0" class="wbs-badge" :title="`${childCount} 个子工作项`">
+      <span v-if="childCount > 0" class="wbs-badge" :title="`${childCount} 个子需求/任务/缺陷`">
         {{ childCount }}
       </span>
 
@@ -165,12 +165,12 @@ export interface WbsNode {
         <button
           v-if="node.issue.depth < 3"
           class="wbs-action"
-          title="添加子工作项"
+          title="添加子需求/任务/缺陷"
           @click.stop="emit('create-child', node.issue.id)"
         >＋</button>
         <button
           class="wbs-action wbs-action--danger"
-          title="删除工作项"
+          title="删除需求/任务/缺陷"
           @click.stop="emit('delete', node.issue)"
         >×</button>
       </span>

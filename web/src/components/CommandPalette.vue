@@ -17,7 +17,7 @@
               ref="inputRef"
               v-model="query"
               class="cp-input"
-              :placeholder="mode === 'search' ? '搜索工作项、迭代、版本、项目...' : '输入命令或搜索...'"
+              :placeholder="mode === 'search' ? '搜索需求/任务/缺陷、迭代、版本、项目...' : '输入命令或搜索...'"
               @keydown.esc="close"
               @keydown.enter="handleEnter"
               @keydown.down.prevent="moveDown"
@@ -97,7 +97,7 @@
               <template v-else-if="store.results">
                 <!-- issues -->
                 <div v-if="store.results.results.issues?.length" class="cp-group">
-                  <div class="cp-group-title">工作项</div>
+                  <div class="cp-group-title">需求/任务/缺陷</div>
                   <div
                     v-for="(item, idx) in store.results.results.issues"
                     :key="'issue-' + item.id"
@@ -176,7 +176,7 @@
 
               <!-- 无搜索词提示 -->
               <div v-else-if="query.trim() && !store.loading && !store.results" class="cp-status">
-                输入关键字搜索工作项、迭代、版本、项目...
+                输入关键字搜索需求/任务/缺陷、迭代、版本、项目...
               </div>
             </template>
           </div>
@@ -338,7 +338,7 @@ const commandGroups = computed<CommandGroupDef[]>(() => {
     commands: [
       {
         id: "create-issue",
-        label: "创建工作项",
+        label: "创建需求/任务/缺陷",
         icon: "✏️",
         iconBg: "var(--brand-50)",
         shortcut: "C",
@@ -613,7 +613,7 @@ function goToRecent(item: import("@/stores/recent-visited").RecentItem) {
 /** 类型 → 中文标签 */
 function typeLabel(type: string): string {
   const map: Record<string, string> = {
-    issue: "工作项",
+    issue: "需求/任务/缺陷",
     sprint: "迭代",
     version: "版本",
     project: "项目",

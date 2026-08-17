@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * IssueSocialBar — 工作项关注栏（订阅动态通知）。
+ * IssueSocialBar — 需求/任务/缺陷关注栏（订阅动态通知）。
  */
 import { computed, ref } from "vue";
 

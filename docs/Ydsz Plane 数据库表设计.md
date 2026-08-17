@@ -11,6 +11,7 @@
 | V1.0 | 2026-08-08 | 初始版本 133 张表 |
 | V2.0 | 2026-08-10 | 审查修订：ENUM 状态、租户分离、字段排序标准化 |
 | V2.1 | 2026-08-10 | 补全：ERP/隔离表暗示的同构关联表（含 xxx_* 范式展开、系统支撑表），设计文档与初始化脚本完全一致 |
+| V2.2 | 2026-08-17 | 一致性修复：补齐 11 张缺失文档的表 + 2 张缺失 SQL 的表 + 全量字段注释 + 索引补齐 + 触发器注册 |
 
 ## 全局设计约定
 
@@ -165,6 +166,12 @@ tenants ──< users ──< user_roles >── roles ──< role_menus >─�
   ├──< webhooks ──< webhook_logs
   ├──< biz_entity_relations
   ├──< data_jobs
+  ├──< sso_providers ──< sso_links / sso_sessions
+
+  ├──< knowledge_page_relations / knowledge_page_versions
+  ├──< page_shares / page_templates / document_links
+  ├──< role_permissions
+  ├──< workbench_templates
   └──< audit_logs / domain_events
 ```
 
@@ -2588,8 +2595,205 @@ tenants ──< users ──< user_roles >── roles ──< role_menus >─�
 |------|------|------|------|
 | version | BIGINT | PK | 版本号 |
 | dirty | BOOLEAN | NOT NULL DEFAULT false | 脏标记 |
+### 112. `defect_extra` — 缺陷扩展信息
 
-> 建表总数：1-80 编号表 + 81-110 范式展开/系统支撑表 = **110 张表**，与 `sql/ydsz-plane-init.sql` 完全一致。
+| 字段 | 类型 | 约束 | 说明 |
+|------|------|------|------|
+| id | BIGINT | PK | 雪花ID |
+| tenant_id | BIGINT | NOT NULL | 租户ID |
+| defect_id | BIGINT | NOT NULL | 缺陷ID |
+| found_phase | VARCHAR(20) | | 发现阶段（如 dev/test/prod） |
+| reopened_at | TIMESTAMPTZ | | 重开时间 |
+| status | entity_status | NOT NULL DEFAULT 'active' | 状态 |
+| deleted | BOOLEAN | DEFAULT false | 软删除 |
+| created_by | BIGINT | NOT NULL | 创建人 |
+| created_at | TIMESTAMPTZ | DEFAULT now() | 创建时间 |
+| updated_at | TIMESTAMPTZ | DEFAULT now() | 更新时间 |
+
+### 113. `document_links` — 文档与业务实体关联
+
+| 字段 | 类型 | 约束 | 说明 |
+|------|------|------|------|
+| id | BIGINT | PK | 雪花ID |
+| tenant_id | BIGINT | NOT NULL | 租户ID |
+| page_id | BIGINT | NOT NULL | 文档页面ID |
+| linkable_type | VARCHAR(50) | NOT NULL | 关联实体类型 |
+| linkable_id | BIGINT | NOT NULL | 关联实体ID |
+| status | entity_status | NOT NULL DEFAULT 'active' | 状态 |
+| deleted | BOOLEAN | DEFAULT false | 软删除 |
+| created_by | BIGINT | NOT NULL | 创建人 |
+| created_at | TIMESTAMPTZ | DEFAULT now() | 创建时间 |
+| updated_at | TIMESTAMPTZ | DEFAULT now() | 更新时间 |
+
+### 114. `knowledge_page_relations` — 知识页与需求/任务/缺陷关联
+
+| 字段 | 类型 | 约束 | 说明 |
+|------|------|------|------|
+| id | BIGINT | PK | 雪花ID |
+| tenant_id | BIGINT | NOT NULL | 租户ID |
+| page_id | BIGINT | NOT NULL | 知识页ID |
+| workitem_id | BIGINT | NOT NULL | 需求/任务/缺陷ID |
+| relation_type | VARCHAR(50) | | 关联类型（related/reference） |
+| status | entity_status | NOT NULL DEFAULT 'active' | 状态 |
+| deleted | BOOLEAN | DEFAULT false | 软删除 |
+| created_by | BIGINT | NOT NULL | 创建人 |
+| created_at | TIMESTAMPTZ | DEFAULT now() | 创建时间 |
+| updated_at | TIMESTAMPTZ | DEFAULT now() | 更新时间 |
+
+### 115. `knowledge_page_versions` — 知识页版本历史
+
+| 字段 | 类型 | 约束 | 说明 |
+|------|------|------|------|
+| id | BIGINT | PK | 雪花ID |
+| tenant_id | BIGINT | NOT NULL | 租户ID |
+| page_id | BIGINT | NOT NULL | 知识页ID |
+| version | INTEGER | NOT NULL DEFAULT 1 | 版本号 |
+| title | VARCHAR(255) | | 版本标题 |
+| content_md | TEXT | | Markdown 内容 |
+| content_html | TEXT | | HTML 渲染内容 |
+| change_summary | TEXT | | 变更摘要 |
+| status | entity_status | NOT NULL DEFAULT 'active' | 状态 |
+| deleted | BOOLEAN | DEFAULT false | 软删除 |
+| created_by | BIGINT | NOT NULL | 创建人 |
+| created_at | TIMESTAMPTZ | DEFAULT now() | 创建时间 |
+| updated_at | TIMESTAMPTZ | DEFAULT now() | 更新时间 |
+
+### 116. `page_shares` — 页面分享链接
+
+| 字段 | 类型 | 约束 | 说明 |
+|------|------|------|------|
+| id | BIGINT | PK | 雪花ID |
+| tenant_id | BIGINT | NOT NULL | 租户ID |
+| page_id | BIGINT | NOT NULL | 页面ID |
+| workspace_id | BIGINT | NOT NULL | 工作空间ID |
+| project_id | BIGINT | NOT NULL | 项目ID |
+| token | VARCHAR(128) | | 分享令牌 |
+| is_active | BOOLEAN | DEFAULT true | 是否有效 |
+| password_hash | VARCHAR(255) | | 访问密码哈希 |
+| expires_at | TIMESTAMPTZ | | 过期时间 |
+| status | entity_status | NOT NULL DEFAULT 'active' | 状态 |
+| deleted | BOOLEAN | DEFAULT false | 软删除 |
+| created_by | BIGINT | NOT NULL | 创建人 |
+| created_at | TIMESTAMPTZ | DEFAULT now() | 创建时间 |
+| updated_at | TIMESTAMPTZ | DEFAULT now() | 更新时间 |
+
+### 117. `page_templates` — 页面模板
+
+| 字段 | 类型 | 约束 | 说明 |
+|------|------|------|------|
+| id | BIGINT | PK | 雪花ID |
+| tenant_id | BIGINT | NOT NULL | 租户ID |
+| workspace_id | BIGINT | NOT NULL | 工作空间ID |
+| project_id | BIGINT | NOT NULL | 项目ID |
+| name | VARCHAR(255) | NOT NULL | 模板名称 |
+| description | TEXT | | 模板描述 |
+| content_html | TEXT | | 模板 HTML 内容 |
+| category | VARCHAR(100) | | 模板分类 |
+| status | entity_status | NOT NULL DEFAULT 'active' | 状态 |
+| deleted | BOOLEAN | DEFAULT false | 软删除 |
+| created_by | BIGINT | NOT NULL | 创建人 |
+| created_at | TIMESTAMPTZ | DEFAULT now() | 创建时间 |
+| updated_by | BIGINT | NOT NULL | 更新人 |
+| updated_at | TIMESTAMPTZ | DEFAULT now() | 更新时间 |
+
+### 118. `role_permissions` — 角色-权限映射
+
+| 字段 | 类型 | 约束 | 说明 |
+|------|------|------|------|
+| id | BIGINT | PK | 雪花ID |
+| tenant_id | BIGINT | NOT NULL | 租户ID |
+| role_slug | VARCHAR(100) | NOT NULL | 角色标识 |
+| permission_code | VARCHAR(100) | NOT NULL | 权限编码 |
+| status | entity_status | NOT NULL DEFAULT 'active' | 状态 |
+| deleted | BOOLEAN | DEFAULT false | 软删除 |
+| created_by | BIGINT | NOT NULL | 创建人 |
+| created_at | TIMESTAMPTZ | DEFAULT now() | 创建时间 |
+| updated_at | TIMESTAMPTZ | DEFAULT now() | 更新时间 |
+
+### 119. `sso_links` — SSO 用户关联
+
+| 字段 | 类型 | 约束 | 说明 |
+|------|------|------|------|
+| id | BIGINT | PK | 雪花ID |
+| tenant_id | BIGINT | NOT NULL | 租户ID |
+| user_id | BIGINT | NOT NULL | 用户ID |
+| provider_id | BIGINT | NOT NULL | SSO 提供方ID |
+| sso_subject | VARCHAR(255) | NOT NULL | SSO 主体标识 |
+| sso_email | VARCHAR(255) | | SSO 邮箱 |
+| sso_display_name | VARCHAR(255) | | SSO 显示名 |
+| last_login_at | TIMESTAMPTZ | | 最后登录时间 |
+| deleted | BOOLEAN | DEFAULT false | 软删除 |
+| created_at | TIMESTAMPTZ | DEFAULT now() | 创建时间 |
+| updated_at | TIMESTAMPTZ | DEFAULT now() | 更新时间 |
+
+### 120. `sso_sessions` — SSO 认证会话
+
+| 字段 | 类型 | 约束 | 说明 |
+|------|------|------|------|
+| id | BIGINT | PK | 雪花ID |
+| tenant_id | BIGINT | NOT NULL | 租户ID |
+| state | VARCHAR(255) | NOT NULL | OIDC state 参数 |
+| nonce | VARCHAR(255) | | OIDC nonce 参数 |
+| provider_id | BIGINT | | SSO 提供方ID |
+| redirect_to | TEXT | | 认证完成后重定向地址 |
+| ip_address | VARCHAR(64) | | 客户端 IP |
+| user_agent | TEXT | | 客户端 User-Agent |
+| code_verifier | TEXT | | PKCE code_verifier |
+| status | VARCHAR(20) | DEFAULT 'pending' | 状态（pending/success/failed） |
+| user_id | BIGINT | | 关联用户ID |
+| error_message | TEXT | | 错误信息 |
+| expires_at | TIMESTAMPTZ | | 过期时间 |
+| completed_at | TIMESTAMPTZ | | 完成时间 |
+| deleted | BOOLEAN | DEFAULT false | 软删除 |
+| created_at | TIMESTAMPTZ | DEFAULT now() | 创建时间 |
+| updated_at | TIMESTAMPTZ | DEFAULT now() | 更新时间 |
+
+### 121. `workbench_templates` — 工作台模板
+
+| 字段 | 类型 | 约束 | 说明 |
+|------|------|------|------|
+| id | BIGINT | PK | 雪花ID |
+| tenant_id | BIGINT | NOT NULL | 租户ID |
+| name | VARCHAR(255) | NOT NULL | 模板名称 |
+| slug | VARCHAR(100) | NOT NULL | URL 标识 |
+| description | TEXT | | 模板描述 |
+| layout | JSONB | | 布局配置 |
+| icon | VARCHAR(100) | | 图标 |
+| is_default | BOOLEAN | DEFAULT false | 是否默认 |
+| sort_order | DOUBLE PRECISION | DEFAULT 65535 | 排序权重 |
+| status | entity_status | NOT NULL DEFAULT 'active' | 状态 |
+| deleted | BOOLEAN | DEFAULT false | 软删除 |
+| created_by | BIGINT | NOT NULL | 创建人 |
+| created_at | TIMESTAMPTZ | DEFAULT now() | 创建时间 |
+| updated_by | BIGINT | NOT NULL | 更新人 |
+| updated_at | TIMESTAMPTZ | DEFAULT now() | 更新时间 |
+
+
+> 建表总数：1-80 编号表 + 81-110 范式展开/系统支撑表 + 112-121 补齐表 = **121 张表**，与 `sql/ydsz-plane-init.sql` 完全一致。
+
+### 122. `issue_dependencies` — 工作项依赖关系
+
+| 字段 | 类型 | 约束 | 说明 |
+|------|------|------|------|
+| id | BIGINT | PK | 雪花ID |
+| tenant_id | BIGINT | NOT NULL | 租户ID |
+| workspace_id | BIGINT | NOT NULL | 工作空间ID |
+| project_id | BIGINT | NOT NULL | 项目ID |
+| issue_id | BIGINT | NOT NULL | 工作项ID（依赖方） |
+| depends_on_id | BIGINT | NOT NULL | 被依赖工作项ID |
+| dependency_type | VARCHAR(10) | NOT NULL DEFAULT 'fs' | 依赖类型（fs/ss/ff/sf） |
+| lag_days | INTEGER | DEFAULT 0 | 滞后天数 |
+| status | entity_status | NOT NULL DEFAULT 'active' | 状态 |
+| deleted | BOOLEAN | DEFAULT false | 软删除 |
+| created_by | BIGINT | NOT NULL | 创建人 |
+| created_at | TIMESTAMPTZ | DEFAULT now() | 创建时间 |
+| updated_by | BIGINT | NOT NULL | 更新人 |
+| updated_at | TIMESTAMPTZ | DEFAULT now() | 更新时间 |
+
+> 唯一约束：(issue_id, depends_on_id)，防止重复依赖。
+
+> 建表总数: 设计文档编号 80 + 范式展开 22 + 系统支撑 8 + 补齐 11 + issue_dependencies 1 = **121 张表**
+
 
 ### 需要租户数据隔离的表
 
@@ -2598,7 +2802,7 @@ tenants ──< users ──< user_roles >── roles ──< role_menus >─�
 - 租户域：tenants, tenant_members, users, user_roles, roles, menus, role_menus, user_preferences
 - 工作空间域：workspaces, workspace_members, invitations
 - 项目域：projects, project_members, project_sequences, project_configs, modules, labels, estimate_points
-- 需求/任务/缺陷域：task, requirement, defect, task_assignees, task_labels, task_modules, task_watchers, task_relations, task_comments, task_activities, task_timelogs, task_attachments, task_ext, requirement_assignees, requirement_labels, requirement_modules, requirement_watchers, requirement_relations, requirement_comments, requirement_activities, requirement_timelogs, requirement_attachments, requirement_ext, defect_assignees, defect_labels, defect_modules, defect_watchers, defect_relations, defect_comments, defect_activities, defect_timelogs, defect_attachments, defect_ext, biz_entity_relations
+- 需求/任务/缺陷域：task, requirement, defect, defect_extra, issue_dependencies, task_assignees, task_labels, task_modules, task_watchers, task_relations, task_comments, task_activities, task_timelogs, task_attachments, task_ext, requirement_assignees, requirement_labels, requirement_modules, requirement_watchers, requirement_relations, requirement_comments, requirement_activities, requirement_timelogs, requirement_attachments, requirement_ext, defect_assignees, defect_labels, defect_modules, defect_watchers, defect_relations, defect_comments, defect_activities, defect_timelogs, defect_attachments, defect_ext, biz_entity_relations
 - 迭代域：sprints, sprint_snapshots, sprint_requirements, sprint_tasks, sprint_defects, version_sprint_relations
 - 版本域：versions, version_delivery_snapshots
 - 状态域：states, state_transitions
@@ -2609,9 +2813,10 @@ tenants ──< users ──< user_roles >── roles ──< role_menus >─�
 - 风险度量：risk_rules, risk_alerts, metric_snapshots, metric_adjustments
 - 入口工单：intake_channels, intake_issues
 - 工作台：workbench_configs, view_preferences, saved_views, recent_items
-- 知识文档：knowledge_spaces, knowledge_pages, documents, document_versions, pages, content_templates, reviews, review_assignments, share_links, calendar_events, data_jobs
+- 知识文档：knowledge_spaces, knowledge_pages, documents, document_versions, knowledge_page_relations, knowledge_page_versions, pages, page_shares, page_templates, document_links, content_templates, reviews, review_assignments, share_links, calendar_events, data_jobs
 - 集成：webhooks, webhook_logs, deployment_events
-- 其他：api_tokens, audit_logs, domain_events
+- SSO: sso_providers, sso_links, sso_sessions
+- 其他：api_tokens, audit_logs, domain_events, document_links, knowledge_page_relations, knowledge_page_versions, page_shares, page_templates, role_permissions, workbench_templates
 
 ### 不需要租户数据隔离的表
 
@@ -2638,4 +2843,4 @@ tenants ──< users ──< user_roles >── roles ──< role_menus >─�
 - **requirement_xxx**：requirement_assignees, requirement_labels, requirement_modules, requirement_watchers, requirement_relations, requirement_comments, requirement_activities, requirement_timelogs, requirement_attachments, requirement_ext
 - **defect_xxx**：defect_assignees, defect_labels, defect_modules, defect_watchers, defect_relations, defect_comments, defect_activities, defect_timelogs, defect_attachments, defect_ext
 
-> 建表总数: 设计文档编号 80 + 范式展开 22 + 系统支撑 8 = **110 张表**
+> 建表总数: 设计文档编号 80 + 范式展开 22 + 系统支撑 8 + 补齐 11 = **121 张表**

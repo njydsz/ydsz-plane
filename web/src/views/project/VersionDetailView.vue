@@ -330,7 +330,7 @@ onMounted(async () => {
             </div>
             <div class="progress-stat">
               <span class="progress-stat__value">{{ version.progress?.done_issues ?? 0 }} / {{ version.progress?.total_issues ?? 0 }}</span>
-              <span class="progress-stat__label">工作项</span>
+              <span class="progress-stat__label">需求/任务/缺陷</span>
             </div>
             <div class="progress-stat">
               <span class="progress-stat__value">{{ version.progress?.sprint_count ?? 0 }}</span>

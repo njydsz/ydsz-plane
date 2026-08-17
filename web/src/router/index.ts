@@ -107,7 +107,7 @@ const router = createRouter({
           component: () => import("@/views/workspace/NotificationsView.vue"),
           props: (route) => ({ workspaceId: Number(route.params.workspaceId) }),
         },
-        // 我的工作项：当前用户被分配的工作项（跨项目聚合）
+        // 我的需求/任务/缺陷：当前用户被分配的需求/任务/缺陷（跨项目聚合）
         {
           path: ":workspaceId(\\d+)/my-issues",
           name: "my-issues",
@@ -247,6 +247,16 @@ const router = createRouter({
             projectId: Number(route.params.projectId),
           }),
         },
+        // 状态机配置
+        {
+          path: ":workspaceId(\\d+)/projects/:projectId/state-machine",
+          name: "project-state-machine",
+          component: () => import("@/views/project/StateMachineConfigView.vue"),
+          props: (route) => ({
+            workspaceId: Number(route.params.workspaceId),
+            projectId: Number(route.params.projectId),
+          }),
+        },
         // S11 效能度量
         {
           path: ":workspaceId(\\d+)/projects/:projectId/metrics",
@@ -282,6 +292,16 @@ const router = createRouter({
           path: ":workspaceId(\\d+)/projects/:projectId/gantt",
           name: "gantt-chart",
           component: () => import("@/views/project/GanttChartView.vue"),
+          props: (route) => ({
+            workspaceId: Number(route.params.workspaceId),
+            projectId: Number(route.params.projectId),
+          }),
+        },
+        // 工作量热力图
+        {
+          path: ":workspaceId(\\d+)/projects/:projectId/workload-heatmap",
+          name: "workload-heatmap",
+          component: () => import("@/views/project/WorkloadHeatmapView.vue"),
           props: (route) => ({
             workspaceId: Number(route.params.workspaceId),
             projectId: Number(route.params.projectId),
@@ -473,7 +493,7 @@ const router = createRouter({
             versionId: Number(route.params.versionId),
           }),
         },
-        // 工作项沉浸模式（Focus Mode）
+        // 需求/任务/缺陷沉浸模式（Focus Mode）
         {
           path: ":workspaceId(\\d+)/projects/:projectId/issues/:issueId/focus",
           name: "issue-focus",
@@ -484,7 +504,7 @@ const router = createRouter({
             issueId: Number(route.params.issueId),
           }),
         },
-        // 工作项详情页
+        // 需求/任务/缺陷详情页
         {
           path: ":workspaceId(\\d+)/projects/:projectId/issues/:issueId",
           name: "issue-detail",

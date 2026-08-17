@@ -1,10 +1,10 @@
 /**
- * Peek Overview 状态管理 — 右侧抽屉预览工作项。
+ * Peek Overview 状态管理 — 右侧抽屉预览需求/任务/缺陷。
  *
  * 职责：
- *  - 维护当前 peek 的工作项标识（workspace/project/issue 三元组）
+ *  - 维护当前 peek 的需求/任务/缺陷标识（workspace/project/issue 三元组）
  *  - 提供 open/close/toggle 方法供列表/看板/表格调用
- *  - 支持上下文列表（当前视图可见的工作项 ID 顺序），
+ *  - 支持上下文列表（当前视图可见的需求/任务/缺陷 ID 顺序），
  *    用于 Peek 内的上一个/下一个连续预览
  *  - 持久化展开状态到 URL query（peek=issueId），刷新后恢复
  */
@@ -18,15 +18,15 @@ export interface PeekTarget {
   issueId: number
 }
 
-/** Peek Overview 状态管理 — 右侧抽屉预览工作项的打开/关闭/目标。 */
+/** Peek Overview 状态管理 — 右侧抽屉预览需求/任务/缺陷的打开/关闭/目标。 */
 export const usePeekStore = defineStore("peek", () => {
   const target = ref<PeekTarget | null>(null)
   const visible = ref(false)
 
-  /** 当前视图上下文中的工作项 ID 列表（按视图展示顺序，供连续预览导航）。 */
+  /** 当前视图上下文中的需求/任务/缺陷 ID 列表（按视图展示顺序，供连续预览导航）。 */
   const contextList = ref<number[]>([])
 
-  /** 当前工作项在上下文列表中的索引（不存在时为 -1）。 */
+  /** 当前需求/任务/缺陷在上下文列表中的索引（不存在时为 -1）。 */
   const currentIndex = computed(() => {
     if (!target.value) return -1
     return contextList.value.indexOf(target.value.issueId)

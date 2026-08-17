@@ -5,7 +5,7 @@
  * CSS Grid 12 列响应式布局 + 顶部栏 + Widget 网格 + 浮动操作按钮。
  * 数据由后端 overview 接口一次性返回（widgets + snapshots + alerts）。
  */
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRoute } from "vue-router";
 
 import { dashboardApi } from "@/api/services/dashboard";
@@ -243,6 +243,65 @@ document.addEventListener("fullscreenchange", () => {
   if (!document.fullscreenElement) isFullscreen.value = false;
 });
 
+// --- 自动轮播（多项目仪表盘切换） ---
+const autoRotate = ref(false);
+const rotateInterval = ref(30); // 默认 30 秒
+let rotateTimer: ReturnType<typeof setInterval> | null = null;
+const projectList = ref<{ id: number; name: string }[]>([]);
+const currentProjectIndex = ref(0);
+
+async function loadProjectList() {
+  try {
+    const { projectApi } = await import("@/api/services/project");
+    const { results } = await projectApi.listProjects(wsId.value);
+    projectList.value = results.map((p) => ({ id: p.id, name: p.name }));
+  } catch {
+    // 静默失败
+  }
+}
+
+function startAutoRotate() {
+  if (projectList.value.length < 2) return;
+  autoRotate.value = true;
+  // 找到当前项目索引
+  const idx = projectList.value.findIndex((p) => p.id === projectId.value);
+  if (idx >= 0) currentProjectIndex.value = idx;
+  rotateTimer = setInterval(async () => {
+    currentProjectIndex.value = (currentProjectIndex.value + 1) % projectList.value.length;
+    const nextProject = projectList.value[currentProjectIndex.value];
+    if (nextProject) {
+      // 使用 Vue Router 切换项目
+      const { useRouter } = await import("vue-router");
+      const router = useRouter();
+      router.push({
+        name: "project-dashboard",
+        params: { workspaceId: wsId.value, projectId: nextProject.id },
+      });
+    }
+  }, rotateInterval.value * 1000);
+}
+
+function stopAutoRotate() {
+  autoRotate.value = false;
+  if (rotateTimer) {
+    clearInterval(rotateTimer);
+    rotateTimer = null;
+  }
+}
+
+function toggleAutoRotate() {
+  if (autoRotate.value) {
+    stopAutoRotate();
+  } else {
+    startAutoRotate();
+  }
+}
+
+// 组件卸载时清理定时器
+onUnmounted(() => {
+  stopAutoRotate();
+});
+
 // --- 时间范围（localStorage 持久化） ---
 const TIME_RANGES = [
   { value: "7d", label: "7 天" },
@@ -371,7 +430,10 @@ async function handleResolve(alertId: number) {
 const alerts = computed<RiskAlert[]>(() => dashboardData.value?.alerts ?? []);
 const hasWidgets = computed(() => visibleWidgets.value.length > 0);
 
-onMounted(load);
+onMounted(() => {
+  load();
+  void loadProjectList();
+});
 </script>
 
 <template>
@@ -395,6 +457,16 @@ onMounted(load);
       <div class="dashboard__header-right">
         <button class="action-btn action-btn--ghost" @click="toggleFullscreen">
           {{ isFullscreen ? "⤓ 退出全屏" : "⤢ 全屏" }}
+        </button>
+        <!-- 自动轮播按钮（多项目切换） -->
+        <button
+          class="action-btn action-btn--ghost"
+          :class="{ 'action-btn--active': autoRotate }"
+          :disabled="projectList.length < 2"
+          :title="projectList.length < 2 ? '需要至少 2 个项目' : '自动轮播'"
+          @click="toggleAutoRotate"
+        >
+          {{ autoRotate ? "⏸ 停止轮播" : "▶ 自动轮播" }}
         </button>
         <button
           v-if="!isEditMode"

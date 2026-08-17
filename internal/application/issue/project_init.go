@@ -91,6 +91,18 @@ func (s *ProjectInitService) InitializeForProject(ctx context.Context, wsID, pro
 		}
 	}
 
+	// 按模板可选注入史诗流（默认所有模板均启用，作为顶层容器）
+	if tpl.ApplyEpicFlow {
+		epicStateIDs, err := s.insertTemplateSet(ctx, tx, wsID, projectID, EpicFlowStates, "epic_flow")
+		if err != nil {
+			return err
+		}
+		if err := s.insertTransitions(ctx, tx, wsID, projectID, string(TypeEpic),
+			BuiltInTransitions["epic_flow"], epicStateIDs); err != nil {
+			return err
+		}
+	}
+
 	return tx.Commit(ctx)
 }
 

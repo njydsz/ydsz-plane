@@ -6,13 +6,13 @@ package httpapi
 import (
 	"context"
 	"encoding/csv"
-	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 
 	"github.com/njydsz/ydsz-plane/internal/application/workspace"
 	"github.com/njydsz/ydsz-plane/internal/interfaces/http/dto"
@@ -452,12 +452,21 @@ func createProject(d *Deps) gin.HandlerFunc {
 		// 异步初始化项目状态模板（失败仅记录日志，不阻塞响应）。
 		// 注意：调用方需确保 ProjectInitSvc 已在 Deps 中装配。
 		if d.ProjectInitSvc != nil {
+			// 捕获必要变量，避免 goroutine 闭包引用循环变量
+			identifier := p.Identifier
+			tpl := req.Template
 			go func() {
-				initCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+				initCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 				defer cancel()
-				if err := d.ProjectInitSvc.InitializeForProject(initCtx, wsID, p.ID, req.Template); err != nil {
-					// TODO: 通过结构化日志 + 监控告警替代 fmt 占位
-					fmt.Printf("init project template %s for %s: %v\n", req.Template, p.Identifier, err)
+				if err := d.ProjectInitSvc.InitializeForProject(initCtx, wsID, p.ID, tpl); err != nil {
+					if d.Log != nil {
+						d.Log.Error("project init failed",
+							zap.String("template", tpl),
+							zap.String("identifier", identifier),
+							zap.Int64("project_id", p.ID),
+							zap.Error(err),
+						)
+					}
 				}
 			}()
 		}

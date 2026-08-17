@@ -35,9 +35,9 @@ const (
 	ScopeWorkspaceRead = "read:workspace"
 	// ScopeWorkspaceWrite 修改空间设置、成员管理、项目管理。
 	ScopeWorkspaceWrite = "write:workspace"
-	// ScopeIssuesRead 读取工作项。
+	// ScopeIssuesRead 读取需求/任务/缺陷。
 	ScopeIssuesRead = "read:issues"
-	// ScopeIssuesWrite 创建/修改/删除工作项。
+	// ScopeIssuesWrite 创建/修改/删除需求/任务/缺陷。
 	ScopeIssuesWrite = "write:issues"
 	// ScopeSprintsRead 读取迭代。
 	ScopeSprintsRead = "read:sprints"

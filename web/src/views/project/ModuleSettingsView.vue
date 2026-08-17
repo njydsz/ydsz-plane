@@ -208,7 +208,7 @@ onMounted(() => {
   <div class="module-settings">
     <div class="settings__header">
       <h1>模块管理</h1>
-      <p class="meta">管理项目模块，为工作项划分分类维度</p>
+      <p class="meta">管理项目模块，为需求/任务/缺陷划分分类维度</p>
     </div>
 
     <AppLoadingState v-if="loading" />
@@ -279,7 +279,7 @@ v-for="m in filteredMembers" :key="m.id" type="button" class="dropdown-item"
                 <th class="col--desc">描述</th>
                 <th class="col--lead">负责人</th>
                 <th class="col--status">状态</th>
-                <th class="col--count">工作项</th>
+                <th class="col--count">需求/任务/缺陷</th>
                 <th class="col--sort">排序</th>
                 <th class="col--actions">操作</th>
               </tr>

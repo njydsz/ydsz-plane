@@ -1,7 +1,7 @@
 /**
  * 模块域 API — 对接后端 Module 域 REST 接口。
  *
- * 模块是项目下的一级分类维度，用于分组管理工作项（如"用户模块"、"支付模块"）。
+ * 模块是项目下的一级分类维度，用于分组管理需求/任务/缺陷（如"用户模块"、"支付模块"）。
  * 后端 modules 表含 id/project_id/name/description/lead_id/status/sort_order/created_at/updated_at。
  */
 import { http } from "../client";

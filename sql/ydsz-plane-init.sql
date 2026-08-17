@@ -2,8 +2,8 @@
 -- Ydsz Plane 数据库初始化脚本
 -- 数据库: PostgreSQL 16+ (兼容达梦/人大金仓)
 -- 依据  : docs/Ydsz Plane 数据库表设计.md (V2.1, 2026-08-10)
--- 表数量: 110 张
--- 生成  : 2026-08-15 20:33 (scripts/gen_db_init_from_doc.py 自动生成, 请勿手工编辑)
+-- 表数量: 121 张
+-- 生成  : 2026-08-17 (scripts/fix_db_consistency.py 一致性修复, 原自动生成后手动补齐)
 -- 要点  :
 --   1. 主键 BIGINT 雪花ID, 应用层生成, 非自增
 --   2. 三层次隔离: tenant_id → workspace_id → project_id (系统级表除外)
@@ -60,6 +60,12 @@ EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 DO $$ BEGIN
     CREATE TYPE attachment_status AS ENUM ('uploading', 'available', 'archived', 'deleted');
+DO $$ BEGIN
+    CREATE TYPE intake_issue_status AS ENUM ('open', 'accepted', 'rejected', 'archived');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+    CREATE TYPE attachment_status AS ENUM ('uploading', 'available', 'archived', 'deleted');
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- ===========================================================================
@@ -81,6 +87,12 @@ BEGIN
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
+
+-- ===========================================================================
+-- 序列（用于各表 Snowflake 风格 ID 生成）
+-- ===========================================================================
+CREATE SEQUENCE IF NOT EXISTS states_id_seq START 1 INCREMENT 1;
+CREATE SEQUENCE IF NOT EXISTS state_transitions_id_seq START 1 INCREMENT 1;
 
 -- ===========================================================================
 -- 建表 (110 张)
@@ -690,6 +702,28 @@ CREATE TABLE IF NOT EXISTS modules (
     updated_by               BIGINT NOT NULL DEFAULT 0,
     updated_at               TIMESTAMPTZ DEFAULT now()
 );
+
+--  28b. issue_dependencies — 任务依赖关系（FS/SS/FF/SF）
+CREATE TABLE IF NOT EXISTS issue_dependencies (
+    id                       BIGINT PRIMARY KEY,
+    tenant_id                BIGINT NOT NULL DEFAULT 1,
+    workspace_id             BIGINT NOT NULL DEFAULT 0,
+    project_id               BIGINT NOT NULL DEFAULT 0,
+    issue_id                 BIGINT NOT NULL,
+    depends_on_id            BIGINT NOT NULL,
+    dependency_type          VARCHAR(10) NOT NULL DEFAULT 'fs',
+    lag_days                 INTEGER DEFAULT 0,
+    status                   entity_status NOT NULL DEFAULT 'active',
+    deleted                  BOOLEAN DEFAULT false,
+    created_by               BIGINT NOT NULL DEFAULT 0,
+    created_at               TIMESTAMPTZ DEFAULT now(),
+    updated_by               BIGINT NOT NULL DEFAULT 0,
+    updated_at               TIMESTAMPTZ DEFAULT now(),
+    UNIQUE (issue_id, depends_on_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_issue_deps_issue_id ON issue_dependencies (issue_id, project_id) WHERE NOT deleted;
+CREATE INDEX IF NOT EXISTS idx_issue_deps_depends_on ON issue_dependencies (depends_on_id, project_id) WHERE NOT deleted;
 
 --  29. labels — 标签
 CREATE TABLE IF NOT EXISTS labels (
@@ -2604,6 +2638,10 @@ COMMENT ON COLUMN task_comments.created_by IS '创建人';
 COMMENT ON COLUMN task_comments.created_at IS '创建时间';
 COMMENT ON COLUMN task_comments.updated_by IS '更新人';
 COMMENT ON COLUMN task_comments.updated_at IS '更新时间';
+COMMENT ON COLUMN task_comments.content_stripped IS '去标签后的纯文本内容';
+COMMENT ON COLUMN task_comments.mentions IS '@提及的用户ID列表';
+COMMENT ON COLUMN task_comments.is_edited IS '是否被编辑过';
+COMMENT ON COLUMN task_comments.edited_at IS '最后编辑时间';
 
 COMMENT ON TABLE task_activities IS '任务活动日志 (主键为雪花ID/BIGINT, 应用层生成)';
 COMMENT ON COLUMN task_activities.id IS '雪花ID';
@@ -2739,6 +2777,7 @@ COMMENT ON COLUMN states.created_by IS '创建人';
 COMMENT ON COLUMN states.created_at IS '创建时间';
 COMMENT ON COLUMN states.updated_by IS '更新人';
 COMMENT ON COLUMN states.updated_at IS '更新时间';
+COMMENT ON COLUMN states."group IS '状态分组（如 todo/in_progress/done）';
 
 COMMENT ON TABLE state_transitions IS '状态流转规则 (主键为雪花ID/BIGINT, 应用层生成)';
 COMMENT ON COLUMN state_transitions.id IS '雪花ID';
@@ -3438,6 +3477,10 @@ COMMENT ON COLUMN sprint_requirements.created_by IS '创建人';
 COMMENT ON COLUMN sprint_requirements.created_at IS '创建时间';
 COMMENT ON COLUMN sprint_requirements.updated_by IS '更新人';
 COMMENT ON COLUMN sprint_requirements.updated_at IS '更新时间';
+COMMENT ON COLUMN sprint_requirements.added_midway IS '是否迭代中途加入';
+COMMENT ON COLUMN sprint_requirements.sort_order IS '迭代内排序权重';
+COMMENT ON COLUMN sprint_requirements.added_by IS '添加人';
+COMMENT ON COLUMN sprint_requirements.added_at IS '添加时间';
 
 COMMENT ON TABLE sprint_tasks IS '迭代任务关联 (主键为雪花ID/BIGINT, 应用层生成)';
 COMMENT ON COLUMN sprint_tasks.id IS '雪花ID';
@@ -3452,6 +3495,10 @@ COMMENT ON COLUMN sprint_tasks.created_by IS '创建人';
 COMMENT ON COLUMN sprint_tasks.created_at IS '创建时间';
 COMMENT ON COLUMN sprint_tasks.updated_by IS '更新人';
 COMMENT ON COLUMN sprint_tasks.updated_at IS '更新时间';
+COMMENT ON COLUMN sprint_tasks.added_midway IS '是否迭代中途加入';
+COMMENT ON COLUMN sprint_tasks.sort_order IS '迭代内排序权重';
+COMMENT ON COLUMN sprint_tasks.added_by IS '添加人';
+COMMENT ON COLUMN sprint_tasks.added_at IS '添加时间';
 
 COMMENT ON TABLE sprint_defects IS '迭代缺陷关联 (主键为雪花ID/BIGINT, 应用层生成)';
 COMMENT ON COLUMN sprint_defects.id IS '雪花ID';
@@ -3466,6 +3513,10 @@ COMMENT ON COLUMN sprint_defects.created_by IS '创建人';
 COMMENT ON COLUMN sprint_defects.created_at IS '创建时间';
 COMMENT ON COLUMN sprint_defects.updated_by IS '更新人';
 COMMENT ON COLUMN sprint_defects.updated_at IS '更新时间';
+COMMENT ON COLUMN sprint_defects.added_midway IS '是否迭代中途加入';
+COMMENT ON COLUMN sprint_defects.sort_order IS '迭代内排序权重';
+COMMENT ON COLUMN sprint_defects.added_by IS '添加人';
+COMMENT ON COLUMN sprint_defects.added_at IS '添加时间';
 
 COMMENT ON TABLE content_templates IS '内容模板 (主键为雪花ID/BIGINT, 应用层生成)';
 COMMENT ON COLUMN content_templates.id IS '雪花ID';
@@ -3501,6 +3552,8 @@ COMMENT ON COLUMN reviews.created_by IS '创建人';
 COMMENT ON COLUMN reviews.created_at IS '创建时间';
 COMMENT ON COLUMN reviews.updated_by IS '更新人';
 COMMENT ON COLUMN reviews.updated_at IS '更新时间';
+COMMENT ON COLUMN reviews.entity_type IS '关联实体类型（如 requirement/task）';
+COMMENT ON COLUMN reviews.entity_id IS '关联实体ID';
 
 COMMENT ON TABLE review_assignments IS '评审分配 (主键为雪花ID/BIGINT, 应用层生成)';
 COMMENT ON COLUMN review_assignments.id IS '雪花ID';
@@ -3777,6 +3830,10 @@ COMMENT ON COLUMN requirement_comments.created_by IS '创建人';
 COMMENT ON COLUMN requirement_comments.created_at IS '创建时间';
 COMMENT ON COLUMN requirement_comments.updated_by IS '更新人';
 COMMENT ON COLUMN requirement_comments.updated_at IS '更新时间';
+COMMENT ON COLUMN requirement_comments.content_stripped IS '去标签后的纯文本内容';
+COMMENT ON COLUMN requirement_comments.mentions IS '@提及的用户ID列表';
+COMMENT ON COLUMN requirement_comments.is_edited IS '是否被编辑过';
+COMMENT ON COLUMN requirement_comments.edited_at IS '最后编辑时间';
 
 COMMENT ON TABLE requirement_activities IS '需求活动日志 (主键为雪花ID/BIGINT, 应用层生成)';
 COMMENT ON COLUMN requirement_activities.id IS '雪花ID';
@@ -3933,6 +3990,10 @@ COMMENT ON COLUMN defect_comments.created_by IS '创建人';
 COMMENT ON COLUMN defect_comments.created_at IS '创建时间';
 COMMENT ON COLUMN defect_comments.updated_by IS '更新人';
 COMMENT ON COLUMN defect_comments.updated_at IS '更新时间';
+COMMENT ON COLUMN defect_comments.content_stripped IS '去标签后的纯文本内容';
+COMMENT ON COLUMN defect_comments.mentions IS '@提及的用户ID列表';
+COMMENT ON COLUMN defect_comments.is_edited IS '是否被编辑过';
+COMMENT ON COLUMN defect_comments.edited_at IS '最后编辑时间';
 
 COMMENT ON TABLE defect_activities IS '缺陷活动日志 (主键为雪花ID/BIGINT, 应用层生成)';
 COMMENT ON COLUMN defect_activities.id IS '雪花ID';
@@ -4019,6 +4080,21 @@ COMMENT ON COLUMN biz_entity_relations.created_by IS '创建人';
 COMMENT ON COLUMN biz_entity_relations.created_at IS '创建时间';
 COMMENT ON COLUMN biz_entity_relations.updated_by IS '更新人';
 COMMENT ON COLUMN biz_entity_relations.updated_at IS '更新时间';
+COMMENT ON TABLE issue_dependencies IS '工作项依赖关系表（FS/SS/FF/SF + 滞后天数）(主键为雪花ID/BIGINT, 应用层生成)';
+COMMENT ON COLUMN issue_dependencies.id IS '雪花ID';
+COMMENT ON COLUMN issue_dependencies.tenant_id IS '租户ID';
+COMMENT ON COLUMN issue_dependencies.workspace_id IS '工作空间ID';
+COMMENT ON COLUMN issue_dependencies.project_id IS '项目ID';
+COMMENT ON COLUMN issue_dependencies.issue_id IS '工作项ID（依赖方）';
+COMMENT ON COLUMN issue_dependencies.depends_on_id IS '被依赖工作项ID';
+COMMENT ON COLUMN issue_dependencies.dependency_type IS '依赖类型（fs=完成-开始, ss=开始-开始, ff=完成-完成, sf=开始-完成）';
+COMMENT ON COLUMN issue_dependencies.lag_days IS '滞后天数';
+COMMENT ON COLUMN issue_dependencies.status IS '状态';
+COMMENT ON COLUMN issue_dependencies.deleted IS '软删除';
+COMMENT ON COLUMN issue_dependencies.created_by IS '创建人';
+COMMENT ON COLUMN issue_dependencies.created_at IS '创建时间';
+COMMENT ON COLUMN issue_dependencies.updated_by IS '更新人';
+COMMENT ON COLUMN issue_dependencies.updated_at IS '更新时间';
 
 COMMENT ON TABLE pages IS '项目文档页面 (主键为雪花ID/BIGINT, 应用层生成)';
 COMMENT ON COLUMN pages.id IS '雪花ID';
@@ -4097,6 +4173,194 @@ COMMENT ON COLUMN idempotency_keys.created_at IS '创建时间';
 COMMENT ON TABLE schema_migrations IS '迁移版本 (主键为雪花ID/BIGINT, 应用层生成)';
 COMMENT ON COLUMN schema_migrations.version IS '版本号';
 COMMENT ON COLUMN schema_migrations.dirty IS '脏标记';
+COMMENT ON TABLE intake_channels IS '入口渠道 (主键为雪花ID/BIGINT, 应用层生成)';
+COMMENT ON COLUMN intake_channels.id IS '雪花ID';
+COMMENT ON COLUMN intake_channels.code IS '渠道编码';
+COMMENT ON COLUMN intake_channels.name IS '渠道名称';
+COMMENT ON COLUMN intake_channels.slug IS 'URL标识';
+COMMENT ON COLUMN intake_channels.tenant_id IS '租户ID';
+COMMENT ON COLUMN intake_channels.workspace_id IS '工作空间ID';
+COMMENT ON COLUMN intake_channels.project_id IS '项目ID';
+COMMENT ON COLUMN intake_channels.description IS '描述';
+COMMENT ON COLUMN intake_channels.is_active IS '是否启用';
+COMMENT ON COLUMN intake_channels.config IS '渠道配置（JSONB）';
+COMMENT ON COLUMN intake_channels.status IS '状态';
+COMMENT ON COLUMN intake_channels.deleted IS '软删除';
+COMMENT ON COLUMN intake_channels.created_by IS '创建人';
+COMMENT ON COLUMN intake_channels.created_at IS '创建时间';
+COMMENT ON COLUMN intake_channels.updated_by IS '更新人';
+COMMENT ON COLUMN intake_channels.updated_at IS '更新时间';
+
+COMMENT ON TABLE intake_issues IS '入口工单 (主键为雪花ID/BIGINT, 应用层生成)';
+COMMENT ON COLUMN intake_issues.id IS '雪花ID';
+COMMENT ON COLUMN intake_issues.code IS '工单编码';
+COMMENT ON COLUMN intake_issues.name IS '工单标题';
+COMMENT ON COLUMN intake_issues.tenant_id IS '租户ID';
+COMMENT ON COLUMN intake_issues.workspace_id IS '工作空间ID';
+COMMENT ON COLUMN intake_issues.project_id IS '项目ID';
+COMMENT ON COLUMN intake_issues.channel_id IS '渠道ID';
+COMMENT ON COLUMN intake_issues.tracking_id IS '跟踪ID';
+COMMENT ON COLUMN intake_issues.submitter_name IS '提交人姓名';
+COMMENT ON COLUMN intake_issues.submitter_email IS '提交人邮箱';
+COMMENT ON COLUMN intake_issues.description IS '描述';
+COMMENT ON COLUMN intake_issues.priority IS '优先级（low/medium/high/urgent）';
+COMMENT ON COLUMN intake_issues.status IS '状态（open/accepted/rejected/archived）';
+COMMENT ON COLUMN intake_issues.linked_entity_type IS '关联实体类型（转正后关联）';
+COMMENT ON COLUMN intake_issues.linked_entity_id IS '关联实体ID';
+COMMENT ON COLUMN intake_issues.resolved_at IS '解决时间';
+COMMENT ON COLUMN intake_issues.resolved_by IS '解决人';
+COMMENT ON COLUMN intake_issues.deleted IS '软删除';
+COMMENT ON COLUMN intake_issues.created_by IS '创建人';
+COMMENT ON COLUMN intake_issues.created_at IS '创建时间';
+COMMENT ON COLUMN intake_issues.updated_by IS '更新人';
+COMMENT ON COLUMN intake_issues.updated_at IS '更新时间';
+
+-- 以下为补齐的 11 张表（SQL 有、文档无）的注释
+
+
+COMMENT ON TABLE defect_extra IS '缺陷扩展信息表（found_phase、reopened_at 等缺陷分析字段）(主键为雪花ID/BIGINT, 应用层生成)';
+COMMENT ON COLUMN defect_extra.id IS '雪花ID';
+COMMENT ON COLUMN defect_extra.tenant_id IS '租户ID';
+COMMENT ON COLUMN defect_extra.defect_id IS '缺陷ID';
+COMMENT ON COLUMN defect_extra.found_phase IS '发现阶段（如 dev/test/prod）';
+COMMENT ON COLUMN defect_extra.reopened_at IS '重开时间';
+COMMENT ON COLUMN defect_extra.status IS '状态';
+COMMENT ON COLUMN defect_extra.deleted IS '软删除';
+COMMENT ON COLUMN defect_extra.created_by IS '创建人';
+COMMENT ON COLUMN defect_extra.created_at IS '创建时间';
+COMMENT ON COLUMN defect_extra.updated_at IS '更新时间';
+
+COMMENT ON TABLE document_links IS '文档与业务实体关联关系表 (主键为雪花ID/BIGINT, 应用层生成)';
+COMMENT ON COLUMN document_links.id IS '雪花ID';
+COMMENT ON COLUMN document_links.tenant_id IS '租户ID';
+COMMENT ON COLUMN document_links.page_id IS '文档页面ID';
+COMMENT ON COLUMN document_links.linkable_type IS '关联实体类型';
+COMMENT ON COLUMN document_links.linkable_id IS '关联实体ID';
+COMMENT ON COLUMN document_links.status IS '状态';
+COMMENT ON COLUMN document_links.deleted IS '软删除';
+COMMENT ON COLUMN document_links.created_by IS '创建人';
+COMMENT ON COLUMN document_links.created_at IS '创建时间';
+COMMENT ON COLUMN document_links.updated_at IS '更新时间';
+
+COMMENT ON TABLE knowledge_page_relations IS '知识页与工作项关联关系表 (主键为雪花ID/BIGINT, 应用层生成)';
+COMMENT ON COLUMN knowledge_page_relations.id IS '雪花ID';
+COMMENT ON COLUMN knowledge_page_relations.tenant_id IS '租户ID';
+COMMENT ON COLUMN knowledge_page_relations.page_id IS '知识页ID';
+COMMENT ON COLUMN knowledge_page_relations.workitem_id IS '工作项ID（需求/任务/缺陷）';
+COMMENT ON COLUMN knowledge_page_relations.relation_type IS '关联类型（如 related/reference）';
+COMMENT ON COLUMN knowledge_page_relations.status IS '状态';
+COMMENT ON COLUMN knowledge_page_relations.deleted IS '软删除';
+COMMENT ON COLUMN knowledge_page_relations.created_by IS '创建人';
+COMMENT ON COLUMN knowledge_page_relations.created_at IS '创建时间';
+COMMENT ON COLUMN knowledge_page_relations.updated_at IS '更新时间';
+
+COMMENT ON TABLE knowledge_page_versions IS '知识页版本历史表 (主键为雪花ID/BIGINT, 应用层生成)';
+COMMENT ON COLUMN knowledge_page_versions.id IS '雪花ID';
+COMMENT ON COLUMN knowledge_page_versions.tenant_id IS '租户ID';
+COMMENT ON COLUMN knowledge_page_versions.page_id IS '知识页ID';
+COMMENT ON COLUMN knowledge_page_versions.version IS '版本号';
+COMMENT ON COLUMN knowledge_page_versions.title IS '版本标题';
+COMMENT ON COLUMN knowledge_page_versions.content_md IS 'Markdown 内容';
+COMMENT ON COLUMN knowledge_page_versions.content_html IS 'HTML 渲染内容';
+COMMENT ON COLUMN knowledge_page_versions.change_summary IS '变更摘要';
+COMMENT ON COLUMN knowledge_page_versions.status IS '状态';
+COMMENT ON COLUMN knowledge_page_versions.deleted IS '软删除';
+COMMENT ON COLUMN knowledge_page_versions.created_by IS '创建人';
+COMMENT ON COLUMN knowledge_page_versions.created_at IS '创建时间';
+COMMENT ON COLUMN knowledge_page_versions.updated_at IS '更新时间';
+
+COMMENT ON TABLE page_shares IS '页面分享链接表（支持 token/密码/过期时间）(主键为雪花ID/BIGINT, 应用层生成)';
+COMMENT ON COLUMN page_shares.id IS '雪花ID';
+COMMENT ON COLUMN page_shares.tenant_id IS '租户ID';
+COMMENT ON COLUMN page_shares.page_id IS '页面ID';
+COMMENT ON COLUMN page_shares.workspace_id IS '工作空间ID';
+COMMENT ON COLUMN page_shares.project_id IS '项目ID';
+COMMENT ON COLUMN page_shares.token IS '分享令牌';
+COMMENT ON COLUMN page_shares.is_active IS '是否有效';
+COMMENT ON COLUMN page_shares.password_hash IS '访问密码哈希';
+COMMENT ON COLUMN page_shares.expires_at IS '过期时间';
+COMMENT ON COLUMN page_shares.status IS '状态';
+COMMENT ON COLUMN page_shares.deleted IS '软删除';
+COMMENT ON COLUMN page_shares.created_by IS '创建人';
+COMMENT ON COLUMN page_shares.created_at IS '创建时间';
+COMMENT ON COLUMN page_shares.updated_at IS '更新时间';
+
+COMMENT ON TABLE page_templates IS '页面模板表 (主键为雪花ID/BIGINT, 应用层生成)';
+COMMENT ON COLUMN page_templates.id IS '雪花ID';
+COMMENT ON COLUMN page_templates.tenant_id IS '租户ID';
+COMMENT ON COLUMN page_templates.workspace_id IS '工作空间ID';
+COMMENT ON COLUMN page_templates.project_id IS '项目ID';
+COMMENT ON COLUMN page_templates.name IS '模板名称';
+COMMENT ON COLUMN page_templates.description IS '模板描述';
+COMMENT ON COLUMN page_templates.content_html IS '模板 HTML 内容';
+COMMENT ON COLUMN page_templates.category IS '模板分类';
+COMMENT ON COLUMN page_templates.status IS '状态';
+COMMENT ON COLUMN page_templates.deleted IS '软删除';
+COMMENT ON COLUMN page_templates.created_by IS '创建人';
+COMMENT ON COLUMN page_templates.created_at IS '创建时间';
+COMMENT ON COLUMN page_templates.updated_by IS '更新人';
+COMMENT ON COLUMN page_templates.updated_at IS '更新时间';
+
+COMMENT ON TABLE role_permissions IS '角色-权限映射表（role_slug + permission_code）(主键为雪花ID/BIGINT, 应用层生成)';
+COMMENT ON COLUMN role_permissions.id IS '雪花ID';
+COMMENT ON COLUMN role_permissions.tenant_id IS '租户ID';
+COMMENT ON COLUMN role_permissions.role_slug IS '角色标识';
+COMMENT ON COLUMN role_permissions.permission_code IS '权限编码';
+COMMENT ON COLUMN role_permissions.status IS '状态';
+COMMENT ON COLUMN role_permissions.deleted IS '软删除';
+COMMENT ON COLUMN role_permissions.created_by IS '创建人';
+COMMENT ON COLUMN role_permissions.created_at IS '创建时间';
+COMMENT ON COLUMN role_permissions.updated_at IS '更新时间';
+
+COMMENT ON TABLE sso_links IS 'SSO 用户与提供方关联表 (主键为雪花ID/BIGINT, 应用层生成)';
+COMMENT ON COLUMN sso_links.id IS '雪花ID';
+COMMENT ON COLUMN sso_links.tenant_id IS '租户ID';
+COMMENT ON COLUMN sso_links.user_id IS '用户ID';
+COMMENT ON COLUMN sso_links.provider_id IS 'SSO 提供方ID';
+COMMENT ON COLUMN sso_links.sso_subject IS 'SSO 主体标识';
+COMMENT ON COLUMN sso_links.sso_email IS 'SSO 邮箱';
+COMMENT ON COLUMN sso_links.sso_display_name IS 'SSO 显示名';
+COMMENT ON COLUMN sso_links.last_login_at IS '最后登录时间';
+COMMENT ON COLUMN sso_links.deleted IS '软删除';
+COMMENT ON COLUMN sso_links.created_at IS '创建时间';
+COMMENT ON COLUMN sso_links.updated_at IS '更新时间';
+
+COMMENT ON TABLE sso_sessions IS 'SSO 认证会话表（OIDC/OAuth2 PKCE 流程状态）(主键为雪花ID/BIGINT, 应用层生成)';
+COMMENT ON COLUMN sso_sessions.id IS '雪花ID';
+COMMENT ON COLUMN sso_sessions.tenant_id IS '租户ID';
+COMMENT ON COLUMN sso_sessions.state IS 'OIDC state 参数';
+COMMENT ON COLUMN sso_sessions.nonce IS 'OIDC nonce 参数';
+COMMENT ON COLUMN sso_sessions.provider_id IS 'SSO 提供方ID';
+COMMENT ON COLUMN sso_sessions.redirect_to IS '认证完成后重定向地址';
+COMMENT ON COLUMN sso_sessions.ip_address IS '客户端 IP';
+COMMENT ON COLUMN sso_sessions.user_agent IS '客户端 User-Agent';
+COMMENT ON COLUMN sso_sessions.code_verifier IS 'PKCE code_verifier';
+COMMENT ON COLUMN sso_sessions.status IS '状态（pending/success/failed）';
+COMMENT ON COLUMN sso_sessions.user_id IS '关联用户ID';
+COMMENT ON COLUMN sso_sessions.error_message IS '错误信息';
+COMMENT ON COLUMN sso_sessions.expires_at IS '过期时间';
+COMMENT ON COLUMN sso_sessions.completed_at IS '完成时间';
+COMMENT ON COLUMN sso_sessions.deleted IS '软删除';
+COMMENT ON COLUMN sso_sessions.created_at IS '创建时间';
+COMMENT ON COLUMN sso_sessions.updated_at IS '更新时间';
+
+COMMENT ON TABLE workbench_templates IS '工作台模板表 (主键为雪花ID/BIGINT, 应用层生成)';
+COMMENT ON COLUMN workbench_templates.id IS '雪花ID';
+COMMENT ON COLUMN workbench_templates.tenant_id IS '租户ID';
+COMMENT ON COLUMN workbench_templates.name IS '模板名称';
+COMMENT ON COLUMN workbench_templates.slug IS 'URL 标识';
+COMMENT ON COLUMN workbench_templates.description IS '模板描述';
+COMMENT ON COLUMN workbench_templates.layout IS '布局配置（JSONB）';
+COMMENT ON COLUMN workbench_templates.icon IS '图标';
+COMMENT ON COLUMN workbench_templates.is_default IS '是否默认';
+COMMENT ON COLUMN workbench_templates.sort_order IS '排序权重';
+COMMENT ON COLUMN workbench_templates.status IS '状态';
+COMMENT ON COLUMN workbench_templates.deleted IS '软删除';
+COMMENT ON COLUMN workbench_templates.created_by IS '创建人';
+COMMENT ON COLUMN workbench_templates.created_at IS '创建时间';
+COMMENT ON COLUMN workbench_templates.updated_by IS '更新人';
+COMMENT ON COLUMN workbench_templates.updated_at IS '更新时间';
+
 
 -- ===========================================================================
 
@@ -4210,6 +4474,8 @@ DECLARE
     'defect_ext',
     'biz_entity_relations',
     'pages',
+    'intake_channels',
+    'intake_issues',
     'deployment_events'
     ];
 BEGIN
@@ -4240,6 +4506,8 @@ DECLARE
     'knowledge_pages',
     'calendar_events',
     'pages',
+    'intake_channels',
+    'intake_issues',
     'deployment_events'
     ];
 BEGIN
@@ -4582,6 +4850,33 @@ CREATE INDEX IF NOT EXISTS idx_data_jobs_status ON data_jobs (tenant_id, workspa
 CREATE INDEX IF NOT EXISTS idx_saved_views_user ON saved_views (tenant_id, workspace_id, user_id, view_type) WHERE NOT deleted;
 CREATE INDEX IF NOT EXISTS idx_notif_subs_user ON notification_subscriptions (tenant_id, user_id) WHERE NOT deleted;
 
+-- 补齐: 11 张游离表的索引
+CREATE INDEX IF NOT EXISTS idx_defect_extra_defect_id ON defect_extra (tenant_id, defect_id) WHERE NOT deleted;
+CREATE INDEX IF NOT EXISTS idx_document_links_page_id ON document_links (tenant_id, page_id) WHERE NOT deleted;
+CREATE INDEX IF NOT EXISTS idx_document_links_linkable ON document_links (tenant_id, linkable_type, linkable_id) WHERE NOT deleted;
+CREATE INDEX IF NOT EXISTS idx_knowledge_page_relations_page ON knowledge_page_relations (tenant_id, page_id) WHERE NOT deleted;
+CREATE INDEX IF NOT EXISTS idx_knowledge_page_relations_workitem ON knowledge_page_relations (tenant_id, workitem_id) WHERE NOT deleted;
+CREATE INDEX IF NOT EXISTS idx_knowledge_page_versions_page ON knowledge_page_versions (tenant_id, page_id) WHERE NOT deleted;
+CREATE INDEX IF NOT EXISTS idx_page_shares_page ON page_shares (tenant_id, page_id) WHERE NOT deleted;
+CREATE INDEX IF NOT EXISTS idx_page_shares_token ON page_shares (token) WHERE NOT deleted;
+CREATE INDEX IF NOT EXISTS idx_page_templates_project ON page_templates (tenant_id, project_id) WHERE NOT deleted;
+CREATE INDEX IF NOT EXISTS idx_role_permissions_role ON role_permissions (tenant_id, role_slug) WHERE NOT deleted;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_role_permissions ON role_permissions (tenant_id, role_slug, permission_code) WHERE NOT deleted;
+CREATE INDEX IF NOT EXISTS idx_sso_links_user ON sso_links (tenant_id, user_id) WHERE NOT deleted;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_sso_links_provider_subject ON sso_links (tenant_id, provider_id, sso_subject) WHERE NOT deleted;
+CREATE INDEX IF NOT EXISTS idx_sso_sessions_state ON sso_sessions (state) WHERE NOT deleted;
+CREATE INDEX IF NOT EXISTS idx_workbench_templates_tenant ON workbench_templates (tenant_id) WHERE NOT deleted;
+
+-- 补齐: intake 表的索引
+CREATE INDEX IF NOT EXISTS idx_intake_channels_tenant ON intake_channels (tenant_id, workspace_id) WHERE NOT deleted;
+CREATE INDEX IF NOT EXISTS idx_intake_channels_slug ON intake_channels (tenant_id, slug) WHERE NOT deleted;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_intake_channels_tenant_slug ON intake_channels (tenant_id, slug) WHERE NOT deleted;
+CREATE INDEX IF NOT EXISTS idx_intake_issues_tenant ON intake_issues (tenant_id, workspace_id) WHERE NOT deleted;
+CREATE INDEX IF NOT EXISTS idx_intake_issues_channel ON intake_issues (tenant_id, channel_id) WHERE NOT deleted;
+CREATE INDEX IF NOT EXISTS idx_intake_issues_tracking ON intake_issues (tenant_id, tracking_id) WHERE tracking_id IS NOT NULL AND NOT deleted;
+CREATE INDEX IF NOT EXISTS idx_intake_issues_submitter ON intake_issues (tenant_id, submitter_email) WHERE NOT deleted;
+
+
 -- ===========================================================================
 -- 种子数据 (最小化)
 -- 说明: 应用级种子(系统角色/菜单/状态/模板等)在应用启动迁移中维护, 此处仅登记迁移版本。
@@ -4741,20 +5036,49 @@ CREATE TABLE IF NOT EXISTS defect_extra (
     updated_at               TIMESTAMPTZ DEFAULT now()
 );
 
-CREATE TABLE IF NOT EXISTS attachments (
+--   120. intake_channels — 入口渠道
+CREATE TABLE IF NOT EXISTS intake_channels (
     id                       BIGINT PRIMARY KEY,
+    code                     VARCHAR(50),
+    name                     VARCHAR(255) NOT NULL,
+    slug                     VARCHAR(100) NOT NULL,
     tenant_id                BIGINT NOT NULL DEFAULT 1,
     workspace_id             BIGINT NOT NULL DEFAULT 0,
-    project_id               BIGINT NOT NULL DEFAULT 0,
-    entity_type              VARCHAR(50) NOT NULL,
-    entity_id                BIGINT NOT NULL,
-    file_name                VARCHAR(255) NOT NULL,
-    file_size                BIGINT DEFAULT 0,
-    content_type             VARCHAR(100),
-    storage_key              TEXT NOT NULL,
-    uploaded_by              BIGINT,
+    project_id               BIGINT,
+    description              TEXT,
+    is_active                BOOLEAN DEFAULT true,
+    config                   JSONB DEFAULT '{}',
     status                   entity_status NOT NULL DEFAULT 'active',
     deleted                  BOOLEAN DEFAULT false,
+    created_by               BIGINT NOT NULL DEFAULT 0,
     created_at               TIMESTAMPTZ DEFAULT now(),
+    updated_by               BIGINT NOT NULL DEFAULT 0,
     updated_at               TIMESTAMPTZ DEFAULT now()
 );
+
+--   121. intake_issues — 入口工单
+CREATE TABLE IF NOT EXISTS intake_issues (
+    id                       BIGINT PRIMARY KEY,
+    code                     VARCHAR(50),
+    name                     VARCHAR(255) NOT NULL,
+    tenant_id                BIGINT NOT NULL DEFAULT 1,
+    workspace_id             BIGINT NOT NULL DEFAULT 0,
+    project_id               BIGINT,
+    channel_id               BIGINT NOT NULL DEFAULT 0,
+    tracking_id              VARCHAR(50),
+    submitter_name           VARCHAR(255),
+    submitter_email          VARCHAR(255) NOT NULL,
+    description              TEXT,
+    priority                 VARCHAR(20) DEFAULT 'medium',
+    status                   intake_issue_status NOT NULL DEFAULT 'open',
+    linked_entity_type       VARCHAR(50),
+    linked_entity_id         BIGINT,
+    resolved_at              TIMESTAMPTZ,
+    resolved_by              BIGINT,
+    deleted                  BOOLEAN DEFAULT false,
+    created_by               BIGINT NOT NULL DEFAULT 0,
+    created_at               TIMESTAMPTZ DEFAULT now(),
+    updated_by               BIGINT NOT NULL DEFAULT 0,
+    updated_at               TIMESTAMPTZ DEFAULT now()
+);
+

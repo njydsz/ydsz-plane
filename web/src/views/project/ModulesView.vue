@@ -3,7 +3,7 @@
  * ModulesView — 模块管理页（独立路由入口，区别于 ProjectSettings 子页）。
  *
  * 功能：
- *  - 列表卡片展示项目模块（名称 / 描述 / 负责人 / 关联工作项数）
+ *  - 列表卡片展示项目模块（名称 / 描述 / 负责人 / 关联需求/任务/缺陷数）
  *  - 新建 / 编辑弹窗（ModuleFormModal）
  *  - 删除二次确认（AppModal style overlay）
  *  - 软删除归档（status → archived）
@@ -127,7 +127,7 @@ async function toggleArchive(mod: Module) {
   }
 }
 
-// ---- 工作项计数（后端 issue_count 字段；缺失时显示 —） ----
+// ---- 需求/任务/缺陷计数（后端 issue_count 字段；缺失时显示 —） ----
 const activeCount = computed(() => modules.value.filter((m) => m.status !== "archived").length);
 </script>
 
@@ -138,7 +138,7 @@ const activeCount = computed(() => modules.value.filter((m) => m.status !== "arc
       <div>
         <h1 class="modules-view__title">模块管理</h1>
         <p class="modules-view__subtitle">
-          管理项目模块，为工作项划分分类维度 · 共 {{ modules.length }} 个模块（{{ activeCount }} 个启用）
+          管理项目模块，为需求/任务/缺陷划分分类维度 · 共 {{ modules.length }} 个模块（{{ activeCount }} 个启用）
         </p>
       </div>
       <AppButton variant="primary" size="sm" @click="openCreate">
@@ -175,7 +175,7 @@ const activeCount = computed(() => modules.value.filter((m) => m.status !== "arc
               <th class="col--name">模块名称</th>
               <th class="col--desc">描述</th>
               <th class="col--lead">负责人</th>
-              <th class="col--count">关联工作项数</th>
+              <th class="col--count">关联需求/任务/缺陷数</th>
               <th class="col--status">状态</th>
               <th class="col--actions">操作</th>
             </tr>
@@ -206,7 +206,7 @@ const activeCount = computed(() => modules.value.filter((m) => m.status !== "arc
                 </span>
               </td>
 
-              <!-- 关联工作项数 -->
+              <!-- 关联需求/任务/缺陷数 -->
               <td class="cell--count">
                 {{ mod.issue_count ?? "—" }}
               </td>
@@ -289,7 +289,7 @@ const activeCount = computed(() => modules.value.filter((m) => m.status !== "arc
             <p id="delete-confirm-desc" class="confirm-dialog__text">
               确定要删除模块
               <strong>「{{ deleteTarget.name }}」</strong>
-              吗？删除后不可撤销。关联工作项的模块引用会自动清除。
+              吗？删除后不可撤销。关联需求/任务/缺陷的模块引用会自动清除。
             </p>
           </div>
           <footer class="confirm-dialog__footer">

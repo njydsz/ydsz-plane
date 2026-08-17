@@ -10,7 +10,7 @@
  *
  * 使用方式：
  *   <AppEmptyState scenario="issues" @cta-click="createIssue" />
- *   <AppEmptyState title="暂无数据" description="开始创建第一个工作项" />
+ *   <AppEmptyState title="暂无数据" description="开始创建第一个需求/任务/缺陷" />
  */
 
 import { computed } from "vue"
@@ -81,12 +81,12 @@ const emit = defineEmits<{
 /* ---- 场景模板 ---- */
 const scenarioMap: Record<Exclude<EmptyScenario, "default" | "error">, { title: string; description: string }> = {
   issues: {
-    title: "还没有工作项",
+    title: "还没有需求/任务/缺陷",
     description: "创建第一个需求、任务或缺陷，开始管理你的项目进度。",
   },
   projects: {
     title: "还没有项目",
-    description: "创建一个项目来组织工作项，与团队协作推进。",
+    description: "创建一个项目来组织需求/任务/缺陷，与团队协作推进。",
   },
   sprints: {
     title: "还没有迭代",
@@ -102,11 +102,11 @@ const scenarioMap: Record<Exclude<EmptyScenario, "default" | "error">, { title: 
   },
   notifications: {
     title: "暂无通知",
-    description: "当有新的工作项、评论或提及时，你会收到通知。",
+    description: "当有新的需求/任务/缺陷、评论或提及时，你会收到通知。",
   },
   labels: {
     title: "还没有标签",
-    description: "创建标签来分类和标记工作项，方便筛选。",
+    description: "创建标签来分类和标记需求/任务/缺陷，方便筛选。",
   },
   members: {
     title: "还没有成员",
@@ -122,7 +122,7 @@ const scenarioMap: Record<Exclude<EmptyScenario, "default" | "error">, { title: 
   },
   inbox: {
     title: "收件箱是空的",
-    description: "所有外部提交的工作项会显示在此。",
+    description: "所有外部提交的需求/任务/缺陷会显示在此。",
   },
   "api-token": {
     title: "还没有 API 令牌",
@@ -134,11 +134,11 @@ const scenarioMap: Record<Exclude<EmptyScenario, "default" | "error">, { title: 
   },
   gantt: {
     title: "甘特图暂无数据",
-    description: "为工作项设置开始和结束时间后，这里将展示甘特视图。",
+    description: "为需求/任务/缺陷设置开始和结束时间后，这里将展示甘特视图。",
   },
   calendar: {
     title: "日历暂无安排",
-    description: "设置工作项的截止日期，日程将显示在日历上。",
+    description: "设置需求/任务/缺陷的截止日期，日程将显示在日历上。",
   },
   pages: {
     title: "还没有文档",

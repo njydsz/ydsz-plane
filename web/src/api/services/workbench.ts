@@ -18,7 +18,7 @@ export interface WorkbenchSummary {
   quick_actions: QuickActionSet;
 }
 
-/** 我的工作项分桶视图 */
+/** 我的需求/任务/缺陷分桶视图 */
 export interface MyIssuesBucket {
   total: number;
   today: IssueDigest[];
@@ -28,7 +28,7 @@ export interface MyIssuesBucket {
   backlog: IssueDigest[];
 }
 
-/** 工作项工作台摘要 */
+/** 需求/任务/缺陷工作台摘要 */
 export interface IssueDigest {
   id: number;
   identifier: string;

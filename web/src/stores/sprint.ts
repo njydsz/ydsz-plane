@@ -4,7 +4,7 @@
  * 职责：
  *  1) 迭代 CRUD 操作与列表缓存
  *  2) 当前迭代详情与生命周期管理
- *  3) 迭代内工作项（Sprint Issues）与 Backlog 数据
+ *  3) 迭代内需求/任务/缺陷（Sprint Issues）与 Backlog 数据
  *  4) 燃尽图、复盘、速率统计等分析数据
  *  5) 乐观更新与错误回滚
  *
@@ -49,11 +49,11 @@ export const useSprintStore = defineStore("sprint", () => {
   /** 当前查看/操作的迭代详情 */
   const currentSprint = ref<Sprint | null>(null);
 
-  /** 迭代内工作项 */
+  /** 迭代内需求/任务/缺陷 */
   const sprintIssues = ref<SprintIssueView[]>([]);
   const sprintIssuesTotal = ref(0);
 
-  /** Backlog 工作项 */
+  /** Backlog 需求/任务/缺陷 */
   const backlogItems = ref<BacklogItem[]>([]);
   const backlogTotal = ref(0);
 
@@ -252,7 +252,7 @@ export const useSprintStore = defineStore("sprint", () => {
   /* Actions: 规划（Sprint Issues / Backlog）                           */
   /* ================================================================ */
 
-  /** 加载迭代内工作项 */
+  /** 加载迭代内需求/任务/缺陷 */
   async function fetchSprintIssues(sprintId: number, limit = 50, offset = 0) {
     loading.value = true;
     try {
@@ -265,17 +265,17 @@ export const useSprintStore = defineStore("sprint", () => {
     }
   }
 
-  /** 添加工作项到迭代（乐观更新） */
+  /** 添加需求/任务/缺陷到迭代（乐观更新） */
   async function addIssueToSprint(sprintId: number, issueId: number, sortOrder = 65535) {
     await sprintApi.addIssue(wsId.value, projectId.value, sprintId, issueId, sortOrder);
     // 从 Backlog 中移除
     backlogItems.value = backlogItems.value.filter((b) => b.issue_id !== issueId);
     backlogTotal.value = Math.max(0, backlogTotal.value - 1);
-    // 重新加载迭代工作项以获取最新状态
+    // 重新加载迭代需求/任务/缺陷以获取最新状态
     await fetchSprintIssues(sprintId);
   }
 
-  /** 从迭代移除工作项（乐观更新） */
+  /** 从迭代移除需求/任务/缺陷（乐观更新） */
   async function removeIssueFromSprint(sprintId: number, issueId: number) {
     // 乐观移除
     const backup = [...sprintIssues.value];

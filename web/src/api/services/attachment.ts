@@ -82,6 +82,8 @@ export const attachmentApi = {
     ),
 
   /** 删除附件 */
-  deleteAttachment: (wsId: number, projectId: number, attachmentId: number) =>
-    wrap<void>(http.delete(`/workspaces/${wsId}/projects/${projectId}/attachments/${attachmentId}`)),
+  deleteAttachment: (wsId: number, projectId: number, attachmentId: number, entityType?: string) =>
+    wrap<void>(http.delete(`/workspaces/${wsId}/projects/${projectId}/attachments/${attachmentId}`, {
+      params: entityType ? { entity_type: entityType } : undefined,
+    })),
 };

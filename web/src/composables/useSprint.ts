@@ -52,7 +52,7 @@ export function useSprint() {
   /** 当前迭代 */
   const currentSprint = computed(() => store.currentSprint);
 
-  /** 迭代工作项 */
+  /** 迭代需求/任务/缺陷 */
   const sprintIssues = computed(() => store.sprintIssues);
   const sprintIssuesTotal = computed(() => store.sprintIssuesTotal);
 
@@ -94,7 +94,7 @@ export function useSprint() {
     return store.createSprint(input);
   }
 
-  /** 加载迭代详情（含进度/工作项/燃尽图联动） */
+  /** 加载迭代详情（含进度/需求/任务/缺陷/燃尽图联动） */
   async function loadSprintDetail(sprintId: number) {
     ensureReady();
     const sprint = await store.fetchSprint(sprintId);
@@ -137,14 +137,14 @@ export function useSprint() {
     return store.fetchBacklog(limit, offset);
   }
 
-  /** 加载迭代工作项 */
+  /** 加载迭代需求/任务/缺陷 */
   async function loadSprintIssues(sprintId: number, limit = 50, offset = 0) {
     ensureReady();
     return store.fetchSprintIssues(sprintId, limit, offset);
   }
 
   /**
-   * 在迭代间移动工作项（拖拽排序）。
+   * 在迭代间移动需求/任务/缺陷（拖拽排序）。
    * 处理 Backlog → Sprint / Sprint → Backlog / Sprint 内重排。
    */
   async function moveIssue(params: {

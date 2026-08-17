@@ -14,7 +14,7 @@
             ref="inputRef"
             v-model="q"
             class="search-input"
-            placeholder="搜索工作项、迭代、版本... (Ctrl+K)"
+            placeholder="搜索需求/任务/缺陷、迭代、版本... (Ctrl+K)"
             @keydown.esc="close"
             @keydown.enter="handleEnter"
             @keydown.down.prevent="moveDown"
@@ -28,7 +28,7 @@
           <template v-else-if="store.results">
             <!-- issues -->
             <div v-if="store.results.results.issues?.length" class="result-group">
-              <div class="group-title">工作项</div>
+              <div class="group-title">需求/任务/缺陷</div>
               <div
                 v-for="(item, idx) in store.results.results.issues"
                 :key="item.id"
@@ -167,7 +167,7 @@ function navigateTo(item: any) {
   close()
 }
 
-/** 点击工作项结果跳转 */
+/** 点击需求/任务/缺陷结果跳转 */
 function goIssue(item: any) { navigateTo({ ...item, _type: 'issue' }) }
 /** 点击迭代结果跳转 */
 function goSprint(item: any) { navigateTo({ ...item, _type: 'sprint' }) }

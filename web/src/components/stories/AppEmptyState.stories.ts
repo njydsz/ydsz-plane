@@ -67,7 +67,7 @@ export const WithActions: Story = {
     template: `
       <AppEmptyState scenario="issues">
         <template #cta>
-          <button style="padding:6px 14px;border-radius:6px;background:#3b82f6;color:#fff;border:none;cursor:pointer;font:inherit;font-size:13px;font-weight:500;">创建工作项</button>
+          <button style="padding:6px 14px;border-radius:6px;background:#3b82f6;color:#fff;border:none;cursor:pointer;font:inherit;font-size:13px;font-weight:500;">创建需求/任务/缺陷</button>
         </template>
         <template #secondary>
           <button style="padding:6px 14px;border-radius:6px;background:transparent;color:#6b7280;border:1px solid #d1d5db;cursor:pointer;font:inherit;font-size:13px;">导入数据</button>

@@ -32,8 +32,8 @@ import { useWorkspaceContext } from "@/composables/useWorkspaceContext";
 /* ------------------------------------------------------------------ */
 
 const TRIGGER_OPTIONS: { value: TriggerType; label: string }[] = [
-  { value: "issue.created", label: "工作项创建" },
-  { value: "issue.updated", label: "工作项更新" },
+  { value: "issue.created", label: "需求/任务/缺陷创建" },
+  { value: "issue.updated", label: "需求/任务/缺陷更新" },
   { value: "issue.status_changed", label: "状态变更" },
   { value: "issue.assigned", label: "已分配" },
   { value: "issue.commented", label: "已评论" },
@@ -56,7 +56,7 @@ const ACTION_OPTIONS = [
   { value: "assign", label: "分配负责人" },
   { value: "update_field", label: "更新字段" },
   { value: "send_notification", label: "发送通知" },
-  { value: "create_issue", label: "创建工作项" },
+  { value: "create_issue", label: "创建需求/任务/缺陷" },
   { value: "copy_field", label: "复制字段" },
 ];
 
@@ -425,7 +425,7 @@ watch(ready, (v) => {
     <header class="au-header">
       <div>
         <h1>自动化规则</h1>
-        <p class="au-sub">配置事件驱动的工作项自动化，减少重复操作</p>
+        <p class="au-sub">配置事件驱动的需求/任务/缺陷自动化，减少重复操作</p>
       </div>
       <div class="au-header__actions">
         <!-- Template dropdown -->
@@ -586,7 +586,7 @@ watch(ready, (v) => {
               <!-- create_issue params -->
               <template v-else-if="a.type === 'create_issue'">
                 <input v-model="a.params.project_id" class="wh-input au-act-param" placeholder="目标项目 ID" />
-                <input v-model="a.params.type" class="wh-input au-act-param" placeholder="工作项类型 (如: task)" />
+                <input v-model="a.params.type" class="wh-input au-act-param" placeholder="需求/任务/缺陷类型 (如: task)" />
               </template>
               <!-- copy_field params -->
               <template v-else-if="a.type === 'copy_field'">

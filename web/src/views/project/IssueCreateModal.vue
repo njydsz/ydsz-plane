@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * 创建工作项弹窗 — 类型/标题/优先级/经办人/标签等表单。
+ * 创建需求/任务/缺陷弹窗 — 类型/标题/优先级/经办人/标签等表单。
  */
 
 import { computed, ref, watch } from "vue";
@@ -17,9 +17,9 @@ const props = defineProps<{
   visible: boolean;
   /** 预选类型（可选，不传则由用户选择） */
   presetType?: IssueType;
-  /** 从哪个工作项提缺陷（可选，用于一键从需求提缺陷） */
+  /** 从哪个需求/任务/缺陷提缺陷（可选，用于一键从需求提缺陷） */
   sourceIssueId?: number;
-  /** 父工作项 ID（可选，用于 WBS 子工作项创建） */
+  /** 父需求/任务/缺陷 ID（可选，用于 WBS 子需求/任务/缺陷创建） */
   parentId?: number;
 }>();
 
@@ -280,14 +280,14 @@ function cancel() {
         <!-- 标题栏 -->
         <div class="modal__header">
           <h2 class="modal__title">
-            {{ currentStep === "type" ? "创建工作项" : "新建" + ({ epic: "史诗", requirement: "需求", task: "任务", defect: "缺陷" } as Record<string, string>)[selectedType] }}
+            {{ currentStep === "type" ? "创建需求/任务/缺陷" : "新建" + ({ epic: "史诗", requirement: "需求", task: "任务", defect: "缺陷" } as Record<string, string>)[selectedType] }}
           </h2>
           <button class="modal__close" :disabled="submitting" @click="cancel">✕</button>
         </div>
 
         <!-- Step 1: 选择类型 -->
         <div v-if="currentStep === 'type'" class="modal__body">
-          <p class="modal__hint">请选择要创建的工作项类型</p>
+          <p class="modal__hint">请选择要创建的需求/任务/缺陷类型</p>
           <div class="type-grid">
             <button
               v-for="opt in typeOptions"
@@ -315,7 +315,7 @@ function cancel() {
             <input
               v-model="name"
               class="form-input"
-              placeholder="输入工作项名称"
+              placeholder="输入需求/任务/缺陷名称"
               maxlength="500"
               autofocus
               @keydown.enter.prevent="submit"
@@ -359,7 +359,7 @@ function cancel() {
             <RichTextEditor
               v-model:content-html="description"
               variant="comment"
-              placeholder="输入工作项描述..."
+              placeholder="输入需求/任务/缺陷描述..."
               :min-height="'80px'"
               :workspace-id="workspaceId"
               :project-id="projectId"
@@ -499,7 +499,7 @@ function cancel() {
             <summary class="form-advanced__toggle">高级选项</summary>
             <div class="form-advanced__body">
               <div class="form-group form-group--inline">
-                <label class="form-label">父工作项 ID</label>
+                <label class="form-label">父需求/任务/缺陷 ID</label>
                 <input
                   v-model.number="parentIdInput"
                   type="number"

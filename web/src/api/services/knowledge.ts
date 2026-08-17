@@ -2,7 +2,7 @@
  * 知识库（Knowledge Base）域 API — 对接后端 knowledge 域 REST 接口。
  *
  * 路由前缀：/api/v1/workspaces/:workspace_id/knowledge
- * 提供空间 CRUD、文档树（嵌套层级）、版本快照、文档与工作项关联。
+ * 提供空间 CRUD、文档树（嵌套层级）、版本快照、文档与需求/任务/缺陷关联。
  */
 import { http } from "../client";
 
@@ -16,7 +16,7 @@ export type SpacePermission = "viewer" | "editor" | "admin" | "owner";
 /** 文档状态 */
 export type PageStatus = "draft" | "published" | "archived";
 
-/** 文档与工作项关联类型 */
+/** 文档与需求/任务/缺陷关联类型 */
 export type PageRelationType = "referenced" | "referencing";
 
 /* ------------------------------------------------------------------ */
@@ -84,7 +84,7 @@ export interface KnowledgePageVersion {
   created_at: string;
 }
 
-/** 文档与工作项关联关系。 */
+/** 文档与需求/任务/缺陷关联关系。 */
 export interface KnowledgePageRelation {
   id: number;
   page_id: number;
@@ -220,9 +220,9 @@ export const knowledgeApi = {
   revertVersion: (wsId: number, sid: number, pid: number, version: number) =>
     wrap<KnowledgePage>(http.post(`${pagePath(wsId, sid, pid)}/revert`, { version })),
 
-  /* ===== 关联工作项 ===== */
+  /* ===== 关联需求/任务/缺陷 ===== */
 
-  /** 列出文档关联的工作项 */
+  /** 列出文档关联的需求/任务/缺陷 */
   listRelations: async (wsId: number, sid: number, pid: number) => {
     const data = await wrap<{ results?: KnowledgePageRelation[] }>(
       http.get(`${pagePath(wsId, sid, pid)}/relations`),
@@ -230,13 +230,13 @@ export const knowledgeApi = {
     return data?.results ?? [];
   },
 
-  /** 添加文档与工作项的关联 */
+  /** 添加文档与需求/任务/缺陷的关联 */
   addRelation: (wsId: number, sid: number, pid: number, issueId: number) =>
     wrap<KnowledgePageRelation>(
       http.post(`${pagePath(wsId, sid, pid)}/relations`, { issue_id: issueId }),
     ),
 
-  /** 移除文档与工作项的关联 */
+  /** 移除文档与需求/任务/缺陷的关联 */
   removeRelation: (wsId: number, sid: number, pid: number, rid: number) =>
     wrap<void>(http.delete(`${pagePath(wsId, sid, pid)}/relations/${rid}`)),
 

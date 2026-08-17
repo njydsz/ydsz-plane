@@ -26,7 +26,7 @@ migrate-down:
 seed: migrate
 	go run ./scripts/seed
 
-# 大规模造数（100 万工作项，用于性能基线压测）
+# 大规模造数（100 万需求/任务/缺陷，用于性能基线压测）
 # 用法：make seed-scale COUNT=100000 PROJECT=1
 seed-scale: migrate
 	go run ./scripts/seed-scale -count=$(or $(COUNT),1000000) -project=$(or $(PROJECT),1) -workers=$(or $(WORKERS),8)

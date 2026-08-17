@@ -53,6 +53,15 @@ const qualityPassed = computed(() => {
   return (version.value?.quality?.critical_bugs ?? 0) === 0;
 });
 
+const qualityFailReason = computed(() => {
+  if (qualityPassed.value) return '';
+  const q = version.value?.quality;
+  if (!q) return '质量数据未加载';
+  if (q.critical_bugs > 0) return `存在 ${q.critical_bugs} 个致命/严重未关闭缺陷`;
+  if (q.open_bugs > 0) return `存在 ${q.open_bugs} 个未关闭缺陷`;
+  return '未通过质量门控';
+});
+
 const canProceedFromChecklist = computed(() => {
   return checklistAllDone.value || forceChecklist.value;
 });
@@ -344,7 +353,7 @@ onMounted(load);
         <section class="step-section">
           <h2 class="step-section__title">② Release Notes 预览与编辑</h2>
           <p class="step-section__desc">
-            系统将自动从已完成的工作项和缺陷生成 Release Notes，你也可以手动编辑。
+            系统将自动从已完成的需求/任务/缺陷和缺陷生成 Release Notes，你也可以手动编辑。
           </p>
 
           <label class="notes-toggle">
@@ -428,7 +437,7 @@ onMounted(load);
                   <span class="confirm-stat__value">{{ report.sprint_count }}</span>
                 </div>
                 <div class="confirm-stat">
-                  <span class="confirm-stat__label">已完成 / 总工作项</span>
+                  <span class="confirm-stat__label">已完成 / 总需求/任务/缺陷</span>
                   <span class="confirm-stat__value">{{ report.completed_issues }} / {{ report.total_issues }}</span>
                 </div>
                 <div class="confirm-stat">

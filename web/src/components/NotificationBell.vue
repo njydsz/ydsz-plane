@@ -167,11 +167,11 @@ const eventIconMap: Record<string, any> = {
 
 /** 事件类型 → 中文动作描述 */
 const eventLabelMap: Record<string, string> = {
-  'issue.created': '创建了工作项',
-  'issue.assigned': '将工作项分配给你',
-  'issue.status_changed': '变更了工作项状态',
-  'issue.deleted': '删除了工作项',
-  'comment.created': '评论了工作项',
+'issue.created': '创建了需求/任务/缺陷',
+'issue.assigned': '将需求/任务/缺陷分配给你',
+'issue.status_changed': '变更了需求/任务/缺陷状态',
+'issue.deleted': '删除了需求/任务/缺陷',
+'comment.created': '评论了需求/任务/缺陷',
   'sprint.started': '启动了迭代',
   'sprint.completed': '完成了迭代',
   'version.released': '发布了版本',

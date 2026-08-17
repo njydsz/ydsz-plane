@@ -2,7 +2,7 @@
 /**
  * ModuleDistributionWidget — 模块分布图。
  *
- * 展示各模块的工作项数量与进度。
+ * 展示各模块的需求/任务/缺陷数量与进度。
  * 数据由组件自行拉取模块列表并统计 issues 数量。
  */
 import { computed, onMounted, ref } from "vue";

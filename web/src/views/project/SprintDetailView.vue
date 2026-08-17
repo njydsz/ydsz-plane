@@ -1,6 +1,6 @@
 ﻿<script setup lang="ts">
 /**
- * 迭代详情页 — 展示进度、工作项列表、燃尽图、复盘与生命周期操作。
+ * 迭代详情页 — 展示进度、需求/任务/缺陷列表、燃尽图、复盘与生命周期操作。
  *
  * P1 增强：
  *  - 编辑迭代（仅 planned 状态，复用表单）
@@ -272,9 +272,9 @@ watch(ready, (r) => {
         />
       </section>
 
-      <!-- 工作项列表 -->
+      <!-- 需求/任务/缺陷列表 -->
       <section class="issues-card">
-        <h2>工作项 ({{ issues.length }})</h2>
+        <h2>需求/任务/缺陷 ({{ issues.length }})</h2>
         <div class="issues-list">
           <div v-for="iss in issues" :key="iss.issue_id" class="issue-row" :class="{ 'issue-row--midway': iss.added_midway }">
             <span class="type-badge" :class="`type-${iss.type_code}`">
@@ -285,7 +285,7 @@ watch(ready, (r) => {
             <span :style="{ color: iss.state_color }" class="state">{{ iss.state_name }}</span>
             <span v-if="iss.point != null" class="point">{{ iss.point }}pt</span>
           </div>
-          <div v-if="issues.length === 0" class="empty">暂无工作项。前往 <a @click="goPlanning">排期规划</a></div>
+          <div v-if="issues.length === 0" class="empty">暂无需求/任务/缺陷。前往 <a @click="goPlanning">排期规划</a></div>
         </div>
       </section>
 
@@ -295,7 +295,7 @@ watch(ready, (r) => {
         <div class="review-stats">
           <div class="stat"><span class="num">{{ (sprint.review_snapshot.completion_rate * 100).toFixed(0) }}%</span><span class="label">完成率</span></div>
           <div class="stat"><span class="num">{{ sprint.review_snapshot.completed_points }}/{{ sprint.review_snapshot.committed_points }}</span><span class="label">完成/承诺 故事点</span></div>
-          <div class="stat"><span class="num">{{ sprint.review_snapshot.completed_issues }}/{{ sprint.review_snapshot.committed_issues }}</span><span class="label">完成/承诺 工作项</span></div>
+          <div class="stat"><span class="num">{{ sprint.review_snapshot.completed_issues }}/{{ sprint.review_snapshot.committed_issues }}</span><span class="label">完成/承诺 需求/任务/缺陷</span></div>
           <div class="stat"><span class="num">+{{ sprint.review_snapshot.joined_issues }}</span><span class="label">中途加入</span></div>
         </div>
       </section>

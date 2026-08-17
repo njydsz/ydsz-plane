@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * 我的工作项 — 跨项目聚合当前登录用户被全部分配的工作项。
+ * 我的需求/任务/缺陷 — 跨项目聚合当前登录用户被全部分配的需求/任务/缺陷。
  *
  * 由于后端 Issue API 限定在项目内，本组件先拉取工作空间下所有项目，
  * 再对每个项目按 assignee_id 过滤并聚合展示，按更新时间倒序。
@@ -31,7 +31,7 @@ const currentUserId = computed(() => auth.user?.id ?? 0);
 /** 生效的 workspaceId：路由无效时直接用 0 提示空态 */
 const effectiveWsId = computed(() => workspaceId.value);
 
-/** 加载工作空间内所有项目 + 各自分配给当前用户的工作项 */
+/** 加载工作空间内所有项目 + 各自分配给当前用户的需求/任务/缺陷 */
 async function load() {
   if (!effectiveWsId.value || !currentUserId.value) {
     loading.value = false;
@@ -44,7 +44,7 @@ async function load() {
     // 1) 拉取空间内所有项目
     projects.value = await workspaceApi.listProjects(effectiveWsId.value);
 
-    // 2) 对每个项目并发拉取分配给当前用户的工作项
+    // 2) 对每个项目并发拉取分配给当前用户的需求/任务/缺陷
     const LIST_VIEW_FIELDS = ["id", "identifier", "name", "state_id", "priority", "type_code", "assignees", "project_id", "updated_at"];
     const params: ListIssuesParams = {
       assignee_id: currentUserId.value,
@@ -74,12 +74,12 @@ async function load() {
   }
 }
 
-/** 跳转到工作项详情页 */
+/** 跳转到需求/任务/缺陷详情页 */
 function openIssue(issue: Issue) {
   router.push(`/${effectiveWsId.value}/projects/${issue.project_id}/issues/${issue.id}`);
 }
 
-/** 工作项类型中文映射 */
+/** 需求/任务/缺陷类型中文映射 */
 function typeLabel(code?: string): string {
   const map: Record<string, string> = {
     epic: "史诗",
@@ -130,17 +130,17 @@ onMounted(load);
     <AppEmptyState
       v-else-if="!effectiveWsId"
       title="请先选择工作空间"
-      description="选择一个工作空间后即可查看分配给您的工作项。"
+      description="选择一个工作空间后即可查看分配给您需求/任务/缺陷。"
     />
 
     <!-- 空数据 -->
     <AppEmptyState
       v-else-if="issues.length === 0"
-      title="暂无分配给您的工作项"
-      description="当有工作项被指派给您时，将在此处显示。"
+      title="暂无分配给您需求/任务/缺陷"
+      description="当有需求/任务/缺陷被指派给您时，将在此处显示。"
     />
 
-    <!-- 工作项列表 -->
+    <!-- 需求/任务/缺陷列表 -->
     <div v-else class="rounded-md border border-[var(--border-subtle)] overflow-hidden">
       <table class="w-full text-sm">
         <thead class="bg-[var(--surface-2)] text-[var(--text-tertiary)] text-xs uppercase tracking-wider">

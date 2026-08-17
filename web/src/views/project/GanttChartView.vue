@@ -5,7 +5,7 @@
  * 纯前端渲染，数据由后端 gantt 接口一次性返回。
  * 功能：
  *  - 时间轴条块（按 start_date/target_date 定位宽度与偏移）
- *  - 依赖箭头（SVG 连线显示工作项依赖关系）
+ *  - 依赖箭头（SVG 连线显示需求/任务/缺陷依赖关系）
  *  - 状态/优先级颜色编码
  *  - 时间范围缩放（周/月/季/全部）
  *  - WBS 层级缩进
@@ -84,7 +84,7 @@ onMounted(() => {
 });
 watch([wsId], () => { if (wsId.value) load(); });
 
-/** 跳转工作项详情 */
+/** 跳转需求/任务/缺陷详情 */
 function goToIssue(issueId: number) {
   void router.push(`/${workspaceId.value}/projects/${projectId.value}/issues/${issueId}`);
 }
@@ -247,7 +247,7 @@ const svgHeight = computed(() => HEADER_HEIGHT + issues.value.length * ROW_HEIGH
     <div v-else class="gantt-container">
       <!-- 列标题 -->
       <div class="gantt-header-row">
-        <div class="issue-col">工作项</div>
+        <div class="issue-col">需求/任务/缺陷</div>
         <div class="timeline-col">
           <!-- 月份刻度 -->
           <div class="month-ticks">
@@ -262,7 +262,7 @@ const svgHeight = computed(() => HEADER_HEIGHT + issues.value.length * ROW_HEIGH
       </div>
 
       <!-- 空态 -->
-      <AppEmptyState v-if="issues.length === 0" description="该项目暂无工作项的时间数据" />
+      <AppEmptyState v-if="issues.length === 0" description="该项目暂无需求/任务/缺陷的时间数据" />
 
       <!-- 甘特内容 -->
       <div v-else class="gantt-body">
@@ -273,7 +273,7 @@ const svgHeight = computed(() => HEADER_HEIGHT + issues.value.length * ROW_HEIGH
             class="gantt-row"
             @click="goToIssue(issue.id)"
           >
-            <!-- 左侧：工作项标识 -->
+            <!-- 左侧：需求/任务/缺陷标识 -->
             <div class="issue-col">
               <span class="issue-badge" :style="{ borderColor: priorityColor(issue.priority) }">
                 {{ issue.identifier }}

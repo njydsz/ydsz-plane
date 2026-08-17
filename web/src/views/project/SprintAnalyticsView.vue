@@ -5,7 +5,7 @@
  * 能力：
  *  - 燃尽图 / 燃起图切换
  *  - 迭代速率（近期迭代完成点数趋势）
- *  - 工作项状态分布（按状态组）
+ *  - 需求/任务/缺陷状态分布（按状态组）
  *  - 汇总指标：完成率、速率、范围变化
  *
  * 数据由父组件（SprintDetailView）加载后传入，避免重复请求。
@@ -208,7 +208,7 @@ const pieOption = computed(() => {
       <div class="metric-card">
         <span class="metric-label">完成率</span>
         <span class="metric-value">{{ completionRate }}<small>%</small></span>
-        <span class="metric-detail">{{ doneIssues }}/{{ totalIssues }} 项工作项</span>
+        <span class="metric-detail">{{ doneIssues }}/{{ totalIssues }} 项需求/任务/缺陷</span>
       </div>
       <div class="metric-card">
         <span class="metric-label">已完成点数</span>

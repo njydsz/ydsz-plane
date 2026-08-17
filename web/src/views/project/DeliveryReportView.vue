@@ -176,11 +176,11 @@ onMounted(load);
             <span class="stat-item__value">{{ report.sprint_count }}</span>
           </div>
           <div class="stat-item">
-            <span class="stat-item__label">总工作项</span>
+            <span class="stat-item__label">需求/任务/缺陷总数</span>
             <span class="stat-item__value">{{ report.total_issues }}</span>
           </div>
           <div class="stat-item">
-            <span class="stat-item__label">已完成工作项</span>
+            <span class="stat-item__label">已完成需求/任务/缺陷</span>
             <span class="stat-item__value">{{ report.completed_issues }}</span>
           </div>
           <div class="stat-item">
@@ -225,7 +225,7 @@ onMounted(load);
                 <th>承诺点数</th>
                 <th>完成点数</th>
                 <th>达成率</th>
-                <th>工作项</th>
+                <th>需求/任务/缺陷</th>
               </tr>
             </thead>
             <tbody>

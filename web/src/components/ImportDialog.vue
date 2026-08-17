@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * ImportDialog — CSV / XLSX 工作项导入弹窗。
+ * ImportDialog — CSV / XLSX 需求/任务/缺陷导入弹窗。
  *
  * 步骤:
  *   1. 选择文件 (input[type=file])  →  自动解析 header 预览列
@@ -250,7 +250,7 @@ function selectFieldName(row: MappingRow, event: Event) {
 </script>
 
 <template>
-  <AppModal :visible="visible" title="导入工作项" width="720px" @close="close">
+  <AppModal :visible="visible" title="导入需求/任务/缺陷" width="720px" @close="close">
     <!-- Step 1: 选文件 -->
     <div v-if="step === STEP.SELECT" class="import-step">
       <p class="import-step__hint">
@@ -327,7 +327,7 @@ function selectFieldName(row: MappingRow, event: Event) {
         <span>
           增量导入（按
           <code>external_id</code>
-          识别已有工作项并更新，否则创建新项）
+          识别已有需求/任务/缺陷并更新，否则创建新项）
         </span>
       </label>
 

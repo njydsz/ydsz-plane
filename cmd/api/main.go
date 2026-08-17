@@ -245,6 +245,7 @@ func run() error {
 	attHandler := attachment.NewHandler(&attachment.HandlerDeps{
 		AttachmentSvc: attSvc,
 		Cfg:           &cfg.Attachment,
+		DB:            pool.Pool,
 	})
 
 	// ---------- Automation domain (S11) ----------
@@ -372,7 +373,7 @@ func run() error {
 		Storage: stClient,
 	})
 
-	// 注册工作项路由（必须在 NewEngine 之后）
+	// 注册需求/任务/缺陷路由（必须在 NewEngine 之后）
 	httpapi.RegisterIssueRoutes(engine, &httpapi.Deps{
 		Auth:            authSvc,
 		PrincipalParser: parsePrincipal,
@@ -516,7 +517,7 @@ func run() error {
 		ReadHeaderTimeout: 10 * time.Second,
 		// ReadTimeout 覆盖读取完整请求体的时长。30s 可支撑单请求内的批量 CSV/JSON 上传。
 		ReadTimeout: 30 * time.Second,
-		// WriteTimeout 限制整个响应写入时长。60s 对分页工作项列表与迭代报告足够；
+		// WriteTimeout 限制整个响应写入时长。60s 对分页需求/任务/缺陷列表与迭代报告足够；
 		// 需要更长时间的端点应当改用流式输出。
 		WriteTimeout: 60 * time.Second,
 		// IdleTimeout 回收静默超过 2 分钟的 keep-alive 连接，

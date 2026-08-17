@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /**
  * 工作台 — 个人效率首页。
- * 聚合「我的工作项」分桶 + 迭代概览 + 最近访问 + 周效率趋势。
+ * 聚合「我的需求/任务/缺陷」分桶 + 迭代概览 + 最近访问 + 周效率趋势。
  * 数据来源：workbenchApi.getSummary / getEfficiency（后端 workbench 域）。
  */
 import { computed, onMounted, ref } from "vue";
@@ -46,7 +46,7 @@ async function load() {
 }
 
 function openIssue() {
-  // IssueDigest 不含 project_id，无法定位到具体项目内详情；跳到我的工作项列表兜底
+  // IssueDigest 不含 project_id，无法定位到具体项目内详情；跳到我的需求/任务/缺陷列表兜底
   router.push(`/${workspaceId.value}/my-issues`);
 }
 
@@ -102,7 +102,7 @@ onMounted(load);
       <!-- 顶部统计卡片 -->
       <div class="grid grid-cols-2 gap-4 md:grid-cols-4">
         <div class="rounded-lg border border-[var(--border-subtle)] p-4">
-          <div class="text-xs text-[var(--text-tertiary)]">我的工作项</div>
+          <div class="text-xs text-[var(--text-tertiary)]">我的需求/任务/缺陷</div>
           <div class="mt-1 text-2xl font-bold text-[var(--text-primary)]">
             {{ summary.my_issues.total }}
           </div>
@@ -127,9 +127,9 @@ onMounted(load);
         </div>
       </div>
 
-      <!-- 我的工作项分桶 -->
+      <!-- 我的需求/任务/缺陷分桶 -->
       <section>
-        <h2 class="mb-3 text-sm font-semibold text-[var(--text-secondary)]">我的工作项</h2>
+        <h2 class="mb-3 text-sm font-semibold text-[var(--text-secondary)]">我的需求/任务/缺陷</h2>
         <div class="space-y-4">
           <div
             v-for="bucket in BUCKETS"

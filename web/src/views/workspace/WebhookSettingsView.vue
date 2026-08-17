@@ -108,7 +108,7 @@ async function remove(w: Webhook) {
 
 function eventLabel(ev: WebhookEvent): string {
   const map: Record<string, string> = {
-    "issue.created": "工作项创建", "issue.updated": "工作项更新",
+    "issue.created": "需求/任务/缺陷创建", "issue.updated": "需求/任务/缺陷更新",
     "issue.status_changed": "状态流转", "issue.commented": "评论",
     "issue.assigned": "指派", "sprint.started": "迭代启动",
     "sprint.completed": "迭代完成", "version.released": "版本发布",

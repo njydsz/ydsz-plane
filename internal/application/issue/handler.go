@@ -65,6 +65,13 @@ func (h *IssueHandler) Register(r *gin.RouterGroup, wsMiddleware []gin.HandlerFu
 
 	// 集合
 	r.GET("/states", h.listStates)
+	r.POST("/states", h.createState)
+	r.PATCH("/states/:state_id", h.updateState)
+	r.DELETE("/states/:state_id", h.deleteState)
+	// 流转规则
+	r.GET("/state-transitions", h.listTransitions)
+	r.POST("/state-transitions", h.addTransition)
+	r.DELETE("/state-transitions/:transition_id", h.removeTransition)
 	r.GET("/issues", h.listIssues)
 	r.POST("/issues", h.createIssue)
 	r.POST("/issues/import", h.importIssues)
@@ -108,7 +115,16 @@ func (h *IssueHandler) Register(r *gin.RouterGroup, wsMiddleware []gin.HandlerFu
 		issue.GET("/reviews", h.listReviews)
 		issue.POST("/review", h.submitReview)
 		issue.POST("/review/decision", h.decideReview)
+		// 任务依赖（FS/SS/FF/SF）
+		issue.GET("/dependencies", h.listDependencies)
+		issue.POST("/dependencies", h.createDependency)
+		issue.DELETE("/dependencies/:dep_id", h.deleteDependency)
 	}
+
+	// 项目级依赖列表（甘特图渲染用）
+	r.GET("/issue-dependencies", h.listProjectDependencies)
+	// 工时热力图（成员 × 日期）
+	r.GET("/workload-heatmap", h.getWorkloadHeatmap)
 }
 
 // --- State handlers ---
@@ -123,6 +139,285 @@ func (h *IssueHandler) listStates(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"results": states})
+}
+
+// --- State CRUD handlers ---
+
+// createStateRequest 创建状态请求。
+type createStateRequest struct {
+	Name            string   `json:"name" binding:"required"`
+	Group           string   `json:"group"`
+	Color           string   `json:"color"`
+	Sequence        float64  `json:"sequence"`
+	IsDefault       bool     `json:"is_default"`
+	ApplicableTypes []string `json:"applicable_types"`
+}
+
+func (h *IssueHandler) createState(c *gin.Context) {
+	wsID := c.GetInt64(middleware.CtxWorkspaceID)
+	projectID := c.GetInt64(middleware.CtxProjectID)
+	userID := c.GetInt64(middleware.CtxUserID)
+
+	var req createStateRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		writeErr(c, errs.ErrValidation.WithDetails(fieldDetail(err)))
+		return
+	}
+
+	st, err := h.d.StateSvc.CreateState(c.Request.Context(), CreateStateInput{
+		WorkspaceID:     wsID,
+		ProjectID:       projectID,
+		Name:            req.Name,
+		Group:           StateGroup(req.Group),
+		Color:           req.Color,
+		Sequence:        req.Sequence,
+		IsDefault:       req.IsDefault,
+		ApplicableTypes: req.ApplicableTypes,
+		CreatedBy:       userID,
+	})
+	if err != nil {
+		writeErr(c, err)
+		return
+	}
+	c.JSON(http.StatusCreated, st)
+}
+
+// updateStateRequest 更新状态请求（所有字段可选）。
+type updateStateRequest struct {
+	Name            *string  `json:"name,omitempty"`
+	Group           *string  `json:"group,omitempty"`
+	Color           *string  `json:"color,omitempty"`
+	Sequence        *float64 `json:"sequence,omitempty"`
+	IsDefault       *bool    `json:"is_default,omitempty"`
+	ApplicableTypes []string `json:"applicable_types,omitempty"`
+}
+
+func (h *IssueHandler) updateState(c *gin.Context) {
+	wsID := c.GetInt64(middleware.CtxWorkspaceID)
+	userID := c.GetInt64(middleware.CtxUserID)
+
+	stateID, err := strconv.ParseInt(c.Param("state_id"), 10, 64)
+	if err != nil {
+		writeErr(c, errs.ErrValidation.WithDetails(errs.FieldDetail{Field: "state_id", Reason: "无效的 ID"}))
+		return
+	}
+
+	var req updateStateRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		writeErr(c, errs.ErrValidation.WithDetails(fieldDetail(err)))
+		return
+	}
+
+	var groupPtr *StateGroup
+	if req.Group != nil {
+		g := StateGroup(*req.Group)
+		groupPtr = &g
+	}
+
+	st, err := h.d.StateSvc.UpdateState(c.Request.Context(), UpdateStateInput{
+		WorkspaceID:     wsID,
+		StateID:         stateID,
+		Name:            req.Name,
+		Group:           groupPtr,
+		Color:           req.Color,
+		Sequence:        req.Sequence,
+		IsDefault:       req.IsDefault,
+		ApplicableTypes: req.ApplicableTypes,
+		UpdatedBy:       userID,
+	})
+	if err != nil {
+		writeErr(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, st)
+}
+
+func (h *IssueHandler) deleteState(c *gin.Context) {
+	wsID := c.GetInt64(middleware.CtxWorkspaceID)
+
+	stateID, err := strconv.ParseInt(c.Param("state_id"), 10, 64)
+	if err != nil {
+		writeErr(c, errs.ErrValidation.WithDetails(errs.FieldDetail{Field: "state_id", Reason: "无效的 ID"}))
+		return
+	}
+
+	if err := h.d.StateSvc.DeleteState(c.Request.Context(), wsID, stateID); err != nil {
+		writeErr(c, err)
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
+
+// --- Transition CRUD handlers ---
+
+func (h *IssueHandler) listTransitions(c *gin.Context) {
+	wsID := c.GetInt64(middleware.CtxWorkspaceID)
+	projectID := c.GetInt64(middleware.CtxProjectID)
+
+	rules, err := h.d.StateSvc.ListTransitions(c.Request.Context(), wsID, projectID)
+	if err != nil {
+		writeErr(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"results": rules})
+}
+
+// addTransitionRequest 添加流转规则请求。
+type addTransitionRequest struct {
+	FromStateID    int64    `json:"from_state_id" binding:"required"`
+	ToStateID      int64    `json:"to_state_id" binding:"required"`
+	TypeCode       string   `json:"type_code"`
+	RequiredFields []string `json:"required_fields"`
+}
+
+func (h *IssueHandler) addTransition(c *gin.Context) {
+	wsID := c.GetInt64(middleware.CtxWorkspaceID)
+	projectID := c.GetInt64(middleware.CtxProjectID)
+	userID := c.GetInt64(middleware.CtxUserID)
+
+	var req addTransitionRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		writeErr(c, errs.ErrValidation.WithDetails(fieldDetail(err)))
+		return
+	}
+
+	rule, err := h.d.StateSvc.AddTransition(c.Request.Context(), AddTransitionInput{
+		WorkspaceID:    wsID,
+		ProjectID:      projectID,
+		FromStateID:    req.FromStateID,
+		ToStateID:      req.ToStateID,
+		TypeCode:       req.TypeCode,
+		RequiredFields: req.RequiredFields,
+		CreatedBy:      userID,
+	})
+	if err != nil {
+		writeErr(c, err)
+		return
+	}
+	c.JSON(http.StatusCreated, rule)
+}
+
+// --- Task dependency handlers ---
+
+// createDependencyRequest 创建依赖请求。
+type createDependencyRequest struct {
+	DependsOnID    int64  `json:"depends_on_id" binding:"required"`
+	DependencyType string `json:"dependency_type" binding:"required"`
+	LagDays        int    `json:"lag_days"`
+}
+
+func (h *IssueHandler) listDependencies(c *gin.Context) {
+	wsID := c.GetInt64(middleware.CtxWorkspaceID)
+	projectID := c.GetInt64(middleware.CtxProjectID)
+	issueID, err := strconv.ParseInt(c.Param("issue_id"), 10, 64)
+	if err != nil {
+		writeErr(c, errs.ErrValidation.WithDetails(errs.FieldDetail{Field: "issue_id", Reason: "无效的 ID"}))
+		return
+	}
+
+	deps, err := h.d.IssueSvc.ListDependencies(c.Request.Context(), wsID, projectID, issueID)
+	if err != nil {
+		writeErr(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"results": deps})
+}
+
+func (h *IssueHandler) createDependency(c *gin.Context) {
+	wsID := c.GetInt64(middleware.CtxWorkspaceID)
+	projectID := c.GetInt64(middleware.CtxProjectID)
+	issueID, err := strconv.ParseInt(c.Param("issue_id"), 10, 64)
+	if err != nil {
+		writeErr(c, errs.ErrValidation.WithDetails(errs.FieldDetail{Field: "issue_id", Reason: "无效的 ID"}))
+		return
+	}
+	userID := c.GetInt64(middleware.CtxUserID)
+
+	var req createDependencyRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		writeErr(c, errs.ErrValidation.WithDetails(fieldDetail(err)))
+		return
+	}
+
+	dep, err := h.d.IssueSvc.CreateDependency(c.Request.Context(), CreateDependencyInput{
+		WorkspaceID:    wsID,
+		ProjectID:      projectID,
+		IssueID:        issueID,
+		DependsOnID:    req.DependsOnID,
+		DependencyType: req.DependencyType,
+		LagDays:        req.LagDays,
+		CreatedBy:      userID,
+	})
+	if err != nil {
+		writeErr(c, err)
+		return
+	}
+	c.JSON(http.StatusCreated, dep)
+}
+
+func (h *IssueHandler) deleteDependency(c *gin.Context) {
+	wsID := c.GetInt64(middleware.CtxWorkspaceID)
+	depID, err := strconv.ParseInt(c.Param("dep_id"), 10, 64)
+	if err != nil {
+		writeErr(c, errs.ErrValidation.WithDetails(errs.FieldDetail{Field: "dep_id", Reason: "无效的 ID"}))
+		return
+	}
+
+	if err := h.d.IssueSvc.DeleteDependency(c.Request.Context(), wsID, depID); err != nil {
+		writeErr(c, err)
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
+
+func (h *IssueHandler) listProjectDependencies(c *gin.Context) {
+	wsID := c.GetInt64(middleware.CtxWorkspaceID)
+	projectID := c.GetInt64(middleware.CtxProjectID)
+
+	deps, err := h.d.IssueSvc.ListProjectDependencies(c.Request.Context(), wsID, projectID)
+	if err != nil {
+		writeErr(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"results": deps})
+}
+
+// getWorkloadHeatmap 获取项目工时热力图数据（成员 × 日期）。
+func (h *IssueHandler) getWorkloadHeatmap(c *gin.Context) {
+	wsID := c.GetInt64(middleware.CtxWorkspaceID)
+	projectID := c.GetInt64(middleware.CtxProjectID)
+
+	// 默认最近 30 天
+	dateFrom := c.Query("date_from")
+	dateTo := c.Query("date_to")
+	if dateFrom == "" || dateTo == "" {
+		now := time.Now()
+		dateTo = now.Format("2006-01-02")
+		dateFrom = now.AddDate(0, 0, -29).Format("2006-01-02")
+	}
+
+	data, err := h.d.TimeLogSvc.GetWorkloadHeatmap(c.Request.Context(), wsID, projectID, dateFrom, dateTo)
+	if err != nil {
+		writeErr(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, data)
+}
+
+func (h *IssueHandler) removeTransition(c *gin.Context) {
+	wsID := c.GetInt64(middleware.CtxWorkspaceID)
+
+	transitionID, err := strconv.ParseInt(c.Param("transition_id"), 10, 64)
+	if err != nil {
+		writeErr(c, errs.ErrValidation.WithDetails(errs.FieldDetail{Field: "transition_id", Reason: "无效的 ID"}))
+		return
+	}
+
+	if err := h.d.StateSvc.RemoveTransition(c.Request.Context(), wsID, transitionID); err != nil {
+		writeErr(c, err)
+		return
+	}
+	c.Status(http.StatusNoContent)
 }
 
 // --- Issue handlers ---

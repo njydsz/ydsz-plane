@@ -76,9 +76,9 @@ function open(n: AppNotification) {
 
 function eventLabel(eventType: string): string {
   const map: Record<string, string> = {
-    "issue.created": "新建工作项",
-    "issue.updated": "更新工作项",
-    "issue.deleted": "删除工作项",
+"issue.created": "新建需求/任务/缺陷",
+"issue.updated": "更新需求/任务/缺陷",
+"issue.deleted": "删除需求/任务/缺陷",
     "issue.commented": "评论",
     "issue.assigned": "指派",
     "issue.status_changed": "状态流转",
@@ -139,7 +139,7 @@ onMounted(load);
     <AppEmptyState
       v-else-if="items.length === 0"
       title="暂无通知"
-      description="当有新的工作项动态时，通知会显示在这里。"
+      description="当有新的需求/任务/缺陷动态时，通知会显示在这里。"
     />
 
     <div v-else class="space-y-2">

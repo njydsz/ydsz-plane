@@ -49,7 +49,7 @@ const (
 	PermProjectUpdate = "project:update"
 	PermProjectDelete = "project:delete"
 
-	// 工作项
+	// 需求/任务/缺陷
 	PermIssueRead           = "issue:read"
 	PermIssueCreate         = "issue:create"
 	PermIssueEditOwn        = "issue:edit_own"

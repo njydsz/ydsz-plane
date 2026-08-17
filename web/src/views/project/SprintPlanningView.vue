@@ -1,6 +1,6 @@
 ﻿<script setup lang="ts">
 /**
- * 排期规划页 — Backlog 与迭代间拖拽分配工作项。
+ * 排期规划页 — Backlog 与迭代间拖拽分配需求/任务/缺陷。
  *
  * 交互能力（对齐互联网大厂产品标准）：
  *  - Backlog ↔ Sprint 双向拖拽（vue-draggable-plus）
@@ -154,7 +154,7 @@ function listIdOf(el: HTMLElement | null | undefined): string | null {
   return el?.getAttribute?.("data-list") ?? null;
 }
 
-/** 幂等同步迭代内工作项排序（ON CONFLICT upsert sort_order） */
+/** 幂等同步迭代内需求/任务/缺陷排序（ON CONFLICT upsert sort_order） */
 async function syncSortOrder() {
   if (!selectedSprint.value) return;
   const sprintId = selectedSprint.value.id;
@@ -258,7 +258,7 @@ function openSprint(sp: Sprint) {
     <header class="header">
       <div>
         <h1>排期规划</h1>
-        <p class="hint">从左侧 Backlog 拖拽工作项到右侧迭代，迭代内可拖拽排序</p>
+        <p class="hint">从左侧 Backlog 拖拽需求/任务/缺陷到右侧迭代，迭代内可拖拽排序</p>
       </div>
       <div class="actions">
         <span v-if="capacityStats" class="capacity-badge" title="基于历史迭代完成点数的速率建议">
@@ -275,7 +275,7 @@ function openSprint(sp: Sprint) {
 
     <div v-else class="content">
       <!-- 左：Backlog -->
-      <section class="panel backlog-panel" aria-label="Backlog 工作项">
+      <section class="panel backlog-panel" aria-label="Backlog 需求/任务/缺陷">
         <div class="panel-header">
           <h2>Backlog</h2>
           <span class="count">{{ backlog.length }} 项</span>
@@ -330,7 +330,7 @@ function openSprint(sp: Sprint) {
       </section>
 
       <!-- 右：Sprint -->
-      <section class="panel sprint-panel" aria-label="迭代工作项">
+      <section class="panel sprint-panel" aria-label="迭代需求/任务/缺陷">
         <div class="sprint-tabs">
           <button
             v-for="sp in plannedSprints"
@@ -413,7 +413,7 @@ function openSprint(sp: Sprint) {
 
           <template #footer>
             <div v-if="sprintIssues.length === 0" class="empty">
-              拖拽工作项到此迭代中
+              拖拽需求/任务/缺陷到此迭代中
             </div>
           </template>
         </VueDraggable>

@@ -7,7 +7,7 @@
  *   - 横条从 start_date/created_at 延伸到 target_date
  *   - 颜色按 state.color 着色
  *   - Toolbar：时间缩放（周/月/季/全部）、标注开关、状态筛选、指派人筛选
- *   - 点击横条跳转工作项详情
+ *   - 点击横条跳转需求/任务/缺陷详情
  *   - 键盘导航 ←→ ↑↓ 切换行
  *   - 空状态：没有 target_date 时提示
  *
@@ -430,7 +430,7 @@ const uniqueAssignees = computed(() => {
       <div>
         <h1 class="page-title">时间线</h1>
         <p class="page-subtitle">
-          甘特图式时间线 · 共 {{ datedIssues.length }} 项工作项有日期
+          甘特图式时间线 · 共 {{ datedIssues.length }} 项需求/任务/缺陷有日期
         </p>
       </div>
 
@@ -489,7 +489,7 @@ const uniqueAssignees = computed(() => {
       <AppEmptyState
         v-if="datedIssues.length === 0"
         title="暂无时间安排"
-        description="为工作项设置开始日期和截止日期后，这里将展示时间线。"
+        description="为需求/任务/缺陷设置开始日期和截止日期后，这里将展示时间线。"
       />
 
       <!-- Gantt 图表 -->

@@ -40,7 +40,7 @@ export interface DashboardWidget {
   sort_order: number;
 }
 
-/** 进度总览数据 — 各状态工作项计数与完成率。 */
+/** 进度总览数据 — 各状态需求/任务/缺陷计数与完成率。 */
 export interface ProgressOverviewData {
   total_issues: number;
   done_issues: number;
@@ -51,7 +51,7 @@ export interface ProgressOverviewData {
   active_sprints: number;
 }
 
-/** 燃尽图迭代级数据（点数与工作项数进度）。 */
+/** 燃尽图迭代级数据（点数与需求/任务/缺陷数进度）。 */
 export interface BurndownData {
   sprint_id: number;
   sprint_name: string;
@@ -69,7 +69,7 @@ export interface PrioritySplitData {
   by_priority: Record<string, number>;
 }
 
-/** 状态分布数据 — 各状态（含分组 / 颜色）的工作项计数。 */
+/** 状态分布数据 — 各状态（含分组 / 颜色）的需求/任务/缺陷计数。 */
 export interface StateDistributionData {
   total: number;
   by_state: Array<{
@@ -93,7 +93,7 @@ export interface VelocityData {
   }>;
 }
 
-/** 逾期工作项条目（逾期天数 + 优先级 + 指派人）。 */
+/** 逾期需求/任务/缺陷条目（逾期天数 + 优先级 + 指派人）。 */
 export interface OverdueItem {
   id: number;
   identifier: string;
@@ -103,13 +103,13 @@ export interface OverdueItem {
   assignee: string;
 }
 
-/** 逾期工作项列表（total + items）。 */
+/** 逾期需求/任务/缺陷列表（total + items）。 */
 export interface OverdueListData {
   total: number;
   items: OverdueItem[];
 }
 
-/** 阻塞工作项条目（阻塞方 + 阻塞引用数）。 */
+/** 阻塞需求/任务/缺陷条目（阻塞方 + 阻塞引用数）。 */
 export interface BlockedItem {
   id: number;
   identifier: string;
@@ -118,13 +118,13 @@ export interface BlockedItem {
   blocker_names: string;
 }
 
-/** 阻塞工作项列表（total + items）。 */
+/** 阻塞需求/任务/缺陷列表（total + items）。 */
 export interface BlockedListData {
   total: number;
   items: BlockedItem[];
 }
 
-/** 团队成员工作量（各状态工作项计数）。 */
+/** 团队成员工作量（各状态需求/任务/缺陷计数）。 */
 export interface TeamMemberWorkload {
   user_id: number;
   user_name: string;

@@ -1,5 +1,5 @@
 /**
- * 工作项域 API — 对接后端 Issue 域 REST 接口。
+ * 需求/任务/缺陷域 API — 对接后端 Issue 域 REST 接口。
  */
 import { http } from "../client";
 
@@ -8,12 +8,12 @@ import { http } from "../client";
 /* ------------------------------------------------------------------ */
 
 export type IssueType = "epic" | "requirement" | "task" | "defect";
-/** 工作项优先级（降序） */
+/** 需求/任务/缺陷优先级（降序） */
 export type IssuePriority = "urgent" | "high" | "medium" | "low" | "none";
 /** 状态分组：backlog / started / completed / cancelled */
 export type StateGroup = "backlog" | "started" | "completed" | "cancelled";
 
-/** 工作项状态定义（含所属分组与展示色） */
+/** 需求/任务/缺陷状态定义（含所属分组与展示色） */
 export interface State {
   id: number;
   workspace_id: number;
@@ -27,7 +27,7 @@ export interface State {
   updated_at: string;
 }
 
-/** 工作项（需求/任务/缺陷统一模型），与后端 issue.Issue 对齐 */
+/** 需求/任务/缺陷统一模型，与后端 issue.Issue 对齐 */
 export interface Issue {
   id: number;
   public_id: string;
@@ -74,9 +74,11 @@ export interface Issue {
   created_by: number;
   created_at: string;
   updated_at: string;
+  /** 需求评审状态（仅需求类型） */
+  review_status?: string | null;
 }
 
-/** 工作项活动日志条目（谁在何时改了什么字段） */
+/** 需求/任务/缺陷活动日志条目（谁在何时改了什么字段） */
 export interface IssueActivity {
   id: number;
   workspace_id: number;
@@ -94,7 +96,7 @@ export interface IssueActivity {
   created_at: string;
 }
 
-/** 工作项工时记录（分钟粒度） */
+/** 需求/任务/缺陷工时记录（分钟粒度） */
 export interface TimeLog {
   id: number;
   workspace_id: number;
@@ -108,7 +110,7 @@ export interface TimeLog {
   updated_at: string;
 }
 
-/** 工作项关联关系（如关联/被关联） */
+/** 需求/任务/缺陷关联关系（如关联/被关联） */
 export interface IssueRelation {
   id: number;
   workspace_id: number;
@@ -157,7 +159,7 @@ export interface UpdateCommentInput {
   mentions?: number[];
 }
 
-/** 创建工作项入参 */
+/** 创建需求/任务/缺陷入参 */
 export interface CreateIssueInput {
   type: IssueType;
   name: string;
@@ -182,7 +184,7 @@ export interface CreateIssueInput {
 }
 // 注意：创建时state_id不需要传，后端会默认使用项目的初始状态
 
-/** 更新工作项入参（可选字段 + 乐观锁 version） */
+/** 更新需求/任务/缺陷入参（可选字段 + 乐观锁 version） */
 export interface UpdateIssueInput {
   name?: string;
   description_html?: string;
@@ -209,7 +211,7 @@ export interface UpdateIssueInput {
 }
 // 注意：state_id不允许通过更新接口修改，所有状态变更必须调用transition接口
 
-/** 工作项列表查询参数（过滤/搜索/分页） */
+/** 需求/任务/缺陷列表查询参数（过滤/搜索/分页） */
 export interface ListIssuesParams {
   state_id?: number;
   group?: StateGroup;
@@ -234,7 +236,7 @@ export interface ListIssuesParams {
 /** 单条列映射：CSV 表头 -> Plane 字段名 */
 export interface ImportColumnMapping {
   column_name: string; // 原始 CSV 表头（如 "名称"、"优先级"）
-  field: string;       // 目标工作项字段（name / priority / external_id / ...）
+  field: string;       // 目标需求/任务/缺陷字段（name / priority / external_id / ...）
 }
 
 /** 批量导入结果 */
@@ -277,7 +279,7 @@ export const IMPORT_FIELD_LABELS: Record<string, string> = {
   source: "来源",
   found_version: "发现版本 (名称)",
   fix_version: "修复版本 (名称)",
-  parent_identifier: "父工作项编号 (如: YD-123)",
+  parent_identifier: "父需求/任务/缺陷编号 (如: YD-123)",
 };
 
 /** 字段下拉选项数组 */
@@ -291,13 +293,13 @@ export const IMPORT_FIELD_OPTIONS = Object.entries(IMPORT_FIELD_LABELS).map(
 
 const wrap = <T>(p: Promise<{ data: T }>) => p.then((r) => r.data);
 
-/** 工作项域 API：状态 / CRUD / 流转 / 活动 / 工时 / 关联 / 依赖 */
+/** 需求/任务/缺陷域 API：状态 / CRUD / 流转 / 活动 / 工时 / 关联 / 依赖 */
 export const issueApi = {
   // --- 状态 ---
   listStates: (wsId: number, projectId: number) =>
     wrap<State[]>(http.get(`/workspaces/${wsId}/projects/${projectId}/states`)),
 
-  // --- 工作项 CRUD ---
+  // --- 需求/任务/缺陷 CRUD ---
   listIssues: (wsId: number, projectId: number, params?: ListIssuesParams, fields?: string[]) =>
     wrap<{ results: Issue[]; total: number; limit: number; offset: number }>(
       http.get(`/workspaces/${wsId}/projects/${projectId}/issues`, {
@@ -356,7 +358,7 @@ export const issueApi = {
 
   // --- 导入 CSV / XLSX ---
   /**
-   * 导入工作项。
+   * 导入需求/任务/缺陷。
    * @param mappings 字段映射数组（可选；为空则按 header 自动识别）
    * @param incremental 增量导入（按 external_id 更新已有项）
    */
@@ -478,6 +480,25 @@ export const issueApi = {
     wrap<{ ok: boolean }>(
       http.post(`/workspaces/${wsId}/projects/${projectId}/issues/${issueId}/review/decision`, { decision }),
     ),
+
+  // --- 任务依赖（FS/SS/FF/SF）---
+  listDependencies: (wsId: number, projectId: number, issueId: number) =>
+    wrap<{ results: IssueDependency[] }>(
+      http.get(`/workspaces/${wsId}/projects/${projectId}/issues/${issueId}/dependencies`),
+    ),
+  createDependency: (wsId: number, projectId: number, issueId: number, input: { depends_on_id: number; dependency_type: string; lag_days?: number }) =>
+    wrap<IssueDependency>(
+      http.post(`/workspaces/${wsId}/projects/${projectId}/issues/${issueId}/dependencies`, input),
+    ),
+  deleteDependency: (wsId: number, projectId: number, issueId: number, depId: number) =>
+    wrap<void>(
+      http.delete(`/workspaces/${wsId}/projects/${projectId}/issues/${issueId}/dependencies/${depId}`),
+    ),
+  // 项目级依赖列表（甘特图渲染用）
+  listProjectDependencies: (wsId: number, projectId: number) =>
+    wrap<{ results: IssueDependency[] }>(
+      http.get(`/workspaces/${wsId}/projects/${projectId}/issue-dependencies`),
+    ),
 };
 
 /** 评审活动记录 */
@@ -498,6 +519,23 @@ export interface ReviewRecord {
   created_at: string;
   reviewers?: number[];
 }
+
+/** 任务依赖关系 */
+export interface IssueDependency {
+  id: number;
+  issue_id: number;
+  depends_on_id: number;
+  dependency_type: 'fs' | 'ss' | 'ff' | 'sf';
+  lag_days: number;
+}
+
+/** 依赖类型标签映射 */
+export const DEPENDENCY_TYPE_LABELS: Record<string, string> = {
+  fs: '完成→开始 (FS)',
+  ss: '开始→开始 (SS)',
+  ff: '完成→完成 (FF)',
+  sf: '开始→完成 (SF)',
+};
 
 export interface TrashItem {
   id: number;

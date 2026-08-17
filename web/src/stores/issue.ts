@@ -1,22 +1,22 @@
 /**
- * Issue 域 Pinia store — 状态管理（当前工作空间 + 项目维度的工作项缓存）。
+ * Issue 域 Pinia store — 状态管理（当前工作空间 + 项目维度的需求/任务/缺陷缓存）。
  */
 import { defineStore } from "pinia";
 import { computed, ref } from "vue";
 import { issueApi, type Issue, type ListIssuesParams, type State } from "@/api/services/issue";
 
-/** Issue 域 Pinia store —— 管理当前工作空间/项目维度的工作项状态、缓存与变更操作 */
+/** Issue 域 Pinia store —— 管理当前工作空间/项目维度的需求/任务/缺陷状态、缓存与变更操作 */
 export const useIssueStore = defineStore("issue", () => {
   // --- State ---
   /** 项目内全部状态定义（含分组） */
   const states = ref<State[]>([]);
-  /** 当前查询条件下的工作项列表 */
+  /** 当前查询条件下的需求/任务/缺陷列表 */
   const issues = ref<Issue[]>([]);
   /** 符合条件的总条数（用于分页） */
   const total = ref(0);
   /** 列表/详情请求进行中的标志位 */
   const loading = ref(false);
-  /** 当前正在查看的工作项详情 */
+  /** 当前正在查看的需求/任务/缺陷详情 */
   const currentIssue = ref<Issue | null>(null);
   /** 最近一次请求的错误信息 */
   const error = ref<string | null>(null);
@@ -31,7 +31,7 @@ export const useIssueStore = defineStore("issue", () => {
     return groups;
   });
 
-  /** 按状态 ID 索引工作项，便于看板按列渲染 */
+  /** 按状态 ID 索引需求/任务/缺陷，便于看板按列渲染 */
   const issuesByState = computed(() => {
     const map: Record<number, Issue[]> = {};
     for (const s of states.value) map[s.id] = [];
@@ -48,7 +48,7 @@ export const useIssueStore = defineStore("issue", () => {
   }
 
   /**
-   * 分页拉取工作项列表并缓存。
+   * 分页拉取需求/任务/缺陷列表并缓存。
    * 失败时记录 error 并向上抛出，由调用方决定是否展示错误态。
    */
   async function fetchIssues(wsId: number, projectId: number, params: ListIssuesParams = {}) {
@@ -59,14 +59,14 @@ export const useIssueStore = defineStore("issue", () => {
       issues.value = res.results;
       total.value = res.total;
     } catch (e: unknown) {
-      error.value = e instanceof Error ? e.message : "加载工作项失败";
+      error.value = e instanceof Error ? e.message : "加载需求/任务/缺陷失败";
       throw e;
     } finally {
       loading.value = false;
     }
   }
 
-  /** 拉取单个工作项详情并写入 currentIssue */
+  /** 拉取单个需求/任务/缺陷详情并写入 currentIssue */
   async function fetchIssue(wsId: number, projectId: number, issueId: number) {
     loading.value = true;
     try {
@@ -76,7 +76,7 @@ export const useIssueStore = defineStore("issue", () => {
     }
   }
 
-  /** 创建工作项：插入列表头部并累加总数，返回新工作项 */
+  /** 创建需求/任务/缺陷：插入列表头部并累加总数，返回新需求/任务/缺陷 */
   async function createIssue(wsId: number, projectId: number, input: Parameters<typeof issueApi.createIssue>[2]) {
     const iss = await issueApi.createIssue(wsId, projectId, input);
     issues.value.unshift(iss);
@@ -85,8 +85,8 @@ export const useIssueStore = defineStore("issue", () => {
   }
 
   /**
-   * 更新工作项：同时同步列表项与当前详情（若命中）。
-   * @returns 更新后的工作项
+   * 更新需求/任务/缺陷：同时同步列表项与当前详情（若命中）。
+   * @returns 更新后的需求/任务/缺陷
    */
   async function updateIssue(
     wsId: number,
@@ -102,9 +102,9 @@ export const useIssueStore = defineStore("issue", () => {
   }
 
   /**
-   * 流转工作项状态：后端执行后同步本地列表与详情。
+   * 流转需求/任务/缺陷状态：后端执行后同步本地列表与详情。
    * @param toStateId 目标状态 ID
-   * @returns 流转后的工作项
+   * @returns 流转后的需求/任务/缺陷
    */
   async function transitionIssue(wsId: number, projectId: number, issueId: number, toStateId: number) {
     const iss = await issueApi.transition(wsId, projectId, issueId, toStateId);
@@ -114,7 +114,7 @@ export const useIssueStore = defineStore("issue", () => {
     return iss;
   }
 
-  /** 删除工作项：从列表移除并递减总数（下限为 0） */
+  /** 删除需求/任务/缺陷：从列表移除并递减总数（下限为 0） */
   async function deleteIssue(wsId: number, projectId: number, issueId: number) {
     await issueApi.deleteIssue(wsId, projectId, issueId);
     issues.value = issues.value.filter((i) => i.id !== issueId);

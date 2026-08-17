@@ -215,7 +215,7 @@ const sidebarMenu = computed(() => {
   }));
 });
 
-/** 快速创建：在项目上下文中新建工作项，否则新建项目到空间根；
+/** 快速创建：在项目上下文中新建需求/任务/缺陷，否则新建项目到空间根；
  *  在首页（`/`）下，行为切换为新建工作空间，并保留 URL 上的 action 标记
  *  以让 WorkspaceListView 自动展开新建表单。 */
 function handleQuickCreate() {
@@ -224,7 +224,7 @@ function handleQuickCreate() {
     return;
   }
   if (currentProjectId.value && workspaceId.value) {
-    // 注意：直接跳转到项目工作项列表页，用户可在该页新建；
+    // 注意：直接跳转到项目需求/任务/缺陷列表页，用户可在该页新建；
     // 后续可升级为内联创建弹层（P2）。
     router.push(`/${workspaceId.value}/projects/${currentProjectId.value}/list?action=create`);
   } else if (workspaceId.value) {
@@ -331,13 +331,13 @@ watch(
           isHome
             ? '新建空间'
             : currentProjectId
-            ? '新建工作项'
+            ? '新建需求/任务/缺陷'
             : '新建项目'
         "
         @click="handleQuickCreate"
       >
         <span v-if="!collapsed">
-          ＋{{ isHome ? "新建空间" : currentProjectId ? "新建工作项" : "新建项目" }}
+          ＋{{ isHome ? "新建空间" : currentProjectId ? "新建需求/任务/缺陷" : "新建项目" }}
         </span>
         <span v-else>＋</span>
       </button>

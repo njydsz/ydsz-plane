@@ -50,7 +50,7 @@ const versionsLoading = ref(false);
 const viewingVersion = ref<number | null>(null);
 const viewingVersionContent = ref<DocumentVersion | null>(null);
 
-// 关联工作项
+// 关联需求/任务/缺陷
 const links = ref<DocumentLink[]>([]);
 const linksLoading = ref(false);
 const linkInputId = ref("");
@@ -299,7 +299,7 @@ async function rollbackToVersion(versionNumber: number) {
   }
 }
 
-// ---- 关联工作项 ----
+// ---- 关联需求/任务/缺陷 ----
 async function loadLinks() {
   if (!currentPageId.value) return;
   linksLoading.value = true;
@@ -316,7 +316,7 @@ async function addLink() {
   if (!currentPageId.value || !linkInputId.value.trim()) return;
   const issueId = Number(linkInputId.value.trim());
   if (isNaN(issueId) || issueId <= 0) {
-    toast.error("请输入有效的工作项 ID");
+    toast.error("请输入有效的需求/任务/缺陷 ID");
     return;
   }
   try {
@@ -344,7 +344,7 @@ async function removeLink(linkId: number) {
 }
 
 function linkableLabel(type: string): string {
-  const map: Record<string, string> = { issue: "工作项", sprint: "迭代", version: "版本" };
+  const map: Record<string, string> = { issue: "需求/任务/缺陷", sprint: "迭代", version: "版本" };
   return map[type] ?? type;
 }
 
@@ -675,15 +675,15 @@ onMounted(load);
             </div>
           </div>
 
-          <!-- 关联工作项 -->
+          <!-- 关联需求/任务/缺陷 -->
           <div class="pages__links">
-            <h4>关联工作项</h4>
+            <h4>关联需求/任务/缺陷</h4>
             <div class="links-add">
               <input
                 v-model="linkInputId"
                 type="text"
                 class="form-input"
-                placeholder="输入工作项 ID"
+                placeholder="输入需求/任务/缺陷 ID"
                 style="width: 160px"
                 @keydown.enter="addLink"
               />
@@ -1059,7 +1059,7 @@ onMounted(load);
   overflow-y: auto;
 }
 
-/* ---- 关联工作项 ---- */
+/* ---- 关联需求/任务/缺陷 ---- */
 .pages__links {
   margin-top: 24px;
   padding-top: 16px;

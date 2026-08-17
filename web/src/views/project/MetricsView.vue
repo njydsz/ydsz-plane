@@ -216,7 +216,7 @@ const cfdOption = computed<EChartsOption>(() => {
   };
 });
 
-/** 前置时间控制图：散点（单个工作项）+ P50/P85/P95/UCL 参考线 + 7 点移动均线。 */
+/** 前置时间控制图：散点（单个需求/任务/缺陷）+ P50/P85/P95/UCL 参考线 + 7 点移动均线。 */
 const controlChartOption = computed<EChartsOption>(() => {
   const cc = controlChart.value;
   if (!cc) return {};
@@ -241,7 +241,7 @@ const controlChartOption = computed<EChartsOption>(() => {
     yAxis: { type: "value", name: "前置时间(天)" },
     series: [
       {
-        name: "工作项前置时间",
+        name: "需求/任务/缺陷前置时间",
         type: "scatter",
         symbolSize: 7,
         itemStyle: { color: "#94A3B8", opacity: 0.75 },

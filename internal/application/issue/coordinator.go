@@ -528,6 +528,117 @@ func (s *Service) detectType(ctx context.Context, wsID, issueID int64) (IssueTyp
 	return IssueTypeCode(tc), nil
 }
 
+// --- 任务依赖（FS/SS/FF/SF）---
+
+// validDependencyTypes 有效的依赖类型集合。
+var validDependencyTypes = map[string]bool{"fs": true, "ss": true, "ff": true, "sf": true}
+
+// IssueDependency 任务依赖关系。
+type IssueDependency struct {
+	ID              int64  `json:"id"`
+	IssueID         int64  `json:"issue_id"`
+	DependsOnID     int64  `json:"depends_on_id"`
+	DependencyType  string `json:"dependency_type"`
+	LagDays         int    `json:"lag_days"`
+}
+
+// CreateDependencyInput 创建依赖入参。
+type CreateDependencyInput struct {
+	WorkspaceID    int64
+	ProjectID      int64
+	IssueID        int64
+	DependsOnID    int64
+	DependencyType string
+	LagDays        int
+	CreatedBy      int64
+}
+
+// CreateDependency 创建任务依赖。
+func (s *Service) CreateDependency(ctx context.Context, in CreateDependencyInput) (*IssueDependency, error) {
+	if in.IssueID == in.DependsOnID {
+		return nil, errs.ErrValidation.WithDetails(errs.FieldDetail{Field: "depends_on_id", Reason: "不能依赖自己"})
+	}
+	if !validDependencyTypes[in.DependencyType] {
+		return nil, errs.ErrValidation.WithDetails(errs.FieldDetail{Field: "dependency_type", Reason: "无效的依赖类型，须为 fs|ss|ff|sf"})
+	}
+
+	var dep IssueDependency
+	err := s.db.QueryRow(ctx, `
+		INSERT INTO issue_dependencies (workspace_id, project_id, issue_id, depends_on_id, dependency_type, lag_days, created_by, updated_by)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$7)
+		ON CONFLICT (issue_id, depends_on_id) DO UPDATE SET dependency_type = $5, lag_days = $6, deleted = false, updated_by = $7, updated_at = now()
+		RETURNING id, created_at`,
+		in.WorkspaceID, in.ProjectID, in.IssueID, in.DependsOnID, in.DependencyType, in.LagDays, in.CreatedBy).Scan(&dep.ID, &dep.DependsOnID)
+	if err != nil {
+		return nil, errs.ErrInternal.Wrap(err)
+	}
+	dep.IssueID = in.IssueID
+	dep.DependsOnID = in.DependsOnID
+	dep.DependencyType = in.DependencyType
+	dep.LagDays = in.LagDays
+	return &dep, nil
+}
+
+// ListDependencies 列出工作项的所有依赖。
+func (s *Service) ListDependencies(ctx context.Context, wsID, projectID, issueID int64) ([]IssueDependency, error) {
+	rows, err := s.db.Query(ctx, `
+		SELECT id, issue_id, depends_on_id, dependency_type, lag_days
+		FROM issue_dependencies
+		WHERE project_id = $1 AND workspace_id = $2 AND (issue_id = $3 OR depends_on_id = $3) AND deleted = false
+		ORDER BY created_at`, projectID, wsID, issueID)
+	if err != nil {
+		return nil, errs.ErrInternal.Wrap(err)
+	}
+	defer rows.Close()
+
+	var deps []IssueDependency
+	for rows.Next() {
+		var d IssueDependency
+		if err := rows.Scan(&d.ID, &d.IssueID, &d.DependsOnID, &d.DependencyType, &d.LagDays); err != nil {
+			return nil, errs.ErrInternal.Wrap(err)
+		}
+		deps = append(deps, d)
+	}
+	return deps, rows.Err()
+}
+
+// ListProjectDependencies 列出项目内的全部依赖（甘特图渲染用）。
+func (s *Service) ListProjectDependencies(ctx context.Context, wsID, projectID int64) ([]IssueDependency, error) {
+	rows, err := s.db.Query(ctx, `
+		SELECT id, issue_id, depends_on_id, dependency_type, lag_days
+		FROM issue_dependencies
+		WHERE project_id = $1 AND workspace_id = $2 AND deleted = false
+		ORDER BY created_at`, projectID, wsID)
+	if err != nil {
+		return nil, errs.ErrInternal.Wrap(err)
+	}
+	defer rows.Close()
+
+	var deps []IssueDependency
+	for rows.Next() {
+		var d IssueDependency
+		if err := rows.Scan(&d.ID, &d.IssueID, &d.DependsOnID, &d.DependencyType, &d.LagDays); err != nil {
+			return nil, errs.ErrInternal.Wrap(err)
+		}
+		deps = append(deps, d)
+	}
+	return deps, rows.Err()
+}
+
+// DeleteDependency 删除依赖（软删除）。
+func (s *Service) DeleteDependency(ctx context.Context, wsID, depID int64) error {
+	tag, err := s.db.Exec(ctx, `
+		UPDATE issue_dependencies SET deleted = true, updated_at = now()
+		WHERE id = $1 AND workspace_id = $2`, depID, wsID)
+	if err != nil {
+		return errs.ErrInternal.Wrap(err)
+	}
+	if tag.RowsAffected() == 0 {
+		return errs.ErrNotFound
+	}
+	return nil
+}
+
 func coordinatorWithTx(ctx context.Context, db *pgxpool.Pool, wsID int64, fn func(tx pgx.Tx) error) error {
 	tx, err := db.Begin(ctx)
 	if err != nil { return errs.ErrInternal.Wrap(err) }

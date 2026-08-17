@@ -4,6 +4,8 @@
 //   - 单文件大小、MIME 类型、扩展名三重校验（客户端传入的 ContentType 不可信）；
 //   - 单工作项附件总量限制；
 //   - 文件名长度与 storage_key 格式二次校验。
+//
+// 按工作项类型分表存储，禁止 entity_type + entity_id 多态关联。
 package attachment
 
 import (
@@ -13,6 +15,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/njydsz/ydsz-plane/internal/config"
 	"github.com/njydsz/ydsz-plane/internal/interfaces/middleware"
@@ -21,8 +24,9 @@ import (
 
 // HandlerDeps handler 依赖。
 type HandlerDeps struct {
-	AttachmentSvc *serviceImpl
+	AttachmentSvc *Service
 	Cfg           *config.AttachmentConfig
+	DB            *pgxpool.Pool
 }
 
 // Handler 附件 HTTP handler。
@@ -35,9 +39,6 @@ func NewHandler(d *HandlerDeps) *Handler {
 	return &Handler{d: d}
 }
 
-// serviceImpl 是 Service 接口的别名，用于解耦 handler 中的 typed nil 问题。
-type serviceImpl = Service
-
 // Register 注册附件路由（项目级）。
 func (h *Handler) Register(r *gin.RouterGroup) {
 	r.GET("/attachments", h.listAttachments)
@@ -45,6 +46,47 @@ func (h *Handler) Register(r *gin.RouterGroup) {
 	r.POST("/attachments/presigned-upload", h.getPresignedUploadURL)
 	r.POST("/attachments/confirm", h.confirmUpload)
 	r.DELETE("/attachments/:id", h.deleteAttachment)
+}
+
+// resolveEntityType 将请求中的 entity_type 字符串解析为 EntityType。
+// 支持 "issue" 别名：自动查询工作项类型并解析为具体类型。
+func (h *Handler) resolveEntityType(c *gin.Context, entityTypeStr string, entityID int64) (EntityType, error) {
+	// 直接匹配具体类型
+	if et, ok := ResolveEntityType(entityTypeStr); ok {
+		return et, nil
+	}
+
+	// "issue" 为通用别名，需查询具体类型
+	if entityTypeStr == "issue" {
+		return h.detectIssueType(c, entityID)
+	}
+
+	return "", errs.Validation("ATTACHMENT.UNSUPPORTED_ENTITY_TYPE",
+		fmt.Sprintf("不支持的附件关联类型: %s", entityTypeStr))
+}
+
+// detectIssueType 通过查询各工作项表确定 issue_id 对应的具体类型。
+func (h *Handler) detectIssueType(c *gin.Context, issueID int64) (EntityType, error) {
+	wsID := c.GetInt64(middleware.CtxWorkspaceID)
+
+	// 按优先级查询各类型表
+	var tableName string
+	err := h.d.DB.QueryRow(c.Request.Context(), `
+		SELECT
+			CASE
+				WHEN EXISTS (SELECT 1 FROM task WHERE id = $1 AND workspace_id = $2 AND deleted = false) THEN 'task'
+				WHEN EXISTS (SELECT 1 FROM requirement WHERE id = $1 AND workspace_id = $2 AND deleted = false) THEN 'requirement'
+				WHEN EXISTS (SELECT 1 FROM defect WHERE id = $1 AND workspace_id = $2 AND deleted = false) THEN 'defect'
+				ELSE NULL
+			END AS type_name`,
+		issueID, wsID).Scan(&tableName)
+
+	if err != nil || tableName == "" {
+		return "", errs.NotFound("ATTACHMENT.ISSUE_NOT_FOUND", "工作项不存在")
+	}
+
+	et, _ := ResolveEntityType(tableName)
+	return et, nil
 }
 
 // validateUploadInput 校验上传请求的合法性。
@@ -95,17 +137,27 @@ func (h *Handler) validateUploadInput(fileName, contentType string, fileSize int
 	return nil
 }
 
-// listAttachments GET /attachments?entity_type=issue&entity_id=123
+// listAttachments GET /attachments?entity_type=task&entity_id=123
 func (h *Handler) listAttachments(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	projectID := c.GetInt64(middleware.CtxProjectID)
-	entityType := c.Query("entity_type")
+	entityTypeStr := c.Query("entity_type")
 	entityID := int64Param(c, "entity_id")
 
-	if entityType == "" {
+	if entityTypeStr == "" {
 		middleware.AbortWithError(c, errs.ErrValidation.WithDetails(
 			errs.FieldDetail{Field: "entity_type", Reason: "required"},
 		))
+		return
+	}
+
+	entityType, err := h.resolveEntityType(c, entityTypeStr, entityID)
+	if err != nil {
+		if appErr, ok := err.(*errs.AppError); ok {
+			middleware.AbortWithError(c, appErr)
+		} else {
+			writeErr(c, err)
+		}
 		return
 	}
 
@@ -120,7 +172,7 @@ func (h *Handler) listAttachments(c *gin.Context) {
 
 // getPresignedUploadURL 获取预签名上传 URL。
 // POST /attachments/presigned-upload
-// Body: { "file_name": "xxx.png", "content_type": "image/png", "entity_type": "issue", "entity_id": 1 }
+// Body: { "file_name": "xxx.png", "content_type": "image/png", "entity_type": "task", "entity_id": 1 }
 func (h *Handler) getPresignedUploadURL(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	projectID := c.GetInt64(middleware.CtxProjectID)
@@ -137,6 +189,16 @@ func (h *Handler) getPresignedUploadURL(c *gin.Context) {
 		return
 	}
 
+	entityType, err := h.resolveEntityType(c, req.EntityType, req.EntityID)
+	if err != nil {
+		if appErr, ok := err.(*errs.AppError); ok {
+			middleware.AbortWithError(c, appErr)
+		} else {
+			writeErr(c, err)
+		}
+		return
+	}
+
 	// 上传限制校验（大小/MIME/扩展名白名单）
 	if err := h.validateUploadInput(req.FileName, req.ContentType, 0); err != nil {
 		if appErr, ok := err.(*errs.AppError); ok {
@@ -147,10 +209,9 @@ func (h *Handler) getPresignedUploadURL(c *gin.Context) {
 		return
 	}
 
-	result, err := h.d.AttachmentSvc.CreatePresignedUpload(c.Request.Context(), wsID, projectID, PresignedUploadInput{
+	result, err := h.d.AttachmentSvc.CreatePresignedUpload(c.Request.Context(), wsID, projectID, entityType, PresignedUploadInput{
 		FileName:    req.FileName,
 		ContentType: req.ContentType,
-		EntityType:  req.EntityType,
 		EntityID:    req.EntityID,
 		UploadedBy:  userID,
 	})
@@ -162,13 +223,23 @@ func (h *Handler) getPresignedUploadURL(c *gin.Context) {
 	c.JSON(http.StatusOK, result)
 }
 
-// listIssueAttachments GET /issues/:issue_id/attachments — 便捷路由，等价于 GET /attachments?entity_type=issue&entity_id=:issue_id
+// listIssueAttachments GET /issues/:issue_id/attachments — 便捷路由，自动解析工作项类型。
 func (h *Handler) listIssueAttachments(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	projectID := c.GetInt64(middleware.CtxProjectID)
 	issueID := int64Param(c, "issue_id")
 
-	atts, err := h.d.AttachmentSvc.List(c.Request.Context(), wsID, projectID, "issue", issueID)
+	entityType, err := h.detectIssueType(c, issueID)
+	if err != nil {
+		if appErr, ok := err.(*errs.AppError); ok {
+			middleware.AbortWithError(c, appErr)
+		} else {
+			writeErr(c, err)
+		}
+		return
+	}
+
+	atts, err := h.d.AttachmentSvc.List(c.Request.Context(), wsID, projectID, entityType, issueID)
 	if err != nil {
 		writeErr(c, err)
 		return
@@ -196,6 +267,16 @@ func (h *Handler) confirmUpload(c *gin.Context) {
 		return
 	}
 
+	entityType, err := h.resolveEntityType(c, req.EntityType, req.EntityID)
+	if err != nil {
+		if appErr, ok := err.(*errs.AppError); ok {
+			middleware.AbortWithError(c, appErr)
+		} else {
+			writeErr(c, err)
+		}
+		return
+	}
+
 	// confirm 阶段再次校验文件大小（客户端传回实际大小）
 	if err := h.validateUploadInput(req.FileName, req.ContentType, req.FileSize); err != nil {
 		if appErr, ok := err.(*errs.AppError); ok {
@@ -208,30 +289,24 @@ func (h *Handler) confirmUpload(c *gin.Context) {
 
 	// 单工作项附件总量限制
 	cfg := h.d.Cfg
-	if cfg != nil && cfg.MaxTotalSizePerIssue > 0 && req.EntityType == "issue" {
-		atts, err := h.d.AttachmentSvc.List(c.Request.Context(), wsID, projectID, "issue", req.EntityID)
+	if cfg != nil && cfg.MaxTotalSizePerIssue > 0 && req.FileSize > 0 {
+		totalSize, err := h.d.AttachmentSvc.TotalSizeByEntity(c.Request.Context(), wsID, projectID, entityType, req.EntityID)
 		if err != nil {
 			writeErr(c, err)
 			return
 		}
-		var existingTotal int64
-		for _, a := range atts {
-			existingTotal += a.FileSize
-		}
-		if existingTotal+req.FileSize > cfg.MaxTotalSizePerIssue {
+		if totalSize+req.FileSize > cfg.MaxTotalSizePerIssue {
 			middleware.AbortWithError(c, errs.Validation("ATTACHMENT.TOTAL_SIZE_EXCEEDED",
 				fmt.Sprintf("工作项附件总容量超过 %d MB 限制",
 					cfg.MaxTotalSizePerIssue/1024/1024)))
 			return
 		}
-
 	}
 
-	att, err := h.d.AttachmentSvc.ConfirmUpload(c.Request.Context(), wsID, projectID, ConfirmUploadInput{
+	att, err := h.d.AttachmentSvc.ConfirmUpload(c.Request.Context(), wsID, projectID, entityType, ConfirmUploadInput{
 		FileName:    req.FileName,
 		ContentType: req.ContentType,
 		FileSize:    req.FileSize,
-		EntityType:  req.EntityType,
 		EntityID:    req.EntityID,
 		StorageKey:  req.StorageKey,
 		UploadedBy:  userID,
@@ -244,14 +319,32 @@ func (h *Handler) confirmUpload(c *gin.Context) {
 	c.JSON(http.StatusCreated, ConfirmUploadResult{Attachment: *att})
 }
 
-// deleteAttachment DELETE /attachments/:id
+// deleteAttachment DELETE /attachments/:id?entity_type=task
 func (h *Handler) deleteAttachment(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	projectID := c.GetInt64(middleware.CtxProjectID)
 	userID := c.GetInt64(middleware.CtxUserID)
 	id := int64Param(c, "id")
+	entityTypeStr := c.Query("entity_type")
 
-	if err := h.d.AttachmentSvc.Delete(c.Request.Context(), wsID, projectID, id, userID); err != nil {
+	if entityTypeStr == "" {
+		middleware.AbortWithError(c, errs.ErrValidation.WithDetails(
+			errs.FieldDetail{Field: "entity_type", Reason: "required"},
+		))
+		return
+	}
+
+	entityType, err := h.resolveEntityType(c, entityTypeStr, 0)
+	if err != nil {
+		if appErr, ok := err.(*errs.AppError); ok {
+			middleware.AbortWithError(c, appErr)
+		} else {
+			writeErr(c, err)
+		}
+		return
+	}
+
+	if err := h.d.AttachmentSvc.Delete(c.Request.Context(), wsID, projectID, entityType, id, userID); err != nil {
 		writeErr(c, err)
 		return
 	}

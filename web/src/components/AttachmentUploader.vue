@@ -143,7 +143,9 @@ function putWithProgress(url: string, file: File): Promise<boolean> {
 async function handleDelete(att: Attachment) {
   if (!confirm(`确定删除附件「${att.file_name}」？`)) return;
   try {
-    await attachmentApi.deleteAttachment(props.workspaceId, props.projectId, att.id);
+    // 优先使用附件自身的 entity_type，回退到 props.entityType（兼容 "issue" 别名）
+    const entityType = att.entity_type || props.entityType;
+    await attachmentApi.deleteAttachment(props.workspaceId, props.projectId, att.id, entityType);
     attachments.value = attachments.value.filter((a) => a.id !== att.id);
     toast.success(`已删除 ${att.file_name}`);
     emit("change");

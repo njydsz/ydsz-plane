@@ -25,8 +25,8 @@ export interface ApiTokenCreated extends ApiToken {
 export const API_TOKEN_SCOPES = [
   { value: "read:workspace", label: "读取空间", desc: "查看空间、成员与项目（默认）" },
   { value: "write:workspace", label: "管理空间", desc: "修改空间设置、管理成员、管理项目" },
-  { value: "read:issues", label: "读取工作项", desc: "查看需求与缺陷" },
-  { value: "write:issues", label: "管理工作项", desc: "创建/修改/删除需求与缺陷" },
+  { value: "read:issues", label: "读取需求/任务/缺陷", desc: "查看需求与缺陷" },
+  { value: "write:issues", label: "管理需求/任务/缺陷", desc: "创建/修改/删除需求与缺陷" },
   { value: "read:sprints", label: "读取迭代", desc: "查看迭代" },
   { value: "write:sprints", label: "管理迭代", desc: "管理迭代" },
   { value: "read:versions", label: "读取版本", desc: "查看版本" },

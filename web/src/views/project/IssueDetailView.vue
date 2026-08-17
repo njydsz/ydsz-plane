@@ -1,6 +1,6 @@
 ﻿<script setup lang="ts">
 /**
- * 工作项详情页 — 展示描述、状态流转、活动日志与工时记录。
+ * 需求/任务/缺陷详情页 — 展示描述、状态流转、活动日志与工时记录。
  */
 
 import { computed, onMounted, ref } from "vue";
@@ -17,6 +17,7 @@ import RichTextEditor from "@/components/RichTextEditor.vue";
 import CommentList from "@/components/CommentList.vue";
 import AttachmentUploader from "@/components/AttachmentUploader.vue";
 import RelationPanel from "./RelationPanel.vue";
+import ReviewPanel from "@/components/ReviewPanel.vue";
 import IssueCreateModal from "./IssueCreateModal.vue";
 import { AppLoadingState, AppErrorState, AppEmptyState, IssueSocialBar } from "@/components";
 
@@ -32,7 +33,7 @@ const auth = useAuthStore();
 const wsStore = useWorkspaceStore();
 const currentUserId = computed(() => auth.user?.id ?? 0);
 
-/** 是否允许编辑/删除：owner/admin 或分配给自己的工作项且拥有 edit_own 权限 */
+/** 是否允许编辑/删除：owner/admin 或分配给自己的需求/任务/缺陷且拥有 edit_own 权限 */
 const canEditIssue = computed(() => {
   if (!issue.value) return false;
   if (wsStore.hasPermission("issue:edit_all")) return true;
@@ -146,7 +147,7 @@ async function handleDescPasteImage(file: File) {
 // 一键提缺陷
 const showDefectModal = ref(false);
 
-// --- 子工作项（WBS 树） ---
+// --- 子需求/任务/缺陷（WBS 树） ---
 const subIssues = ref<Issue[]>([]);
 const subIssuesLoading = ref(false);
 const showSubIssueModal = ref(false);
@@ -172,7 +173,7 @@ async function loadSubIssues() {
   }
 }
 
-/** 懒加载某节点下的子工作项，完成后自动展开该节点 */
+/** 懒加载某节点下的子需求/任务/缺陷，完成后自动展开该节点 */
 async function loadChildrenOf(id: number) {
   if (!ws.value) return;
   childrenLoadingSet.value.add(id);
@@ -287,10 +288,10 @@ async function doTransition(toStateId: number) {
 }
 
 async function doDelete() {
-  if (!ws.value || !confirm("确定要归档该工作项吗？")) return;
+  if (!ws.value || !confirm("确定要归档该需求/任务/缺陷吗？")) return;
   try {
     await issueApi.deleteIssue(ws.value.id, props.projectId, props.issueId);
-    toast.success("工作项已归档");
+    toast.success("需求/任务/缺陷已归档");
     router.push(`/${props.workspaceId}/projects/${props.projectId}/board`);
   } catch (e: unknown) {
     error.value = e instanceof Error ? e.message : "删除失败";
@@ -527,8 +528,8 @@ onMounted(() => {
     <AppErrorState v-else-if="error" :message="error" @retry="load" />
     <AppEmptyState
       v-else-if="!issue"
-      title="工作项不存在或已被删除"
-      description="请检查工作项 ID 是否正确"
+      title="需求/任务/缺陷不存在或已被删除"
+      description="请检查需求/任务/缺陷 ID 是否正确"
     >
       <button class="btn btn--ghost" @click="goBack">← 返回看板</button>
     </AppEmptyState>
@@ -617,7 +618,7 @@ onMounted(() => {
               ref="descEditor"
               v-model:content-html="descHtml"
               v-model:content-json="descJsonValue"
-              placeholder="输入工作项描述..."
+              placeholder="输入需求/任务/缺陷描述..."
               :min-height="'200px'"
               :workspace-id="ws?.id ?? props.workspaceId"
               :project-id="props.projectId"
@@ -889,7 +890,7 @@ onMounted(() => {
             <div class="activity-item__body">
               <div class="activity-item__text">
                 <strong>{{ act.actor_name || "系统" }}</strong>
-                {{ act.verb === "created" ? "创建了工作项" : act.verb === "transitioned" ? `流转状态: ${act.old_value} → ${act.new_value}` : `${act.field}: ${act.old_value} → ${act.new_value}` }}
+                {{ act.verb === "created" ? "创建了需求/任务/缺陷" : act.verb === "transitioned" ? `流转状态: ${act.old_value} → ${act.new_value}` : `${act.field}: ${act.old_value} → ${act.new_value}` }}
               </div>
               <div class="activity-item__time">{{ new Date(act.created_at).toLocaleString() }}</div>
             </div>
@@ -957,21 +958,21 @@ onMounted(() => {
         </div>
         <div v-else-if="!showTimeLogForm" class="text-muted">暂无工时记录</div>
 
-        <!-- 子工作项 -->
+        <!-- 子需求/任务/缺陷 -->
         <div class="sub-issues-section" style="margin-top: 24px">
           <div class="sub-issues-header">
-            <h3>子工作项</h3>
+            <h3>子需求/任务/缺陷</h3>
             <button
               v-if="canEditIssue"
               class="btn btn--sm btn--outline"
               @click="openSubIssue(props.issueId)"
             >
-              ＋ 添加子工作项
+              ＋ 添加子需求/任务/缺陷
             </button>
           </div>
 
           <div v-if="subIssuesLoading" class="text-muted">加载中...</div>
-          <div v-else-if="subIssues.length === 0" class="text-muted">暂无子工作项</div>
+          <div v-else-if="subIssues.length === 0" class="text-muted">暂无子需求/任务/缺陷</div>
           <div v-else class="sub-issues-tree">
             <div v-for="child in subIssues" :key="child.id" class="sub-issue-node">
               <div class="sub-issue-node__row">
@@ -1107,6 +1108,16 @@ onMounted(() => {
           :issue-id="props.issueId"
           style="margin-top: 24px"
         />
+        <!-- 需求评审（仅需求类型） -->
+        <ReviewPanel
+          v-if="ws && issue"
+          :workspace-id="ws.id"
+          :project-id="props.projectId"
+          :issue-id="props.issueId"
+          :issue-type="issue.type_code"
+          :review-status="issue.review_status"
+          style="margin-top: 24px"
+        />
       </aside>
     </div>
 
@@ -1120,7 +1131,7 @@ onMounted(() => {
       @created="showDefectModal = false"
     />
 
-    <!-- 子工作项创建弹窗 -->
+    <!-- 子需求/任务/缺陷创建弹窗 -->
     <IssueCreateModal
       v-if="ws && showSubIssueModal"
       :workspace-id="ws.id"
@@ -1606,7 +1617,7 @@ onMounted(() => {
   color: var(--danger-500);
 }
 
-/* ===== 子工作项树 ===== */
+/* ===== 子需求/任务/缺陷树 ===== */
 .sub-issues-header {
   display: flex;
   align-items: center;

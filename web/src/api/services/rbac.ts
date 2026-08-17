@@ -46,14 +46,14 @@ export interface RBACData {
 export const RBAC_MATRIX: RBACData = {
   resourceGroups: [
     {
-      name: "工作项管理",
+      name: "需求/任务/缺陷管理",
       icon: "📋",
       permissions: [
-        { key: "issue:read", label: "查看工作项", guest: true, member: true, admin: true, owner: true },
-        { key: "issue:create", label: "创建工作项", guest: false, member: true, admin: true, owner: true },
-        { key: "issue:update", label: "编辑工作项", guest: false, member: true, admin: true, owner: true },
-        { key: "issue:delete", label: "删除工作项", guest: false, member: false, admin: true, owner: true },
-        { key: "issue:assign", label: "指派工作项", guest: false, member: true, admin: true, owner: true },
+{ key: "issue:read", label: "查看需求/任务/缺陷", guest: true, member: true, admin: true, owner: true },
+{ key: "issue:create", label: "创建需求/任务/缺陷", guest: false, member: true, admin: true, owner: true },
+{ key: "issue:update", label: "编辑需求/任务/缺陷", guest: false, member: true, admin: true, owner: true },
+{ key: "issue:delete", label: "删除需求/任务/缺陷", guest: false, member: false, admin: true, owner: true },
+{ key: "issue:assign", label: "指派需求/任务/缺陷", guest: false, member: true, admin: true, owner: true },
       ],
     },
     {
@@ -104,7 +104,7 @@ export const RBAC_MATRIX: RBACData = {
   roles: [
     { key: "owner", label: "所有者", icon: "👑", level: 80, description: "拥有工作空间全部权限" },
     { key: "admin", label: "管理员", icon: "🛡️", level: 60, description: "管理项目、成员与设置，但不能删除工作空间" },
-    { key: "member", label: "成员", icon: "👤", level: 30, description: "参与日常工作项和迭代" },
+    { key: "member", label: "成员", icon: "👤", level: 30, description: "参与日常需求/任务/缺陷和迭代" },
     { key: "guest", label: "访客", icon: "👁️", level: 10, description: "仅查看权限" },
   ],
 };

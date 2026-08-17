@@ -1,6 +1,6 @@
 ﻿<script setup lang="ts">
 /**
- * 看板视图 — 按状态分列展示工作项。
+ * 看板视图 — 按状态分列展示需求/任务/缺陷。
  * 支持: 列间拖拽流转 / 列内拖拽排序 / 视觉反馈 / 中值插入排序。
  */
 import { computed, onMounted, onUnmounted, ref } from "vue";
@@ -151,7 +151,7 @@ function onFilterChange(f: FilterState) {
   load();
 }
 
-/** 获取某列内的工作项，按 sort_order 升序 */
+/** 获取某列内的需求/任务/缺陷，按 sort_order 升序 */
 function issuesInState(stateId: number): Issue[] {
   return issueStore.issues
     .filter((i) => i.state_id === stateId)
@@ -218,7 +218,7 @@ async function onColumnAdd(stateId: number, evt: { newIndex?: number }) {
         error: (err) => {
           const msg = err instanceof Error ? err.message : "排序失败";
           if (/已被他人修改|VERSION_CONFLICT|409/.test(msg)) {
-            toast.warning("该工作项已被他人修改，正在刷新...");
+            toast.warning("该需求/任务/缺陷已被他人修改，正在刷新...");
             void doFetch();
             return "已刷新";
           }
@@ -271,7 +271,7 @@ async function onColumnUpdate(stateId: number, evt: { oldIndex?: number; newInde
         error: (err) => {
           const msg = err instanceof Error ? err.message : "排序失败";
           if (/已被他人修改|VERSION_CONFLICT|409/.test(msg)) {
-            toast.warning("该工作项已被他人修改，正在刷新...");
+            toast.warning("该需求/任务/缺陷已被他人修改，正在刷新...");
             void doFetch();
             return "已刷新";
           }
@@ -345,7 +345,7 @@ onUnmounted(() => {
   wsClient.off("issue.updated", handleRemoteIssueUpdate);
 });
 
-/** 远端 WebSocket 事件处理：他人更新本工作项时合并最新状态 */
+/** 远端 WebSocket 事件处理：他人更新本需求/任务/缺陷时合并最新状态 */
 function handleRemoteIssueUpdate(data: { project_id?: number; issue_id?: number; workspace_id?: number; actor_id?: number; new_version?: number }) {
   if (!data || data.project_id !== projectId.value || !data.issue_id) return;
   // 自己触发的事件已经在本地乐观更新，跳过
@@ -368,7 +368,7 @@ function handleRemoteIssueUpdate(data: { project_id?: number; issue_id?: number;
     <header class="kanban__header">
       <div>
         <h1>看板</h1>
-        <p class="hint">拖拽工作项到不同列进行流转，列内拖拽调整排序</p>
+        <p class="hint">拖拽需求/任务/缺陷到不同列进行流转，列内拖拽调整排序</p>
       </div>
       <div class="header-right">
         <div class="view-switcher">
@@ -385,7 +385,7 @@ function handleRemoteIssueUpdate(data: { project_id?: number; issue_id?: number;
           列表
           </router-link>
         </div>
-        <button class="btn btn--primary" @click="showCreateModal = true">+ 创建工作项</button>
+        <button class="btn btn--primary" @click="showCreateModal = true">+ 创建需求/任务/缺陷</button>
       </div>
     </header>
 
@@ -400,8 +400,8 @@ function handleRemoteIssueUpdate(data: { project_id?: number; issue_id?: number;
 
     <AppSkeleton v-if="loading" variant="board" :cols="issueStore.states.length || 4" />
     <AppErrorState v-else-if="error" :message="error" @retry="load" />
-    <AppEmptyState v-else-if="issueStore.issues.length === 0" icon="📋" title="暂无工作项" description="创建或拖拽工作项到此看板">
-      <button class="btn btn--primary" @click="showCreateModal = true">+ 创建工作项</button>
+    <AppEmptyState v-else-if="issueStore.issues.length === 0" icon="📋" title="暂无需求/任务/缺陷" description="创建或拖拽需求/任务/缺陷到此看板">
+      <button class="btn btn--primary" @click="showCreateModal = true">+ 创建需求/任务/缺陷</button>
     </AppEmptyState>
 
     <div v-else class="kanban__board" :style="{ '--column-width': columnWidth + 'px' }">
@@ -488,7 +488,7 @@ function handleRemoteIssueUpdate(data: { project_id?: number; issue_id?: number;
 
           <template #footer>
             <div v-if="issuesInState(state.id).length === 0" class="kanban__empty">
-              <p>拖拽工作项到此处</p>
+              <p>拖拽需求/任务/缺陷到此处</p>
             </div>
           </template>
         </VueDraggable>

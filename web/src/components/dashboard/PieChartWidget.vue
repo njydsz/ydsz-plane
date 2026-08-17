@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /**
  * PieChartWidget — 优先级环形图。
- * 展示各优先级的工作项数量占比。
+ * 展示各优先级的需求/任务/缺陷数量占比。
  */
 import type { EChartsCoreOption } from "echarts";
 import type { PrioritySplitData } from "@/api/services/dashboard";

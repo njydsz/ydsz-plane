@@ -128,7 +128,7 @@ const quickActions = computed<QuickActionItem[]>(() => {
   const qa: QuickActionSet | undefined = summary.value?.quick_actions;
   if (!qa) return [];
   const out: QuickActionItem[] = [];
-  if (qa.can_create_issue) out.push({ type: 'create_issue', label: '新建工作项', icon: '➕', route: `/${wsId.value}/projects` });
+  if (qa.can_create_issue) out.push({ type: 'create_issue', label: '新建需求/任务/缺陷', icon: '➕', route: `/${wsId.value}/projects` });
   if (qa.can_start_sprint) out.push({ type: 'create_sprint', label: '新建迭代', icon: '🏃', route: `/${wsId.value}/projects` });
   return out;
 })
@@ -162,7 +162,7 @@ async function load() {
   }
 }
 
-/** 跳转到指定工作项详情页 */
+/** 跳转到指定需求/任务/缺陷详情页 */
 function goIssue(projectId: number, seqId: number) {
   router.push(`/${wsId.value}/projects/${projectId}/issues/${seqId}`)
 }
@@ -181,7 +181,7 @@ function handleAction(act: QuickActionItem) {
 
 /** 将实体类型转换为中文展示标签 */
 function typeLabel(t: string): string {
-  const map: Record<string, string> = { issue: '工作项', sprint: '迭代', version: '版本' }
+  const map: Record<string, string> = { issue: '需求/任务/缺陷', sprint: '迭代', version: '版本' }
   return map[t] || t
 }
 

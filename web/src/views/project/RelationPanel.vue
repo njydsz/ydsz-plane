@@ -1,8 +1,8 @@
 <script setup lang="ts">
 /**
- * RelationPanel — 工作项关联关系面板。
+ * RelationPanel — 需求/任务/缺陷关联关系面板。
  *
- * 展示当前工作项的关联/被关联列表，支持新增关联与删除。
+ * 展示当前需求/任务/缺陷的关联/被关联列表，支持新增关联与删除。
  */
 import { onMounted, ref } from "vue";
 
@@ -97,7 +97,7 @@ onMounted(() => {
           v-model.number="targetIssueId"
           type="number"
           class="relation-input"
-          placeholder="目标工作项 ID"
+          placeholder="目标需求/任务/缺陷 ID"
           min="1"
         />
         <select v-model="relationType" class="relation-select">

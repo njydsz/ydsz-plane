@@ -55,7 +55,7 @@ func (h *Handler) Status(c *gin.Context) {
 // SmartAssign godoc
 //
 //	@Summary		智能指派推荐
-//	@Description	根据工作项内容与成员负载推荐指派人
+//	@Description	根据需求/任务/缺陷内容与成员负载推荐指派人
 //	@Tags			ai
 //	@Accept			json
 //	@Produce		json
@@ -92,8 +92,8 @@ func (h *Handler) SmartAssign(c *gin.Context) {
 
 // DetectDuplicates godoc
 //
-//	@Summary		重复工作项检测
-//	@Description	检测项目内与输入标题/描述相似的工作项
+//	@Summary		重复需求/任务/缺陷检测
+//	@Description	检测项目内与输入标题/描述相似的需求/任务/缺陷
 //	@Tags			ai
 //	@Accept			json
 //	@Produce		json
@@ -127,7 +127,7 @@ func (h *Handler) DetectDuplicates(c *gin.Context) {
 // SmartClassify godoc
 //
 //	@Summary		智能分类推荐
-//	@Description	自动推荐工作项类型和优先级
+//	@Description	自动推荐需求/任务/缺陷类型和优先级
 //	@Tags			ai
 //	@Accept			json
 //	@Produce		json
@@ -160,7 +160,7 @@ func (h *Handler) SmartClassify(c *gin.Context) {
 // Summarize godoc
 //
 //	@Summary		生成文字摘要
-//	@Description	为工作项/迭代/版本内容生成文字摘要
+//	@Description	为需求/任务/缺陷/迭代/版本内容生成文字摘要
 //	@Tags			ai
 //	@Accept			json
 //	@Produce		json

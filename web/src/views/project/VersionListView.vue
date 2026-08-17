@@ -315,7 +315,7 @@ onMounted(load);
             :percent="Math.round((v.progress.completion_rate ?? 0) * 100)"
             size="sm"
             :color="(v.progress.completion_rate ?? 0) >= 0.8 ? 'var(--success-500)' : 'var(--warning-500)'"
-            :label="`${v.progress.done_points}/${v.progress.total_points} 故事点  ·  ${v.progress.done_issues}/${v.progress.total_issues} 工作项`"
+            :label="`${v.progress.done_points}/${v.progress.total_points} 故事点  ·  ${v.progress.done_issues}/${v.progress.total_issues} 需求/任务/缺陷`"
           />
         </div>
 

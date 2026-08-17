@@ -16,7 +16,7 @@ import type { ListIssuesParams } from "@/api/services/issue";
 /** 状态分组（看板列、列表快速过滤共用） */
 export type StateGroup = "backlog" | "started" | "completed" | "cancelled";
 
-/** 工作项类型 */
+/** 需求/任务/缺陷类型 */
 export type IssueTypeCode = "requirement" | "task" | "defect" | "epic";
 
 /** 优先级 */
@@ -35,7 +35,7 @@ export interface FilterState {
   search?: string;
   /** 状态分组过滤 */
   group?: StateGroup;
-  /** 工作项类型过滤 */
+  /** 需求/任务/缺陷类型过滤 */
   type?: IssueTypeCode;
   /** 优先级过滤 */
   priority?: IssuePriority;
@@ -47,7 +47,7 @@ export interface FilterState {
   module_id?: number;
   /** 迭代 ID */
   sprint_id?: number;
-  /** 父工作项 ID */
+  /** 父需求/任务/缺陷 ID */
   parent_id?: number;
   /** 严重级别下限（含） */
   severity_from?: number;

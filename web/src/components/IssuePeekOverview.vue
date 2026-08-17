@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * IssuePeekOverview — 右侧抽屉式工作项预览（增强版，支持行内编辑）。
+ * IssuePeekOverview — 右侧抽屉式需求/任务/缺陷预览（增强版，支持行内编辑）。
  *
  * v2 增强（参考 Plane inline edit 交互）：
  *  - 标题行内编辑（InlineEdit）
@@ -12,7 +12,7 @@
  * 原特性保留：
  *  - 滑入/滑出动画（translateX + backdrop fade）
  *  - ESC 关闭、点击遮罩关闭
- *  - 加载完整工作项详情（描述、状态、优先级等）
+ *  - 加载完整需求/任务/缺陷详情（描述、状态、优先级等）
  *  - 显示评论预览（最多5条）
  *  - 点击「打开详情」跳转 IssueDetailView
  */
@@ -279,7 +279,7 @@ onUnmounted(() => {
         class="peek"
         :style="{ width: drawerWidth + 'px' }"
         role="dialog"
-        aria-label="工作项预览"
+        aria-label="需求/任务/缺陷预览"
       >
         <!-- 宽度拖拽把手 -->
         <div
@@ -295,7 +295,7 @@ onUnmounted(() => {
             <button
               class="peek__nav-btn"
               :disabled="!hasPrev"
-              title="上一个工作项 (Alt+↑)"
+              title="上一个需求/任务/缺陷 (Alt+↑)"
               @click="navigatePeek(-1)"
             >
               ↑
@@ -303,7 +303,7 @@ onUnmounted(() => {
             <button
               class="peek__nav-btn"
               :disabled="!hasNext"
-              title="下一个工作项 (Alt+↓)"
+              title="下一个需求/任务/缺陷 (Alt+↓)"
               @click="navigatePeek(1)"
             >
               ↓
@@ -360,7 +360,7 @@ onUnmounted(() => {
           <!-- 标题（行内编辑） -->
           <InlineEdit
             :model-value="issue.name"
-            placeholder="输入工作项标题"
+            placeholder="输入需求/任务/缺陷标题"
             :max-length="200"
             class="peek__title"
             @submit="onTitleSubmit"

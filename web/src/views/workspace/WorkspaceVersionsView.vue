@@ -117,7 +117,7 @@ onMounted(load);
 
             <div class="mt-3 grid grid-cols-3 gap-2 text-xs">
               <div>
-                <div class="text-[var(--text-tertiary)]">工作项</div>
+                <div class="text-[var(--text-tertiary)]">需求/任务/缺陷</div>
                 <div class="mt-0.5 text-sm font-medium text-[var(--text-primary)]">
                   {{ p.compare?.total_issues ?? "—" }}
                 </div>

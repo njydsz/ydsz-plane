@@ -3,7 +3,7 @@
  * 工作空间级「报表」跳板视图。
  *
  * 后端无工作空间级报表聚合端点。这里渲染项目选择器 +
- * 每个项目的关键指标（工作项、完成率、缺陷、进行中迭代数）。
+ * 每个项目的关键指标（需求/任务/缺陷、完成率、缺陷、进行中迭代数）。
  * 点击卡片跳转到项目级缺陷分析
  * （/:wsId/projects/:projectId/analytics）。
  */
@@ -114,7 +114,7 @@ onMounted(load);
 
             <div class="mt-3 grid grid-cols-2 gap-2 text-xs">
               <div>
-                <div class="text-[var(--text-tertiary)]">工作项</div>
+                <div class="text-[var(--text-tertiary)]">需求/任务/缺陷</div>
                 <div class="mt-0.5 text-sm font-medium text-[var(--text-primary)]">
                   {{ p.compare ? `${p.compare.done_issues}/${p.compare.total_issues}` : "—" }}
                 </div>

@@ -6,7 +6,7 @@
  *   - Tiptap Markdown 编辑器（@tiptap/extension-markdown）+ 实时预览切换
  *   - 标题行内编辑、状态 badge（draft / published / archived）
  *   - 版本历史 tab：快照列表 + 查看 / 回滚
- *   - 关联工作项 tab：搜索工作项 + 增删关联
+ *   - 关联需求/任务/缺陷 tab：搜索需求/任务/缺陷 + 增删关联
  *   - 乐观锁 version 字段（PATCH 时携带当前 version）
  */
 import { onBeforeUnmount, onMounted, ref, watch } from "vue";
@@ -130,6 +130,75 @@ const versions = ref<KnowledgePageVersion[]>([]);
 const versionsLoading = ref(false);
 const viewingVersion = ref<KnowledgePageVersion | null>(null);
 
+/* ===== 版本对比 ===== */
+const diffSourceVer = ref<KnowledgePageVersion | null>(null);
+const diffTargetVer = ref<KnowledgePageVersion | null>(null);
+const showDiffView = ref(false);
+
+function selectForDiff(v: KnowledgePageVersion) {
+  if (!diffSourceVer.value) {
+    diffSourceVer.value = v;
+  } else if (!diffTargetVer.value && v.id !== diffSourceVer.value.id) {
+    diffTargetVer.value = v;
+  } else {
+    diffSourceVer.value = v;
+    diffTargetVer.value = null;
+  }
+}
+
+function startDiff() {
+  if (diffSourceVer.value && diffTargetVer.value) {
+    showDiffView.value = true;
+  }
+}
+
+function exitDiff() {
+  showDiffView.value = false;
+  diffSourceVer.value = null;
+  diffTargetVer.value = null;
+}
+
+/** 简单的行内 diff 计算 */
+const diffResult = computed(() => {
+  if (!diffSourceVer.value || !diffTargetVer.value) return [];
+  const oldLines = (diffSourceVer.value.content_md ?? "").split("\n");
+  const newLines = (diffTargetVer.value.content_md ?? "").split("\n");
+  const result: Array<{ type: "same" | "add" | "del"; text: string }> = [];
+
+  // 简化 diff：逐行对比（LCS 简化版）
+  const maxLen = Math.max(oldLines.length, newLines.length);
+  const oldSet = new Set(oldLines);
+  const newSet = new Set(newLines);
+
+  for (const line of oldLines) {
+    if (!newSet.has(line)) {
+      result.push({ type: "del", text: line });
+    }
+  }
+  for (const line of newLines) {
+    if (!oldSet.has(line)) {
+      result.push({ type: "add", text: line });
+    } else {
+      result.push({ type: "same", text: line });
+    }
+  }
+  // 如果上面的结果太冗长，回退到逐行对比
+  if (result.length > maxLen * 2) {
+    result.length = 0;
+    for (let i = 0; i < maxLen; i++) {
+      const o = oldLines[i] ?? "";
+      const n = newLines[i] ?? "";
+      if (o === n) {
+        result.push({ type: "same", text: o });
+      } else {
+        if (o) result.push({ type: "del", text: o });
+        if (n) result.push({ type: "add", text: n });
+      }
+    }
+  }
+  return result;
+});
+
 async function loadVersions() {
   versionsLoading.value = true;
   try {
@@ -176,7 +245,7 @@ async function revertToVersion(v: KnowledgePageVersion) {
 /* ===== 侧边栏 Tab ===== */
 const activeTab = ref<"history" | "relations">("history");
 
-/* ===== 关联工作项 ===== */
+/* ===== 关联需求/任务/缺陷 ===== */
 const relations = ref<KnowledgePageRelation[]>([]);
 const relationsLoading = ref(false);
 const relationSearch = ref("");
@@ -436,12 +505,18 @@ H3
           :class="{ 'kpage__tab--active': activeTab === 'relations' }"
           @click="activeTab = 'relations'"
         >
-关联工作项
+关联需求/任务/缺陷
 </button>
       </div>
 
       <!-- 历史版本 -->
       <div v-if="activeTab === 'history'" class="kpage__tab-content">
+        <!-- 版本对比选择提示 -->
+        <div v-if="diffSourceVer || diffTargetVer" class="diff-hint">
+          <span>已选择: {{ diffSourceVer ? `v${diffSourceVer.version}` : "?" }} → {{ diffTargetVer ? `v${diffTargetVer.version}` : "?" }}</span>
+          <button class="btn btn--sm btn--primary" :disabled="!diffSourceVer || !diffTargetVer" @click="startDiff">对比</button>
+          <button class="btn btn--sm btn--ghost" @click="exitDiff">取消</button>
+        </div>
         <div v-if="versionsLoading" class="text-muted">加载中...</div>
         <div v-else-if="versions.length === 0" class="text-muted">暂无历史版本</div>
         <div v-else class="versions-list">
@@ -449,30 +524,66 @@ H3
             v-for="v in versions"
             :key="v.id"
             class="version-item"
-            :class="{ 'version-item--active': viewingVersion?.id === v.id }"
+            :class="{
+              'version-item--active': viewingVersion?.id === v.id,
+              'version-item--diff-source': diffSourceVer?.id === v.id,
+              'version-item--diff-target': diffTargetVer?.id === v.id,
+            }"
           >
             <span class="version-item__number">v{{ v.version }}</span>
             <span class="version-item__time">{{ fmtTime(v.created_at) }}</span>
             <span class="version-item__summary">{{ v.change_summary || "—" }}</span>
             <button class="btn btn--sm btn--ghost" @click="viewVersion(v)">查看</button>
+            <button class="btn btn--sm btn--ghost" @click="selectForDiff(v)">对比</button>
             <button
               class="btn btn--sm btn--ghost"
               @click="revertToVersion(v)"
             >
 回滚
-</button>
+            </button>
           </div>
         </div>
       </div>
 
-      <!-- 关联工作项 -->
+      <!-- 版本对比弹窗 -->
+      <Teleport to="body">
+        <div v-if="showDiffView" class="diff-modal" @click.self="exitDiff">
+          <div class="diff-modal__panel">
+            <div class="diff-modal__header">
+              <h3>版本对比</h3>
+              <span class="diff-modal__versions">
+                <span class="diff-modal__old">v{{ diffSourceVer?.version }}</span>
+                →
+                <span class="diff-modal__new">v{{ diffTargetVer?.version }}</span>
+              </span>
+              <button class="btn btn--sm btn--ghost" @click="exitDiff">✕</button>
+            </div>
+            <div class="diff-modal__body">
+              <div
+                v-for="(line, idx) in diffResult"
+                :key="idx"
+                class="diff-line"
+                :class="{
+                  'diff-line--add': line.type === 'add',
+                  'diff-line--del': line.type === 'del',
+                }"
+              >
+                <span class="diff-line__mark">{{ line.type === 'add' ? '+' : line.type === 'del' ? '-' : ' ' }}</span>
+                <span class="diff-line__text">{{ line.text || ' ' }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Teleport>
+
+      <!-- 关联需求/任务/缺陷 -->
       <div v-if="activeTab === 'relations'" class="kpage__tab-content">
         <div class="rel-search">
           <input
             v-model="relationSearch"
             type="text"
             class="form-input"
-            placeholder="搜索工作项关键字"
+            placeholder="搜索需求/任务/缺陷关键字"
             @input="searchIssues"
             @focus="relationSearchOpen = true"
           />
@@ -505,7 +616,7 @@ H3
         <div v-else-if="relations.length === 0" class="text-muted" style="margin-top: 8px">暂无关联</div>
         <div v-else class="rel-list">
           <div v-for="rel in relations" :key="rel.id" class="rel-item">
-            <span class="rel-item__type">工作项 #{{ rel.issue_id }}</span>
+            <span class="rel-item__type">需求/任务/缺陷 #{{ rel.issue_id }}</span>
             <button class="btn btn--sm btn--ghost rel-item__remove" @click="removeRelation(rel)">✕</button>
           </div>
         </div>
@@ -941,4 +1052,76 @@ H3
 }
 .btn--primary:hover { background: var(--brand-600); color: var(--text-on-brand); }
 .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* ---- 版本对比 ---- */
+.diff-hint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  margin-bottom: 8px;
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+}
+.diff-hint span { flex: 1; }
+
+.version-item--diff-source { border-left: 3px solid var(--danger, #DC2626); }
+.version-item--diff-target { border-left: 3px solid var(--success, #10B981); }
+
+.diff-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+.diff-modal__panel {
+  background: var(--surface-1);
+  border-radius: 12px;
+  width: 90vw;
+  max-width: 900px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.diff-modal__header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-color, #E5E7EB);
+}
+.diff-modal__header h3 { margin: 0; font-size: 16px; }
+.diff-modal__versions {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.diff-modal__old { color: var(--danger, #DC2626); }
+.diff-modal__new { color: var(--success, #10B981); }
+.diff-modal__body {
+  overflow-y: auto;
+  padding: 12px 20px;
+  font-family: var(--font-mono, monospace);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.diff-line {
+  display: flex;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+.diff-line--add { background: rgba(16, 185, 129, 0.1); }
+.diff-line--del { background: rgba(220, 38, 38, 0.1); }
+.diff-line__mark {
+  width: 20px;
+  flex-shrink: 0;
+  color: var(--text-tertiary);
+}
+.diff-line--add .diff-line__mark { color: var(--success, #10B981); }
+.diff-line--del .diff-line__mark { color: var(--danger, #DC2626); }
+.diff-line__text { flex: 1; }
 </style>

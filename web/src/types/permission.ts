@@ -35,10 +35,10 @@ export interface MyRoleResponse {
 }
 
 /* ------------------------------------------------------------------ */
-/*  工作项权限常量                                                      */
+/*  需求/任务/缺陷权限常量                                              */
 /* ------------------------------------------------------------------ */
 
-/** 工作项操作权限，与后端 auth.PermIssueXxx 常量对齐 */
+/** 需求/任务/缺陷操作权限，与后端 auth.PermIssueXxx 常量对齐 */
 export const IssuePermission = {
   Read: 'issue:read',
   Create: 'issue:create',

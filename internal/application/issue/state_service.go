@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -223,6 +224,265 @@ func (s *StateService) StateGroupByID(ctx context.Context, stateID int64) (State
 		return "", errs.ErrInternal.Wrap(err)
 	}
 	return group, nil
+}
+
+// --- 状态 CRUD ---
+
+// CreateStateInput 创建状态入参。
+type CreateStateInput struct {
+	WorkspaceID     int64
+	ProjectID       int64
+	Name            string
+	Group           StateGroup
+	Color           string
+	Sequence        float64
+	IsDefault       bool
+	ApplicableTypes []string
+	CreatedBy       int64
+}
+
+// CreateState 创建自定义状态。
+func (s *StateService) CreateState(ctx context.Context, in CreateStateInput) (*State, error) {
+	if in.Name == "" {
+		return nil, errs.ErrValidation.WithDetails(errs.FieldDetail{Field: "name", Reason: "状态名不能为空"})
+	}
+	if in.Group == "" {
+		in.Group = GroupBacklog
+	}
+	if in.Color == "" {
+		in.Color = "#8DA2C2"
+	}
+	if len(in.ApplicableTypes) == 0 {
+		in.ApplicableTypes = []string{"all"}
+	}
+
+	// 生成 Snowflake ID（简化：使用 pkg/snowflake 或数据库序列）
+	id, err := s.nextID(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = s.db.Exec(ctx, `
+		INSERT INTO states (id, workspace_id, project_id, name, "group", color, sequence, is_default, applicable_types, created_by, updated_by)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$10)`,
+		id, in.WorkspaceID, in.ProjectID, in.Name, string(in.Group), in.Color, in.Sequence, in.IsDefault, in.ApplicableTypes, in.CreatedBy)
+	if err != nil {
+		return nil, errs.ErrInternal.Wrap(err)
+	}
+
+	return s.GetStateByID(ctx, in.WorkspaceID, id)
+}
+
+// UpdateStateInput 更新状态入参。
+type UpdateStateInput struct {
+	WorkspaceID     int64
+	StateID         int64
+	Name            *string
+	Group           *StateGroup
+	Color           *string
+	Sequence        *float64
+	IsDefault       *bool
+	ApplicableTypes []string
+	UpdatedBy       int64
+}
+
+// UpdateState 更新状态属性。
+func (s *StateService) UpdateState(ctx context.Context, in UpdateStateInput) (*State, error) {
+	// 构建动态 SQL：只更新非空字段
+	var sets []string
+	var args []any
+	argIdx := 1
+
+	if in.Name != nil {
+		sets = append(sets, fmt.Sprintf("name = $%d", argIdx))
+		args = append(args, *in.Name)
+		argIdx++
+	}
+	if in.Group != nil {
+		sets = append(sets, fmt.Sprintf(`"group" = $%d`, argIdx))
+		args = append(args, string(*in.Group))
+		argIdx++
+	}
+	if in.Color != nil {
+		sets = append(sets, fmt.Sprintf("color = $%d", argIdx))
+		args = append(args, *in.Color)
+		argIdx++
+	}
+	if in.Sequence != nil {
+		sets = append(sets, fmt.Sprintf("sequence = $%d", argIdx))
+		args = append(args, *in.Sequence)
+		argIdx++
+	}
+	if in.IsDefault != nil {
+		sets = append(sets, fmt.Sprintf("is_default = $%d", argIdx))
+		args = append(args, *in.IsDefault)
+		argIdx++
+	}
+	if in.ApplicableTypes != nil {
+		sets = append(sets, fmt.Sprintf("applicable_types = $%d", argIdx))
+		args = append(args, in.ApplicableTypes)
+		argIdx++
+	}
+
+	if len(sets) == 0 {
+		return s.GetStateByID(ctx, in.WorkspaceID, in.StateID)
+	}
+
+	sets = append(sets, fmt.Sprintf("updated_by = $%d", argIdx))
+	args = append(args, in.UpdatedBy)
+	argIdx++
+
+	sets = append(sets, fmt.Sprintf("updated_at = now()"))
+
+	sql := fmt.Sprintf("UPDATE states SET %s WHERE id = $%d AND workspace_id = $%d AND deleted = false",
+		strings.Join(sets, ", "), argIdx, argIdx+1)
+	args = append(args, in.StateID, in.WorkspaceID)
+
+	_, err := s.db.Exec(ctx, sql, args...)
+	if err != nil {
+		return nil, errs.ErrInternal.Wrap(err)
+	}
+	return s.GetStateByID(ctx, in.WorkspaceID, in.StateID)
+}
+
+// DeleteState 软删除状态（若有工作项在使用则拒绝）。
+func (s *StateService) DeleteState(ctx context.Context, wsID, stateID int64) error {
+	// 检查是否有工作项仍在此状态
+	var inUse bool
+	err := s.db.QueryRow(ctx, `
+		SELECT EXISTS(
+			SELECT 1 FROM requirement WHERE state_id = $1 AND workspace_id = $2 AND deleted = false
+			UNION ALL
+			SELECT 1 FROM task WHERE state_id = $1 AND workspace_id = $2 AND deleted = false
+			UNION ALL
+			SELECT 1 FROM defect WHERE state_id = $1 AND workspace_id = $2 AND deleted = false
+		)`, stateID, wsID).Scan(&inUse)
+	if err != nil {
+		return errs.ErrInternal.Wrap(err)
+	}
+	if inUse {
+		return errs.New("ISSUE.STATE_IN_USE", "仍有工作项处于此状态，无法删除", 409)
+	}
+
+	// 软删除状态 + 关联的流转规则
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return errs.ErrInternal.Wrap(err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	if _, err := tx.Exec(ctx, `UPDATE states SET deleted = true, updated_at = now() WHERE id = $1 AND workspace_id = $2`, stateID, wsID); err != nil {
+		return errs.ErrInternal.Wrap(err)
+	}
+	if _, err := tx.Exec(ctx, `UPDATE state_transitions SET deleted = true, updated_at = now() WHERE (from_state_id = $1 OR to_state_id = $1) AND workspace_id = $2`, stateID, wsID); err != nil {
+		return errs.ErrInternal.Wrap(err)
+	}
+	return tx.Commit(ctx)
+}
+
+// --- 流转规则 CRUD ---
+
+// TransitionRule 流转规则（读出时附带状态名方便前端展示）。
+type TransitionRule struct {
+	ID              int64    `json:"id"`
+	FromStateID     int64    `json:"from_state_id"`
+	FromStateName   string   `json:"from_state_name,omitempty"`
+	ToStateID       int64    `json:"to_state_id"`
+	ToStateName     string   `json:"to_state_name,omitempty"`
+	TypeCode        string   `json:"type_code"`
+	RequiredFields  []string `json:"required_fields"`
+}
+
+// ListTransitions 列出项目的全部流转规则。
+func (s *StateService) ListTransitions(ctx context.Context, wsID, projectID int64) ([]TransitionRule, error) {
+	rows, err := s.db.Query(ctx, `
+		SELECT t.id, t.from_state_id, f.name AS from_name, t.to_state_id, t.name AS to_name, t.type_code, t.required_fields
+		FROM state_transitions t
+		JOIN states f ON f.id = t.from_state_id AND f.deleted = false
+		JOIN states u ON u.id = t.to_state_id AND u.deleted = false
+		WHERE t.project_id = $1 AND t.workspace_id = $2 AND t.deleted = false
+		ORDER BY f.sequence, u.sequence`, projectID, wsID)
+	if err != nil {
+		return nil, errs.ErrInternal.Wrap(err)
+	}
+	defer rows.Close()
+
+	var rules []TransitionRule
+	for rows.Next() {
+		var r TransitionRule
+		if err := rows.Scan(&r.ID, &r.FromStateID, &r.FromStateName, &r.ToStateID, &r.ToStateName, &r.TypeCode, &r.RequiredFields); err != nil {
+			return nil, errs.ErrInternal.Wrap(err)
+		}
+		rules = append(rules, r)
+	}
+	return rules, rows.Err()
+}
+
+// AddTransitionInput 添加流转规则入参。
+type AddTransitionInput struct {
+	WorkspaceID    int64
+	ProjectID      int64
+	FromStateID    int64
+	ToStateID      int64
+	TypeCode       string
+	RequiredFields []string
+	CreatedBy      int64
+}
+
+// AddTransition 添加流转规则。
+func (s *StateService) AddTransition(ctx context.Context, in AddTransitionInput) (*TransitionRule, error) {
+	if in.FromStateID == in.ToStateID {
+		return nil, errs.ErrValidation.WithDetails(errs.FieldDetail{Field: "to_state_id", Reason: "起止状态不能相同"})
+	}
+	id, err := s.nextID(ctx)
+	if err != nil {
+		return nil, err
+	}
+	requiredJSON := in.RequiredFields
+	if requiredJSON == nil {
+		requiredJSON = []string{}
+	}
+
+	_, err = s.db.Exec(ctx, `
+		INSERT INTO state_transitions (id, workspace_id, project_id, type_code, from_state_id, to_state_id, required_fields, created_by, updated_by)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$8)
+		ON CONFLICT (from_state_id, to_state_id, type_code) DO UPDATE SET deleted = false, required_fields = $7, updated_by = $8, updated_at = now()`,
+		id, in.WorkspaceID, in.ProjectID, in.TypeCode, in.FromStateID, in.ToStateID, requiredJSON, in.CreatedBy)
+	if err != nil {
+		return nil, errs.ErrInternal.Wrap(err)
+	}
+
+	return &TransitionRule{
+		ID:             id,
+		FromStateID:    in.FromStateID,
+		ToStateID:      in.ToStateID,
+		TypeCode:       in.TypeCode,
+		RequiredFields: requiredJSON,
+	}, nil
+}
+
+// RemoveTransition 删除流转规则。
+func (s *StateService) RemoveTransition(ctx context.Context, wsID, transitionID int64) error {
+	tag, err := s.db.Exec(ctx, `
+		UPDATE state_transitions SET deleted = true, updated_at = now()
+		WHERE id = $1 AND workspace_id = $2`, transitionID, wsID)
+	if err != nil {
+		return errs.ErrInternal.Wrap(err)
+	}
+	if tag.RowsAffected() == 0 {
+		return errs.ErrNotFound
+	}
+	return nil
+}
+
+// nextID 生成下一个 Snowflake ID（简化实现，生产应使用 pkg/snowflake）。
+func (s *StateService) nextID(ctx context.Context) (int64, error) {
+	var id int64
+	err := s.db.QueryRow(ctx, "SELECT nextval('states_id_seq')").Scan(&id)
+	if err != nil {
+		return 0, errs.ErrInternal.Wrap(err)
+	}
+	return id, nil
 }
 
 // CanTransitionQuick 快速判断是否允许流转（不校验字段，仅看规则）。

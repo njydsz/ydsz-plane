@@ -76,7 +76,7 @@ export interface DORAResult {
   performance_level: string;
 }
 
-/** 资源负载结果 — 当前 WIP / 已启动工作项数。 */
+/** 资源负载结果 — 当前 WIP / 已启动需求/任务/缺陷数。 */
 export interface ResourceLoadResult {
   project_id: number;
   active_wip: number;
@@ -91,7 +91,7 @@ export interface MetricSnapshot {
   snapshot_date: string;
 }
 
-/** 累积流图（CFD）数据点 — 按日期统计各状态组工作项数量。 */
+/** 累积流图（CFD）数据点 — 按日期统计各状态组需求/任务/缺陷数量。 */
 export interface CFDDataPoint {
   date: string;
   backlog: number;
@@ -102,7 +102,7 @@ export interface CFDDataPoint {
   total_active: number;
 }
 
-/** 控制图数据点（单个已完成工作项的前置时间）。 */
+/** 控制图数据点（单个已完成需求/任务/缺陷的前置时间）。 */
 export interface ControlChartPoint {
   date: string;
   lead_days: number;

@@ -363,7 +363,7 @@ onMounted(loadProject);
       <div class="danger-row">
         <div class="danger-row__info">
           <strong>永久删除</strong>
-          <p>项目及其所有工作项、文档等将被永久删除，<strong>不可恢复</strong>。</p>
+          <p>项目及其所有需求/任务/缺陷、文档等将被永久删除，<strong>不可恢复</strong>。</p>
         </div>
         <button
           class="btn btn--danger"
@@ -396,7 +396,7 @@ onMounted(loadProject);
       <div id="delete-modal-desc" class="modal-dialog__body">
         <p class="modal-dialog__warn">
           <strong>此操作不可恢复。</strong>
-          项目 <code>{{ project?.name }}</code> 及其所有工作项、文档、迭代等将被永久删除。
+          项目 <code>{{ project?.name }}</code> 及其所有需求/任务/缺陷、文档、迭代等将被永久删除。
         </p>
         <p class="modal-dialog__hint">
           请输入项目名称

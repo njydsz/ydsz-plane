@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /**
  * 全局搜索 — 工作空间级全文搜索（PostgreSQL FTS）。
- * 支持结果分组（工作项/迭代/版本/项目）、搜索历史与保存的书签。
+ * 支持结果分组（需求/任务/缺陷/迭代/版本/项目）、搜索历史与保存的书签。
  */
 import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
@@ -68,7 +68,7 @@ function openItem(url?: string) {
 }
 
 const GROUPS: { key: keyof SearchResponse["results"]; label: string }[] = [
-  { key: "issues", label: "工作项" },
+  { key: "issues", label: "需求/任务/缺陷" },
   { key: "sprints", label: "迭代" },
   { key: "versions", label: "版本" },
   { key: "projects", label: "项目" },
@@ -94,7 +94,7 @@ onMounted(() => {
       <input
         v-model="query"
         type="text"
-        placeholder="搜索工作项、迭代、版本、项目…"
+        placeholder="搜索需求/任务/缺陷、迭代、版本、项目…"
         class="flex-1 rounded-md border border-[var(--border-subtle)] bg-[var(--surface-1)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--brand-500)]"
       />
       <button
@@ -188,7 +188,7 @@ onMounted(() => {
     <AppEmptyState
       v-else
       title="搜索工作空间内容"
-      description="输入关键词搜索工作项、迭代、版本和项目。"
+      description="输入关键词搜索需求/任务/缺陷、迭代、版本和项目。"
     />
   </div>
 </template>

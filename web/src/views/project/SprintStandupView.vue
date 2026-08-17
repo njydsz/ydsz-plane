@@ -2,8 +2,8 @@
 /**
  * SprintStandupView — 站会模式视图（Sprint 5.9）。
  *
- * 将 active 迭代中的工作项按「昨日」「今日」「阻塞」分组展示，
- * 支持一键切换工作项状态，适配每日站会节奏。
+* 将 active 迭代中的需求/任务/缺陷按「昨日」「今日」「阻塞」分组展示，
+* 支持一键切换需求/任务/缺陷状态，适配每日站会节奏。
  *
  * 参考：Jira Sprint Health / Linear Standup / Plane iterations。
  */
@@ -192,7 +192,7 @@ onMounted(load);
     <!-- 状态：加载 / 错误 / 空 -->
     <AppLoadingState v-if="loading" />
     <AppErrorState v-else-if="error" :message="error" @retry="load" />
-    <AppEmptyState v-else-if="!sprint || issues.length === 0" title="该迭代暂无工作项" description="前往排期规划页添加工作项">
+    <AppEmptyState v-else-if="!sprint || issues.length === 0" title="该迭代暂无需求/任务/缺陷" description="前往排期规划页添加需求/任务/缺陷">
       <button class="btn btn-secondary" @click="router.push(`/${workspaceId}/projects/${projectId}/sprints/planning`)">前往排期规划</button>
     </AppEmptyState>
 
@@ -223,7 +223,7 @@ onMounted(load);
             <span class="priority" :class="`p-${iss.priority}`">{{ priorityLabel(iss.priority) }}</span>
           </div>
           <div v-if="expandedIds.has(iss.issue_id)" class="card-detail">
-            <p class="hint">点击前往工作项详情页更新状态</p>
+            <p class="hint">点击前往需求/任务/缺陷详情页更新状态</p>
             <button
               class="btn btn-sm btn-primary"
               @click.stop="router.push(`/${workspaceId}/projects/${projectId}/issues/${iss.issue_id}`)"

@@ -507,8 +507,8 @@ type AttachmentConfig struct {
 	// 客户端也应在上传前校验，服务端再次校验是最后防线。
 	MaxFileSize int64 `mapstructure:"max_file_size"`
 
-	// MaxTotalSizePerIssue 单个工作项附件总容量限制（0=无限制）。
-	// 防止工作项附件无限膨胀影响查询性能。
+// MaxTotalSizePerIssue 单个需求/任务/缺陷附件总容量限制（0=无限制）。
+// 防止需求/任务/缺陷附件无限膨胀影响查询性能。
 	MaxTotalSizePerIssue int64 `mapstructure:"max_total_size_per_issue"`
 
 	// AllowedContentTypes MIME 类型白名单。空表示允许所有。

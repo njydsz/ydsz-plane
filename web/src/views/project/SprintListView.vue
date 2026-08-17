@@ -430,7 +430,7 @@ watch(ready, (r) => {
         </header>
         <p class="confirm-text">
           确定要归档迭代 <b>{{ deleteTarget.name }}</b> 吗？
-          其中的工作项将退回 Backlog。此操作不可撤销。
+          其中的需求/任务/缺陷将退回 Backlog。此操作不可撤销。
         </p>
         <div v-if="deleteError" class="error">{{ deleteError }}</div>
         <footer>

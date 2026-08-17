@@ -51,14 +51,14 @@ export interface EmptyStateCopy {
 
 const copy: Record<Exclude<EmptyScenario, "default" | "error">, EmptyStateCopy> = {
   issues: {
-    title: "还没有工作项",
+    title: "还没有需求/任务/缺陷",
     description: "创建第一个需求、任务或缺陷，开始管理你的项目进度。",
     palette: "brand",
-    ctaLabel: "创建工作项",
+    ctaLabel: "创建需求/任务/缺陷",
   },
   projects: {
     title: "还没有项目",
-    description: "创建一个项目来组织工作项，与团队协作推进。",
+    description: "创建一个项目来组织需求/任务/缺陷，与团队协作推进。",
     palette: "brand",
     ctaLabel: "创建项目",
   },
@@ -81,12 +81,12 @@ const copy: Record<Exclude<EmptyScenario, "default" | "error">, EmptyStateCopy> 
   },
   notifications: {
     title: "暂无通知",
-    description: "当有新的工作项、评论或提及时，你会收到通知。",
+    description: "当有新的需求/任务/缺陷、评论或提及时，你会收到通知。",
     palette: "neutral",
   },
   labels: {
     title: "还没有标签",
-    description: "创建标签来分类和标记工作项，方便筛选。",
+    description: "创建标签来分类和标记需求/任务/缺陷，方便筛选。",
     palette: "brand",
     ctaLabel: "创建标签",
   },
@@ -109,7 +109,7 @@ const copy: Record<Exclude<EmptyScenario, "default" | "error">, EmptyStateCopy> 
   },
   inbox: {
     title: "收件箱是空的",
-    description: "所有外部提交的工作项会显示在此。",
+    description: "所有外部提交的需求/任务/缺陷会显示在此。",
     palette: "neutral",
   },
   "api-token": {
@@ -126,12 +126,12 @@ const copy: Record<Exclude<EmptyScenario, "default" | "error">, EmptyStateCopy> 
   },
   gantt: {
     title: "甘特图暂无数据",
-    description: "为工作项设置开始和结束时间后，这里将展示甘特视图。",
+    description: "为需求/任务/缺陷设置开始和结束时间后，这里将展示甘特视图。",
     palette: "brand",
   },
   calendar: {
     title: "日历暂无安排",
-    description: "设置工作项的截止日期，日程将显示在日历上。",
+    description: "设置需求/任务/缺陷的截止日期，日程将显示在日历上。",
     palette: "brand",
   },
   pages: {
@@ -165,7 +165,7 @@ const copy: Record<Exclude<EmptyScenario, "default" | "error">, EmptyStateCopy> 
   },
   workflows: {
     title: "还没有工作流",
-    description: "设计审批流或阶段流程以规范工作项推进。",
+    description: "设计审批流或阶段流程以规范需求/任务/缺陷推进。",
     palette: "brand",
     ctaLabel: "创建工作流",
   },

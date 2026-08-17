@@ -5,7 +5,7 @@
  * 布局：
  *   - 左侧：文档树（递归嵌套，支持展开/折叠、新建子文档、重命名、删除）
  *   - 右侧：Markdown 编辑 + 实时预览、保存（乐观锁自动版本递增）、
- *           版本历史（查看旧版本 / 回滚）、关联工作项、发布/归档切换
+ *           版本历史（查看旧版本 / 回滚）、关联需求/任务/缺陷、发布/归档切换
  */
 import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
@@ -52,7 +52,7 @@ const versions = ref<KnowledgePageVersion[]>([]);
 const versionsLoading = ref(false);
 const viewingVersion = ref<KnowledgePageVersion | null>(null);
 
-/* ===== 关联工作项 ===== */
+/* ===== 关联需求/任务/缺陷 ===== */
 const relations = ref<KnowledgePageRelation[]>([]);
 const relationsLoading = ref(false);
 const relationInput = ref("");
@@ -317,13 +317,13 @@ async function revertToVersion(v: KnowledgePageVersion) {
   }
 }
 
-/* ===== 关联工作项 ===== */
+/* ===== 关联需求/任务/缺陷 ===== */
 async function addRelation() {
   const page = currentPage.value;
   if (!page || !relationInput.value.trim()) return;
   const issueId = Number(relationInput.value.trim());
   if (Number.isNaN(issueId) || issueId <= 0) {
-    toast.error("请输入有效的工作项 ID");
+    toast.error("请输入有效的需求/任务/缺陷 ID");
     return;
   }
   addingRelation.value = true;
@@ -351,7 +351,7 @@ async function removeRelation(rel: KnowledgePageRelation) {
   }
 }
 
-/** 通过工作空间搜索解析关联工作项所属项目，再跳转详情页 */
+/** 通过工作空间搜索解析关联需求/任务/缺陷所属项目，再跳转详情页 */
 async function openIssue(issueId: number) {
   try {
     const res = await searchApi.searchWorkspace(workspaceId.value, {
@@ -364,9 +364,9 @@ async function openIssue(issueId: number) {
       router.push(`/${workspaceId.value}/projects/${hit.project_id}/issues/${issueId}`);
       return;
     }
-    toast.info(`未能定位工作项 #${issueId} 所属项目`);
+    toast.info(`未能定位需求/任务/缺陷 #${issueId} 所属项目`);
   } catch (e: unknown) {
-    toast.error(e instanceof Error ? e.message : "解析工作项失败");
+    toast.error(e instanceof Error ? e.message : "解析需求/任务/缺陷失败");
   }
 }
 
@@ -576,7 +576,7 @@ onMounted(load);
               </div>
             </div>
 
-            <!-- 关联工作项 -->
+            <!-- 关联需求/任务/缺陷 -->
             <div class="doc__section">
               <h4>{{ $t("knowledge.linkIssue") }}</h4>
               <div class="links-add">
@@ -598,10 +598,10 @@ onMounted(load);
               </div>
               <div v-else class="links-list">
                 <div v-for="rel in relations" :key="rel.id" class="link-item">
-                  <span class="link-item__type">工作项</span>
+                  <span class="link-item__type">需求/任务/缺陷</span>
                   <a
                     class="link-item__id"
-                    :title="`跳转到工作项 #${rel.issue_id}`"
+                    :title="`跳转到需求/任务/缺陷 #${rel.issue_id}`"
                     @click="openIssue(rel.issue_id)"
                   >#{{ rel.issue_id }}</a>
                   <span class="link-item__time">{{ fmtTime(rel.created_at) }}</span>

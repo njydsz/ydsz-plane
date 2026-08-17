@@ -33,7 +33,7 @@ export interface SmartAssignInput {
   top_n?: number;
 }
 
-/** 疑似重复工作项 */
+/** 疑似重复需求/任务/缺陷 */
 export interface DuplicateCandidate {
   issue_id: number;
   identifier: string;
@@ -144,7 +144,7 @@ export const aiApi = {
       apiClient.post(`/workspaces/${wsId}/projects/${projectId}/ai/smart-assign`, input),
     ),
 
-  /** 检测重复工作项 */
+  /** 检测重复需求/任务/缺陷 */
   detectDuplicates: (wsId: number | string, projectId: number | string, title: string, description?: string) =>
     wrap<DuplicateCandidate[]>(
       apiClient.post(`/workspaces/${wsId}/projects/${projectId}/ai/detect-duplicates`, {
@@ -153,7 +153,7 @@ export const aiApi = {
       }),
     ),
 
-  /** 智能分类工作项（自动推荐类型和优先级） */
+  /** 智能分类需求/任务/缺陷（自动推荐类型和优先级） */
   smartClassify: (wsId: number | string, projectId: number | string, title: string, description?: string) =>
     wrap<ClassifyResult>(
       apiClient.post(`/workspaces/${wsId}/projects/${projectId}/ai/classify`, {

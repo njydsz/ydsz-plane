@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * 工作项列表页 — 表格视图展示工作项。
+ * 需求/任务/缺陷列表页 — 表格视图展示需求/任务/缺陷。
  * 支持: 服务端排序 / 分页 / 列过滤 / 批量选择与删除 / 跨页勾选 / 列配置持久化 / 批量指派+标签。
  */
 import { computed, nextTick, onMounted, ref } from "vue";
@@ -502,12 +502,12 @@ async function inlineUpdate(iss: any, patch: Record<string, unknown>) {
 }
 
 /**
- * 处理工作项状态变更，调用专用状态流转接口，适配后端状态机规则
+ * 处理需求/任务/缺陷状态变更，调用专用状态流转接口，适配后端状态机规则
  */
 async function handleStateChange(issueId: number, toStateId: number) {
   try {
     const updated = await issueApi.transition(wsId.value, projectId.value, issueId, toStateId);
-    // 更新列表中的工作项状态
+    // 更新列表中的需求/任务/缺陷状态
     const idx = issueStore.issues.findIndex((i) => i.id === issueId);
     if (idx >= 0) issueStore.issues[idx] = updated;
   } catch (e: unknown) {
@@ -615,7 +615,7 @@ const isCurrentPageAllSelected = computed(() => {
     <header class="list-view__header">
       <div>
         <h1>列表</h1>
-        <p class="hint">共 {{ total }} 个工作项</p>
+        <p class="hint">共 {{ total }} 个需求/任务/缺陷</p>
       </div>
       <div class="list-view__header-right">
         <div class="view-dropdown">
@@ -757,8 +757,8 @@ const isCurrentPageAllSelected = computed(() => {
     <!-- 表格 -->
     <AppEmptyState
       v-else-if="!loading && !error && issueStore.issues.length === 0"
-      title="暂无工作项"
-      description="当前过滤条件下没有工作项"
+      title="暂无需求/任务/缺陷"
+      description="当前过滤条件下没有需求/任务/缺陷"
     />
     <div v-else class="table-wrap">
       <table class="table">
@@ -888,7 +888,7 @@ const isCurrentPageAllSelected = computed(() => {
           </tr>
             <tr v-if="visibleIssues.length === 0">
               <td :colspan="visibleColumns.length + 1" class="empty-cell">
-                暂无工作项
+                暂无需求/任务/缺陷
               </td>
             </tr>
           </tbody>
@@ -934,7 +934,7 @@ const isCurrentPageAllSelected = computed(() => {
     <div v-if="showDeleteConfirm" class="modal-overlay" @click.self="showDeleteConfirm = false">
       <div class="modal-box">
         <h3>确认删除</h3>
-        <p>确定要批量删除 {{ selectedIds.size }} 个工作项吗？此操作不可撤销。</p>
+        <p>确定要批量删除 {{ selectedIds.size }} 个需求/任务/缺陷吗？此操作不可撤销。</p>
         <div class="modal-actions">
           <button class="btn btn--ghost" @click="showDeleteConfirm = false">取消</button>
           <button

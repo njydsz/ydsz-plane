@@ -250,7 +250,7 @@ func run() error {
 	// ----- Automation scheduled/Cron 触发器调度器 -----
 	//
 	// 每分钟检查 trigger.type=scheduled 的活跃规则（逾期提醒 / 自动归档等
-	// 内置模板），cron 匹配时对候选工作项批量执行"条件求值 → 动作执行"。
+	// 内置模板），cron 匹配时对候选需求/任务/缺陷批量执行"条件求值 → 动作执行"。
 	// 与 RunConsumer 的事件驱动路径互补，二者覆盖不同 trigger 类型。
 	go automation.RunScheduledCron(ctx, pool.Pool, rbacStore, log.Named("automation.scheduled"))
 

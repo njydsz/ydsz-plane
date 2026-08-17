@@ -24,6 +24,8 @@ type ProjectTemplate struct {
 	ApplyDefectFlow bool `json:"apply_defect_flow"`
 	// ApplyRequirementFlow 是否注入需求评审流状态（需配合 ApplyDevFlow=true）。
 	ApplyRequirementFlow bool `json:"apply_requirement_flow"`
+	// ApplyEpicFlow 是否注入史诗流状态（顶层容器，默认启用）。
+	ApplyEpicFlow bool `json:"apply_epic_flow"`
 }
 
 // BuiltInProjectTemplates 预置模板清单（前端模板选择器数据源）。
@@ -35,6 +37,7 @@ var BuiltInProjectTemplates = []ProjectTemplate{
 		ApplyDevFlow:         true,
 		ApplyDefectFlow:      true,
 		ApplyRequirementFlow: false,
+		ApplyEpicFlow:        true,
 	},
 	{
 		Code:                 TemplateWaterfall,
@@ -43,6 +46,7 @@ var BuiltInProjectTemplates = []ProjectTemplate{
 		ApplyDevFlow:         true,
 		ApplyDefectFlow:      false,
 		ApplyRequirementFlow: true,
+		ApplyEpicFlow:        true,
 	},
 	{
 		Code:                 TemplateGeneric,
@@ -51,6 +55,7 @@ var BuiltInProjectTemplates = []ProjectTemplate{
 		ApplyDevFlow:         true,
 		ApplyDefectFlow:      false,
 		ApplyRequirementFlow: false,
+		ApplyEpicFlow:        true,
 	},
 }
 

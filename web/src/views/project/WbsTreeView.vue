@@ -2,18 +2,18 @@
 /**
  * WbsTreeView — WBS 树形视图页。
  *
- * 以递归树形结构展示工作项的三级 WBS 层级：
+ * 以递归树形结构展示需求/任务/缺陷的三级 WBS 层级：
  *   - 需求：Epic → Feature → Story
  *   - 任务：主任务 → 子任务 → 子子任务
  *   - 缺陷：主缺陷 → 子缺陷
  *
  * 特性：
- *   - 按工作项类型分组展示（需求组/任务组/缺陷组）
+ *   - 按需求/任务/缺陷类型分组展示（需求组/任务组/缺陷组）
  *   - 每类型组内以 parent_id 构建递归树
- *   - 展开/折叠、行内重命名、新建子工作项
+ *   - 展开/折叠、行内重命名、新建子需求/任务/缺陷
  *   - 搜索过滤（按名称或编号）
  *   - 进度自动汇总（父 = sum(子完成故事点)/sum(子总故事点)）
- *   - 跳转到工作项详情
+ *   - 跳转到需求/任务/缺陷详情
  */
 import { computed, onMounted, ref, watch } from "vue";
 import { useRoute } from "vue-router";
@@ -39,14 +39,14 @@ const issues = ref<Issue[]>([]);
 // 折叠状态：collapsed Set 中的节点 ID 为"已折叠"
 const collapsedIssues = ref<Set<number>>(new Set());
 
-// 当前选中的工作项 ID（用于高亮）
+// 当前选中的需求/任务/缺陷 ID（用于高亮）
 const selectedIssueId = ref<number | null>(null);
 
 // 搜索关键词
 const searchQuery = ref("");
 const groupIdFilter = ref<string | null>(null);
 
-// 新建子工作项弹窗
+// 新建子需求/任务/缺陷弹窗
 const showCreateModal = ref(false);
 const createParentId = ref<number | null>(null);
 
@@ -55,7 +55,7 @@ async function load() {
   loading.value = true;
   error.value = "";
   try {
-    // 拉取全量工作项（WBS 视图需完整树结构）
+    // 拉取全量需求/任务/缺陷（WBS 视图需完整树结构）
     // 用较大 limit 覆盖典型项目规模；超大型项目后续可优化为分页加载根 + 懒加载子
     const res = await issueApi.listIssues(wsId.value, projectId.value, {
       limit: 1000,
@@ -63,7 +63,7 @@ async function load() {
     });
     issues.value = res.results || [];
   } catch (e: unknown) {
-    error.value = e instanceof Error ? e.message : "加载工作项失败";
+    error.value = e instanceof Error ? e.message : "加载需求/任务/缺陷失败";
   } finally {
     loading.value = false;
   }
@@ -198,7 +198,7 @@ async function onRename(issue: Issue, name: string) {
 async function onDelete(issue: Issue) {
   const hasChildren = issues.value.some((c) => c.parent_id === issue.id);
   const msg = hasChildren
-    ? `确认删除 "${issue.identifier}" 及其所有子工作项？`
+    ? `确认删除 "${issue.identifier}" 及其所有子需求/任务/缺陷？`
     : `确认删除 "${issue.identifier}"？`;
   if (!confirm(msg)) return;
   try {
@@ -215,7 +215,7 @@ async function onDelete(issue: Issue) {
 }
 
 function onCreated(issueId: number) {
-  // 新创建的工作项加入列表后重新加载以刷新树
+  // 新创建的需求/任务/缺陷加入列表后重新加载以刷新树
   void issueId;
   showCreateModal.value = false;
   load();
@@ -232,7 +232,7 @@ const rootCount = computed(() => issues.value.filter((i) => !i.parent_id).length
     <div class="wbs-toolbar">
       <div class="wbs-toolbar__left">
         <h2 class="wbs-title">WBS 树形视图</h2>
-        <span class="wbs-meta">{{ totalCount }} 个工作项 · {{ rootCount }} 个根节点</span>
+        <span class="wbs-meta">{{ totalCount }} 个需求/任务/缺陷 · {{ rootCount }} 个根节点</span>
       </div>
       <div class="wbs-toolbar__right">
         <!-- 搜索 -->
@@ -289,7 +289,7 @@ const rootCount = computed(() => issues.value.filter((i) => !i.parent_id).length
     <!-- 内容 -->
     <div class="wbs-content">
       <!-- 加载态 -->
-      <AppLoadingState v-if="loading" message="正在加载工作项..." />
+      <AppLoadingState v-if="loading" message="正在加载需求/任务/缺陷..." />
 
       <!-- 错误态 -->
       <AppErrorState v-else-if="error" :message="error" @retry="load" />
@@ -298,8 +298,8 @@ const rootCount = computed(() => issues.value.filter((i) => !i.parent_id).length
       <AppEmptyState
         v-else-if="typeGroups.length === 0"
         icon="🌳"
-        title="暂无工作项"
-        description="在列表中创建工作项，即可在此查看 WBS 树形视图。"
+        title="暂无需求/任务/缺陷"
+        description="在列表中创建需求/任务/缺陷，即可在此查看 WBS 树形视图。"
       />
 
       <!-- 类型分组 -->
@@ -329,12 +329,12 @@ const rootCount = computed(() => issues.value.filter((i) => !i.parent_id).length
             />
           </ul>
 
-          <p v-else class="wbs-group-empty">该分类下暂无工作项</p>
+          <p v-else class="wbs-group-empty">该分类下暂无需求/任务/缺陷</p>
         </section>
       </div>
     </div>
 
-    <!-- 新建子工作项弹窗 -->
+    <!-- 新建子需求/任务/缺陷弹窗 -->
     <IssueCreateModal
       v-if="showCreateModal"
       :visible="showCreateModal"

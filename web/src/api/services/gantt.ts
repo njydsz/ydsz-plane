@@ -1,13 +1,12 @@
 /**
- * 甘特图 API — 获取项目工作项时间线数据与依赖关系。
+ * 甘特图 API — 获取项目需求/任务/缺陷时间线数据与依赖关系。
  *
- * 注：v0.2 使用 issue list 接口获取时间线数据（dates + basic fields），
- * 依赖箭头由 relation 数据在后续迭代补充。
+ * v0.3+ 使用 issue_dependencies 表获取真实依赖数据（FS/SS/FF/SF）。
  * 路径：复用 /api/v1/workspaces/:ws/projects/:pid/issues（带日期过滤）
  */
-import { issueApi, type IssueType } from './issue';
+import { issueApi, type IssueType, type IssueDependency } from './issue';
 
-/** 甘特图工作项条目（精简，仅含时间线必要字段） */
+/** 甘特图需求/任务/缺陷条目（精简，仅含时间线必要字段） */
 export interface GanttIssue {
   id: number;
   identifier: string;
@@ -49,20 +48,23 @@ export interface GanttQuery {
   sprint_id?: number;
 }
 
-/** 甘特图域 API — 获取项目工作项时间线数据与依赖关系（v0.3+）。 */
+/** 甘特图域 API — 获取项目需求/任务/缺陷时间线数据与依赖关系（v0.3+）。 */
 export const ganttApi = {
   /**
-   * 获取项目甘特图数据（工作项时间线，无日期的工作项也会返回）。
-   * v0.2 版本依赖关系暂不使用。
+   * 获取项目甘特图数据（需求/任务/缺陷时间线 + 真实依赖关系）。
+   * v0.3+ 使用 issue_dependencies 表获取 FS/SS/FF/SF 四种依赖类型。
    */
   async getGanttData(wsId: number, projectId: number, query: GanttQuery = {}): Promise<GanttData> {
-    // 加载全量工作项（前端按日期过滤渲染）
-    const result = await issueApi.listIssues(wsId, projectId, {
-      start_date_from: query.date_from,
-      target_date_to: query.date_to,
-      limit: 500,
-      sprint_id: query.sprint_id,
-    });
+    // 并行加载工作项和依赖关系
+    const [result, depResult] = await Promise.all([
+      issueApi.listIssues(wsId, projectId, {
+        start_date_from: query.date_from,
+        target_date_to: query.date_to,
+        limit: 500,
+        sprint_id: query.sprint_id,
+      }),
+      issueApi.listProjectDependencies(wsId, projectId).catch(() => ({ results: [] as IssueDependency[] })),
+    ]);
 
     const issues: GanttIssue[] = result.results.map((item) => ({
       id: item.id,
@@ -78,20 +80,16 @@ export const ganttApi = {
       parent_id: item.parent_id ?? undefined,
     }));
 
-    // 通过父工作项派生 FS(完成→开始)依赖箭头,与甘特图渲染对齐。
-    const byId = new Map(issues.map((i) => [i.id, i]));
-    const dependencies: GanttDependency[] = [];
-    let depSeq = 1;
-    for (const child of issues) {
-      if (child.parent_id != null && byId.has(child.parent_id)) {
-        dependencies.push({
-          id: depSeq++,
-          source_id: child.parent_id,
-          target_id: child.id,
-          type: 'fs',
-        });
-      }
-    }
+    // 使用真实依赖数据（FS/SS/FF/SF）
+    const issueIds = new Set(issues.map((i) => i.id));
+    const dependencies: GanttDependency[] = depResult.results
+      .filter((d) => issueIds.has(d.issue_id) && issueIds.has(d.depends_on_id))
+      .map((d, idx) => ({
+        id: idx + 1,
+        source_id: d.depends_on_id,
+        target_id: d.issue_id,
+        type: d.dependency_type,
+      }));
 
     return { issues, dependencies };
   },

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * IssueFilter — 工作项通用过滤器组件（看板/列表/日历/甘特共用）。
+ * IssueFilter — 需求/任务/缺陷通用过滤器组件（看板/列表/日历/甘特共用）。
  *
  * 对标 Plane 的 IssueFilter：
  *   - 通过 viewType 参数适配不同视图
@@ -216,7 +216,7 @@ defineExpose({
         <input
           :value="filters.search ?? ''"
           class="filter-input"
-          placeholder="搜索工作项..."
+          placeholder="搜索需求/任务/缺陷..."
           @input="setSearch(($event.target as HTMLInputElement).value); onSearchInput()"
         />
       </div>

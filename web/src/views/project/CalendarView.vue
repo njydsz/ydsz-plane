@@ -2,7 +2,7 @@
 /**
  * CalendarView — 项目日历视图。
  *
- * 展示工作项在日历网格上的分布（按 target_date 排布）。
+ * 展示需求/任务/缺陷在日历网格上的分布（按 target_date 排布）。
  * 支持月/周/日视图切换。
  * 纯前端渲染，数据由项目列表接口聚合。
  */
@@ -101,7 +101,7 @@ const dayHours = computed(() => {
   for (let h = 0; h < 24; h++) {
     hours.push({
       hour: h,
-      events: [], // 工作项不具备小时级精度，日视图按全天展示
+      events: [], // 需求/任务/缺陷不具备小时级精度，日视图按全天展示
     });
   }
   // 日视图下所有当天事件都放入第一格
@@ -121,14 +121,14 @@ async function load() {
     const start = currentDate.value.subtract(2, 'month').format('YYYY-MM-DD');
     const end = currentDate.value.add(2, 'month').format('YYYY-MM-DD');
 
-    // 使用 start_date_from / target_date_to 复合过滤获取时间窗口内的工作项
+    // 使用 start_date_from / target_date_to 复合过滤获取时间窗口内的需求/任务/缺陷
     const result = await issueApi.listIssues(wsId.value, projectId.value, {
       start_date_from: start,
       target_date_to: end,
       limit: 500,
     });
     events.value = result.results
-      .filter((item) => item.target_date) // 日历视图仅展示有目标日期的工作项
+      .filter((item) => item.target_date) // 日历视图仅展示有目标日期的需求/任务/缺陷
       .map((item) => ({
         id: item.id,
         identifier: item.identifier,
@@ -303,7 +303,7 @@ function typeColor(type: string): string {
 
     <!-- 日视图 -->
     <div v-else class="calendar-day">
-      <AppEmptyState v-if="dayHours[0]?.events.length === 0" description="当日无工作项" />
+      <AppEmptyState v-if="dayHours[0]?.events.length === 0" description="当日无需求/任务/缺陷" />
       <div v-else class="day-events">
         <div
           v-for="ev in dayHours[0].events"

@@ -8,7 +8,7 @@ import { http } from "../client";
 /* ------------------------------------------------------------------ */
 
 export type SprintStatus = "planned" | "active" | "completed";
-/** 迭代结束时未完成工作项的处理策略 */
+/** 迭代结束时未完成需求/任务/缺陷的处理策略 */
 export type UnfinishedStrategy = "backlog" | "next_sprint" | "keep";
 
 /** 迭代聚合（含可选进度与复盘快照） */
@@ -34,7 +34,7 @@ export interface Sprint {
   updated_at: string;
 }
 
-/** 迭代实时进度汇总（点数与工作项数） */
+/** 迭代实时进度汇总（点数与需求/任务/缺陷数） */
 export interface SprintProgress {
   total_points: number;
   done_points: number;
@@ -108,7 +108,7 @@ export interface SprintVelocity {
   end_date: string;
 }
 
-/** 迭代内工作项的视图投影 */
+/** 迭代内需求/任务/缺陷的视图投影 */
 export interface SprintIssueView {
   issue_id: number;
   sort_order: number;
@@ -125,7 +125,7 @@ export interface SprintIssueView {
   created_at: string;
 }
 
-/** Backlog 工作项条目（未规划进 active 迭代） */
+/** Backlog 需求/任务/缺陷条目（未规划进 active 迭代） */
 export interface BacklogItem {
   issue_id: number;
   name: string;
@@ -164,7 +164,7 @@ export interface UpdateSprintInput {
   version: number;
 }
 
-/** 结束迭代入参（未完成工作项处理策略） */
+/** 结束迭代入参（未完成需求/任务/缺陷处理策略） */
 export interface CompleteSprintInput {
   strategy: UnfinishedStrategy;
   next_sprint_id?: number;

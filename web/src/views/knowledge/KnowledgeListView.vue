@@ -180,7 +180,7 @@ onMounted(load);
     <header class="knowledge-list__header">
       <div>
         <h1>{{ $t("knowledge.title") }}</h1>
-        <p class="hint">团队文档与知识沉淀 — 支持无限层级文档树、版本历史与工作项关联</p>
+        <p class="hint">团队文档与知识沉淀 — 支持无限层级文档树、版本历史与需求/任务/缺陷关联</p>
       </div>
       <div class="knowledge-list__header-right">
         <button class="btn btn--primary" @click="openCreate">＋ {{ $t("knowledge.newSpace") }}</button>
