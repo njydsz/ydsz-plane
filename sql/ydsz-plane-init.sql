@@ -59,8 +59,6 @@ DO $$ BEGIN
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 DO $$ BEGIN
-    CREATE TYPE attachment_status AS ENUM ('uploading', 'available', 'archived', 'deleted');
-DO $$ BEGIN
     CREATE TYPE intake_issue_status AS ENUM ('open', 'accepted', 'rejected', 'archived');
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
@@ -703,7 +701,7 @@ CREATE TABLE IF NOT EXISTS modules (
     updated_at               TIMESTAMPTZ DEFAULT now()
 );
 
---  28b. issue_dependencies — 任务依赖关系（FS/SS/FF/SF）
+--  121. issue_dependencies — 任务依赖关系（FS/SS/FF/SF）
 CREATE TABLE IF NOT EXISTS issue_dependencies (
     id                       BIGINT PRIMARY KEY,
     tenant_id                BIGINT NOT NULL DEFAULT 1,
@@ -5036,7 +5034,7 @@ CREATE TABLE IF NOT EXISTS defect_extra (
     updated_at               TIMESTAMPTZ DEFAULT now()
 );
 
---   120. intake_channels — 入口渠道
+--   49. intake_channels — 入口渠道
 CREATE TABLE IF NOT EXISTS intake_channels (
     id                       BIGINT PRIMARY KEY,
     code                     VARCHAR(50),
@@ -5056,7 +5054,7 @@ CREATE TABLE IF NOT EXISTS intake_channels (
     updated_at               TIMESTAMPTZ DEFAULT now()
 );
 
---   121. intake_issues — 入口工单
+--   50. intake_issues — 入口工单
 CREATE TABLE IF NOT EXISTS intake_issues (
     id                       BIGINT PRIMARY KEY,
     code                     VARCHAR(50),

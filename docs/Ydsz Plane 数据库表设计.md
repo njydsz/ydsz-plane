@@ -12,6 +12,7 @@
 | V2.0 | 2026-08-10 | 审查修订：ENUM 状态、租户分离、字段排序标准化 |
 | V2.1 | 2026-08-10 | 补全：ERP/隔离表暗示的同构关联表（含 xxx_* 范式展开、系统支撑表），设计文档与初始化脚本完全一致 |
 | V2.2 | 2026-08-17 | 一致性修复：补齐 11 张缺失文档的表 + 2 张缺失 SQL 的表 + 全量字段注释 + 索引补齐 + 触发器注册 |
+| V2.3 | 2026-08-23 | 字段补齐：sprint_requirements/tasks/defects 各补 4 字段（added_midway/sort_order/added_by/added_by/added_at）；reviews 补 entity_type/entity_id；三类 comments 表各补 4 字段（content_stripped/mentions/is_edited/edited_at）；编号修正：消除 111 缺失（112-122→111-121），intake_channels/issues 编号在 SQL 中与文档对齐为 49/50，issue_dependencies 在 SQL 中添加编号 121 |
 
 ## 全局设计约定
 
@@ -628,7 +629,11 @@ tenants ──< users ──< user_roles >── roles ──< role_menus >─�
 | task_id | BIGINT | NOT NULL | 任务ID |
 | content_json | JSONB | NOT NULL | 内容（JSON） |
 | content_html | TEXT | NOT NULL | 内容（HTML） |
+| content_stripped | TEXT | | 去标签后的纯文本内容 |
 | parent_id | BIGINT | | 父评论 |
+| mentions | JSONB | DEFAULT '[]' | @提及的用户ID列表 |
+| is_edited | BOOLEAN | DEFAULT false | 是否被编辑过 |
+| edited_at | TIMESTAMPTZ | | 最后编辑时间 |
 | status | entity_status | NOT NULL DEFAULT 'active' | 状态 |
 | deleted | BOOLEAN | DEFAULT false | 软删除 |
 | created_by | BIGINT | NOT NULL | 创建人 |
@@ -1752,6 +1757,10 @@ tenants ──< users ──< user_roles >── roles ──< role_menus >─�
 | project_id | BIGINT | NOT NULL | 项目ID |
 | sprint_id | BIGINT | NOT NULL | 迭代ID |
 | requirement_id | BIGINT | NOT NULL | 需求ID |
+| added_midway | BOOLEAN | DEFAULT false | 是否迭代中途加入 |
+| sort_order | DOUBLE PRECISION | DEFAULT 65535 | 迭代内排序权重 |
+| added_by | BIGINT | | 添加人 |
+| added_at | TIMESTAMPTZ | DEFAULT now() | 添加时间 |
 | status | entity_status | NOT NULL DEFAULT 'active' | 状态 |
 | deleted | BOOLEAN | DEFAULT false | 软删除 |
 | created_by | BIGINT | NOT NULL | 创建人 |
@@ -1771,6 +1780,10 @@ tenants ──< users ──< user_roles >── roles ──< role_menus >─�
 | project_id | BIGINT | NOT NULL | 项目ID |
 | sprint_id | BIGINT | NOT NULL | 迭代ID |
 | task_id | BIGINT | NOT NULL | 任务ID |
+| added_midway | BOOLEAN | DEFAULT false | 是否迭代中途加入 |
+| sort_order | DOUBLE PRECISION | DEFAULT 65535 | 迭代内排序权重 |
+| added_by | BIGINT | | 添加人 |
+| added_at | TIMESTAMPTZ | DEFAULT now() | 添加时间 |
 | status | entity_status | NOT NULL DEFAULT 'active' | 状态 |
 | deleted | BOOLEAN | DEFAULT false | 软删除 |
 | created_by | BIGINT | NOT NULL | 创建人 |
@@ -1790,6 +1803,10 @@ tenants ──< users ──< user_roles >── roles ──< role_menus >─�
 | project_id | BIGINT | NOT NULL | 项目ID |
 | sprint_id | BIGINT | NOT NULL | 迭代ID |
 | defect_id | BIGINT | NOT NULL | 缺陷ID |
+| added_midway | BOOLEAN | DEFAULT false | 是否迭代中途加入 |
+| sort_order | DOUBLE PRECISION | DEFAULT 65535 | 迭代内排序权重 |
+| added_by | BIGINT | | 添加人 |
+| added_at | TIMESTAMPTZ | DEFAULT now() | 添加时间 |
 | status | entity_status | NOT NULL DEFAULT 'active' | 状态 |
 | deleted | BOOLEAN | DEFAULT false | 软删除 |
 | created_by | BIGINT | NOT NULL | 创建人 |
@@ -1829,6 +1846,8 @@ tenants ──< users ──< user_roles >── roles ──< role_menus >─�
 | project_id | BIGINT | | 项目ID |
 | name | VARCHAR(255) | NOT NULL | 评审名称 |
 | review_type | VARCHAR(50) | NOT NULL | 评审类型 |
+| entity_type | VARCHAR(50) | DEFAULT 'requirement' | 关联实体类型（如 requirement/task） |
+| entity_id | BIGINT | | 关联实体ID |
 | status | entity_status | NOT NULL DEFAULT 'active' | 状态 |
 | description | TEXT | | 描述 |
 | due_date | DATE | | 截止日期 |
@@ -2180,7 +2199,11 @@ tenants ──< users ──< user_roles >── roles ──< role_menus >─�
 | requirement_id | BIGINT | NOT NULL | 需求ID |
 | content_json | JSONB | NOT NULL | 内容 JSON |
 | content_html | TEXT | NOT NULL | 内容 HTML |
+| content_stripped | TEXT | | 去标签后的纯文本内容 |
 | parent_id | BIGINT | | 父评论ID |
+| mentions | JSONB | DEFAULT '[]' | @提及的用户ID列表 |
+| is_edited | BOOLEAN | DEFAULT false | 是否被编辑过 |
+| edited_at | TIMESTAMPTZ | | 最后编辑时间 |
 | status | entity_status | NOT NULL DEFAULT 'active' | 状态 |
 | deleted | BOOLEAN | DEFAULT false | 软删除 |
 | created_by | BIGINT | NOT NULL | 创建人 |
@@ -2378,7 +2401,11 @@ tenants ──< users ──< user_roles >── roles ──< role_menus >─�
 | defect_id | BIGINT | NOT NULL | 缺陷ID |
 | content_json | JSONB | NOT NULL | 内容 JSON |
 | content_html | TEXT | NOT NULL | 内容 HTML |
+| content_stripped | TEXT | | 去标签后的纯文本内容 |
 | parent_id | BIGINT | | 父评论ID |
+| mentions | JSONB | DEFAULT '[]' | @提及的用户ID列表 |
+| is_edited | BOOLEAN | DEFAULT false | 是否被编辑过 |
+| edited_at | TIMESTAMPTZ | | 最后编辑时间 |
 | status | entity_status | NOT NULL DEFAULT 'active' | 状态 |
 | deleted | BOOLEAN | DEFAULT false | 软删除 |
 | created_by | BIGINT | NOT NULL | 创建人 |
@@ -2595,7 +2622,7 @@ tenants ──< users ──< user_roles >── roles ──< role_menus >─�
 |------|------|------|------|
 | version | BIGINT | PK | 版本号 |
 | dirty | BOOLEAN | NOT NULL DEFAULT false | 脏标记 |
-### 112. `defect_extra` — 缺陷扩展信息
+### 111. `defect_extra` — 缺陷扩展信息
 
 | 字段 | 类型 | 约束 | 说明 |
 |------|------|------|------|
@@ -2610,7 +2637,7 @@ tenants ──< users ──< user_roles >── roles ──< role_menus >─�
 | created_at | TIMESTAMPTZ | DEFAULT now() | 创建时间 |
 | updated_at | TIMESTAMPTZ | DEFAULT now() | 更新时间 |
 
-### 113. `document_links` — 文档与业务实体关联
+### 112. `document_links` — 文档与业务实体关联
 
 | 字段 | 类型 | 约束 | 说明 |
 |------|------|------|------|
@@ -2625,7 +2652,7 @@ tenants ──< users ──< user_roles >── roles ──< role_menus >─�
 | created_at | TIMESTAMPTZ | DEFAULT now() | 创建时间 |
 | updated_at | TIMESTAMPTZ | DEFAULT now() | 更新时间 |
 
-### 114. `knowledge_page_relations` — 知识页与需求/任务/缺陷关联
+### 113. `knowledge_page_relations` — 知识页与需求/任务/缺陷关联
 
 | 字段 | 类型 | 约束 | 说明 |
 |------|------|------|------|
@@ -2640,7 +2667,7 @@ tenants ──< users ──< user_roles >── roles ──< role_menus >─�
 | created_at | TIMESTAMPTZ | DEFAULT now() | 创建时间 |
 | updated_at | TIMESTAMPTZ | DEFAULT now() | 更新时间 |
 
-### 115. `knowledge_page_versions` — 知识页版本历史
+### 114. `knowledge_page_versions` — 知识页版本历史
 
 | 字段 | 类型 | 约束 | 说明 |
 |------|------|------|------|
@@ -2658,7 +2685,7 @@ tenants ──< users ──< user_roles >── roles ──< role_menus >─�
 | created_at | TIMESTAMPTZ | DEFAULT now() | 创建时间 |
 | updated_at | TIMESTAMPTZ | DEFAULT now() | 更新时间 |
 
-### 116. `page_shares` — 页面分享链接
+### 115. `page_shares` — 页面分享链接
 
 | 字段 | 类型 | 约束 | 说明 |
 |------|------|------|------|
@@ -2677,7 +2704,7 @@ tenants ──< users ──< user_roles >── roles ──< role_menus >─�
 | created_at | TIMESTAMPTZ | DEFAULT now() | 创建时间 |
 | updated_at | TIMESTAMPTZ | DEFAULT now() | 更新时间 |
 
-### 117. `page_templates` — 页面模板
+### 116. `page_templates` — 页面模板
 
 | 字段 | 类型 | 约束 | 说明 |
 |------|------|------|------|
@@ -2696,7 +2723,7 @@ tenants ──< users ──< user_roles >── roles ──< role_menus >─�
 | updated_by | BIGINT | NOT NULL | 更新人 |
 | updated_at | TIMESTAMPTZ | DEFAULT now() | 更新时间 |
 
-### 118. `role_permissions` — 角色-权限映射
+### 117. `role_permissions` — 角色-权限映射
 
 | 字段 | 类型 | 约束 | 说明 |
 |------|------|------|------|
@@ -2710,7 +2737,7 @@ tenants ──< users ──< user_roles >── roles ──< role_menus >─�
 | created_at | TIMESTAMPTZ | DEFAULT now() | 创建时间 |
 | updated_at | TIMESTAMPTZ | DEFAULT now() | 更新时间 |
 
-### 119. `sso_links` — SSO 用户关联
+### 118. `sso_links` — SSO 用户关联
 
 | 字段 | 类型 | 约束 | 说明 |
 |------|------|------|------|
@@ -2726,7 +2753,7 @@ tenants ──< users ──< user_roles >── roles ──< role_menus >─�
 | created_at | TIMESTAMPTZ | DEFAULT now() | 创建时间 |
 | updated_at | TIMESTAMPTZ | DEFAULT now() | 更新时间 |
 
-### 120. `sso_sessions` — SSO 认证会话
+### 119. `sso_sessions` — SSO 认证会话
 
 | 字段 | 类型 | 约束 | 说明 |
 |------|------|------|------|
@@ -2748,7 +2775,7 @@ tenants ──< users ──< user_roles >── roles ──< role_menus >─�
 | created_at | TIMESTAMPTZ | DEFAULT now() | 创建时间 |
 | updated_at | TIMESTAMPTZ | DEFAULT now() | 更新时间 |
 
-### 121. `workbench_templates` — 工作台模板
+### 120. `workbench_templates` — 工作台模板
 
 | 字段 | 类型 | 约束 | 说明 |
 |------|------|------|------|
@@ -2769,9 +2796,9 @@ tenants ──< users ──< user_roles >── roles ──< role_menus >─�
 | updated_at | TIMESTAMPTZ | DEFAULT now() | 更新时间 |
 
 
-> 建表总数：1-80 编号表 + 81-110 范式展开/系统支撑表 + 112-121 补齐表 = **121 张表**，与 `sql/ydsz-plane-init.sql` 完全一致。
+> 建表总数：1-80 编号表 + 81-110 范式展开/系统支撑表 + 111-121 补齐表 = **121 张表**，与 `sql/ydsz-plane-init.sql` 完全一致。
 
-### 122. `issue_dependencies` — 工作项依赖关系
+### 121. `issue_dependencies` — 工作项依赖关系
 
 | 字段 | 类型 | 约束 | 说明 |
 |------|------|------|------|
