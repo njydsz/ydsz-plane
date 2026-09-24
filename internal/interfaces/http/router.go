@@ -1,4 +1,17 @@
-// Package httpapi 装配 Gin 引擎、中间件链与路由表。
+// Package httpapi 装配 Gin 引擎、中间件链与全部子域路由表。
+//
+// 职责：
+//   - NewEngine 构建带完整中间件链的 HTTP 引擎（SecurityHeaders → RequestID → Recovery → CORS → CSRF → AccessLog → Metrics）
+//   - 集中注册认证、工作空间、项目、Issue、Sprint、Version、Search、Webhook、AI、DLQ 等子域路由
+//   - 是 cmd/api/main.go 引用本工程的唯一 HTTP 入口包；各子域 handler 通过 Register*Routes 函数注册
+//
+// 路由层级：
+//   - /api/v1/auth —— 公开认证端点（登录 / 注册 / 刷新 / 密码重置 / SSO callback）
+//   - /api/v1/me —— 当前用户级操作（个人资料 / 个人 API Token）
+//   - /api/v1/workspaces/:wid —— 空间级资源（成员、邀请、项目、搜索、自动化、Webhook、Intake 等）
+//   - /api/v1/public —— 三层 API 公开端点（Webhook 回调 / 邀请预览 / 文档分享公开页）
+//
+// handler 实现分散在同目录下的 *_handlers.go 与 ../middleware/ 中，本包负责装配与路由编排。
 package httpapi
 
 import (

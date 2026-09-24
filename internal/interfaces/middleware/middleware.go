@@ -1,5 +1,21 @@
-// Package middleware 包含 Gin 中间件链：
-// request_id → recovery → cors → ratelimit → auth → tenant → rbac → audit。
+// Package middleware 提供 Gin 中间件链与可组合的安全/治理组件。
+//
+// 中间件执行顺序（外层 → 内层）：
+//   SecurityHeaders → RequestID → Recovery → CORS → CSRF → AccessLog → RateLimit → RequireAuth → RequirePermissionFromDB
+//
+// 分层鉴权：
+//   - Filter 类（SecurityHeaders / RequestID / Recovery / CORS / AccessLog / Metrics）：每次请求必经
+//   - Auth 类（RequireAuth / SessionAuth / APIKeyAuth / AnonymousSession）：凭证校验与主体注入
+//   - RBAC 类（RequirePermission / RequirePermissionFromDB / RequireWorkspaceParam / RequireProjectParam）：权限校验
+//
+// 错误语义约定：
+//   - 401 未认证（任何凭证无效场景统一返回，防探测）
+//   - 403 禁止（RBAC 不通过 / CSRF 不匹配）
+//   - 422 请求体绑定/校验失败
+//   - 429 限流（附带 Retry-After 头）
+//
+// 所有中间件均为可组合的 gin.HandlerFunc，调用方可按需选择子集装配。
+// CSRF 策略详见 csrf.go；RBAC 策略详见 rbac.go；三层路由鉴权详见同目录 tiered_router.go。
 package middleware
 
 import (
