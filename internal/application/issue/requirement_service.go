@@ -1,4 +1,6 @@
 // Package issue — Requirement 聚合根应用服务（requirement 表独立 CRUD）。
+//
+// 提供需求工作项的独立 CRUD + 状态流转 + 恢复，事务内录制领域事件。
 package issue
 
 import (

@@ -1,4 +1,7 @@
 // Package issue — Issue HTTP handlers（REST API）。
+//
+// 提供工作项域的全部 HTTP 端点：CRUD、状态流转、评论、关联、工时、评审、依赖、模块、标签、模板与导入。
+// 路由通过 RegisterIssueRoutes / RegisterDefectAnalyticsRoutes 注册到 Gin 引擎。
 package issue
 
 import (

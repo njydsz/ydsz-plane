@@ -1,4 +1,6 @@
 // Package issue — Task 聚合根应用服务（task 表独立 CRUD）。
+//
+// 提供任务工作项的独立 CRUD + 状态流转 + 恢复，事务内录制领域事件。
 package issue
 
 import (

@@ -1,4 +1,6 @@
 // Package issue — 状态机服务（状态查询 + 流转校验）。
+//
+// 提供项目维度状态 CRUD、流转规则管理与基于 state_transitions 表的合法性校验。
 package issue
 
 import (

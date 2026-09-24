@@ -1,4 +1,6 @@
 // Package issue — Defect 聚合根应用服务（defect 表独立 CRUD）。
+//
+// 提供缺陷工作项的独立 CRUD + 状态流转（含关闭必填校验）+ 恢复。
 package issue
 
 import (
