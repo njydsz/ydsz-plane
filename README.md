@@ -167,7 +167,7 @@ internal/application/
 └── workspace/     # 工作空间
 ```
 
-前端页面覆盖（Playwright E2E 全流程）：
+前端页面覆盖（核心视图已落地，E2E 用例持续补充）：
 
 ```
 web/src/views/
@@ -196,8 +196,7 @@ ydsz-plane/
 │   ├── notification-service/  # 通知服务独立部署
 │   └── search-service/        # 搜索服务独立部署
 ├── internal/       # 应用核心（Go package 隔离）
-│   ├── application/  # 应用服务层（用例编排）
-│   ├── domain/       # 领域层（实体/值对象/领域事件）
+│   ├── application/  # 应用服务层（用例编排 + 领域模型/聚合根定义）
 │   ├── infrastructure/# 基础设施（PG/Redis/ES/MinIO）
 │   ├── interfaces/   # 接口层（HTTP Handler/Middleware）
 │   ├── rbac/         # RBAC 权限引擎
@@ -240,18 +239,18 @@ ydsz-plane/
 
 ## 测试与质量
 
-遵循 Google《Software Engineering at Google》测试金字塔原则：
+当前测试覆盖情况（2026-09-24 基线，持续改善中）：
 
-| 层级 | 占比 | 工具 | 门禁 |
-|------|------|------|------|
-| 单元测试 | 60% | go test · testify · vitest | `go test -race` |
-| 集成测试 | 30% | testcontainers（PG/Redis） | 验收前必须通过 |
-| E2E 测试 | 10% | Playwright | 冒烟 CI 门控 |
+| 层级 | 当前状态 | 工具 | 门禁 |
+|------|----------|------|------|
+| 单测 | 35 个测试文件，覆盖核心服务与工具函数 | go test · testify | `make test` (race) |
+| 集成测试 | 进行中（testcontainers 逐步引入） | testcontainers | PR 验收 |
+| E2E 测试 | 框架已搭建（Playwright），用例持续补充 | Playwright | 冒烟 CI |
 
-- **CI 流水线**：lint → unit test (race) → build → e2e-smoke → CodeQL 安全扫描
-- **覆盖率**：领域层 ≥ 70%，整体 ≥ 50%（ratchet 只升不降）
-- **安全**：OWASP Top 10 用例覆盖、govulncheck 每夜扫描、CodeQL 安全分析
-- **性能压测**：k6 脚本（读写比 9:1），基线回归 ±20% 门控
+- **CI 流水线**：lint → unit test (race) → build → golangci-lint → govulncheck → CodeQL
+- **覆盖率**：当前整体覆盖率基线已由 `make coverage` 输出，目标随每个里程碑持续提升（数据以 CI 输出为准）
+- **安全**：CodeQL 静态分析（Go + JS/TS）、govulncheck 漏洞扫描已在 CI 启用
+- **性能压测**：k6 脚本就绪，CI 集成中
 
 详见 [14-测试策略与质量保障](./docs/architecture/14-测试策略与质量保障.md)
 
@@ -334,11 +333,11 @@ make openapi
 
 ## 开发规范
 
-- **Go 编码**：遵循 [Uber Go Style Guide](https://github.com/uber-go/guide/blob/master/style.md) + `golangci-lint` 0 error 门禁
-- **前端编码**：ESLint + Prettier + vue-tsc 强类型检查，无 any 逃逸
-- **提交规范**：[Conventional Commits](https://www.conventionalcommits.org/)（CI 用 commitlint 校验）
-- **分支策略**：Trunk-Based Development，PR squash merge，核心域 2 人 Approve
-- **版本管理**：SemVer，CHANGELOG 由 git-cliff 自动生成
+- **Go 编码**：遵循 [Uber Go Style Guide](https://github.com/uber-go/guide/blob/master/style.md) + `golangci-lint` 静态分析
+- **前端编码**：ESLint + Prettier + vue-tsc 强类型检查
+- **提交规范**：建议 [Conventional Commits](https://www.conventionalcommits.org/) 风格，简短说明"做了什么 + 为什么"
+- **分支策略**：GitHub Flow（`main` + 特性分支），PR squash merge
+- **版本管理**：SemVer（[CHANGELOG.md](./CHANGELOG.md)）
 
 ---
 
@@ -393,9 +392,9 @@ make openapi
 2. 提交前运行 `make lint && make test`，确保 CI 绿
 3. 提交信息遵循 Conventional Commits 规范
 4. PR 描述清楚变更动机、影响范围与测试结果
-5. 至少 1 人 Approve（核心域需 2 人）后 squash merge 到 main
+5. 至少 1 人 Review 通过后 squash merge 到 main
 
-详见 [CONTRIBUTING.md](./CONTRIBUTING.md)（即将推出）。
+详见 [CONTRIBUTING.md](./CONTRIBUTING.md)。
 
 ---
 

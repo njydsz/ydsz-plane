@@ -98,10 +98,20 @@ jobs:
             -v ON_ERROR_STOP=1 \
             -f sql/ydsz-plane-init.sql
 
-      - name: go test
+      - name: go test with coverage
         run: |
           PKGS=$(go list ./... | grep -v '/web/node_modules/' | grep -v '/scripts/')
-          go test -race -count=1 -timeout 300s $PKGS
+          go test -race -count=1 -timeout 300s -coverprofile=coverage.out -covermode=atomic $PKGS
+          echo "--- 覆盖率摘要 ---"
+          go tool cover -func=coverage.out | tail -1
+
+      - name: upload coverage artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: go-coverage-${{ github.run_number }}
+          path: coverage.out
+          retention-days: 14
 
   # ------------------------------------------------------------------
   # Job 2b: Go 深度静态分析（golangci-lint）
