@@ -1,0 +1,73 @@
+name: Bug 报告
+description: 报告 Ydsz Plane 的缺陷或异常行为
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢你的反馈！请填写以下信息帮助我们快速定位问题。
+
+  - type: input
+    id: version
+    attributes:
+      label: 版本号
+      description: 你使用的 Ydsz Plane 版本（如 v0.1.0、main 分支 commit hash）
+      placeholder: v0.1.0
+    validations:
+      required: true
+
+  - type: dropdown
+    id: environment
+    attributes:
+      label: 运行环境
+      options:
+        - Docker Compose（本地开发）
+        - Kubernetes / Helm
+        - 自行部署（二进制 + PG + Redis）
+        - 其他（请在下方描述）
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: 发生了什么？
+      description: 清晰描述缺陷现象
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: 复现步骤
+      description: 提供可复现的最小步骤
+      placeholder: |
+        1. 登录后进入项目 X
+        2. 点击 "创建工作项"
+        3. 提交时填写...
+        4. 看到报错：...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期望行为
+      description: 你期望的正确表现是什么？
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: 错误日志 / 截图
+      description: 浏览器控制台、API 响应体、后端日志等
+      render: shell
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: 自查清单
+      options:
+        - label: 已搜索现有 Issue，确认不是重复报告
+          required: true
+        - label: 已使用最新 main 分支或最新 Release 版本复现
+        - label: 已检查 `make migrate` 已执行（DDL 未到位也会导致异常）

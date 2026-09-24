@@ -6,12 +6,20 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/njydsz/ydsz-plane/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/njydsz/ydsz-plane/ci.yml?branch=main&label=CI&style=flat-square&logo=github" alt="CI Status"></a>
+  <a href="https://goreportcard.com/report/github.com/njydsz/ydsz-plane"><img src="https://goreportcard.com/badge/github.com/njydsz/ydsz-plane?style=flat-square" alt="Go Report Card"></a>
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square" alt="License: MIT"></a>
-  <a href="https://go.dev"><img src="https://img.shields.io/badge/Go-1.26-00ADD8?style=flat-square&logo=go&logoColor=white" alt="Go 1.26"></a>
+  <a href="https://go.dev"><img src="https://img.shields.io/github/go-mod/go-version/njydsz/ydsz-plane?style=flat-square&logo=go&logoColor=white" alt="Go Version"></a>
+  <a href="https://github.com/njydsz/ydsz-plane/releases"><img src="https://img.shields.io/github/v/release/njydsz/ydsz-plane?style=flat-square&label=Release" alt="Release"></a>
+</p>
+
+<p align="center">
   <a href="https://vuejs.org"><img src="https://img.shields.io/badge/Vue-3.5-4FC08D?style=flat-square&logo=vue.js&logoColor=white" alt="Vue 3.5"></a>
   <img src="https://img.shields.io/badge/PostgreSQL-18-336791?style=flat-square&logo=postgresql&logoColor=white" alt="PostgreSQL 18">
   <img src="https://img.shields.io/badge/Redis-8-DC382D?style=flat-square&logo=redis&logoColor=white" alt="Redis 8">
   <img src="https://img.shields.io/badge/ES-8.14-005571?style=flat-square&logo=elasticsearch&logoColor=white" alt="Elasticsearch 8">
+  <a href="https://github.com/njydsz/ydsz-plane/actions/workflows/release.yml"><img src="https://img.shields.io/github/actions/workflow/status/njydsz/ydsz-plane/release.yml?label=Docker&style=flat-square&logo=docker" alt="Docker Build"></a>
+  <a href="https://github.com/njydsz/ydsz-plane/blob/main/CHANGELOG.md"><img src="https://img.shields.io/badge/Changelog-keep-a--changelog-ff69b4?style=flat-square" alt="Changelog"></a>
 </p>
 
 <p align="center">

@@ -186,6 +186,105 @@ jobs:
         run: pnpm lint 2>/dev/null || echo "::warning::lint 未配置"
 
   # ------------------------------------------------------------------
+  # Job 4: API 冒烟门禁（启动服务 + 健康检查）
+  # ------------------------------------------------------------------
+  smoke:
+    name: API Smoke (healthz + readyz)
+    runs-on: ubuntu-latest
+    needs: [go-lint-build]  # 编译通过后再冒烟
+
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: ydsz_app
+          POSTGRES_PASSWORD: ydsz_test
+          POSTGRES_DB: ydsz_plane_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:8-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      YDSZ_DATABASE_URL: "postgres://ydsz_app:ydsz_test@localhost:5432/ydsz_plane_test?sslmode=disable"
+      YDSZ_REDIS_ADDR: "localhost:6379"
+      YDSZ_REDIS_PASSWORD: ""
+      YDSZ_SERVER_ENV: "development"
+      YDSZ_AUTH_JWT_SECRET: "ci-test-secret-key-at-least-32-bytes-long!!"
+      YDSZ_STORAGE_SECRET_KEY: "ci-test-storage-secret-key-at-least-32-bytes!"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: init database schema
+        run: |
+          PGPASSWORD=ydsz_test psql -h localhost -U ydsz_app -d ydsz_plane_test \
+            -v ON_ERROR_STOP=1 \
+            -f sql/ydsz-plane-init.sql
+
+      - name: build API binary
+        run: go build -o /tmp/ydsz-api ./cmd/api
+
+      - name: start API server (background)
+        run: |
+          /tmp/ydsz-api > /tmp/api.log 2>&1 &
+          echo "API_PID=$!" >> $GITHUB_ENV
+          # 等待服务就绪（最长 30 秒）
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8080/healthz > /dev/null 2>&1; then
+              echo "API started after ${i}s"
+              break
+            fi
+            sleep 1
+          done
+
+      - name: smoke — /healthz returns 200
+        run: |
+          RESP=$(curl -sf -w "\n%{http_code}" http://localhost:8080/healthz)
+          CODE=$(echo "$RESP" | tail -1)
+          if [ "$CODE" != "200" ]; then
+            echo "::error::healthz returned HTTP $CODE, expected 200"
+            cat /tmp/api.log
+            exit 1
+          fi
+          echo "✅ /healthz → 200 OK"
+
+      - name: smoke — /readyz returns 200 with DB+Redis up
+        run: |
+          RESP=$(curl -sf -w "\n%{http_code}" http://localhost:8080/readyz)
+          CODE=$(echo "$RESP" | tail -1)
+          BODY=$(echo "$RESP" | head -1)
+          if [ "$CODE" != "200" ]; then
+            echo "::error::readyz returned HTTP $CODE (expected 200), body: $BODY"
+            cat /tmp/api.log
+            exit 1
+          fi
+          echo "✅ /readyz → 200 OK, body: $BODY"
+
+      - name: stop API server
+        if: always()
+        run: |
+          if [ -n "$API_PID" ]; then kill $API_PID 2>/dev/null || true; fi
+
+  # ------------------------------------------------------------------
   # Job 5: CodeQL 安全分析
   # ------------------------------------------------------------------
   codeql:

@@ -40,6 +40,22 @@ dev-worker:
 dev-web:
 	cd web && pnpm dev
 
+# 本地冒烟：启动二进制并校验健康端点；依赖服务由用户自行通过 make up 启动。
+smoke:
+	@echo "→ build + smoke: 启动 API 并校验 /healthz 与 /readyz"
+	go build -o /tmp/ydsz-api ./cmd/api
+	/tmp/ydsz-api > /tmp/ydsz-api.log 2>&1 & echo $$! > /tmp/ydsz-api.pid
+	@for i in $$(seq 1 30); do \
+		if curl -sf http://localhost:8080/healthz > /dev/null 2>&1; then \
+			echo "  ✅ API started after $${i}s"; break; \
+		fi; sleep 1; \
+	done
+	@echo "→ /healthz:" && curl -s http://localhost:8080/healthz
+	@echo ""
+	@echo "→ /readyz:"  && curl -s http://localhost:8080/readyz
+	@echo ""
+	@if [ -f /tmp/ydsz-api.pid ]; then kill $$(cat /tmp/ydsz-api.pid) 2>/dev/null || true; fi
+
 GOPKGS := $(shell go list ./... | grep -v '/web/node_modules/')
 
 lint:

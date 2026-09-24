@@ -1,0 +1,99 @@
+# ============================================================================
+# Ydsz Plane — Release 自动发布流水线
+# 触发: 推送 v*.*.* tag（如 v0.1.0、v1.2.3）
+# 产出:
+#   1. GitHub Release（含 CHANGELOG 自动生成的说明）
+#   2. Docker 镜像推送到 GHCR（ghcr.io/njydsz/ydsz-plane:<tag>）
+# ============================================================================
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write          # 创建 Release
+  packages: write          # 推送 GHCR Docker 镜像
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # ------------------------------------------------------------------
+  # Job 1: 创建 GitHub Release
+  # ------------------------------------------------------------------
+  github-release:
+    name: GitHub Release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 提取当前版本的 CHANGELOG 段落
+        id: changelog
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          # 读取从 ## [TAG] 到下一个 ## 之间的内容
+          NOTES=$(awk "/^## \\[${TAG}\\]/{flag=1;next} /^## /{flag=0} flag" CHANGELOG.md)
+          if [ -z "$NOTES" ]; then
+            NOTES="详见 CHANGELOG.md 与提交历史。"
+          fi
+          echo "NOTES<<EOF" >> $GITHUB_OUTPUT
+          echo "$NOTES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: 创建 GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          body: ${{ steps.changelog.outputs.NOTES }}
+          prerelease: ${{ contains(github.ref, 'alpha') || contains(github.ref, 'beta') || contains(github.ref, 'rc') }}
+
+  # ------------------------------------------------------------------
+  # Job 2: 构建并推送 Docker 镜像到 GHCR
+  # ------------------------------------------------------------------
+  docker:
+    name: Build & Push Docker Image
+    runs-on: ubuntu-latest
+    needs: github-release
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 设置 QEMU（多架构构建）
+        uses: docker/setup-qemu-action@v3
+
+      - name: 设置 Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: 登录 GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 提取镜像标签
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            # 0.1.0
+            type=semver,pattern={{version}}
+            # 0.1
+            type=semver,pattern={{major}}.{{minor}}
+            # latest（仅正式 release）
+            type=raw,value=latest,enable=${{ !contains(github.ref, 'alpha') && !contains(github.ref, 'beta') && !contains(github.ref, 'rc') }}
+
+      - name: Build and Push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docs/deployments/Dockerfile.api
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
