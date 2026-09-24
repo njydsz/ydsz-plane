@@ -1,13 +1,13 @@
 // Package issue — 领域模型单元测试。
 //
 // 覆盖范围：
-//   1. 优先级权重排序
-//   2. 工作项类型枚举
-//   3. 状态分组枚举
-//   4. Requirement / Task / Defect 模型 JSON 序列化
-//   5. 状态模型 JSON 序列化
-//   6. 输入校验
-//   7. 状态模板合法性
+//  1. 优先级权重排序
+//  2. 工作项类型枚举
+//  3. 状态分组枚举
+//  4. Requirement / Task / Defect 模型 JSON 序列化
+//  5. 状态模型 JSON 序列化
+//  6. 输入校验
+//  7. 状态模板合法性
 //
 // 互联网大厂标准：
 //   - 表驱动测试 (table-driven tests)
@@ -200,12 +200,12 @@ func TestDefect_JSONRoundTrip(t *testing.T) {
 // ==========================================================================
 
 func TestAggregates_NoSharedBase(t *testing.T) {
-  // 验证 Requirement / Task / Defect 是独立的 struct（无公共基类）
-  r := Requirement{ID: 1}
-  d := Defect{ID: 2}
-  _ = r
-  _ = d
-  // 只要编译通过即代表无 BaseWorkitem 耦合
+	// 验证 Requirement / Task / Defect 是独立的 struct（无公共基类）
+	r := Requirement{ID: 1}
+	d := Defect{ID: 2}
+	_ = r
+	_ = d
+	// 只要编译通过即代表无 BaseWorkitem 耦合
 }
 
 // ==========================================================================
@@ -334,8 +334,8 @@ func TestValidateTypeCode(t *testing.T) {
 // helpers
 // ==========================================================================
 
-func intPtr(v int) *int             { return &v }
-func int64Ptr(v int64) *int64       { return &v }
-func strPtr(v string) *string       { return &v }
+func intPtr(v int) *int                          { return &v }
+func int64Ptr(v int64) *int64                    { return &v }
+func strPtr(v string) *string                    { return &v }
 func ptrPriority(p IssuePriority) *IssuePriority { return &p }
-func float64Ptr(v float64) *float64 { return &v }
+func float64Ptr(v float64) *float64              { return &v }

@@ -36,13 +36,13 @@ import (
 // 所有字段均为值类型（非指针），保证零值 Config 始终可反序列化；
 // 具体行为由各 key 是否存在决定。
 type Config struct {
-	Server   ServerConfig   // HTTP 服务绑定与运行环境。
-	Database DatabaseConfig // PostgreSQL 连接池设置。
-	Redis    RedisConfig    // Redis 客户端连接参数。
-	RabbitMQ RabbitMQConfig // 事件总线的 RabbitMQ 连接参数。
-	Auth     AuthConfig     // JWT、bcrypt 与登录限流设置。
-	Log      LogConfig      // 日志级别与编码格式。
-	Features FeatureFlags   // 功能开关；每项开关一个子系统。
+	Server     ServerConfig     // HTTP 服务绑定与运行环境。
+	Database   DatabaseConfig   // PostgreSQL 连接池设置。
+	Redis      RedisConfig      // Redis 客户端连接参数。
+	RabbitMQ   RabbitMQConfig   // 事件总线的 RabbitMQ 连接参数。
+	Auth       AuthConfig       // JWT、bcrypt 与登录限流设置。
+	Log        LogConfig        // 日志级别与编码格式。
+	Features   FeatureFlags     // 功能开关；每项开关一个子系统。
 	Email      EmailConfig      // 事务邮件的外发 SMTP 配置。
 	Storage    StorageConfig    // 对象存储 (MinIO/S3) 配置。
 	Attachment AttachmentConfig // 附件上传限制（大小 / MIME 白名单）。
@@ -242,7 +242,9 @@ func Load() (*Config, error) {
 	// 这些值假设标准 Docker Compose 本地环境。
 	v.SetDefault("server.env", "development")
 	v.SetDefault("server.port", 8080)
-	v.SetDefault("database.url", "postgres://postgres:Limw1020@127.0.0.1:5432/ydsz-plane?sslmode=disable")
+	// 注意：数据库连接串默认值为空。本地开发请通过 .env 文件设置 YDSZ_DATABASE_URL
+	// （参见 .env示例），禁止在源码中硬编码真实密码。生产环境必须显式配置。
+	v.SetDefault("database.url", "")
 	v.SetDefault("database.max_conns", 20)
 	v.SetDefault("database.conn_max_lifetime", "30m")
 	v.SetDefault("redis.addr", "127.0.0.1:6379")
@@ -276,7 +278,7 @@ func Load() (*Config, error) {
 	v.SetDefault("email.app_base_url", "http://127.0.0.1:5173")
 
 	// Attachment 默认值：20 MB 上限 + Office/图片/MIME 白名单
-	v.SetDefault("attachment.max_file_size", 20*1024*1024) // 20 MB
+	v.SetDefault("attachment.max_file_size", 20*1024*1024)             // 20 MB
 	v.SetDefault("attachment.max_total_size_per_issue", 100*1024*1024) // 100 MB
 	v.SetDefault("attachment.allowed_content_types", []string{
 		"image/jpeg", "image/png", "image/gif", "image/webp", "image/svg+xml",
@@ -300,7 +302,8 @@ func Load() (*Config, error) {
 	// Storage 默认值
 	v.SetDefault("storage.endpoint", "127.0.0.1:9000")
 	v.SetDefault("storage.access_key", "admin")
-	v.SetDefault("storage.secret_key", "Limw1020")
+	// 与 database.url 一致，禁止源码硬编码真实密钥；本地开发请在 .env 设置 YDSZ_STORAGE_SECRET_KEY。
+	v.SetDefault("storage.secret_key", "")
 	v.SetDefault("storage.bucket", "ydsz-plane")
 	v.SetDefault("storage.use_ssl", false)
 	v.SetDefault("storage.region", "us-east-1")
@@ -397,14 +400,20 @@ func loadDotEnv() error {
 // 随着配置面增长，可在此继续增加检查（如 BcryptCost 范围、env 值白名单）。
 func (c *Config) validate() error {
 	// --- 生产环境加固：要求显式密钥 ---
+	// --- 数据库与存储密钥：所有环境必须显式配置 ---
+	// 源码中不再硬编码任何密码/密钥（参见 git 历史清理说明）。
+	// 本地开发请复制 .env示例 为 .env 并填入实际值。
+	if c.Database.URL == "" {
+		return fmt.Errorf("config: YDSZ_DATABASE_URL is required (copy .env示例 to .env for local development)")
+	}
+	if c.Storage.SecretKey == "" {
+		return fmt.Errorf("config: YDSZ_STORAGE_SECRET_KEY is required (copy .env示例 to .env for local development)")
+	}
+
 	if c.Server.Env == "production" {
 		// JWTSecret 必须存在且不能是临时的开发值。
 		if c.Auth.JWTSecret == "" || strings.HasPrefix(c.Auth.JWTSecret, "dev-") {
 			return fmt.Errorf("config: YDSZ_AUTH_JWT_SECRET must be set to a strong value in production")
-		}
-		// 生产环境始终需要 Database URL（没有合理的默认值）。
-		if c.Database.URL == "" {
-			return fmt.Errorf("config: YDSZ_DATABASE_URL is required")
 		}
 	}
 
@@ -507,8 +516,8 @@ type AttachmentConfig struct {
 	// 客户端也应在上传前校验，服务端再次校验是最后防线。
 	MaxFileSize int64 `mapstructure:"max_file_size"`
 
-// MaxTotalSizePerIssue 单个需求/任务/缺陷附件总容量限制（0=无限制）。
-// 防止需求/任务/缺陷附件无限膨胀影响查询性能。
+	// MaxTotalSizePerIssue 单个需求/任务/缺陷附件总容量限制（0=无限制）。
+	// 防止需求/任务/缺陷附件无限膨胀影响查询性能。
 	MaxTotalSizePerIssue int64 `mapstructure:"max_total_size_per_issue"`
 
 	// AllowedContentTypes MIME 类型白名单。空表示允许所有。
@@ -530,7 +539,7 @@ type StorageConfig struct {
 	AccessKey string `mapstructure:"access_key"`
 
 	// SecretKey 对象存储访问密钥 Secret。
-	// 默认："Limw1020"。
+	// 默认值已在 New() 置空，必须通过 YDSZ_STORAGE_SECRET_KEY 显式提供。
 	SecretKey string `mapstructure:"secret_key"`
 
 	// Bucket 默认存储桶名称。

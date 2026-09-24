@@ -34,14 +34,14 @@ func TestNormalizeIdentifier(t *testing.T) {
 	}{
 		// s 非空：直接 ToUpper，截断 6 字符（含空格等原样保留）
 		{"web", "x", "WEB"},
-		{"my project", "x", "MY PRO"},      // 不拆词，直接截 6 字符
+		{"my project", "x", "MY PRO"},        // 不拆词，直接截 6 字符
 		{"toolongidentifier", "x", "TOOLON"}, // 截断 6
-		{"a b c d e f g", "x", "A B C "},    // 截 6 字符含空格
+		{"a b c d e f g", "x", "A B C "},     // 截 6 字符含空格
 
 		// s 为空：从 fallback 拆词
-		{"", "core-platform", "CP"},   // 多词取首字母
-		{"", "singleword", "SINGLE"},  // 单词取全称截 6
-		{"", "一长串中文默认名", "一长"}, // 中文按字节截断（UTF-8 3字节/字 → 前 2 字）
+		{"", "core-platform", "CP"},  // 多词取首字母
+		{"", "singleword", "SINGLE"}, // 单词取全称截 6
+		{"", "一长串中文默认名", "一长"},       // 中文按字节截断（UTF-8 3字节/字 → 前 2 字）
 	}
 	for _, tc := range tests {
 		if got := normalizeIdentifier(tc.in, tc.fallback); got != tc.want {

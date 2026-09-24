@@ -9,70 +9,70 @@ import (
 // TestParseBasic 验证基本解析场景。
 func TestParseBasic(t *testing.T) {
 	tests := []struct {
-		name      string
-		input     string
-		wantText  string
-		wantClauses int
+		name         string
+		input        string
+		wantText     string
+		wantClauses  int
 		wantDegraded bool
 	}{
 		{
-			name:    "纯文本搜索",
-			input:   "登录页 闪退",
-			wantText: "登录页 闪退",
+			name:        "纯文本搜索",
+			input:       "登录页 闪退",
+			wantText:    "登录页 闪退",
 			wantClauses: 0,
 		},
 		{
-			name:    "空输入",
-			input:   "",
-			wantText: "",
+			name:        "空输入",
+			input:       "",
+			wantText:    "",
 			wantClauses: 0,
 		},
 		{
-			name:      "单字段过滤",
-			input:     "project:YD",
-			wantText:  "",
+			name:        "单字段过滤",
+			input:       "project:YD",
+			wantText:    "",
 			wantClauses: 1,
 		},
 		{
-			name:      "字段+文本混合",
-			input:     "登录页 project:YD type:defect",
-			wantText:  "登录页",
+			name:        "字段+文本混合",
+			input:       "登录页 project:YD type:defect",
+			wantText:    "登录页",
 			wantClauses: 2,
 		},
 		{
-			name:      "引号短语",
-			input:     `"支付回调" AND module:支付`,
-			wantText:  `"支付回调"`,
+			name:        "引号短语",
+			input:       `"支付回调" AND module:支付`,
+			wantText:    `"支付回调"`,
 			wantClauses: 1,
 		},
 		{
-			name:      "me()函数",
-			input:     "assignee:me()",
-			wantText:  "",
+			name:        "me()函数",
+			input:       "assignee:me()",
+			wantText:    "",
 			wantClauses: 1,
 		},
 		{
-			name:      "now()函数",
-			input:     "created>now(-7d)",
-			wantText:  "",
+			name:        "now()函数",
+			input:       "created>now(-7d)",
+			wantText:    "",
 			wantClauses: 1,
 		},
 		{
-			name:      "比较运算符",
-			input:     "severity>=3 priority!=low",
-			wantText:  "",
+			name:        "比较运算符",
+			input:       "severity>=3 priority!=low",
+			wantText:    "",
 			wantClauses: 2,
 		},
 		{
-			name:      "in列表",
-			input:     "status in (todo, doing, review)",
-			wantText:  "",
+			name:        "in列表",
+			input:       "status in (todo, doing, review)",
+			wantText:    "",
 			wantClauses: 1,
 		},
 		{
-			name:      "括号分组",
-			input:     "(project:YD OR project:TG) status:todo",
-			wantText:  "",
+			name:        "括号分组",
+			input:       "(project:YD OR project:TG) status:todo",
+			wantText:    "",
 			wantClauses: 3,
 		},
 	}
@@ -103,36 +103,36 @@ func TestParseClauseValues(t *testing.T) {
 		wantVal   any
 	}{
 		{
-			name:    "冒号操作符",
-			input:   "project:YD",
+			name:      "冒号操作符",
+			input:     "project:YD",
 			wantField: "project",
 			wantOp:    ":",
 			wantVal:   "YD",
 		},
 		{
-			name:    "等于操作符",
-			input:   "type=defect",
+			name:      "等于操作符",
+			input:     "type=defect",
 			wantField: "type",
 			wantOp:    "=",
 			wantVal:   "defect",
 		},
 		{
-			name:    "不等于操作符",
-			input:   "priority!=low",
+			name:      "不等于操作符",
+			input:     "priority!=low",
 			wantField: "priority",
 			wantOp:    "!=",
 			wantVal:   "low",
 		},
 		{
-			name:    "me()值",
-			input:   "assignee:me()",
+			name:      "me()值",
+			input:     "assignee:me()",
 			wantField: "assignee",
 			wantOp:    ":",
 			wantVal:   "__CURRENT_USER__",
 		},
 		{
-			name:    "currentUser()值",
-			input:   "assignee:currentUser()",
+			name:      "currentUser()值",
+			input:     "assignee:currentUser()",
 			wantField: "assignee",
 			wantOp:    ":",
 			wantVal:   "__CURRENT_USER__",
@@ -166,7 +166,7 @@ func TestParseNowOffset(t *testing.T) {
 		offset   string
 		wantDiff time.Duration // 期望与 now 的差值
 	}{
-		{"", 0},              // now() → 截断到当天 00:00
+		{"", 0}, // now() → 截断到当天 00:00
 		{"-7d", -7 * 24 * time.Hour},
 		{"+1w", 7 * 24 * time.Hour},
 		{"-3h", -3 * time.Hour},
@@ -220,23 +220,23 @@ func TestKnownFields(t *testing.T) {
 // TestParseEdgeCases 边界情况测试。
 func TestParseEdgeCases(t *testing.T) {
 	tests := []struct {
-		name      string
-		input     string
+		name         string
+		input        string
 		wantDegraded bool
 	}{
 		{
-			name:    "只有空白",
-			input:   "   \t  \n ",
+			name:         "只有空白",
+			input:        "   \t  \n ",
 			wantDegraded: false,
 		},
 		{
-			name:    "特殊字符",
-			input:   "测试@#$%^&*",
+			name:         "特殊字符",
+			input:        "测试@#$%^&*",
 			wantDegraded: false,
 		},
 		{
-			name:    "超长输入",
-			input:   "这是一个非常长的搜索查询字符串用来测试解析器在大输入下的性能和正确性" +
+			name: "超长输入",
+			input: "这是一个非常长的搜索查询字符串用来测试解析器在大输入下的性能和正确性" +
 				"它包含了很多中文字符以及一些英文单词mixed together来模拟真实的搜索场景" +
 				"project:YD type:task priority:high assignee:me()",
 			wantDegraded: false,

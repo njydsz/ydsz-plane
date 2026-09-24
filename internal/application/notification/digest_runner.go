@@ -22,9 +22,9 @@ import (
 
 // 常量
 const (
-	digestTick      = 1 * time.Minute  // 每分钟检查一次
-	digestBatchSize = 50               // 单次最多处理的待摘要数
-	baseURLEnv      = "YDSZ_BASE_URL"  // 前端基础 URL 环境变量
+	digestTick      = 1 * time.Minute // 每分钟检查一次
+	digestBatchSize = 50              // 单次最多处理的待摘要数
+	baseURLEnv      = "YDSZ_BASE_URL" // 前端基础 URL 环境变量
 )
 
 // DigestDeps 摘要 Worker 依赖。

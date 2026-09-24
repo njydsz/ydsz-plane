@@ -1,13 +1,15 @@
-/** 应用根组件：挂载路由视图，并全局注入命令面板与消息提示。 */
+/** 应用根组件：挂载路由视图，并全局注入命令面板、快捷键帮助面板与消息提示。 */
 <script setup lang="ts">
 import { onMounted, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 
 import CommandPalette from "@/components/CommandPalette.vue";
+import KeyboardHelpPanel from "@/components/KeyboardHelpPanel.vue";
 import AppToast from "@/components/AppToast.vue";
 import OnboardingTour from "@/components/OnboardingTour.vue";
 import { useWorkspaceStore } from "@/stores/workspace";
 import { applyBrandColor, clearBrandColor } from "@/composables/useBrandColor";
+import { useKeyboardShortcuts } from "@/composables/useKeyboardShortcuts";
 
 const route = useRoute();
 const wsStore = useWorkspaceStore();
@@ -72,6 +74,9 @@ watch(() => route.params.workspaceId, () => {
   checkOnboarding();
 }, { immediate: true });
 
+// 全局快捷键 + 帮助面板（"?" 打开 / 关闭，Esc 关闭）。
+const { helpOpen, shortcuts: kbList } = useKeyboardShortcuts();
+
 // 全局挂载：供 WorkspaceListView 跨路由也能触发
 onMounted(() => {
   checkOnboarding();
@@ -89,4 +94,5 @@ onMounted(() => {
     @close="closeOnboarding"
     @create-project="onOnboardingCreateProject"
   />
+  <KeyboardHelpPanel v-if="helpOpen" :shortcuts="kbList" @close="helpOpen = false" />
 </template>

@@ -6,9 +6,10 @@
 //   - sourceTable / sourceColumnsFor：源表 → search_documents 的投影 SQL 片段
 //
 // 背景（P0 缺陷修复回归）：
-//   0008 迁移仅为 issues 建立索引触发器，sprints/versions 从不被索引。
-//   indexer.go 的三类对象同步（SyncIssue/SyncSprint/SyncVersion）依赖
-//   sourceColumnsFor 正确投影各源表字段，此处必须锁定。
+//
+//	0008 迁移仅为 issues 建立索引触发器，sprints/versions 从不被索引。
+//	indexer.go 的三类对象同步（SyncIssue/SyncSprint/SyncVersion）依赖
+//	sourceColumnsFor 正确投影各源表字段，此处必须锁定。
 package search
 
 import (

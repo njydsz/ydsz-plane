@@ -10,8 +10,8 @@ import (
 	"errors"
 	"time"
 
-	amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/jackc/pgx/v5/pgxpool"
+	amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 

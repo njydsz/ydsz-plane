@@ -66,8 +66,8 @@ type ListModulesFilter struct {
 
 // AssignIssuesInput 分配工作项到模块。
 type AssignIssuesInput struct {
-	ModuleID int64
-	IssueIDs []int64
+	ModuleID  int64
+	IssueIDs  []int64
 	CreatedBy int64
 }
 

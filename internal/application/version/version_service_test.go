@@ -1,15 +1,15 @@
 // Package version — 版本应用服务单元测试。
 //
 // 覆盖范围：
-//   1. SemVer 2.0 解析与校验
-//   2. 状态机流转规则 (canTransition)
-//   3. 检查清单校验 (checklistAllRequiredChecked)
-//   4. 清单规范化 (normalizeChecklist)
-//   5. 模型 JSON 序列化/反序列化
-//   6. 进度聚合边界条件
-//   7. 质量指标计算逻辑
-//   8. Release Notes 数据模型
-//   9. 输入校验 (validateCreateInput)
+//  1. SemVer 2.0 解析与校验
+//  2. 状态机流转规则 (canTransition)
+//  3. 检查清单校验 (checklistAllRequiredChecked)
+//  4. 清单规范化 (normalizeChecklist)
+//  5. 模型 JSON 序列化/反序列化
+//  6. 进度聚合边界条件
+//  7. 质量指标计算逻辑
+//  8. Release Notes 数据模型
+//  9. 输入校验 (validateCreateInput)
 //  10. 版本状态枚举合法性
 //
 // 互联网大厂标准：
@@ -34,13 +34,13 @@ import (
 
 func TestParseSemVer_Valid(t *testing.T) {
 	cases := []struct {
-		name   string
-		raw    string
-		major  int
-		minor  int
-		patch  int
-		pre    string
-		build  string
+		name  string
+		raw   string
+		major int
+		minor int
+		patch int
+		pre   string
+		build string
 	}{
 		{"纯版本号", "1.2.3", 1, 2, 3, "", ""},
 		{"大版本号", "999.888.777", 999, 888, 777, "", ""},
@@ -259,9 +259,9 @@ func TestChecklistAllRequiredChecked(t *testing.T) {
 
 func TestNormalizeChecklist(t *testing.T) {
 	cases := []struct {
-		name     string
-		in       []ChecklistItem
-		wantLen  int
+		name        string
+		in          []ChecklistItem
+		wantLen     int
 		wantFirstID string
 	}{
 		{"nil → 空切片", nil, 0, ""},
@@ -345,7 +345,7 @@ func TestVersion_JSONRoundTrip(t *testing.T) {
 			TotalIssues:    20,
 			DoneIssues:     18,
 			CompletionRate: 0.8,
-			SprintCount:     2,
+			SprintCount:    2,
 		},
 	}
 
@@ -551,9 +551,9 @@ func TestSprintRef_JSONRoundTrip(t *testing.T) {
 	ed := "2025-06-14"
 
 	s := SprintRef{
-		SprintID: 1,
-		Name:     "Sprint 5",
-		Status:   "active",
+		SprintID:  1,
+		Name:      "Sprint 5",
+		Status:    "active",
 		StartDate: &sd,
 		EndDate:   &ed,
 		Progress: &SprintProgressRef{

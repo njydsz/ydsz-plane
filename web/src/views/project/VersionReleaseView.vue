@@ -53,15 +53,6 @@ const qualityPassed = computed(() => {
   return (version.value?.quality?.critical_bugs ?? 0) === 0;
 });
 
-const qualityFailReason = computed(() => {
-  if (qualityPassed.value) return '';
-  const q = version.value?.quality;
-  if (!q) return '质量数据未加载';
-  if (q.critical_bugs > 0) return `存在 ${q.critical_bugs} 个致命/严重未关闭缺陷`;
-  if (q.open_bugs > 0) return `存在 ${q.open_bugs} 个未关闭缺陷`;
-  return '未通过质量门控';
-});
-
 const canProceedFromChecklist = computed(() => {
   return checklistAllDone.value || forceChecklist.value;
 });

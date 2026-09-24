@@ -21,8 +21,8 @@ import (
 	"github.com/njydsz/ydsz-plane/internal/application/automation"
 	"github.com/njydsz/ydsz-plane/internal/application/dashboard"
 	"github.com/njydsz/ydsz-plane/internal/application/dlq"
-	"github.com/njydsz/ydsz-plane/internal/application/issue"
 	"github.com/njydsz/ydsz-plane/internal/application/intake"
+	"github.com/njydsz/ydsz-plane/internal/application/issue"
 	"github.com/njydsz/ydsz-plane/internal/application/knowledge"
 	"github.com/njydsz/ydsz-plane/internal/application/metrics"
 	notif "github.com/njydsz/ydsz-plane/internal/application/notification"
@@ -212,8 +212,10 @@ func run() error {
 
 	// ---------- Search domain ----------
 	searchSvc := search.NewService(pool.Pool)
+	searchIndexer := search.NewIndexer(pool.Pool)
 	searchHandler := search.NewSearchHandler(&search.HandlerDeps{
 		SearchSvc:      searchSvc,
+		Indexer:        searchIndexer,
 		WorkspaceStore: wsStore,
 	})
 
@@ -412,10 +414,10 @@ func run() error {
 
 	// 注册知识库路由（工作空间级，可选项目级过滤）
 	httpapi.RegisterKnowledgeRoutes(engine, &httpapi.Deps{
-		Auth:            authSvc,
-		PrincipalParser: parsePrincipal,
-		WorkspaceStore:  wsStore,
-		RBACStore:       rbacStore,
+		Auth:             authSvc,
+		PrincipalParser:  parsePrincipal,
+		WorkspaceStore:   wsStore,
+		RBACStore:        rbacStore,
 		KnowledgeHandler: knowledgeHandler,
 	})
 

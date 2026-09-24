@@ -13,7 +13,7 @@ import {
 } from "@/api/services/workspace";
 import { AppErrorState, AppSkeleton } from "@/components";
 import { toast } from "@/lib/toast";
-import { useBrandColor, BRAND_COLOR_PRESETS } from "@/composables/useBrandColor";
+import { useBrandColor } from "@/composables/useBrandColor";
 
 const route = useRoute();
 const workspaceId = computed(() => Number(route.params.workspaceId ?? 0));

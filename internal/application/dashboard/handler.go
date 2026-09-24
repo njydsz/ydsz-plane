@@ -114,11 +114,11 @@ func (h *DashboardHandler) UpdateWidget(c *gin.Context) {
 	widgetID := int64Param(c, "widget_id")
 
 	var req struct {
-		GridX *int            `json:"grid_x"`
-		GridY *int            `json:"grid_y"`
-		GridW *int            `json:"grid_w"`
-		GridH *int            `json:"grid_h"`
-		Title *string         `json:"title"`
+		GridX  *int           `json:"grid_x"`
+		GridY  *int           `json:"grid_y"`
+		GridW  *int           `json:"grid_w"`
+		GridH  *int           `json:"grid_h"`
+		Title  *string        `json:"title"`
 		Config map[string]any `json:"config"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {

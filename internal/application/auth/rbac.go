@@ -30,18 +30,18 @@ import (
 
 const (
 	// ===== 系统级（仅 admin 持有，owner 不可见）=====
-	PermSystemConfig        = "system:config"         // 系统通用配置：SMTP / SSO / 注册开关 / 安全策略 / 许可证
-	PermSystemUserRead      = "system:user:read"      // 查看平台所有用户
-	PermSystemUserManage    = "system:user:manage"    // 创建 / 禁用 / 重置密码任意平台用户
-	PermSystemWorkspaceList = "system:workspace:list" // 列出所有工作空间
+	PermSystemConfig        = "system:config"           // 系统通用配置：SMTP / SSO / 注册开关 / 安全策略 / 许可证
+	PermSystemUserRead      = "system:user:read"        // 查看平台所有用户
+	PermSystemUserManage    = "system:user:manage"      // 创建 / 禁用 / 重置密码任意平台用户
+	PermSystemWorkspaceList = "system:workspace:list"   // 列出所有工作空间
 	PermSystemWorkspaceMgmt = "system:workspace:manage" // 归档 / 删除 / 转移工作空间所有权
-	PermSystemAuditRead     = "system:audit:read"     // 全平台审计日志
+	PermSystemAuditRead     = "system:audit:read"       // 全平台审计日志
 
 	// ===== 工作空间级 =====
-	PermWorkspaceRead      = "workspace:read"
-	PermWorkspaceUpdate    = "workspace:update"
-	PermWorkspaceDelete    = "workspace:delete"
-	PermWorkspaceTransfer  = "workspace:transfer"   // 转移工作空间所有权
+	PermWorkspaceRead     = "workspace:read"
+	PermWorkspaceUpdate   = "workspace:update"
+	PermWorkspaceDelete   = "workspace:delete"
+	PermWorkspaceTransfer = "workspace:transfer" // 转移工作空间所有权
 
 	// 项目
 	PermProjectRead   = "project:read"

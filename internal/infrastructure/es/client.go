@@ -368,13 +368,13 @@ type BulkDoc struct {
 
 // SearchRequest ES 搜索请求体。
 type SearchRequest struct {
-	Query     any    `json:"query"`
-	From      int    `json:"from,omitempty"`
-	Size      int    `json:"size,omitempty"`
-	Sort      []any  `json:"sort,omitempty"`
-	Highlight any    `json:"highlight,omitempty"`
-	Aggs      any    `json:"aggs,omitempty"`
-	Source    any    `json:"_source,omitempty"`
+	Query     any   `json:"query"`
+	From      int   `json:"from,omitempty"`
+	Size      int   `json:"size,omitempty"`
+	Sort      []any `json:"sort,omitempty"`
+	Highlight any   `json:"highlight,omitempty"`
+	Aggs      any   `json:"aggs,omitempty"`
+	Source    any   `json:"_source,omitempty"`
 }
 
 // SearchResponse ES 搜索响应。
@@ -388,9 +388,9 @@ type SearchResponse struct {
 		} `json:"total"`
 		MaxScore float64 `json:"max_score"`
 		Hits     []struct {
-			ID     string         `json:"_id"`
-			Score  float64        `json:"_score"`
-			Source map[string]any `json:"_source"`
+			ID        string              `json:"_id"`
+			Score     float64             `json:"_score"`
+			Source    map[string]any      `json:"_source"`
 			Highlight map[string][]string `json:"highlight,omitempty"`
 		} `json:"hits"`
 	} `json:"hits"`
@@ -614,18 +614,18 @@ func IssueMapping() map[string]any {
 		},
 		"mappings": map[string]any{
 			"properties": map[string]any{
-				"workspace_id":    map[string]any{"type": "long"},
-				"project_id":      map[string]any{"type": "long"},
-				"doc_type":        map[string]any{"type": "keyword"},
-				"doc_id":          map[string]any{"type": "long"},
-				"identifier":      map[string]any{"type": "keyword"},
-				"type_code":       map[string]any{"type": "keyword"},
+				"workspace_id": map[string]any{"type": "long"},
+				"project_id":   map[string]any{"type": "long"},
+				"doc_type":     map[string]any{"type": "keyword"},
+				"doc_id":       map[string]any{"type": "long"},
+				"identifier":   map[string]any{"type": "keyword"},
+				"type_code":    map[string]any{"type": "keyword"},
 				"title": map[string]any{
 					"type":            "text",
 					"analyzer":        "ik_max_word_analyzer",
 					"search_analyzer": "ik_smart_analyzer",
 					"fields": map[string]any{
-						"raw":   map[string]any{"type": "keyword"},
+						"raw": map[string]any{"type": "keyword"},
 						"pinyin": map[string]any{
 							"type": "text",
 							// pinyin analyzer optional - requires pinyin plugin
@@ -637,21 +637,21 @@ func IssueMapping() map[string]any {
 					"analyzer":        "ik_max_word_analyzer",
 					"search_analyzer": "ik_smart_analyzer",
 				},
-				"state_id":        map[string]any{"type": "long"},
-				"state_name":      map[string]any{"type": "keyword"},
-				"priority":        map[string]any{"type": "keyword"},
-				"severity":        map[string]any{"type": "byte"},
-				"assignee_ids":    map[string]any{"type": "long"},
-				"label_ids":       map[string]any{"type": "long"},
-				"module_ids":      map[string]any{"type": "long"},
-				"sprint_id":       map[string]any{"type": "long"},
-				"version_id":      map[string]any{"type": "long"},
-				"created_by":      map[string]any{"type": "long"},
-				"target_date":     map[string]any{"type": "date"},
-				"created_at":      map[string]any{"type": "date"},
-				"updated_at":      map[string]any{"type": "date"},
+				"state_id":     map[string]any{"type": "long"},
+				"state_name":   map[string]any{"type": "keyword"},
+				"priority":     map[string]any{"type": "keyword"},
+				"severity":     map[string]any{"type": "byte"},
+				"assignee_ids": map[string]any{"type": "long"},
+				"label_ids":    map[string]any{"type": "long"},
+				"module_ids":   map[string]any{"type": "long"},
+				"sprint_id":    map[string]any{"type": "long"},
+				"version_id":   map[string]any{"type": "long"},
+				"created_by":   map[string]any{"type": "long"},
+				"target_date":  map[string]any{"type": "date"},
+				"created_at":   map[string]any{"type": "date"},
+				"updated_at":   map[string]any{"type": "date"},
 				"deleted":      map[string]any{"type": "date"},
-				"parent_id":       map[string]any{"type": "long"},
+				"parent_id":    map[string]any{"type": "long"},
 			},
 		},
 	}
@@ -682,11 +682,11 @@ func SprintMapping() map[string]any {
 					"analyzer":        "ik_max_word_analyzer",
 					"search_analyzer": "ik_smart_analyzer",
 				},
-				"status":      map[string]any{"type": "keyword"},
-				"start_date":  map[string]any{"type": "date"},
-				"end_date":    map[string]any{"type": "date"},
-				"created_at":  map[string]any{"type": "date"},
-				"updated_at":  map[string]any{"type": "date"},
+				"status":     map[string]any{"type": "keyword"},
+				"start_date": map[string]any{"type": "date"},
+				"end_date":   map[string]any{"type": "date"},
+				"created_at": map[string]any{"type": "date"},
+				"updated_at": map[string]any{"type": "date"},
 			},
 		},
 	}
@@ -717,7 +717,7 @@ func VersionMapping() map[string]any {
 					"analyzer":        "ik_max_word_analyzer",
 					"search_analyzer": "ik_smart_analyzer",
 				},
-				"status":      map[string]any{"type": "keyword"},
+				"status":       map[string]any{"type": "keyword"},
 				"release_date": map[string]any{"type": "date"},
 				"created_at":   map[string]any{"type": "date"},
 				"updated_at":   map[string]any{"type": "date"},
@@ -728,10 +728,10 @@ func VersionMapping() map[string]any {
 
 // ReindexResult 索引重建结果。
 type ReindexResult struct {
-	Total       int   `json:"total"`
-	Indexed     int   `json:"indexed"`
-	Failed      int   `json:"failed"`
-	DurationMs  int64 `json:"duration_ms"`
+	Total      int   `json:"total"`
+	Indexed    int   `json:"indexed"`
+	Failed     int   `json:"failed"`
+	DurationMs int64 `json:"duration_ms"`
 }
 
 // Reindex 从 PostgreSQL search_documents 表全量重建 ES 索引。

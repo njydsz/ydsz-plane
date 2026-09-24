@@ -15,12 +15,16 @@
  *   - Airtable / Notion database / Linear spreadsheet
  *   - Jira 列表视图增强版
  */
-import { ref, computed, onMounted, onUnmounted } from "vue";
+import { ref, computed, onMounted, onUnmounted, nextTick } from "vue";
 import { useRoute } from "vue-router";
 
 import { issueApi, type Issue, type UpdateIssueInput } from "@/api/services/issue";
 import { workspaceApi } from "@/api/services/workspace";
 import { ApiError } from "@/api/client";
+
+/** 虚拟滚动常量 */
+const ROW_HEIGHT = 37; // tbody 行高（padding 6*2 + line-height 13*1.5 ≈ 31.5，取 37 留余量）
+const BUFFER_ROWS = 5; // 上下缓冲行数
 
 
 // --- State ---
@@ -62,6 +66,47 @@ const selectedIds = ref<Set<number>>(new Set());
 const editingCell = ref<{ row: number; col: string } | null>(null);
 const editValue = ref("");
 const activeRowIndex = ref(0);
+
+// --- 虚拟滚动 ---
+const scrollContainerRef = ref<HTMLElement | null>(null);
+const scrollTop = ref(0);
+const containerHeight = ref(400);
+
+/** 可见行范围 */
+const visibleRange = computed(() => {
+  const total = issues.value.length;
+  if (total === 0) return { start: 0, end: 0 };
+  const start = Math.max(0, Math.floor(scrollTop.value / ROW_HEIGHT) - BUFFER_ROWS);
+  const visibleCount = Math.ceil(containerHeight.value / ROW_HEIGHT);
+  const end = Math.min(total, start + visibleCount + BUFFER_ROWS * 2);
+  return { start, end };
+});
+
+/** 当前可视行（保留原始 index 供编辑/选中使用） */
+const visibleRows = computed(() => {
+  const { start, end } = visibleRange.value;
+  return issues.value.slice(start, end).map((issue, i) => ({
+    issue,
+    rowIndex: start + i,
+  }));
+});
+
+/** 滚动占位总高度 */
+const scrollSpacerHeight = computed(() => issues.value.length * ROW_HEIGHT);
+
+/** 滚动偏移 */
+const scrollOffsetTop = computed(() => visibleRange.value.start * ROW_HEIGHT);
+
+function onTableScroll(e: Event) {
+  scrollTop.value = (e.target as HTMLElement).scrollTop;
+}
+
+/** 测量容器高度 */
+function measureContainer() {
+  if (scrollContainerRef.value) {
+    containerHeight.value = scrollContainerRef.value.clientHeight;
+  }
+}
 
 // --- Computed ---
 
@@ -284,6 +329,7 @@ function getCellClass(issue: Issue, colKey: string): string {
 onMounted(() => {
   loadIssues();
   document.addEventListener("keydown", handleKeydown);
+  nextTick(() => measureContainer());
 });
 
 onUnmounted(() => {
@@ -335,7 +381,8 @@ onUnmounted(() => {
 
     <!-- 表格 -->
     <div class="spreadsheet-table-wrapper">
-      <table class="spreadsheet-table">
+      <!-- 固定表头 -->
+      <table class="spreadsheet-table spreadsheet-table--header">
         <thead>
           <tr>
             <!-- 选择列 -->
@@ -367,105 +414,133 @@ onUnmounted(() => {
             </th>
           </tr>
         </thead>
-        <tbody>
-          <tr
-            v-for="(issue, rowIdx) in issues"
-            :key="issue.id"
-            :class="{
-              'row-selected': selectedIds.has(issue.id),
-              'row-active': activeRowIndex === rowIdx,
-            }"
-            @click="activeRowIndex = rowIdx"
-          >
-            <!-- 选择框 -->
-            <td class="col-select" @click.stop>
-              <input
-                type="checkbox"
-                :checked="selectedIds.has(issue.id)"
-                @change="toggleSelect(issue.id)"
-              />
-            </td>
-            <!-- 序号 -->
-            <td class="col-index">{{ rowIdx + 1 }}</td>
-            <!-- 数据单元格 -->
-            <td
-              v-for="col in visibleColumns"
-              :key="col.key"
-              :style="{ width: col.width + 'px' }"
-              :class="[
-                'data-cell',
-                getCellClass(issue, col.key),
-                {
-                  'cell-editable': col.editable,
-                  'cell-editing': editingCell?.row === rowIdx && editingCell?.col === col.key,
-                },
-              ]"
-              @dblclick="col.editable && startEdit(rowIdx, col.key, getCellValue(issue, col.key))"
-            >
-              <!-- 编辑模式 -->
-              <template v-if="editingCell?.row === rowIdx && editingCell?.col === col.key">
-                <input
-                  ref="editInput"
-                  v-model="editValue"
-                  class="cell-input"
-                  autofocus
-                  @blur="commitEdit"
-                  @keydown.enter="commitEdit"
-                  @keydown.escape="cancelEdit"
-                />
-              </template>
-              <!-- 显示模式 -->
-              <template v-else>
-                <span
-                  v-if="col.key === 'identifier'"
-                  class="cell-identifier"
-                >
-                  {{ issue.identifier }}
-                </span>
-                <span
-                  v-else-if="col.key === 'name'"
-                  class="cell-title"
-                >
-                  {{ issue.name }}
-                </span>
-                <span
-                  v-else-if="col.key === 'priority'"
-                  class="cell-priority"
-                  :class="'priority-' + issue.priority"
-                >
-                  {{ issue.priority }}
-                </span>
-                <span
-                  v-else-if="col.key === 'type_code'"
-                  class="cell-type"
-                >
-                  {{ issue.type_code }}
-                </span>
-                <span v-else>
-                  {{ getCellValue(issue, col.key) || "—" }}
-                </span>
-              </template>
-            </td>
-          </tr>
-        </tbody>
       </table>
 
-    <!-- 加载状态 -->
-    <div v-if="loading" class="empty-state">
-      <p>加载中...</p>
-    </div>
+      <!-- 虚拟滚动容器 -->
+      <div
+        ref="scrollContainerRef"
+        class="spreadsheet-vscroll-container"
+        @scroll="onTableScroll"
+      >
+        <div class="spreadsheet-vscroll-spacer" :style="{ height: scrollSpacerHeight + 'px' }">
+          <table class="spreadsheet-table spreadsheet-table--body">
+            <colgroup>
+              <col style="width:40px" />
+              <col style="width:40px" />
+              <col
+                v-for="col in visibleColumns"
+                :key="col.key"
+                :style="{ width: col.width + 'px', minWidth: col.width + 'px' }"
+              />
+            </colgroup>
+            <tbody :style="{ transform: 'translateY(' + scrollOffsetTop + 'px)' }">
+              <tr
+                v-for="{ issue, rowIndex } in visibleRows"
+                :key="issue.id"
+                :class="{
+                  'row-selected': selectedIds.has(issue.id),
+                  'row-active': activeRowIndex === rowIndex,
+                }"
+                :style="{ height: ROW_HEIGHT + 'px' }"
+                @click="activeRowIndex = rowIndex"
+              >
+                <!-- 选择框 -->
+                <td class="col-select" @click.stop>
+                  <input
+                    type="checkbox"
+                    :checked="selectedIds.has(issue.id)"
+                    @change="toggleSelect(issue.id)"
+                  />
+                </td>
+                <!-- 序号 -->
+                <td class="col-index">{{ rowIndex + 1 }}</td>
+                <!-- 数据单元格 -->
+                <td
+                  v-for="col in visibleColumns"
+                  :key="col.key"
+                  :style="{ width: col.width + 'px' }"
+                  :class="[
+                    'data-cell',
+                    getCellClass(issue, col.key),
+                    {
+                      'cell-editable': col.editable,
+                      'cell-editing': editingCell?.row === rowIndex && editingCell?.col === col.key,
+                    },
+                  ]"
+                  @dblclick="col.editable && startEdit(rowIndex, col.key, getCellValue(issue, col.key))"
+                >
+                  <!-- 编辑模式 -->
+                  <template v-if="editingCell?.row === rowIndex && editingCell?.col === col.key">
+                    <input
+                      ref="editInput"
+                      v-model="editValue"
+                      class="cell-input"
+                      autofocus
+                      @blur="commitEdit"
+                      @keydown.enter="commitEdit"
+                      @keydown.escape="cancelEdit"
+                    />
+                  </template>
+                  <!-- 显示模式 -->
+                  <template v-else>
+                    <span
+                      v-if="col.key === 'identifier'"
+                      class="cell-identifier"
+                    >
+                      {{ issue.identifier }}
+                    </span>
+                    <span
+                      v-else-if="col.key === 'name'"
+                      class="cell-title"
+                    >
+                      {{ issue.name }}
+                    </span>
+                    <span
+                      v-else-if="col.key === 'priority'"
+                      class="cell-priority"
+                      :class="'priority-' + issue.priority"
+                    >
+                      {{ issue.priority }}
+                    </span>
+                    <span
+                      v-else-if="col.key === 'type_code'"
+                      class="cell-type"
+                    >
+                      {{ issue.type_code }}
+                    </span>
+                    <span v-else>
+                      {{ getCellValue(issue, col.key) || "—" }}
+                    </span>
+                  </template>
+                </td>
+              </tr>
+              <!-- 空数据占位行 -->
+              <tr v-if="!loading && !error && issues.length === 0">
+                <td :colspan="visibleColumns.length + 2" class="empty-cell">
+                  暂无数据
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
 
-    <!-- 错误状态 -->
-    <div v-else-if="error" class="empty-state">
-      <p>{{ error }}</p>
-      <button class="toolbar-btn" style="margin-top:8px" @click="loadIssues">重试</button>
-    </div>
+      <!-- 加载状态 -->
+      <div v-if="loading" class="empty-state">
+        <p>加载中...</p>
+      </div>
 
-    <!-- 空状态 -->
-    <div v-else-if="issues.length === 0" class="empty-state">
-      <p>暂无数据</p>
-      <p class="empty-hint">在需求/任务/缺陷列表中选择"电子表格视图"开始使用</p>
-    </div>
+      <!-- 错误状态 -->
+      <div v-else-if="error" class="empty-state">
+        <p>{{ error }}</p>
+        <button class="toolbar-btn" style="margin-top:8px" @click="loadIssues">重试</button>
+      </div>
+
+      <!-- 空状态 -->
+      <div v-else-if="issues.length === 0" class="empty-state">
+        <p>暂无数据</p>
+        <p class="empty-hint">在需求/任务/缺陷列表中选择"电子表格视图"开始使用</p>
+      </div>
     </div>
 
     <!-- 底部状态栏 -->
@@ -561,8 +636,30 @@ onUnmounted(() => {
 /* --- Table --- */
 .spreadsheet-table-wrapper {
   flex: 1;
-  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
   position: relative;
+}
+
+/* 虚拟滚动容器 */
+.spreadsheet-vscroll-container {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: auto;
+  position: relative;
+  min-height: 0;
+}
+
+.spreadsheet-vscroll-spacer {
+  position: relative;
+  width: 100%;
+}
+
+.spreadsheet-table--body {
+  position: absolute;
+  top: 0;
+  left: 0;
 }
 
 .spreadsheet-table {
@@ -574,7 +671,7 @@ onUnmounted(() => {
 }
 
 /* --- Header --- */
-thead {
+.spreadsheet-table--header thead {
   position: sticky;
   top: 0;
   z-index: 10;
@@ -733,6 +830,13 @@ tbody tr.row-active {
   outline: none;
   background: var(--color-bg, #fff);
   box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+/* --- Empty (in-virtual-scroll) --- */
+.empty-cell {
+  text-align: center;
+  padding: 32px 0;
+  color: var(--color-text-tertiary, #9ca3af);
 }
 
 /* --- Empty --- */

@@ -16,9 +16,9 @@ import (
 
 // Client 封装 MinIO 客户端，提供预签名上传/下载能力。
 type Client struct {
-	mc      *minio.Client
-	bucket  string
-	cfg     config.StorageConfig
+	mc     *minio.Client
+	bucket string
+	cfg    config.StorageConfig
 }
 
 // New 根据配置创建 MinIO 客户端并确保 Bucket 存在。

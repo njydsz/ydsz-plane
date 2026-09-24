@@ -248,20 +248,20 @@ func locateTimelogTable(ctx context.Context, tx pgx.Tx, logID, wsID int64) strin
 
 // WorkloadHeatmapEntry 单成员单日工时汇总。
 type WorkloadHeatmapEntry struct {
-	UserID          int64   `json:"user_id"`
-	SpentDate       string  `json:"spent_date"`
-	TotalMinutes    int     `json:"total_minutes"`
-	TotalHours      float64 `json:"total_hours"`
-	IssueCount      int     `json:"issue_count"`      // 涉及工作项数
-	LogCount        int     `json:"log_count"`        // 记录条数
+	UserID       int64   `json:"user_id"`
+	SpentDate    string  `json:"spent_date"`
+	TotalMinutes int     `json:"total_minutes"`
+	TotalHours   float64 `json:"total_hours"`
+	IssueCount   int     `json:"issue_count"` // 涉及工作项数
+	LogCount     int     `json:"log_count"`   // 记录条数
 }
 
 // WorkloadSummary 项目工时汇总。
 type WorkloadSummary struct {
-	TotalHours    float64 `json:"total_hours"`
-	TotalMembers  int     `json:"total_members"`
-	TotalDays     int     `json:"total_days"`
-	DailyAverage  float64 `json:"daily_average_hours"`
+	TotalHours   float64 `json:"total_hours"`
+	TotalMembers int     `json:"total_members"`
+	TotalDays    int     `json:"total_days"`
+	DailyAverage float64 `json:"daily_average_hours"`
 }
 
 // WorkloadHeatmapData 热力图数据。
@@ -275,9 +275,9 @@ type WorkloadHeatmapData struct {
 
 // WorkloadMember 参与工时统计的成员信息。
 type WorkloadMember struct {
-	UserID   int64   `json:"user_id"`
+	UserID     int64   `json:"user_id"`
 	TotalHours float64 `json:"total_hours"`
-	DayCount   int     `json:"day_count"`   // 有记录的天数
+	DayCount   int     `json:"day_count"` // 有记录的天数
 }
 
 // GetWorkloadHeatmap 获取项目在指定日期范围内的工时热力图数据（按成员 × 日期聚合）。

@@ -332,7 +332,7 @@ func (s *StateService) UpdateState(ctx context.Context, in UpdateStateInput) (*S
 	args = append(args, in.UpdatedBy)
 	argIdx++
 
-	sets = append(sets, fmt.Sprintf("updated_at = now()"))
+	sets = append(sets, "updated_at = now()")
 
 	sql := fmt.Sprintf("UPDATE states SET %s WHERE id = $%d AND workspace_id = $%d AND deleted = false",
 		strings.Join(sets, ", "), argIdx, argIdx+1)
@@ -384,13 +384,13 @@ func (s *StateService) DeleteState(ctx context.Context, wsID, stateID int64) err
 
 // TransitionRule 流转规则（读出时附带状态名方便前端展示）。
 type TransitionRule struct {
-	ID              int64    `json:"id"`
-	FromStateID     int64    `json:"from_state_id"`
-	FromStateName   string   `json:"from_state_name,omitempty"`
-	ToStateID       int64    `json:"to_state_id"`
-	ToStateName     string   `json:"to_state_name,omitempty"`
-	TypeCode        string   `json:"type_code"`
-	RequiredFields  []string `json:"required_fields"`
+	ID             int64    `json:"id"`
+	FromStateID    int64    `json:"from_state_id"`
+	FromStateName  string   `json:"from_state_name,omitempty"`
+	ToStateID      int64    `json:"to_state_id"`
+	ToStateName    string   `json:"to_state_name,omitempty"`
+	TypeCode       string   `json:"type_code"`
+	RequiredFields []string `json:"required_fields"`
 }
 
 // ListTransitions 列出项目的全部流转规则。

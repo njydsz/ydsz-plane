@@ -238,10 +238,7 @@ func (h *Handler) WritingAssist(c *gin.Context) {
 		middleware.AbortWithError(c, errs.ErrValidation.WithDetails(fieldDetail(err)))
 		return
 	}
-	result, err := h.d.AiSvc.WritingAssist(c.Request.Context(), WritingAssistInput{
-		Context: req.Context, FullText: req.FullText, Language: req.Language,
-		Style: req.Style, MaxTokens: req.MaxTokens,
-	})
+	result, err := h.d.AiSvc.WritingAssist(c.Request.Context(), WritingAssistInput(req))
 	if err != nil {
 		writeErr(c, err)
 		return
@@ -265,9 +262,7 @@ func (h *Handler) RewriteText(c *gin.Context) {
 		middleware.AbortWithError(c, errs.ErrValidation.WithDetails(fieldDetail(err)))
 		return
 	}
-	result, err := h.d.AiSvc.RewriteText(c.Request.Context(), RewriteInput{
-		Text: req.Text, Style: req.Style, Language: req.Language, IssueType: req.IssueType,
-	})
+	result, err := h.d.AiSvc.RewriteText(c.Request.Context(), RewriteInput(req))
 	if err != nil {
 		writeErr(c, err)
 		return
@@ -291,9 +286,7 @@ func (h *Handler) FixGrammar(c *gin.Context) {
 		middleware.AbortWithError(c, errs.ErrValidation.WithDetails(fieldDetail(err)))
 		return
 	}
-	result, err := h.d.AiSvc.FixGrammar(c.Request.Context(), FixGrammarInput{
-		Text: req.Text, Language: req.Language,
-	})
+	result, err := h.d.AiSvc.FixGrammar(c.Request.Context(), FixGrammarInput(req))
 	if err != nil {
 		writeErr(c, err)
 		return

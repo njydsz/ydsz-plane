@@ -14,16 +14,17 @@
 //   - SMTP / 企业微信 / 钉钉 / 飞书 API（出站）
 //
 // 启动流程：
-//   1. 加载配置（环境变量 / 配置文件）
-//   2. 初始化 DB 连接池（pgx/v5 pool）
-//   3. 启动 RabbitMQ Consumer（后台 Goroutine）
-//   4. 启动 gRPC Server（监听 :9090）
-//   5. 启动健康检查 HTTP Server（监听 :8080/metrics + /ready）
-//   6. 阻塞等待关闭信号
+//  1. 加载配置（环境变量 / 配置文件）
+//  2. 初始化 DB 连接池（pgx/v5 pool）
+//  3. 启动 RabbitMQ Consumer（后台 Goroutine）
+//  4. 启动 gRPC Server（监听 :9090）
+//  5. 启动健康检查 HTTP Server（监听 :8080/metrics + /ready）
+//  6. 阻塞等待关闭信号
 //
 // 部署方式：
-//   docker run ydsz-plane-notification:latest
-//   环境变量：DATABASE_URL、RABOTMQ_URL、GRPC_PORT
+//
+//	docker run ydsz-plane-notification:latest
+//	环境变量：DATABASE_URL、RABOTMQ_URL、GRPC_PORT
 package main
 
 import (
@@ -37,10 +38,10 @@ import (
 	"syscall"
 	"time"
 
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
-	"go.uber.org/zap"
 
 	notificationv1 "github.com/njydsz/ydsz-plane/api/proto/notification/v1"
 	"github.com/njydsz/ydsz-plane/internal/application/notification"

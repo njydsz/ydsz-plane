@@ -20,6 +20,7 @@ import RelationPanel from "./RelationPanel.vue";
 import ReviewPanel from "@/components/ReviewPanel.vue";
 import IssueCreateModal from "./IssueCreateModal.vue";
 import { AppLoadingState, AppErrorState, AppEmptyState, IssueSocialBar } from "@/components";
+import { useTranslation } from "@/composables/useTranslation";
 
 const props = defineProps<{
   workspaceId: number;
@@ -28,6 +29,7 @@ const props = defineProps<{
 }>();
 
 const router = useRouter();
+const { t, $tc } = useTranslation();
 
 const auth = useAuthStore();
 const wsStore = useWorkspaceStore();
@@ -543,16 +545,16 @@ onMounted(() => {
 <template>
   <div class="issue-detail">
     <header class="issue-detail__header">
-      <button class="btn btn--ghost" @click="goBack">← 返回看板</button>
+      <button class="btn btn--ghost" @click="goBack">{{ t('view.detail.backToBoard') }}</button>
       <div class="issue-detail__actions">
         <button
           v-if="issue && issue.type_code === 'requirement' && canEditIssue"
           class="btn btn--sm"
           @click="showDefectModal = true"
         >
-          🐛 提缺陷
+          {{ t('view.detail.offerDefect') }}
         </button>
-        <button v-if="canEditIssue" class="btn btn--danger" @click="doDelete">归档</button>
+        <button v-if="canEditIssue" class="btn btn--danger" @click="doDelete">{{ t('view.detail.deleteBtn') }}</button>
       </div>
     </header>
 
@@ -560,10 +562,10 @@ onMounted(() => {
     <AppErrorState v-else-if="error" :message="error" @retry="load" />
     <AppEmptyState
       v-else-if="!issue"
-      title="需求/任务/缺陷不存在或已被删除"
-      description="请检查需求/任务/缺陷 ID 是否正确"
+      :title="t('view.detail.notFoundTitle')"
+      :description="t('view.detail.notFoundDesc')"
     >
-      <button class="btn btn--ghost" @click="goBack">← 返回看板</button>
+      <button class="btn btn--ghost" @click="goBack">{{ t('view.detail.backToBoard') }}</button>
     </AppEmptyState>
 
     <div v-else class="issue-detail__body">
@@ -572,9 +574,9 @@ onMounted(() => {
         <div v-if="editField === 'name'" class="edit-row">
           <input v-model="editValue" class="edit-input" autofocus @keydown.enter="saveEdit" @keydown.escape="cancelEdit" />
           <button class="btn btn--sm btn--primary" :disabled="editSaving || !editValue.trim()" @click="saveEdit">
-            {{ editSaving ? "保存中..." : "保存" }}
+            {{ editSaving ? t('view.detail.saving') : t('common.save') }}
           </button>
-          <button class="btn btn--sm" :disabled="editSaving" @click="cancelEdit">取消</button>
+          <button class="btn btn--sm" :disabled="editSaving" @click="cancelEdit">{{ t('common.cancel') }}</button>
           <span v-if="editError" class="form-error">{{ editError }}</span>
         </div>
         <h1
@@ -597,13 +599,13 @@ onMounted(() => {
           </span>
           <span v-if="editField === 'priority'" class="edit-row edit-row--inline">
             <select v-model="editValue" class="edit-select" @change="saveEdit">
-              <option value="urgent">紧急</option>
-              <option value="high">高</option>
-              <option value="medium">中</option>
-              <option value="low">低</option>
-              <option value="none">无</option>
+              <option value="urgent">{{ t('issue.priority.critical') }}</option>
+              <option value="high">{{ t('issue.priority.high') }}</option>
+              <option value="medium">{{ t('issue.priority.medium') }}</option>
+              <option value="low">{{ t('issue.priority.low') }}</option>
+              <option value="none">{{ t('view.placeholder.priority') }}</option>
             </select>
-            <button class="btn btn--sm" :disabled="editSaving" @click="cancelEdit">取消</button>
+            <button class="btn btn--sm" :disabled="editSaving" @click="cancelEdit">{{ t('common.cancel') }}</button>
           </span>
           <span
             v-else-if="canEditIssue"
@@ -639,7 +641,7 @@ onMounted(() => {
                 <option value="external">外部因素</option>
                 <option value="other">其他</option>
               </select>
-              <button class="btn btn--sm" :disabled="editSaving" @click="cancelEdit">取消</button>
+              <button class="btn btn--sm" :disabled="editSaving" @click="cancelEdit">{{ t('common.cancel') }}</button>
             </span>
             <span
               v-else-if="canEditIssue"
@@ -668,9 +670,9 @@ onMounted(() => {
 
         <div class="issue-detail__section">
           <div class="section-head">
-            <h3>描述</h3>
+            <h3>{{ t('common.description') }}</h3>
             <div v-if="!editingDesc && canEditIssue" class="section-head__actions">
-              <button class="btn btn--sm btn--ghost" @click="startEditDesc">编辑</button>
+              <button class="btn btn--sm btn--ghost" @click="startEditDesc">{{ t('common.edit') }}</button>
             </div>
           </div>
           <!-- 编辑模式：TipTap 富文本编辑器 -->
@@ -679,15 +681,15 @@ onMounted(() => {
               ref="descEditor"
               v-model:content-html="descHtml"
               v-model:content-json="descJsonValue"
-              placeholder="输入需求/任务/缺陷描述..."
+              :placeholder="t('view.placeholder.description')"
               :min-height="'200px'"
               :workspace-id="ws?.id ?? props.workspaceId"
               :project-id="props.projectId"
               @paste-image="handleDescPasteImage"
             />
             <div class="edit-row__actions">
-              <button class="btn btn--sm btn--primary" :disabled="descSaving" @click="saveDesc">{{ descSaving ? "保存中..." : "保存" }}</button>
-              <button class="btn btn--sm" :disabled="descSaving" @click="cancelEditDesc">取消</button>
+              <button class="btn btn--sm btn--primary" :disabled="descSaving" @click="saveDesc">{{ descSaving ? t('view.detail.saving') : t('common.save') }}</button>
+              <button class="btn btn--sm" :disabled="descSaving" @click="cancelEditDesc">{{ t('common.cancel') }}</button>
               <span v-if="descError" class="form-error">{{ descError }}</span>
             </div>
           </div>
@@ -698,7 +700,7 @@ onMounted(() => {
               :editable="false"
             />
           </div>
-          <p v-else class="text-muted">暂无描述，点击编辑添加</p>
+          <p v-else class="text-muted">{{ t('view.description.noDesc') }}</p>
 
           <!-- 附件 -->
           <div v-if="ws" class="issue-detail__attachments">
@@ -712,17 +714,17 @@ onMounted(() => {
         </div>
 
         <div v-if="issue.type_code === 'defect'" class="issue-detail__section">
-          <h3>缺陷信息</h3>
+          <h3>{{ t('view.detail.defectInfo') }}</h3>
           <div class="issue-detail__fields">
             <!-- 复现步骤 -->
             <div v-if="issue.reproduce_steps && issue.reproduce_steps.steps" class="field-row">
-              <span class="field-label">复现步骤:</span>
+              <span class="field-label">{{ t('view.detail.reproSteps') }}:</span>
               <span class="field-value">{{ issue.reproduce_steps.steps }}</span>
             </div>
 
             <!-- 期望结果（行内 textarea） -->
             <div class="field-row field-row--editable">
-              <span class="field-label">期望结果:</span>
+              <span class="field-label">{{ t('view.detail.expectedResultSection') }}:</span>
               <div class="field-value field-value--grow">
                 <div
                   v-if="editField === 'repr_expect'"
@@ -732,12 +734,12 @@ onMounted(() => {
                     v-model="editValue"
                     class="edit-textarea"
                     rows="3"
-                    placeholder="描述期望结果..."
+                    :placeholder="t('view.placeholder.expectedResult')"
                     @keydown.escape="cancelEdit"
                   ></textarea>
                   <div class="edit-row__actions">
-                    <button class="btn btn--sm btn--primary" :disabled="editSaving" @click="saveEdit">{{ editSaving ? "保存中..." : "保存" }}</button>
-                    <button class="btn btn--sm" :disabled="editSaving" @click="cancelEdit">取消</button>
+                    <button class="btn btn--sm btn--primary" :disabled="editSaving" @click="saveEdit">{{ editSaving ? t('view.detail.saving') : t('common.save') }}</button>
+                    <button class="btn btn--sm" :disabled="editSaving" @click="cancelEdit">{{ t('common.cancel') }}</button>
                     <span v-if="editError" class="form-error">{{ editError }}</span>
                   </div>
                 </div>
@@ -755,7 +757,7 @@ onMounted(() => {
 
             <!-- 实际结果（行内 textarea） -->
             <div class="field-row field-row--editable">
-              <span class="field-label">实际结果:</span>
+              <span class="field-label">{{ t('view.detail.actualResultSection') }}:</span>
               <div class="field-value field-value--grow">
                 <div
                   v-if="editField === 'repr_actual'"
@@ -765,12 +767,12 @@ onMounted(() => {
                     v-model="editValue"
                     class="edit-textarea"
                     rows="3"
-                    placeholder="描述实际结果..."
+                    :placeholder="t('view.placeholder.actualResult')"
                     @keydown.escape="cancelEdit"
                   ></textarea>
                   <div class="edit-row__actions">
-                    <button class="btn btn--sm btn--primary" :disabled="editSaving" @click="saveEdit">{{ editSaving ? "保存中..." : "保存" }}</button>
-                    <button class="btn btn--sm" :disabled="editSaving" @click="cancelEdit">取消</button>
+                    <button class="btn btn--sm btn--primary" :disabled="editSaving" @click="saveEdit">{{ editSaving ? t('view.detail.saving') : t('common.save') }}</button>
+                    <button class="btn btn--sm" :disabled="editSaving" @click="cancelEdit">{{ t('common.cancel') }}</button>
                     <span v-if="editError" class="form-error">{{ editError }}</span>
                   </div>
                 </div>
@@ -808,8 +810,8 @@ onMounted(() => {
                     <option value="other">其他</option>
                     <option value="">未分类</option>
                   </select>
-                  <button class="btn btn--sm btn--primary" :disabled="editSaving" @click="saveEdit">{{ editSaving ? "保存中..." : "保存" }}</button>
-                  <button class="btn btn--sm" :disabled="editSaving" @click="cancelEdit">取消</button>
+                  <button class="btn btn--sm btn--primary" :disabled="editSaving" @click="saveEdit">{{ editSaving ? t('view.detail.saving') : t('common.save') }}</button>
+                  <button class="btn btn--sm" :disabled="editSaving" @click="cancelEdit">{{ t('common.cancel') }}</button>
                 </div>
                 <div
                   v-else-if="canEditIssue"
@@ -837,8 +839,8 @@ onMounted(() => {
                       {{ v.name }} ({{ v.semver }})
                     </option>
                   </select>
-                  <button class="btn btn--sm btn--primary" :disabled="editSaving" @click="saveEdit">{{ editSaving ? "保存中..." : "保存" }}</button>
-                  <button class="btn btn--sm" :disabled="editSaving" @click="cancelEdit">取消</button>
+                  <button class="btn btn--sm btn--primary" :disabled="editSaving" @click="saveEdit">{{ editSaving ? t('view.detail.saving') : t('common.save') }}</button>
+                  <button class="btn btn--sm" :disabled="editSaving" @click="cancelEdit">{{ t('common.cancel') }}</button>
                 </div>
                 <div
                   v-else-if="canEditIssue"
@@ -866,8 +868,8 @@ onMounted(() => {
                       {{ v.name }} ({{ v.semver }})
                     </option>
                   </select>
-                  <button class="btn btn--sm btn--primary" :disabled="editSaving" @click="saveEdit">{{ editSaving ? "保存中..." : "保存" }}</button>
-                  <button class="btn btn--sm" :disabled="editSaving" @click="cancelEdit">取消</button>
+                  <button class="btn btn--sm btn--primary" :disabled="editSaving" @click="saveEdit">{{ editSaving ? t('view.detail.saving') : t('common.save') }}</button>
+                  <button class="btn btn--sm" :disabled="editSaving" @click="cancelEdit">{{ t('common.cancel') }}</button>
                 </div>
                 <div
                   v-else-if="canEditIssue"
@@ -895,8 +897,8 @@ onMounted(() => {
                       {{ m.display_name ?? m.email }}
                     </option>
                   </select>
-                  <button class="btn btn--sm btn--primary" :disabled="editSaving" @click="saveEdit">{{ editSaving ? "保存中..." : "保存" }}</button>
-                  <button class="btn btn--sm" :disabled="editSaving" @click="cancelEdit">取消</button>
+                  <button class="btn btn--sm btn--primary" :disabled="editSaving" @click="saveEdit">{{ editSaving ? t('view.detail.saving') : t('common.save') }}</button>
+                  <button class="btn btn--sm" :disabled="editSaving" @click="cancelEdit">{{ t('common.cancel') }}</button>
                 </div>
                 <div
                   v-else-if="canEditIssue"
@@ -925,7 +927,7 @@ onMounted(() => {
 
         <!-- 流转操作（仅拥有 issue:transition 权限的用户可见） -->
         <div v-if="canTransition" class="issue-detail__section">
-          <h3>状态流转</h3>
+          <h3>{{ t('view.detail.stateTransition') }}</h3>
           <div v-if="transitionError" class="form-error">{{ transitionError }}</div>
           <div class="issue-detail__transitions">
             <button
@@ -943,15 +945,15 @@ onMounted(() => {
 
       <!-- 侧边栏：活动日志 -->
       <aside class="issue-detail__sidebar">
-        <h3>活动日志</h3>
-        <div v-if="activities.length === 0" class="text-muted">暂无活动记录</div>
+        <h3>{{ t('view.detail.activityLog') }}</h3>
+        <div v-if="activities.length === 0" class="text-muted">{{ t('view.detail.noActivity') }}</div>
         <div v-else class="activity-timeline">
           <div v-for="act in activities" :key="act.id" class="activity-item">
             <div class="activity-item__icon" :class="`verb-${act.verb}`"></div>
             <div class="activity-item__body">
               <div class="activity-item__text">
-                <strong>{{ act.actor_name || "系统" }}</strong>
-                {{ act.verb === "created" ? "创建了需求/任务/缺陷" : act.verb === "transitioned" ? `流转状态: ${act.old_value} → ${act.new_value}` : `${act.field}: ${act.old_value} → ${act.new_value}` }}
+                <strong>{{ act.actor_name || t('view.activity.systemName') }}</strong>
+                {{ act.verb === "created" ? t('view.activity.createdIssue') : act.verb === "transitioned" ? t('view.activity.transitioned', { from: act.old_value, to: act.new_value }) : t('view.activity.updated', { field: act.field, from: act.old_value, to: act.new_value }) }}
               </div>
               <div class="activity-item__time">{{ new Date(act.created_at).toLocaleString() }}</div>
             </div>
@@ -959,19 +961,19 @@ onMounted(() => {
         </div>
 
         <!-- 工时 -->
-        <h3 style="margin-top: 24px">工时</h3>
+        <h3 style="margin-top: 24px">{{ t('view.detail.timeLogSection') }}</h3>
         <div v-if="totalMinutes > 0" class="timelog-summary">
-          累计 {{ fmtDuration(totalMinutes) }}
+          {{ $tc('view.detail.totalTimeLog', undefined, { duration: fmtDuration(totalMinutes) }) }}
           <span v-if="issue.actual_effort != null" class="timelog-effort">
-            · 实耗 {{ fmtDurationHours(issue.actual_effort) }}
+            {{ $tc('view.detail.actualEffort', undefined, { duration: fmtDurationHours(issue.actual_effort) }) }}
           </span>
           <span v-if="issue.remaining_effort != null" class="timelog-effort">
-            · 剩余 {{ fmtDurationHours(issue.remaining_effort) }}
+            {{ $tc('view.detail.remainingEffort', undefined, { duration: fmtDurationHours(issue.remaining_effort) }) }}
           </span>
         </div>
 
         <button v-if="!showTimeLogForm" class="btn btn--sm btn--outline" @click="showTimeLogForm = true">
-          ＋ 记录工时
+          {{ t('view.detail.logTime') }}
         </button>
 
         <!-- 工时记录表单 -->
@@ -987,26 +989,26 @@ onMounted(() => {
           </div>
           <div class="timelog-form__row timelog-form__duration">
             <input v-model.number="newDurationHours" type="number" class="timelog-input timelog-input--sm" min="0" max="24" />
-            <span class="timelog-label">小时</span>
+            <span class="timelog-label">{{ t('view.detail.hourUnit') }}</span>
             <input v-model.number="newDurationMinutes" type="number" class="timelog-input timelog-input--sm" min="0" max="59" step="15" />
-            <span class="timelog-label">分钟</span>
+            <span class="timelog-label">{{ t('view.detail.minuteUnit') }}</span>
           </div>
           <textarea
             v-model="newTimeDesc"
             class="timelog-textarea"
-            placeholder="工时描述（可选）"
+            :placeholder="t('view.detail.timeDescPlaceholder')"
             rows="2"
           ></textarea>
           <div class="timelog-form__actions">
-            <button class="btn btn--sm" :disabled="timeLogSubmitting" @click="showTimeLogForm = false">取消</button>
+            <button class="btn btn--sm" :disabled="timeLogSubmitting" @click="showTimeLogForm = false">{{ t('common.cancel') }}</button>
             <button class="btn btn--sm btn--primary" :disabled="timeLogSubmitting" @click="submitTimeLog">
-              {{ timeLogSubmitting ? "保存中..." : "保存" }}
+              {{ timeLogSubmitting ? t('view.detail.saving') : t('common.save') }}
             </button>
           </div>
         </div>
 
         <!-- 工时列表 -->
-        <div v-if="timeLogsLoading" class="text-muted" style="margin-top:8px">加载中...</div>
+        <div v-if="timeLogsLoading" class="text-muted" style="margin-top:8px">{{ t('common.loading') }}</div>
         <div v-else-if="timeLogs.length > 0" class="timelog-list">
           <div v-for="tl in timeLogs.slice(0, 10)" :key="tl.id" class="timelog-item">
             <div class="timelog-item__meta">
@@ -1014,26 +1016,26 @@ onMounted(() => {
               <span class="timelog-item__duration">{{ fmtDuration(tl.duration_minutes) }}</span>
             </div>
             <div v-if="tl.description" class="timelog-item__desc">{{ tl.description }}</div>
-            <button class="timelog-item__delete" title="删除工时记录" @click="deleteTimeLog(tl.id)">✕</button>
+            <button class="timelog-item__delete" :title="t('view.detail.deleteTimeLogTitle')" @click="deleteTimeLog(tl.id)">✕</button>
           </div>
         </div>
-        <div v-else-if="!showTimeLogForm" class="text-muted">暂无工时记录</div>
+        <div v-else-if="!showTimeLogForm" class="text-muted">{{ t('view.detail.noTimeLogs') }}</div>
 
         <!-- 子需求/任务/缺陷 -->
         <div class="sub-issues-section" style="margin-top: 24px">
           <div class="sub-issues-header">
-            <h3>子需求/任务/缺陷</h3>
+            <h3>{{ t('view.detail.subIssuesSection') }}</h3>
             <button
               v-if="canEditIssue"
               class="btn btn--sm btn--outline"
               @click="openSubIssue(props.issueId)"
             >
-              ＋ 添加子需求/任务/缺陷
+              {{ t('view.detail.addSubIssue') }}
             </button>
           </div>
 
-          <div v-if="subIssuesLoading" class="text-muted">加载中...</div>
-          <div v-else-if="subIssues.length === 0" class="text-muted">暂无子需求/任务/缺陷</div>
+          <div v-if="subIssuesLoading" class="text-muted">{{ t('view.detail.loadingSubIssues') }}</div>
+          <div v-else-if="subIssues.length === 0" class="text-muted">{{ t('view.detail.noSubIssues') }}</div>
           <div v-else class="sub-issues-tree">
             <div v-for="child in subIssues" :key="child.id" class="sub-issue-node">
               <div class="sub-issue-node__row">
@@ -1076,10 +1078,10 @@ onMounted(() => {
                 class="sub-issue-node__children"
               >
                 <div v-if="childrenLoadingSet.has(child.id)" class="text-muted sub-issue-node__placeholder">
-                  加载中…
+                  {{ t('view.detail.loadingSubIssues') }}
                 </div>
                 <div v-else-if="!childrenMap[child.id]?.length" class="text-muted sub-issue-node__placeholder">
-                  无子项
+                  {{ t('view.detail.noSubItems') }}
                 </div>
                 <div
                   v-for="gc in childrenMap[child.id]"
@@ -1126,10 +1128,10 @@ onMounted(() => {
                     class="sub-issue-node__children"
                   >
                     <div v-if="childrenLoadingSet.has(gc.id)" class="text-muted sub-issue-node__placeholder">
-                      加载中…
+                      {{ t('view.detail.loadingSubIssues') }}
                     </div>
                     <div v-else-if="!childrenMap[gc.id]?.length" class="text-muted sub-issue-node__placeholder">
-                      无子项
+                      {{ t('view.detail.noSubItems') }}
                     </div>
                     <div
                       v-for="ggc in childrenMap[gc.id]"

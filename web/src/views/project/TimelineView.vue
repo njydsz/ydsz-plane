@@ -24,8 +24,29 @@ import {
   watch,
 } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import * as echarts from "echarts";
+import { init, use } from "echarts/core";
+import { CustomChart } from "echarts/charts";
+import {
+  GridComponent,
+  TooltipComponent,
+  DataZoomComponent,
+} from "echarts/components";
+import { CanvasRenderer } from "echarts/renderers";
+import type {
+  ECharts,
+  EChartsCoreOption,
+} from "echarts/core";
+
 import dayjs from "dayjs";
+
+/* ---- ECharts 按需注册（tree-shaking）---- */
+use([
+  CustomChart,
+  GridComponent,
+  TooltipComponent,
+  DataZoomComponent,
+  CanvasRenderer,
+]);
 
 import { issueApi, type Issue, type State } from "@/api/services/issue";
 import { ApiError } from "@/api/client";
@@ -70,7 +91,7 @@ const activeRow = ref(0);
 
 // --- Refs ---
 const chartEl = ref<HTMLDivElement | null>(null);
-const chart = shallowRef<echarts.ECharts | null>(null);
+const chart = shallowRef<ECharts | null>(null);
 
 // --- 数据加载 ---
 async function loadData() {
@@ -192,7 +213,7 @@ function barColor(issue: Issue): string {
 }
 
 // --- ECharts 选项 ---
-function buildOption(): echarts.EChartsOption {
+function buildOption(): EChartsCoreOption {
   const [zoomLo, zoomHi] = zoomRange.value;
   const dateFormat = (ms: number) => dayjs(ms).format("YYYY-MM-DD");
 
@@ -305,7 +326,7 @@ function buildOption(): echarts.EChartsOption {
         },
         encode: { x: [0, 1], y: 0 },
         data: seriesData,
-      } as echarts.CustomSeriesOption,
+      } as unknown as EChartsCoreOption,
     ],
     dataZoom: [
       { type: "inside", xAxisIndex: 0, filterMode: "none" },
@@ -317,7 +338,7 @@ function buildOption(): echarts.EChartsOption {
 function render() {
   if (!chartEl.value) return;
   if (!chart.value) {
-    chart.value = echarts.init(chartEl.value);
+    chart.value = init(chartEl.value);
     chart.value.on("click", (params: any) => {
       const idx = params.dataIndex;
       const issue = datedIssues.value[idx];

@@ -1,7 +1,33 @@
 <script setup lang="ts">
-import * as echarts from "echarts";
-import type { EChartsCoreOption } from "echarts";
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from "vue";
+
+import { init, use } from "echarts/core";
+import { BarChart, LineChart, PieChart } from "echarts/charts";
+import {
+  GridComponent,
+  LegendComponent,
+  TitleComponent,
+  TooltipComponent,
+} from "echarts/components";
+import { CanvasRenderer } from "echarts/renderers";
+import type { ECharts, EChartsCoreOption } from "echarts/core";
+
+/* ---- ECharts 按需注册（tree-shaking）----
+ * ChartWidget 为通用封装，需覆盖所有 dashboard 子组件可能使用的系列与组件：
+ *   BarChartWidget / LineChartWidget / PieChartWidget /
+ *   StackedBarWidget / ModuleDistributionWidget /
+ *   VersionBurndownWidget / ProjectCompareWidget / DefectAnalyticsView
+ */
+use([
+  BarChart,
+  LineChart,
+  PieChart,
+  GridComponent,
+  TooltipComponent,
+  LegendComponent,
+  TitleComponent,
+  CanvasRenderer,
+]);
 
 /**
  * ChartWidget - 通用 ECharts 封装。
@@ -17,7 +43,7 @@ const props = defineProps<{
 }>();
 
 const chartEl = ref<HTMLDivElement | null>(null);
-const chartInstance = shallowRef<echarts.ECharts | null>(null);
+const chartInstance = shallowRef<ECharts | null>(null);
 
 const chartOption = computed(() => props.options ?? props.option);
 const chartHeight = computed(() =>
@@ -27,7 +53,7 @@ const chartHeight = computed(() =>
 function render() {
   if (!chartEl.value || !chartOption.value) return;
   if (!chartInstance.value) {
-    chartInstance.value = echarts.init(chartEl.value);
+    chartInstance.value = init(chartEl.value);
   }
   chartInstance.value.setOption(chartOption.value, true);
 }

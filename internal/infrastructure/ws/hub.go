@@ -1,7 +1,8 @@
 // Package ws 提供基于 Redis Pub/Sub 的多节点 WebSocket 广播 Hub。
 //
 // 架构：
-//   客户端 ↔ API Node (gorilla/websocket) ↔ Redis PubSub ↔ 其他 API Node
+//
+//	客户端 ↔ API Node (gorilla/websocket) ↔ Redis PubSub ↔ 其他 API Node
 //
 // 每个 API 节点维护本地连接池，通过 Redis 频道实现跨节点广播。
 // 频道命名：plane:ws:{workspace_id}
@@ -216,6 +217,7 @@ func (h *Hub) Shutdown() {
 //  1. 全局硬上限（MaxConnsGlobal）
 //  2. 单用户上限（MaxConnsPerUser）
 //  3. 单 IP 上限（MaxConnsPerIP）
+//
 // 超出时返回 HTTP 503 拒绝升级，避免单用户/节点资源耗尽。
 func (h *Hub) HandleWebSocket(w http.ResponseWriter, r *http.Request, userID int64, workspaceID int64) {
 	// --- 连接限流 ---

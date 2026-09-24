@@ -18,24 +18,24 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
 
-	notif "github.com/njydsz/ydsz-plane/internal/application/notification"
 	"github.com/njydsz/ydsz-plane/internal/application/auth"
-	"github.com/njydsz/ydsz-plane/internal/interfaces/middleware"
+	notif "github.com/njydsz/ydsz-plane/internal/application/notification"
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/ws"
+	"github.com/njydsz/ydsz-plane/internal/interfaces/middleware"
 	"github.com/njydsz/ydsz-plane/pkg/errs"
 )
 
 // HandlerDeps handler 依赖。
 type HandlerDeps struct {
-	IssueSvc          *Service
-	StateSvc          *StateService
-	ActivitySvc       *ActivityService
-	TimeLogSvc        *TimeLogService
-	RelationSvc       *RelationService
-	CommentSvc        *CommentService
-	ProjectInit       *ProjectInitService
-	ContentTplSvc     *ContentTemplateService
-	WorkspaceStore    *auth.WorkspaceMembershipStore
+	IssueSvc       *Service
+	StateSvc       *StateService
+	ActivitySvc    *ActivityService
+	TimeLogSvc     *TimeLogService
+	RelationSvc    *RelationService
+	CommentSvc     *CommentService
+	ProjectInit    *ProjectInitService
+	ContentTplSvc  *ContentTemplateService
+	WorkspaceStore *auth.WorkspaceMembershipStore
 	// 通知与实时推送（可为 nil，未配置时静默跳过）
 	NotificationSvc *notif.Service
 	WSHub           *ws.Hub
@@ -480,25 +480,25 @@ func (h *IssueHandler) createIssue(c *gin.Context) {
 	}
 
 	iss, err := h.d.IssueSvc.Create(c.Request.Context(), CreateIssueInput{
-		WorkspaceID:      wsID,
-		ProjectID:        projectID,
-		TypeCode:         IssueTypeCode(req.Type),
-		Name:             req.Name,
-		DescriptionHTML:  req.DescriptionHTML,
-		StateID:          req.StateID,
-		Priority:         defaultPriority(req.Priority),
-		ParentID:         parentIDPtr,
-		Severity:         severityPtr,
-		FoundPhase:       foundPhasePtr,
-		ReproduceSteps:   req.ReproduceSteps,
-		Category:         categoryPtr,
-		Source:           sourcePtr,
-		Assignees:        req.Assignees,
-		Labels:           req.Labels,
-		Modules:          req.Modules,
-		Point:            pointPtr,
-		IsDraft:          req.IsDraft,
-		CreatedBy:        userID,
+		WorkspaceID:     wsID,
+		ProjectID:       projectID,
+		TypeCode:        IssueTypeCode(req.Type),
+		Name:            req.Name,
+		DescriptionHTML: req.DescriptionHTML,
+		StateID:         req.StateID,
+		Priority:        defaultPriority(req.Priority),
+		ParentID:        parentIDPtr,
+		Severity:        severityPtr,
+		FoundPhase:      foundPhasePtr,
+		ReproduceSteps:  req.ReproduceSteps,
+		Category:        categoryPtr,
+		Source:          sourcePtr,
+		Assignees:       req.Assignees,
+		Labels:          req.Labels,
+		Modules:         req.Modules,
+		Point:           pointPtr,
+		IsDraft:         req.IsDraft,
+		CreatedBy:       userID,
 	})
 	if err != nil {
 		writeErr(c, err)
@@ -857,11 +857,7 @@ func (h *IssueHandler) reorderIssue(c *gin.Context) {
 		return
 	}
 
-	iss, err := h.d.IssueSvc.Reorder(c.Request.Context(), wsID, issueID, ReorderInput{
-		PrevSortOrder: req.PrevSortOrder,
-		NextSortOrder: req.NextSortOrder,
-		Version:       req.Version,
-	})
+	iss, err := h.d.IssueSvc.Reorder(c.Request.Context(), wsID, issueID, ReorderInput(req))
 	if err != nil {
 		writeErr(c, err)
 		return
@@ -1037,7 +1033,12 @@ func (h *IssueHandler) exportIssues(c *gin.Context) {
 			stateName,
 			string(iss.Priority),
 			severity,
-			fmt.Sprintf("%d", func() int { if iss.Point != nil { return *iss.Point }; return 0 }()),
+			fmt.Sprintf("%d", func() int {
+				if iss.Point != nil {
+					return *iss.Point
+				}
+				return 0
+			}()),
 			assignees,
 			iss.CreatedAt.Format("2006-01-02 15:04"),
 			iss.UpdatedAt.Format("2006-01-02 15:04"),
@@ -1307,7 +1308,12 @@ func writeXLSX(c *gin.Context, issues []Issue) {
 			stateName,
 			string(iss.Priority),
 			severity,
-			fmt.Sprintf("%d", func() int { if iss.Point != nil { return *iss.Point }; return 0 }()),
+			fmt.Sprintf("%d", func() int {
+				if iss.Point != nil {
+					return *iss.Point
+				}
+				return 0
+			}()),
 			assignees,
 			iss.CreatedAt.Format("2006-01-02 15:04"),
 			iss.UpdatedAt.Format("2006-01-02 15:04"),
@@ -1396,7 +1402,7 @@ func (h *IssueHandler) createTimeLog(c *gin.Context) {
 		ProjectID:       projectID,
 		IssueID:         issueID,
 		UserID:          userID,
-		SpentDate:        parseDate(req.SpentDate),
+		SpentDate:       parseDate(req.SpentDate),
 		DurationMinutes: req.DurationMinutes,
 		Description:     req.Description,
 	})
@@ -1444,47 +1450,47 @@ func (h *IssueHandler) deleteTimeLog(c *gin.Context) {
 // --- request/response types ---
 
 type createIssueRequest struct {
-	Type             string         `json:"type" binding:"required,oneof=epic requirement task defect"`
-	Name             string         `json:"name" binding:"required,max=500"`
-	DescriptionHTML  string         `json:"description_html"`
-	StateID          int64          `json:"state_id"`
-	Priority         string         `json:"priority" binding:"omitempty,oneof=urgent high medium low none"`
-	ParentID         *int64         `json:"parent_id"`
-	Severity         *int           `json:"severity"`
-	FoundPhase       *string        `json:"found_phase"`
-	ReproduceSteps   map[string]any `json:"reproduce_steps"`
-	Category         *string        `json:"category"`
-	Source           *string        `json:"source"`
-	Assignees        []int64        `json:"assignees"`
-	Labels           []int64        `json:"labels"`
-	Modules          []int64        `json:"modules"`
-	Point            *int           `json:"point"`
-	IsDraft          bool           `json:"is_draft"`
+	Type            string         `json:"type" binding:"required,oneof=epic requirement task defect"`
+	Name            string         `json:"name" binding:"required,max=500"`
+	DescriptionHTML string         `json:"description_html"`
+	StateID         int64          `json:"state_id"`
+	Priority        string         `json:"priority" binding:"omitempty,oneof=urgent high medium low none"`
+	ParentID        *int64         `json:"parent_id"`
+	Severity        *int           `json:"severity"`
+	FoundPhase      *string        `json:"found_phase"`
+	ReproduceSteps  map[string]any `json:"reproduce_steps"`
+	Category        *string        `json:"category"`
+	Source          *string        `json:"source"`
+	Assignees       []int64        `json:"assignees"`
+	Labels          []int64        `json:"labels"`
+	Modules         []int64        `json:"modules"`
+	Point           *int           `json:"point"`
+	IsDraft         bool           `json:"is_draft"`
 }
 
 type updateIssueRequest struct {
-	Name              *string `json:"name"`
-	DescriptionHTML   *string `json:"description_html"`
-	Priority          *string `json:"priority"`
-	TypeCode          *string `json:"type_code"`
-	ParentID          *int64  `json:"parent_id"`
-	Severity          *int    `json:"severity"`
-	FoundPhase        *string `json:"found_phase"`
-	RootCauseCategory *string `json:"root_cause_category"`
-	Category          *string `json:"category"`
-	Assignees         []int64 `json:"assignees"`
-	Labels            []int64 `json:"labels"`
-	Modules           []int64 `json:"modules"`
-	Source            *string `json:"source"`
-	Point             *int    `json:"point"`
-	TargetDate        *string `json:"target_date"`
-	Progress          *int    `json:"progress"`
-	DelayReason       *string `json:"delay_reason"`
-	Version           int     `json:"version" binding:"required"`
-	FoundVersionID    *int64  `json:"found_version_id"`
-	FixVersionID      *int64  `json:"fix_version_id"`
-	ReleaseVersionID  *int64         `json:"release_version_id"`
-	VerifierID        *int64         `json:"verifier_id,omitempty"`
+	Name              *string         `json:"name"`
+	DescriptionHTML   *string         `json:"description_html"`
+	Priority          *string         `json:"priority"`
+	TypeCode          *string         `json:"type_code"`
+	ParentID          *int64          `json:"parent_id"`
+	Severity          *int            `json:"severity"`
+	FoundPhase        *string         `json:"found_phase"`
+	RootCauseCategory *string         `json:"root_cause_category"`
+	Category          *string         `json:"category"`
+	Assignees         []int64         `json:"assignees"`
+	Labels            []int64         `json:"labels"`
+	Modules           []int64         `json:"modules"`
+	Source            *string         `json:"source"`
+	Point             *int            `json:"point"`
+	TargetDate        *string         `json:"target_date"`
+	Progress          *int            `json:"progress"`
+	DelayReason       *string         `json:"delay_reason"`
+	Version           int             `json:"version" binding:"required"`
+	FoundVersionID    *int64          `json:"found_version_id"`
+	FixVersionID      *int64          `json:"fix_version_id"`
+	ReleaseVersionID  *int64          `json:"release_version_id"`
+	VerifierID        *int64          `json:"verifier_id,omitempty"`
 	ReproduceSteps    json.RawMessage `json:"reproduce_steps,omitempty"`
 }
 
@@ -1907,9 +1913,9 @@ func parseSharedStrings(data []byte) []string {
 			case "si":
 				inSI = true
 				buf.Reset()
-		case "t":
-			inT = true
-		}
+			case "t":
+				inT = true
+			}
 		case xml.CharData:
 			if inSI && inT {
 				buf.Write(el)
@@ -2055,9 +2061,9 @@ func parseSheet(data []byte, shared []string) [][]string {
 				inRow = true
 				curRow = nil
 				expectCol = 0
-		case "c":
-			cellType = ""
-			cellRef = ""
+			case "c":
+				cellType = ""
+				cellRef = ""
 				for _, a := range el.Attr {
 					switch a.Name.Local {
 					case "r":
@@ -2092,10 +2098,10 @@ func parseSheet(data []byte, shared []string) [][]string {
 			}
 		case xml.EndElement:
 			switch el.Name.Local {
-		case "c":
-			flushCell()
-			inV, inIs, inT = false, false, false
-			cellType = ""
+			case "c":
+				flushCell()
+				inV, inIs, inT = false, false, false
+				cellType = ""
 			case "v":
 				inV = false
 			case "t":
@@ -2160,4 +2166,3 @@ func (h *IssueHandler) unwatchIssue(c *gin.Context) {
 	}
 	c.Status(http.StatusNoContent)
 }
-

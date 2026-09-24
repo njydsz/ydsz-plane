@@ -181,7 +181,7 @@ func defaultPreference(wsID, userID int64) *NotificationPreference {
 	return &NotificationPreference{
 		UserID:      userID,
 		WorkspaceID: wsID,
-		EventTypes:  []string{},     // 空 = 全部
+		EventTypes:  []string{}, // 空 = 全部
 		Channels:    []string{string(ChannelInApp)},
 		Digest:      DigestRealtime,
 		DNDEnabled:  false,

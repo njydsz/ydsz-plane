@@ -45,7 +45,7 @@ type Service struct {
 	provider LLMProvider
 
 	// 规则引擎缓存
-	mu     sync.RWMutex
+	mu        sync.RWMutex
 	stopWords map[string]bool
 }
 
@@ -238,9 +238,9 @@ func (s *Service) DetectDuplicates(ctx context.Context, projectID int64, title, 
 
 // SummarizeResult 摘要结果。
 type SummarizeResult struct {
-	Summary    string   `json:"summary"`    // 文字摘要
-	KeyPoints  []string `json:"key_points"` // 关键点
-	WordCount  int      `json:"word_count"` // 原文字数
+	Summary   string   `json:"summary"`    // 文字摘要
+	KeyPoints []string `json:"key_points"` // 关键点
+	WordCount int      `json:"word_count"` // 原文字数
 }
 
 // SummarizeInput 摘要输入。
@@ -304,9 +304,9 @@ func (s *Service) Summarize(ctx context.Context, in SummarizeInput) (*SummarizeR
 
 // ClassifyResult 分类结果。
 type ClassifyResult struct {
-	TypeCode   string  `json:"type_code"`   // requirement | task | defect
-	Priority   string  `json:"priority"`    // critical | high | medium | low
-	Confidence float64 `json:"confidence"`  // 置信度 0-1
+	TypeCode   string  `json:"type_code"`  // requirement | task | defect
+	Priority   string  `json:"priority"`   // critical | high | medium | low
+	Confidence float64 `json:"confidence"` // 置信度 0-1
 }
 
 // SmartClassify 智能分类工作项。
@@ -376,18 +376,18 @@ func (s *Service) SmartClassify(ctx context.Context, title, description string) 
 
 // WritingAssistInput AI 续写输入。
 type WritingAssistInput struct {
-	Context      string `json:"context"`       // 光标前的最后一段文本
-	FullText     string `json:"full_text"`     // 当前全文
-	Language     string `json:"language"`      // zh | en，默认 zh
-	Style        string `json:"style"`         // professional | concise | casual
-	MaxTokens    int    `json:"max_tokens"`    // 返回最大字数
+	Context   string `json:"context"`    // 光标前的最后一段文本
+	FullText  string `json:"full_text"`  // 当前全文
+	Language  string `json:"language"`   // zh | en，默认 zh
+	Style     string `json:"style"`      // professional | concise | casual
+	MaxTokens int    `json:"max_tokens"` // 返回最大字数
 }
 
 // WritingAssistResult AI 续写结果。
 type WritingAssistResult struct {
-	Text       string  `json:"text"`        // 续写内容
-	Confidence float64 `json:"confidence"`  // 规则引擎固定 0.6
-	Model      string  `json:"model"`       // 使用的模型或 "rule-engine"
+	Text       string  `json:"text"`       // 续写内容
+	Confidence float64 `json:"confidence"` // 规则引擎固定 0.6
+	Model      string  `json:"model"`      // 使用的模型或 "rule-engine"
 }
 
 // WritingAssist AI 续写 — 根据上下文智能续写文本。
@@ -418,19 +418,19 @@ func (s *Service) WritingAssist(_ context.Context, in WritingAssistInput) (*Writ
 
 // RewriteInput AI 改写输入。
 type RewriteInput struct {
-	Text     string `json:"text"`      // 选中的原文
-	Style    string `json:"style"`     // formal | concise | fluent | expand
-	Language string `json:"language"`  // zh | en
+	Text      string `json:"text"`       // 选中的原文
+	Style     string `json:"style"`      // formal | concise | fluent | expand
+	Language  string `json:"language"`   // zh | en
 	IssueType string `json:"issue_type"` // 期望语境: requirement | task | defect | null
 }
 
 // RewriteResult 改写结果。
 type RewriteResult struct {
-	Text       string   `json:"text"`        // 改写后文本
-	Changes    []string `json:"changes"`     // 改动说明
-	OriginalLen int     `json:"original_len"`
-	NewLen      int     `json:"new_len"`
-	Model       string  `json:"model"`        // rule-engine 或 LLM 名称
+	Text        string   `json:"text"`    // 改写后文本
+	Changes     []string `json:"changes"` // 改动说明
+	OriginalLen int      `json:"original_len"`
+	NewLen      int      `json:"new_len"`
+	Model       string   `json:"model"` // rule-engine 或 LLM 名称
 }
 
 // RewriteText AI 改写 — 对选中文本进行风格/语气改写。
@@ -465,19 +465,19 @@ type FixGrammarInput struct {
 
 // GrammarIssue 语法问题。
 type GrammarIssue struct {
-	Offset      int    `json:"offset"`       // 问题起始偏移
-	Length      int    `json:"length"`       // 问题长度
-	Original    string `json:"original"`     // 原文
-	Replacement string `json:"replacement"`  // 建议替换
-	Reason      string `json:"reason"`       // 错误说明
-	Severity    string `json:"severity"`     // error | warning | style
+	Offset      int    `json:"offset"`      // 问题起始偏移
+	Length      int    `json:"length"`      // 问题长度
+	Original    string `json:"original"`    // 原文
+	Replacement string `json:"replacement"` // 建议替换
+	Reason      string `json:"reason"`      // 错误说明
+	Severity    string `json:"severity"`    // error | warning | style
 }
 
 // FixGrammarResult 纠错结果。
 type FixGrammarResult struct {
-	FixedText string        `json:"fixed_text"` // 修正后全文
-	Issues    []GrammarIssue `json:"w"`     // 发现的问题列表
-	Model     string        `json:"model"`       // rule-engine
+	FixedText string         `json:"fixed_text"` // 修正后全文
+	Issues    []GrammarIssue `json:"w"`          // 发现的问题列表
+	Model     string         `json:"model"`      // rule-engine
 }
 
 // FixGrammar AI 语法纠错 — 检测并修正语法、拼写、标点问题。
@@ -548,7 +548,7 @@ func chineseAssist(context, fullText string, maxTokens int) string {
 	}
 	// 模式 5：尾随疑问 — 续写建议
 	if hasAnySuffix(last50, []string{"?", "？", "吗", "呢", "如何", "怎么", "是否"}) {
-	建议 := "可以参考同类场景的最佳实践，结合团队现状形成本地化方案。"
+		建议 := "可以参考同类场景的最佳实践，结合团队现状形成本地化方案。"
 		_ = 建议
 		return "可组织一次跨角色对齐会，综合技术可行性与业务价值做出判断。"
 	}
@@ -729,7 +729,7 @@ func fixPunctuation(text *string) []GrammarIssue {
 				issues = append(issues, GrammarIssue{
 					Offset: 0, Length: len(half),
 					Original: half, Replacement: full,
-					Reason: "中文语境建议使用全角标点",
+					Reason:   "中文语境建议使用全角标点",
 					Severity: "warning",
 				})
 			}
@@ -753,7 +753,7 @@ func fixCommonTypos(text *string) []GrammarIssue {
 			issues = append(issues, GrammarIssue{
 				Offset: idx, Length: len([]rune(wrong)),
 				Original: wrong, Replacement: right,
-				Reason: "常见错别字",
+				Reason:   "常见错别字",
 				Severity: "error",
 			})
 		}
@@ -1011,15 +1011,15 @@ type LLMProvider interface {
 
 // ChatMessage 对话消息。
 type ChatMessage struct {
-	Role    string `json:"role"`    // system | user | assistant
+	Role    string `json:"role"` // system | user | assistant
 	Content string `json:"content"`
 }
 
 // ChatResponse LLM 响应。
 type ChatResponse struct {
-	Content   string `json:"content"`
-	Model     string `json:"model"`
-	TokensUsed int   `json:"tokens_used"`
+	Content    string `json:"content"`
+	Model      string `json:"model"`
+	TokensUsed int    `json:"tokens_used"`
 }
 
 // --- OpenAI Provider ---
@@ -1029,7 +1029,9 @@ type OpenAIProvider struct {
 	endpoint   string
 	apiKey     string
 	model      string
-	httpClient interface{ Do(req interface{}) (interface{}, error) } // 简化接口
+	httpClient interface {
+		Do(req interface{}) (interface{}, error)
+	} // 简化接口
 }
 
 // NewOpenAIProvider 创建 OpenAI Provider。

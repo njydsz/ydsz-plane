@@ -9,7 +9,7 @@
  *   - 关联需求/任务/缺陷 tab：搜索需求/任务/缺陷 + 增删关联
  *   - 乐观锁 version 字段（PATCH 时携带当前 version）
  */
-import { onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useEditor, EditorContent } from "@tiptap/vue-3";
 
 import { completeExtensions } from "@/lib/editor/extensions";

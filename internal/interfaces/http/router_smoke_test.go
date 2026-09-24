@@ -18,7 +18,7 @@ import (
 func stubDeps() *Deps {
 	return &Deps{
 		Cfg: &config.Config{
-			Server:  config.ServerConfig{Env: "development", Port: 8080},
+			Server:   config.ServerConfig{Env: "development", Port: 8080},
 			Auth:     config.AuthConfig{LoginRateLimitPer: 100},
 			Features: config.FeatureFlags{RegistrationOpen: true},
 		},
@@ -35,10 +35,10 @@ func TestSecurityHeaders(t *testing.T) {
 	r.ServeHTTP(w, req)
 
 	wantHeaders := map[string]string{
-		"X-Content-Type-Options":      "nosniff",
-		"X-Frame-Options":             "SAMEORIGIN",
-		"Referrer-Policy":             "strict-origin-when-cross-origin",
-		"Cross-Origin-Opener-Policy":  "same-origin",
+		"X-Content-Type-Options":       "nosniff",
+		"X-Frame-Options":              "SAMEORIGIN",
+		"Referrer-Policy":              "strict-origin-when-cross-origin",
+		"Cross-Origin-Opener-Policy":   "same-origin",
 		"Cross-Origin-Resource-Policy": "same-origin",
 	}
 	for hdr, want := range wantHeaders {

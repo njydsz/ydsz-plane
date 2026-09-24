@@ -9,6 +9,7 @@
 package metrics
 
 import (
+	"context"
 	"net/http"
 	"strconv"
 
@@ -66,34 +67,38 @@ func (h *CachedHandler) Register(r *gin.RouterGroup) {
 	r.GET("/throughput", h.GetWeeklyThroughput)
 }
 
-// GetVelocity 查询项目速率统计（带缓存）。
+// GetVelocity 查询项目速率统计（带缓存 + singleflight 防击穿）。
 func (h *CachedHandler) GetVelocity(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	projectID := c.GetInt64(middleware.CtxProjectID)
 	lastN, _ := strconv.Atoi(c.DefaultQuery("last_n", "6"))
 
-	// 1. 查缓存
-	if h.cache != nil {
-		if cached, ok := h.cache.GetVelocity(c.Request.Context(), wsID, projectID, lastN); ok {
-			c.Header("X-Cache", "HIT")
-			c.JSON(http.StatusOK, cached)
+	if h.cache == nil {
+		result, err := h.d.Svc.GetVelocity(c.Request.Context(), wsID, projectID, lastN)
+		if err != nil {
+			writeErr(c, err)
 			return
 		}
+		c.Header("X-Cache", "BYPASS")
+		c.JSON(http.StatusOK, result)
+		return
 	}
 
-	// 2. 缓存未命中，查 DB
-	result, err := h.d.Svc.GetVelocity(c.Request.Context(), wsID, projectID, lastN)
+	// key 与 GetVelocity 缓存 key 完全一致，命中时走快速路径。
+	key := h.cache.keyVelocity(wsID, projectID, lastN)
+	val, err := h.cache.GetOrLoad(c.Request.Context(), key, h.cache.ttl.DailyAgg,
+		func(ctx context.Context) (any, error) {
+			return h.d.Svc.GetVelocity(ctx, wsID, projectID, lastN)
+		})
 	if err != nil {
 		writeErr(c, err)
 		return
 	}
-
-	// 3. 回写缓存
-	if h.cache != nil {
-		h.cache.SetVelocity(c.Request.Context(), wsID, projectID, lastN, result)
+	if val == nil {
+		val = &VelocityResult{ProjectID: projectID}
 	}
-	c.Header("X-Cache", "MISS")
-	c.JSON(http.StatusOK, result)
+	c.Header("X-Cache", "DONE")
+	c.JSON(http.StatusOK, val)
 }
 
 // GetVelocityTrend 迭代速率趋势（复用 GetVelocity 逻辑，独立端点便于前端卡片绑定）。

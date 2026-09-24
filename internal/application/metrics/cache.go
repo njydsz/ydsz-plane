@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/redis/go-redis/v9"
+	"golang.org/x/sync/singleflight"
 )
 
 // CacheTTL 按指标类型差异化的 TTL 配置。
@@ -40,9 +41,14 @@ var DefaultCacheTTL = CacheTTL{
 }
 
 // MetricCache 封装效能度量的 Redis 缓存操作。
+//
+// singleflight 组用于防护缓存击穿：同一 key 在短时间内只放行一次
+// DB 回填，其余并发等待并共享结果（只在缓存层 key 粒度生效，
+// 指标名+参数拼接的 key 粒度与 GetXxx 一致）。
 type MetricCache struct {
 	cli *redis.Client
 	ttl CacheTTL
+	sf  singleflight.Group
 }
 
 // NewMetricCache 创建效能度量缓存层。
@@ -51,6 +57,60 @@ func NewMetricCache(cli *redis.Client) *MetricCache {
 		cli: cli,
 		ttl: DefaultCacheTTL,
 	}
+}
+
+// GetOrLoad 先查缓存；未命中时通过 singleflight 只放行一次 load，
+// 其余同名并发等待共享结果，最后回写缓存（含空值防穿透）。
+// load 必须返回任意值或错误；ttl<=0 时按该 key 默认 TTL 处理。
+func (c *MetricCache) GetOrLoad(
+	ctx context.Context,
+	key string,
+	ttl time.Duration,
+	load func(ctx context.Context) (any, error),
+) (any, error) {
+	// 1. 快速路径：缓存命中。
+	if raw, err := c.cli.Get(ctx, key).Result(); err == nil {
+		if raw == emptyMarker {
+			return nil, nil
+		}
+		var v any
+		if err := json.Unmarshal([]byte(raw), &v); err != nil {
+			return nil, err
+		}
+		return v, nil
+	} else if err != redis.Nil {
+		return nil, err
+	}
+
+	// 2. 未命中：singleflight 防击穿。
+	val, err, _ := c.sf.Do(key, func() (any, error) {
+		v, lerr := load(ctx)
+		if lerr != nil {
+			return nil, lerr
+		}
+		// 回写（含空值标记）。
+		storeTTL := ttl
+		if storeTTL <= 0 {
+			storeTTL = c.ttl.DailyAgg
+		}
+		if werr := c.storeAny(ctx, key, v, storeTTL); werr != nil {
+			return v, werr
+		}
+		return v, nil
+	})
+	return val, err
+}
+
+// storeAny 是 setJSON 的 any 值重载。
+func (c *MetricCache) storeAny(ctx context.Context, key string, val any, ttl time.Duration) error {
+	if val == nil {
+		return c.cli.Set(ctx, key, emptyMarker, c.ttl.EmptyMarker).Err()
+	}
+	data, err := json.Marshal(val)
+	if err != nil {
+		return fmt.Errorf("marshal cache: %w", err)
+	}
+	return c.cli.Set(ctx, key, data, ttl).Err()
 }
 
 // WithTTL 自定义 TTL 配置（可选链式调用）。
@@ -121,21 +181,37 @@ func (c *MetricCache) setJSON(ctx context.Context, key string, val any, ttl time
 }
 
 // InvalidateProject 失效某个项目的全部指标缓存（工作项/迭代变更后调用）。
+//
+// 使用 Scan（游标非阻塞）+ Pipeline 批量 UNLINK（Redis 4.0+ 异步删除），
+// 避免单条同步 DEL 阻塞 Redis 主线程；分 pipelining 避免单包过大。
 func (c *MetricCache) InvalidateProject(ctx context.Context, wsID, projectID int64) error {
 	pattern := fmt.Sprintf("mtr:*:%d:%d:*", wsID, projectID)
-	// SCAN 避免 KEYS 阻塞
-	iter := c.cli.Scan(ctx, 0, pattern, 0).Iterator()
-	var keys []string
-	for iter.Next(ctx) {
-		keys = append(keys, iter.Val())
-	}
-	if err := iter.Err(); err != nil {
+	const batchSize = 200
+
+	iter := c.cli.Scan(ctx, 0, pattern, batchSize*10).Iterator()
+	pipe := c.cli.Pipeline()
+	count := 0
+	flush := func() error {
+		if count == 0 {
+			return nil
+		}
+		_, err := pipe.Exec(ctx)
+		count = 0
 		return err
 	}
-	if len(keys) > 0 {
-		return c.cli.Del(ctx, keys...).Err()
+	for iter.Next(ctx) {
+		pipe.Unlink(ctx, iter.Val())
+		count++
+		if count >= batchSize {
+			if err := flush(); err != nil {
+				return err
+			}
+		}
 	}
-	return nil
+	if err := flush(); err != nil {
+		return err
+	}
+	return iter.Err()
 }
 
 // --- Typed Cache Ops ---

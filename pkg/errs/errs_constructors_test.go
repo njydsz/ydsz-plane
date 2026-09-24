@@ -11,8 +11,8 @@ import (
 // 四个便捷构造函数正确设置错误码与 HTTP 状态码。
 func TestConvenienceConstructors(t *testing.T) {
 	tests := []struct {
-		name string
-		got  *AppError
+		name     string
+		got      *AppError
 		wantCode string
 		wantHTTP int
 	}{

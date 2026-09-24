@@ -18,6 +18,7 @@ import (
 // HandlerDeps search handler 依赖。
 type HandlerDeps struct {
 	SearchSvc      *Service
+	Indexer        *Indexer
 	WorkspaceStore *auth.WorkspaceMembershipStore
 }
 
@@ -35,12 +36,30 @@ func NewSearchHandler(d *HandlerDeps) *SearchHandler {
 func (h *SearchHandler) Register(r *gin.RouterGroup) {
 	r.GET("", h.Search)
 	r.GET("/history", h.ListHistory)
+	// 注意：reindex 独立鉴权在 router.go（owner 级），此处不再重复鉴权
 	r.DELETE("/history/:history_id", h.DeleteHistory)
 	r.DELETE("/history", h.ClearHistory)
 	r.GET("/bookmarks", h.ListBookmarks)
 	r.POST("/bookmarks", h.CreateBookmark)
 	r.PATCH("/bookmarks/:bookmark_id", h.UpdateBookmark)
 	r.DELETE("/bookmarks/:bookmark_id", h.DeleteBookmark)
+}
+
+// Reindex 对本工作空间全量重建 search_documents（owner/admin 生效）。
+// 路由在 router.go 以 /api/v1/workspaces/:workspace_id/search/reindex 暴露，
+// 由 PermWorkspaceUpdate 鉴权；幂等（ON CONFLICT DO UPDATE），分批回填。
+func (h *SearchHandler) Reindex(c *gin.Context) {
+	if h.d.Indexer == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "search indexer not configured"})
+		return
+	}
+	wsID := c.GetInt64(middleware.CtxWorkspaceID)
+	n, err := h.d.Indexer.ReindexWorkspace(c.Request.Context(), wsID)
+	if err != nil {
+		writeErr(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"reindexed": n, "workspace_id": wsID})
 }
 
 // Search 全局搜索（REST handler）。
@@ -288,12 +307,7 @@ func (h *SearchHandler) UpdateBookmark(c *gin.Context) {
 		return
 	}
 
-	bm, err := h.d.SearchSvc.UpdateBookmark(c.Request.Context(), wsID, userID, bmID, UpdateBookmarkInput{
-		Name:     req.Name,
-		Query:    req.Query,
-		Filters:  req.Filters,
-		IsShared: req.IsShared,
-	})
+	bm, err := h.d.SearchSvc.UpdateBookmark(c.Request.Context(), wsID, userID, bmID, UpdateBookmarkInput(req))
 	if err != nil {
 		writeErr(c, err)
 		return

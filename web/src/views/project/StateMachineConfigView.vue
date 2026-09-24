@@ -16,13 +16,11 @@ import { useRoute } from "vue-router";
 import {
   stateMachineApi,
   STATE_GROUP_LABELS,
-  STATE_GROUP_COLORS,
   TYPE_CODE_LABELS,
   type State,
   type StateGroup,
   type TransitionRule,
   type CreateStateRequest,
-  type UpdateStateRequest,
   type AddTransitionRequest,
 } from "@/api/services/stateMachine";
 import { useWorkspaceStore } from "@/stores/workspace";

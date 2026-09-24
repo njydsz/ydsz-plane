@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/redis/go-redis/v9"
 	"github.com/olivere/elastic/v7"
+	"github.com/redis/go-redis/v9"
 
 	"github.com/njydsz/ydsz-plane/pkg/errs"
 )
@@ -37,7 +37,7 @@ func (s *WorkitemSearchService) IndexWorkitem(ctx context.Context, wsID int64, e
 	if !s.useES || s.esClient == nil {
 		return nil
 	}
-	
+
 	indexName := s.getIndexName(entityType)
 	_, err := s.esClient.Index().
 		Index(indexName).
@@ -56,7 +56,7 @@ func (s *WorkitemSearchService) DeleteWorkitemIndex(ctx context.Context, wsID in
 	if !s.useES || s.esClient == nil {
 		return nil
 	}
-	
+
 	indexName := s.getIndexName(entityType)
 	_, err := s.esClient.Delete().
 		Index(indexName).
@@ -84,7 +84,7 @@ func (s *WorkitemSearchService) Search(ctx context.Context, wsID, projectID int6
 			s.useES = s.esClient != nil
 		}()
 	}
-	
+
 	// PG全文搜索降级
 	return s.searchFromPG(ctx, wsID, projectID, entityType, keyword, page, perPage)
 }
@@ -97,7 +97,7 @@ func (s *WorkitemSearchService) searchFromES(ctx context.Context, wsID, projectI
 		Filter(elastic.NewTermQuery("workspace_id", wsID)).
 		Filter(elastic.NewTermQuery("project_id", projectID)).
 		Filter(elastic.NewTermQuery("archived_at", nil))
-	
+
 	from := (page - 1) * perPage
 	result, err := s.esClient.Search().
 		Index(indexName).
@@ -108,7 +108,7 @@ func (s *WorkitemSearchService) searchFromES(ctx context.Context, wsID, projectI
 	if err != nil {
 		return nil, 0, err
 	}
-	
+
 	var items []map[string]any
 	for _, hit := range result.Hits.Hits {
 		var item map[string]any
@@ -131,7 +131,7 @@ func (s *WorkitemSearchService) searchFromPG(ctx context.Context, wsID, projectI
 	default:
 		return nil, 0, errs.ErrValidation.WithDetails(errs.FieldDetail{Field: "entity_type", Reason: "不支持的工作项类型"})
 	}
-	
+
 	from := (page - 1) * perPage
 	rows, err := s.db.Query(ctx, fmt.Sprintf(`
 		SELECT id, name, description_stripped, state_id, priority, created_at, updated_at
@@ -147,7 +147,7 @@ func (s *WorkitemSearchService) searchFromPG(ctx context.Context, wsID, projectI
 		return nil, 0, err
 	}
 	defer rows.Close()
-	
+
 	var items []map[string]any
 	for rows.Next() {
 		var id, stateID int64
@@ -158,16 +158,16 @@ func (s *WorkitemSearchService) searchFromPG(ctx context.Context, wsID, projectI
 			return nil, 0, err
 		}
 		items = append(items, map[string]any{
-			"id": id,
-			"name": name,
+			"id":                   id,
+			"name":                 name,
 			"description_stripped": desc,
-			"state_id": stateID,
-			"priority": priority,
-			"created_at": createdAt,
-			"updated_at": updatedAt,
+			"state_id":             stateID,
+			"priority":             priority,
+			"created_at":           createdAt,
+			"updated_at":           updatedAt,
 		})
 	}
-	
+
 	// 查询总数
 	var total int
 	err = s.db.QueryRow(ctx, fmt.Sprintf(`
@@ -180,7 +180,7 @@ func (s *WorkitemSearchService) searchFromPG(ctx context.Context, wsID, projectI
 	if err != nil {
 		return nil, 0, err
 	}
-	
+
 	return items, total, nil
 }
 

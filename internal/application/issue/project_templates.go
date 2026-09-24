@@ -8,7 +8,7 @@ package issue
 type ProjectTemplateCode string
 
 const (
-	TemplateAgile    ProjectTemplateCode = "agile"
+	TemplateAgile     ProjectTemplateCode = "agile"
 	TemplateWaterfall ProjectTemplateCode = "waterfall"
 	TemplateGeneric   ProjectTemplateCode = "generic"
 )

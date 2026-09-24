@@ -51,7 +51,7 @@ func (h *Handler) UpdatePreference(c *gin.Context) {
 	var input PreferenceUpdateInput
 	if err := c.ShouldBindJSON(&input); err != nil {
 		respondError(c, errs.ErrValidation.WithDetails(errs.FieldDetail{
-			Field:  "body", Reason: err.Error(),
+			Field: "body", Reason: err.Error(),
 		}))
 		return
 	}

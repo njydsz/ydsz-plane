@@ -695,7 +695,7 @@ coalesce(sum(CASE WHEN sg."group" = 'completed' AND sub.point IS NOT NULL THEN s
 		}
 	}
 
-rows2, err := s.db.Query(ctx, `
+	rows2, err := s.db.Query(ctx, `
 		SELECT sg."group",
 		coalesce(sum(CASE WHEN sub.point IS NOT NULL THEN sub.point ELSE 0 END), 0)
 	FROM sprints sp
@@ -800,7 +800,7 @@ func (s *Service) computeDeliveryReport(ctx context.Context, wsID int64, v *Vers
 func (s *Service) buildReleaseNotesSource(ctx context.Context, wsID int64, v *Version, includeKnownIssues bool) *ReleaseNotesData {
 	src := &ReleaseNotesData{VersionName: v.Name, Semver: v.Semver}
 
-rows, err := s.db.Query(ctx, `
+	rows, err := s.db.Query(ctx, `
 		SELECT DISTINCT sub.identifier, sub.name, st.name
 	FROM sprints sp
 	JOIN (

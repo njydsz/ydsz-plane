@@ -99,8 +99,8 @@ type Dialect interface {
 // PostgresDialect PostgreSQL 15+ 方言。
 type PostgresDialect struct{}
 
-func (d *PostgresDialect) Type() DialectType    { return DialectPostgres }
-func (d *PostgresDialect) Name() string          { return "PostgreSQL 15+" }
+func (d *PostgresDialect) Type() DialectType { return DialectPostgres }
+func (d *PostgresDialect) Name() string      { return "PostgreSQL 15+" }
 
 func (d *PostgresDialect) Placeholder(n int) string {
 	return fmt.Sprintf("$%d", n)
@@ -142,7 +142,7 @@ func (d *PostgresDialect) ArrayContains(column, placeholder string) string {
 }
 
 func (d *PostgresDialect) CurrentTimestamp() string { return "now()" }
-func (d *PostgresDialect) RandomSort() string        { return "random()" }
+func (d *PostgresDialect) RandomSort() string       { return "random()" }
 
 // --- 达梦数据库 Dialect ---
 
@@ -150,8 +150,8 @@ func (d *PostgresDialect) RandomSort() string        { return "random()" }
 // 达梦兼容部分 Oracle 语法，与 PG 有显著差异。
 type DamengDialect struct{}
 
-func (d *DamengDialect) Type() DialectType    { return DialectDameng }
-func (d *DamengDialect) Name() string          { return "达梦数据库 DM8" }
+func (d *DamengDialect) Type() DialectType { return DialectDameng }
+func (d *DamengDialect) Name() string      { return "达梦数据库 DM8" }
 
 func (d *DamengDialect) Placeholder(n int) string {
 	return fmt.Sprintf(":%d", n)
@@ -194,7 +194,7 @@ func (d *DamengDialect) ArrayContains(column, placeholder string) string {
 }
 
 func (d *DamengDialect) CurrentTimestamp() string { return "SYSDATE" }
-func (d *DamengDialect) RandomSort() string        { return "DBMS_RANDOM.VALUE()" }
+func (d *DamengDialect) RandomSort() string       { return "DBMS_RANDOM.VALUE()" }
 
 // --- 人大金仓 Dialect ---
 
@@ -205,7 +205,7 @@ type KingbaseDialect struct {
 }
 
 func (d *KingbaseDialect) Type() DialectType { return DialectKingbase }
-func (d *KingbaseDialect) Name() string       { return "人大金仓 KingbaseES V8" }
+func (d *KingbaseDialect) Name() string      { return "人大金仓 KingbaseES V8" }
 
 // --- Dialect Registry ---
 

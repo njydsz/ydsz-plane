@@ -3,9 +3,9 @@
 // 目的：在单体 ↔ 微服务切换时，无需修改业务代码。
 //
 // 实现（按优先级）：
-//   1. LocalPublisher  - 当前单体模式，直接调用本地 Notification Service（零开销）
-//   2. RabbitMQPublisher - 微服务模式，通过消息队列投递给独立 Notification Service 消费
-//   3. gRPCPublisher   - 微服务模式，通过 gRPC 同步调用（需要注意 RPC 失败降级为事件）
+//  1. LocalPublisher  - 当前单体模式，直接调用本地 Notification Service（零开销）
+//  2. RabbitMQPublisher - 微服务模式，通过消息队列投递给独立 Notification Service 消费
+//  3. gRPCPublisher   - 微服务模式，通过 gRPC 同步调用（需要注意 RPC 失败降级为事件）
 //
 // 切换方式：通过配置项 eventbus.publisher = "local" | "rabbitmq" | "grpc"
 package eventbus
@@ -18,13 +18,13 @@ import (
 
 // DomainEvent 是应用内领域事件的统一信封格式。
 type DomainEvent struct {
-	EventType  string `json:"event_type"` // e.g. "issue.created"
-	EntityType string `json:"entity_type"`
-	EntityID   int64  `json:"entity_id"`
-	WorkspaceID int64 `json:"workspace_id"`
-	ActorID    int64  `json:"actor_id"`
-	ActorName  string `json:"actor_name"`
-	Payload    []byte `json:"payload"`    // JSON 格式的详情
+	EventType   string `json:"event_type"` // e.g. "issue.created"
+	EntityType  string `json:"entity_type"`
+	EntityID    int64  `json:"entity_id"`
+	WorkspaceID int64  `json:"workspace_id"`
+	ActorID     int64  `json:"actor_id"`
+	ActorName   string `json:"actor_name"`
+	Payload     []byte `json:"payload"` // JSON 格式的详情
 }
 
 // Publisher 事件发布接口。
@@ -44,8 +44,8 @@ type Publisher interface {
 // LocalPublisher 通过直接函数调用投递事件给本地订阅者。
 // 在单体模式下零网络开销，单元测试友好。
 type LocalPublisher struct {
-	mu        sync.RWMutex
-	handlers  []func(ctx context.Context, event DomainEvent) error
+	mu       sync.RWMutex
+	handlers []func(ctx context.Context, event DomainEvent) error
 }
 
 // NewLocalPublisher 创建一个本地事件发布器。

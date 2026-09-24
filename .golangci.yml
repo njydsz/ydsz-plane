@@ -1,30 +1,46 @@
 run:
   timeout: 5m
-  tests: false
+  # tests:true 强制对测试文件也运行 lint，避免测试代码成为质量死角。
+  # 但 errcheck 对测试文件关闭（测试中常用 _ = 忽略错误，已有 race detector 兜底）。
+  tests: true
 
 linters:
+  disable-all: true
   enable:
-    - errcheck
-    - govet
-    - staticcheck
-    - unused
-    - ineffassign
-    - gofmt
-    - revive
-    - gocritic
-    - misspell
+    # 正确性与安全门禁（对标 Google/Uber Go 标准）：
+    - errcheck    # 未处理的错误返回（P0 质量债）
+    - govet      # 标准静态分析（printf/结构体标签/锁复制等）
+    - staticcheck # 深层静态检查（SA 系列）
+    - unused     # 未使用的代码（含导出符号）
+    - ineffassign # 无效赋值
+    - gofmt      # 格式一致性
+    - gosec      # 安全注入/弱熵/硬编码密码扫描
+    # 最佳实践：
+    - revive     # 代码风格与命名（exported/var-naming/line-length）
+    - gocritic   # 性能与可读性建议（if-else-chain/unnecessary-defer）
 
 linters-settings:
   revive:
+    severity: warning
     rules:
       - name: exported
         severity: warning
+      - name: line-length
+        severity: warning
+        arguments: [160]
+      - name: var-naming
+        severity: warning
   errcheck:
+    # check-blank:false 不检查 _ = 的 blank 赋值（存量 199 处，渐进治理）。
+    # 重点捕获的是完全遗漏的错误处理（P0），再逐步收紧。
     check-blank: false
+    exclude-functions:
+      - (github.com/jackc/pgx/v5.Rows).Close
+      - (io.ReadCloser).Close
 
 issues:
   exclude-rules:
     - path: _test\.go
-      linters: [errcheck]
+      linters: [errcheck, funlen]
   max-issues-per-linter: 0
   max-same-issues: 0

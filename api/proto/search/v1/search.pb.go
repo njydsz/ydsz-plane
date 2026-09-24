@@ -4,8 +4,9 @@
 // 正式代码由 `buf generate` 从 search.proto 自动生成并覆盖本文件。
 //
 // 前置依赖（需在线安装）：
-//   go get google.golang.org/grpc@v1.78.0
-//   随后运行 buf generate 生成正式代码
+//
+//	go get google.golang.org/grpc@v1.78.0
+//	随后运行 buf generate 生成正式代码
 package searchv1
 
 import (
@@ -85,7 +86,9 @@ type UnimplementedSearchServiceServer struct{}
 func (UnimplementedSearchServiceServer) Search(context.Context, *SearchQuery) (*SearchResult, error) {
 	return nil, nil
 }
-func (UnimplementedSearchServiceServer) Index(context.Context, *IndexRequest) (*Empty, error)        { return nil, nil }
+func (UnimplementedSearchServiceServer) Index(context.Context, *IndexRequest) (*Empty, error) {
+	return nil, nil
+}
 func (UnimplementedSearchServiceServer) BulkIndex(context.Context, *BulkIndexRequest) (*BulkIndexResp, error) {
 	return nil, nil
 }

@@ -1,10 +1,10 @@
 // Package mail — SMTP 邮件发送服务。
 //
 // 架构要点（对标 SendGrid / AWS SES 异步投递模式）：
-//  - 接口抽象：EmailService 接口让业务代码不依赖具体实现；dev 用 Noop，prod 用 SMTP
-//  - 统一 Message 结构体：收件人、主题、纯文本 + HTML 双版本
-//  - TLS 默认：强制 STARTTLS on port 587 / TLS on 465
-//  - 超时保护：连接 + 读写均设超时
+//   - 接口抽象：EmailService 接口让业务代码不依赖具体实现；dev 用 Noop，prod 用 SMTP
+//   - 统一 Message 结构体：收件人、主题、纯文本 + HTML 双版本
+//   - TLS 默认：强制 STARTTLS on port 587 / TLS on 465
+//   - 超时保护：连接 + 读写均设超时
 package mail
 
 import (

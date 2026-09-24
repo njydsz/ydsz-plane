@@ -1,8 +1,9 @@
 // Package httpapi — SAML 2.0 ACS (Assertion Consumer Service) HTTP Handler。
 //
 // 路由:
-//   POST /api/v1/auth/saml/acs — IdP POST-back 的 Assertion Consumer Service
-//   GET  /api/v1/auth/saml/metadata — 暴露 SP 元数据（供 IdP 管理员导入）
+//
+//	POST /api/v1/auth/saml/acs — IdP POST-back 的 Assertion Consumer Service
+//	GET  /api/v1/auth/saml/metadata — 暴露 SP 元数据（供 IdP 管理员导入）
 package httpapi
 
 import (

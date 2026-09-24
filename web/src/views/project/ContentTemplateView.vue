@@ -161,22 +161,22 @@ const projectId = Number(route.params.projectId);
 const loading = ref(false);
 const saving = ref(false);
 const templates = ref<ContentTemplate[]>([]);
-const activeType = ref("requirement");
+const activeType = ref<"" | "requirement" | "task" | "defect">("requirement");
 
 const showModal = ref(false);
 const editingTpl = ref<ContentTemplate | null>(null);
 
 const tabs = [
-  { key: "", label: "全部" },
-  { key: "requirement", label: "需求" },
-  { key: "task", label: "任务" },
-  { key: "defect", label: "缺陷" },
+  { key: "" as const, label: "全部" },
+  { key: "requirement" as const, label: "需求" },
+  { key: "task" as const, label: "任务" },
+  { key: "defect" as const, label: "缺陷" },
 ];
 
 const types = [
-  { key: "requirement", label: "需求" },
-  { key: "task", label: "任务" },
-  { key: "defect", label: "缺陷" },
+  { key: "requirement" as const, label: "需求" },
+  { key: "task" as const, label: "任务" },
+  { key: "defect" as const, label: "缺陷" },
 ];
 
 const form = ref<CreateTemplateRequest & { content_html: string }>({

@@ -85,7 +85,7 @@ type RemoveIssueInput struct {
 
 // CompleteSprintInput 结束迭代的入参。
 type CompleteSprintInput struct {
-	Strategy UnfinishedStrategy
+	Strategy     UnfinishedStrategy
 	NextSprintID *int64 // 策略为 next_sprint 时指定
 }
 
@@ -655,35 +655,35 @@ func (s *Service) AssigneeIDs(ctx context.Context, wsID, sprintID int64) ([]int6
 
 // BacklogItem Backlog 视图。
 type BacklogItem struct {
-	IssueID        int64     `json:"issue_id"`
-	Name           string    `json:"name"`
-	TypeCode       string    `json:"type_code"`
-	Priority       string    `json:"priority"`
-	StateID        int64     `json:"state_id"`
-	StateName      string    `json:"state_name"`
-	StateGroup     string    `json:"state_group"`
-	StateColor     string    `json:"state_color"`
-	HasSprint      bool      `json:"has_sprint"`
-	SprintID       *int64    `json:"sprint_id,omitempty"`
-	SprintName     string    `json:"sprint_name,omitempty"`
-	AssignedPoints *int      `json:"point,omitempty"`
+	IssueID        int64  `json:"issue_id"`
+	Name           string `json:"name"`
+	TypeCode       string `json:"type_code"`
+	Priority       string `json:"priority"`
+	StateID        int64  `json:"state_id"`
+	StateName      string `json:"state_name"`
+	StateGroup     string `json:"state_group"`
+	StateColor     string `json:"state_color"`
+	HasSprint      bool   `json:"has_sprint"`
+	SprintID       *int64 `json:"sprint_id,omitempty"`
+	SprintName     string `json:"sprint_name,omitempty"`
+	AssignedPoints *int   `json:"point,omitempty"`
 }
 
 // SprintIssueView 迭代内工作项视图。
 type SprintIssueView struct {
-	IssueID    int64     `json:"issue_id"`
-	SortOrder  float64   `json:"sort_order"`
-	Name       string    `json:"name"`
-	TypeCode   string    `json:"type_code"`
-	Priority   string    `json:"priority"`
-	StateID    int64     `json:"state_id"`
-	StateName  string    `json:"state_name"`
-	StateColor string    `json:"state_color"`
-	StateGroup string    `json:"state_group"`
-	AddedMidway bool     `json:"added_midway"`
-	CreatedAt  time.Time `json:"created_at"`
-	Point      *int      `json:"point,omitempty"`
-	Severity   *int      `json:"severity,omitempty"`
+	IssueID     int64     `json:"issue_id"`
+	SortOrder   float64   `json:"sort_order"`
+	Name        string    `json:"name"`
+	TypeCode    string    `json:"type_code"`
+	Priority    string    `json:"priority"`
+	StateID     int64     `json:"state_id"`
+	StateName   string    `json:"state_name"`
+	StateColor  string    `json:"state_color"`
+	StateGroup  string    `json:"state_group"`
+	AddedMidway bool      `json:"added_midway"`
+	CreatedAt   time.Time `json:"created_at"`
+	Point       *int      `json:"point,omitempty"`
+	Severity    *int      `json:"severity,omitempty"`
 }
 
 // GetBacklog 获取 Backlog 工作项列表（未规划进 active 迭代的未完成任务）。
@@ -1131,10 +1131,10 @@ func (s *Service) computeProgress(ctx context.Context, wsID int64, sp *Sprint) S
 		// completed 时优先使用 review_snapshot
 		if sp.ReviewSnapshot != nil {
 			return SprintProgress{
-				TotalPoints:  sp.ReviewSnapshot.CommittedPoints,
-				DonePoints:   sp.ReviewSnapshot.CompletedPoints,
-				TotalIssues:  sp.ReviewSnapshot.CommittedIssues,
-				DoneIssues:   sp.ReviewSnapshot.CompletedIssues,
+				TotalPoints: sp.ReviewSnapshot.CommittedPoints,
+				DonePoints:  sp.ReviewSnapshot.CompletedPoints,
+				TotalIssues: sp.ReviewSnapshot.CommittedIssues,
+				DoneIssues:  sp.ReviewSnapshot.CompletedIssues,
 			}
 		}
 	}
@@ -1197,7 +1197,7 @@ func (s *Service) computeProgress(ctx context.Context, wsID int64, sp *Sprint) S
 		RemovedPoints: 0,
 	}
 	if sp.Capacity != nil && *sp.Capacity > 0 {
-		progress.Saturation = math.Min(totalPoints.Float64 / (*sp.Capacity), 999)
+		progress.Saturation = math.Min(totalPoints.Float64/(*sp.Capacity), 999)
 	}
 	return progress
 }

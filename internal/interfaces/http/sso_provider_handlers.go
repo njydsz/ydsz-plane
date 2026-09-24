@@ -7,11 +7,11 @@
 //
 // 路由 (注册于 /api/v1/workspaces/:wid/sso/providers):
 //
-//\tGET    /                    → 列出工作空间 SSO Providers
-//\tPOST   /                    → 创建 SSO Provider（需 workspace:update 权限）
-//\tGET    /:id                 → 获取单个 Provider 详情
-//\tPATCH  /:id                 → 更新 Provider 配置
-//\tDELETE /:id                 → 删除 Provider
+// \tGET    /                    → 列出工作空间 SSO Providers
+// \tPOST   /                    → 创建 SSO Provider（需 workspace:update 权限）
+// \tGET    /:id                 → 获取单个 Provider 详情
+// \tPATCH  /:id                 → 更新 Provider 配置
+// \tDELETE /:id                 → 删除 Provider
 package httpapi
 
 import (
@@ -26,18 +26,18 @@ import (
 
 // ssoProviderListItem 列表展示的 Provider 概要（不含 secret）。
 type ssoProviderListItem struct {
-	ID             int64             `json:"id"`
-	Name           string            `json:"name"`
-	Protocol       string            `json:"protocol"`
-	IssuerURL      string            `json:"issuer_url"`
-	ClientID       string            `json:"client_id"`
-	AuthURL        string            `json:"auth_url"`
-	Scopes         string            `json:"scopes"`
-	AutoCreateUser bool              `json:"auto_createUser"`
-	DefaultRole    string            `json:"default_role"`
-	Enabled        bool              `json:"enabled"`
-	CreatedAt      string            `json:"created_at"`
-	UpdatedAt      string            `json:"updated_at"`
+	ID             int64  `json:"id"`
+	Name           string `json:"name"`
+	Protocol       string `json:"protocol"`
+	IssuerURL      string `json:"issuer_url"`
+	ClientID       string `json:"client_id"`
+	AuthURL        string `json:"auth_url"`
+	Scopes         string `json:"scopes"`
+	AutoCreateUser bool   `json:"auto_createUser"`
+	DefaultRole    string `json:"default_role"`
+	Enabled        bool   `json:"enabled"`
+	CreatedAt      string `json:"created_at"`
+	UpdatedAt      string `json:"updated_at"`
 }
 
 // listSSOProvidersMgmt 列出当前工作空间的 SSO Providers（含 secret 占位提示）。
@@ -75,7 +75,7 @@ func createSSOProvider(d *Deps) gin.HandlerFunc {
 		var in auth.ProviderModifyInput
 		if err := c.ShouldBindJSON(&in); err != nil {
 			middleware.AbortWithError(c, errs.ErrValidation.WithDetails(errs.FieldDetail{
-				Field:  "body", Reason: "请求体格式错误",
+				Field: "body", Reason: "请求体格式错误",
 			}))
 			return
 		}
@@ -99,7 +99,7 @@ func getSSOProvider(d *Deps) gin.HandlerFunc {
 		id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
 		if id <= 0 {
 			middleware.AbortWithError(c, errs.ErrValidation.WithDetails(errs.FieldDetail{
-				Field:  "id", Reason: "无效的 Provider ID",
+				Field: "id", Reason: "无效的 Provider ID",
 			}))
 			return
 		}
@@ -122,14 +122,14 @@ func updateSSOProvider(d *Deps) gin.HandlerFunc {
 		id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
 		if id <= 0 {
 			middleware.AbortWithError(c, errs.ErrValidation.WithDetails(errs.FieldDetail{
-				Field:  "id", Reason: "无效的 Provider ID",
+				Field: "id", Reason: "无效的 Provider ID",
 			}))
 			return
 		}
 		var in auth.ProviderModifyInput
 		if err := c.ShouldBindJSON(&in); err != nil {
 			middleware.AbortWithError(c, errs.ErrValidation.WithDetails(errs.FieldDetail{
-				Field:  "body", Reason: "请求体格式错误",
+				Field: "body", Reason: "请求体格式错误",
 			}))
 			return
 		}
@@ -152,7 +152,7 @@ func deleteSSOProvider(d *Deps) gin.HandlerFunc {
 		id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
 		if id <= 0 {
 			middleware.AbortWithError(c, errs.ErrValidation.WithDetails(errs.FieldDetail{
-				Field:  "id", Reason: "无效的 Provider ID",
+				Field: "id", Reason: "无效的 Provider ID",
 			}))
 			return
 		}

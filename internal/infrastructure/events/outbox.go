@@ -80,10 +80,19 @@ func (r *Recorder) Record(ctx context.Context, tx pgx.Tx, e Event) error {
 	return nil
 }
 
-// Querier 是 relay 所需的最小 DB 接口（连接池满足该接口）。
-type Querier interface {
+// Tx 是 relay 单批次所需的事务接口。
+// 使用事务 + FOR UPDATE SKIP LOCKED 保证多个 relay 实例并发拉取时
+// 不会重复消费同一条事件（行锁由同一事务持有直至 commit/rollback）。
+type Tx interface {
 	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
 	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
+}
+
+// Querier 是 relay 所需的最小 DB 接口（连接池满足该接口），
+// 并提供 Begin 以开启事务。
+type Querier interface {
+	Tx
+	Begin(ctx context.Context) (pgx.Tx, error)
 }
 
 // Relay 轮询未发布事件并发布到 RabbitMQ。
@@ -143,26 +152,40 @@ func (r *Relay) Run(ctx context.Context) {
 }
 
 // publishBatch 轮询未发布事件并逐条发布到 RabbitMQ。
+//
+// 并发安全：通过 `BEGIN ... FOR UPDATE SKIP LOCKED` 在行级加锁，
+// 多个 relay 实例并发运行时不会重复消费同一条事件。同一事务内
+// SELECT 后逐条标记 published_at，发布语义保持 at-least-once：
+// 若 PublishEvent 失败则跳过标记，解锁后仍可由本实例或另一实例重试。
 func (r *Relay) publishBatch(ctx context.Context) error {
-	rows, err := r.db.Query(ctx, `
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("events: begin tx: %w", err)
+	}
+	// 无论成功失败都回滚/提交，确保锁被释放。
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	rows, err := tx.Query(ctx, `
 		SELECT id, workspace_id, aggregate_type, aggregate_id, event_type, payload, occurred_at
 		FROM domain_events
 		WHERE published_at IS NULL
 		ORDER BY id
-		LIMIT $1`, r.batch)
+		LIMIT $1
+		FOR UPDATE SKIP LOCKED`, r.batch)
 	if err != nil {
 		return fmt.Errorf("events: poll: %w", err)
 	}
-	defer rows.Close()
 
 	var events []Event
 	for rows.Next() {
 		var e Event
 		if err := rows.Scan(&e.ID, &e.WorkspaceID, &e.AggregateType, &e.AggregateID, &e.EventType, &e.Payload, &e.OccurredAt); err != nil {
+			rows.Close()
 			return fmt.Errorf("events: scan: %w", err)
 		}
 		events = append(events, e)
 	}
+	rows.Close()
 	if err := rows.Err(); err != nil {
 		return err
 	}
@@ -170,11 +193,12 @@ func (r *Relay) publishBatch(ctx context.Context) error {
 		return nil
 	}
 
+	var published int
 	for _, e := range events {
 		envelope := e.toEnvelope()
 		if err := r.mq.PublishEvent(ctx, envelope); err != nil {
-			// 错误隔离：单条发布失败不中断整批
-			r.log.Warn("outbox publish single event failed (skipping)",
+			// 错误隔离：单条发布失败不中断整批，且留待下次重试。
+			r.log.Warn("outbox publish single event failed (retry later)",
 				zap.Int64("event_id", e.ID),
 				zap.String("event_type", e.EventType),
 				zap.Error(err))
@@ -183,16 +207,23 @@ func (r *Relay) publishBatch(ctx context.Context) error {
 			}
 			continue
 		}
-		if _, err := r.db.Exec(ctx,
+		if _, err := tx.Exec(ctx,
 			`UPDATE domain_events SET published_at = now() WHERE id = $1`,
 			e.ID); err != nil {
 			r.log.Warn("outbox mark published failed",
 				zap.Int64("event_id", e.ID),
 				zap.Error(err))
+			continue
 		}
+		published++
 	}
 
-	r.log.Debug("outbox relay batch published", zap.Int("count", len(events)))
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("events: commit: %w", err)
+	}
+	r.log.Debug("outbox relay batch published",
+		zap.Int("selected", len(events)),
+		zap.Int("published", published))
 	return nil
 }
 

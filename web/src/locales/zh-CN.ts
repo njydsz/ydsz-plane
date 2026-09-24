@@ -256,8 +256,11 @@ export default {
       title: "批量操作",
       selectAll: "全选",
       selected: "已选 {count} 项",
+      crossPageCount: "含跨页 {count} 项",
       transition: "批量流转",
       assign: "批量指派",
+      assignLabel: "指派",
+      labels: "批量标签",
       priority: "批量修改优先级",
       delete: "批量删除",
     },
@@ -603,5 +606,139 @@ export default {
     logout: "退出登录",
     language: "语言",
     timezone: "时区",
+  },
+
+  // ===== 视图级高频 UI（IssueListView / IssueDetailView / KanbanBoardView 共用） =====
+  view: {
+    // --- 列表视图 ---
+    list: {
+      title: "列表",
+      totalCount: "共 {count} 个需求/任务/缺陷",
+      unnamed: "未命名",
+      unfilteredEmpty: "当前过滤条件下没有需求/任务/缺陷",
+      noDataFiltered: "暂无数据",
+      selectMember: "选择成员...",
+      selectLabel: "选择标签...",
+      labelApiUnavailable: "标签 API 暂未上线",
+      selectAllMatching: "选择全部匹配项",
+      clearSelection: "清空选择",
+      batchTransition: "批量流转...",
+      batchPriority: "批量优先级...",
+      batchDelete: "批量删除",
+      configureColumns: "配置列",
+      columnTitle: "配置列",
+      columnHint: "拖拽排序 / 勾选显示 / 输入宽度",
+      saveConfig: "保存配置",
+      prevPage: "上一页",
+      nextPage: "下一页",
+      pageInfo: "第 {page} / {totalPages} 页",
+      emptyCell: "—",
+      unsetState: "未设置状态",
+      exportCsv: "导出 CSV",
+      exportXlsx: "导出 Excel (.xlsx)",
+      filterConditionEmpty: "根据过滤条件未找到匹配结果",
+    },
+
+    // --- 详情视图 ---
+    detail: {
+      backToBoard: "← 返回看板",
+      offerDefect: "🐛 提缺陷",
+      deleteBtn: "归档",
+      notFoundTitle: "需求/任务/缺陷不存在或已被删除",
+      notFoundDesc: "请检查需求/任务/缺陷 ID 是否正确",
+      saving: "保存中...",
+      loading: "加载中...",
+      deleteConfirm: "确定要归档该需求/任务/缺陷吗？",
+      deleteSuccess: "需求/任务/缺陷已归档",
+      deleteFailed: "删除失败",
+      stateTransition: "状态流转",
+      expectedResultSection: "期望结果",
+      actualResultSection: "实际结果",
+      environment: "环境",
+      defectInfo: "缺陷信息",
+      reproSteps: "复现步骤",
+      activityLog: "活动日志",
+      noActivity: "暂无活动记录",
+      noTimeLogs: "暂无工时记录",
+      timeLogSection: "工时",
+      hourUnit: "小时",
+      minuteUnit: "分钟",
+      totalTimeLog: "累计 {duration}",
+      actualEffort: "· 实耗 {duration}",
+      remainingEffort: "· 剩余 {duration}",
+      logTime: "＋ 记录工时",
+      timeDescPlaceholder: "工时描述（可选）",
+      deleteTimeLogTitle: "确定删除该条工时记录吗？",
+      timeLogDeleteSuccess: "工时记录已删除",
+      recordTimeLogSuccess: "工时已记录",
+      timeLogValidateError: "请填写有效的工时（1分钟-24小时）",
+      timeLogFailed: "记录失败",
+      subIssuesSection: "子需求/任务/缺陷",
+      addSubIssue: "＋ 添加子需求/任务/缺陷",
+      addSubSubIssue: "＋ 子项",
+      noSubIssues: "暂无子需求/任务/缺陷",
+      loadingSubIssues: "加载中…",
+      noSubItems: "无子项",
+    },
+
+    // --- 看板视图 ---
+    kanban: {
+      title: "看板",
+      hint: "拖拽需求/任务/缺陷到不同列进行流转，列内拖拽调整排序",
+      createBtn: "+ 创建需求/任务/缺陷",
+      dropHere: "拖拽需求/任务/缺陷到此处",
+      transitionHint: "正在流转...",
+      sortingHint: "正在排序...",
+      columnWidthHint: "拖拽调整列宽",
+    },
+
+    // --- 活动记录（复用已有部分） ---
+    activity: {
+      createdIssue: "创建了需求/任务/缺陷",
+      systemName: "系统",
+      transitioned: "流转状态: {from} → {to}",
+      updated: "{field}: {from} → {to}",
+    },
+
+    // --- 描述/编辑 ---
+    description: {
+      noDesc: "暂无描述，点击编辑添加",
+    },
+
+    // --- 时间格式 ---
+    time: {
+      minute: "{n}分钟",
+      hour: "{n}小时",
+    },
+
+    // --- 批量操作弹窗 ---
+    batch: {
+      deleteTitle: "确认删除",
+      deleteConfirm: "确定要批量删除 {count} 个需求/任务/缺陷吗？此操作不可撤销。",
+      deleting: "删除中...",
+      deleteConfirmBtn: "确认删除",
+      confirmBtn: "确认",
+      processing: "处理中...",
+    },
+
+    // --- 视图切换 ---
+    header: {
+      kanban: "看板",
+      list: "列表",
+      view: "视图",
+      export: "导出",
+      import: "导入",
+    },
+
+    // --- 行内编辑占位 ---
+    placeholder: {
+      name: "未命名",
+      priority: "无",
+      title: "输入标题...",
+      description: "输入需求/任务/缺陷描述...",
+      expectedResult: "描述期望结果...",
+      actualResult: "描述实际结果...",
+      doubleClick: "双击编辑名称...",
+    },
   },
 } as const;

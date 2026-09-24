@@ -153,11 +153,11 @@ func (h *IssueHandler) notifyIssueCreated(ctx context.Context, wsID int64, assig
 
 // 核心通知事件类型，只有这些类型的工作项变更才会触发通知，避免噪音
 var coreEventTypes = map[string]bool{
-	"issue.created":       true,
-	"issue.assigned":      true,
-	"issue.status_changed": true,
+	"issue.created":          true,
+	"issue.assigned":         true,
+	"issue.status_changed":   true,
 	"issue.priority_changed": true,
-	"issue.commented":     true,
+	"issue.commented":        true,
 	"issue.attachment_added": true,
 }
 
@@ -187,7 +187,7 @@ func (h *IssueHandler) notifyIssueWatchers(ctx context.Context, wsID, issueID, a
 			continue
 		}
 		seen[uid] = true
-		
+
 		// 通知去重：同一用户对同一工作项5分钟内只发一次通知
 		mergeKey := fmt.Sprintf("notif:merge:%d:%d", issueID, uid)
 		// 如果key已存在，说明5分钟内已经发过通知，跳过
@@ -197,7 +197,7 @@ func (h *IssueHandler) notifyIssueWatchers(ctx context.Context, wsID, issueID, a
 		}
 		// 设置key，有效期5分钟
 		_ = h.d.Redis.Set(ctx, mergeKey, "1", mergeTTL).Err()
-		
+
 		title := "工作项已更新"
 		if changeDesc != "" {
 			title = changeDesc

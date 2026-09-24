@@ -30,10 +30,9 @@ func ParseSemVer(raw string) (*SemErr, *SemVer) {
 	}
 	mainPart := main
 	var pre string
-	if i := strings.Index(main, "-"); i >= 0 {
-		mainPart = main[:i]
-		pre = main[i+1:]
-	}
+	var ok bool
+	mainPart, pre, ok = strings.Cut(main, "-")
+	_ = ok
 	parts := strings.Split(mainPart, ".")
 	if len(parts) != 3 {
 		return &SemErr{Reason: "版本号格式必须为 major.minor.patch", Value: raw}, nil

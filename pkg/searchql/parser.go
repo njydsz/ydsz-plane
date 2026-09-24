@@ -53,7 +53,7 @@ type Query struct {
 // Clause 表示一个 field op value 过滤条件。
 type Clause struct {
 	Field    string `json:"field"`
-	Operator string `json:"op"`   // :, =, !=, >, >=, <, <=, in
+	Operator string `json:"op"`    // :, =, !=, >, >=, <, <=, in
 	Value    any    `json:"value"` // string, []string, int, time.Time
 	Negated  bool   `json:"negated,omitempty"`
 }

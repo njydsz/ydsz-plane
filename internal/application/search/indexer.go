@@ -10,11 +10,12 @@
 //     并通过 RunConsumer 订阅领域事件、worker 消费 `search.index` 任务两条链路驱动。
 //
 // RLS 处理:
-//   `search_documents`（以及 issues/sprints/versions）启用了 FORCE ROW LEVEL SECURITY，
-//   写入/读取都必须先在同一事务内设置 `app.workspace_id`（SET LOCAL），
-//   否则 WITH CHECK / USING 会因 `current_setting('app.workspace_id', true)` 为 NULL 而拒绝。
-//   本实现复用 automation.appendActivity 的事务内 set_config 模式：
-//   `SELECT set_config('app.workspace_id', $1, true)` 再执行 upsert。
+//
+//	`search_documents`（以及 issues/sprints/versions）启用了 FORCE ROW LEVEL SECURITY，
+//	写入/读取都必须先在同一事务内设置 `app.workspace_id`（SET LOCAL），
+//	否则 WITH CHECK / USING 会因 `current_setting('app.workspace_id', true)` 为 NULL 而拒绝。
+//	本实现复用 automation.appendActivity 的事务内 set_config 模式：
+//	`SELECT set_config('app.workspace_id', $1, true)` 再执行 upsert。
 package search
 
 import (
@@ -31,8 +32,8 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 	"go.uber.org/zap"
 
-	"github.com/njydsz/ydsz-plane/internal/infrastructure/mq"
 	"github.com/njydsz/ydsz-plane/internal/application/issue"
+	"github.com/njydsz/ydsz-plane/internal/infrastructure/mq"
 )
 
 // batchSize 是 Backfill 每批处理的记录条数。
@@ -68,6 +69,21 @@ func (x *Indexer) Backfill(ctx context.Context) (int, error) {
 			}
 			total += n
 		}
+	}
+	return total, nil
+}
+
+// ReindexWorkspace 对单个 workspace 全量回填 search_documents（幂等）。
+// 覆盖 issues / sprints / versions 三类对象。用于管理端点（如迁移恢复、索引修复）；
+// 分批 + 游标分页，不阻塞长事务。
+func (x *Indexer) ReindexWorkspace(ctx context.Context, wsID int64) (int, error) {
+	total := 0
+	for _, typ := range []DocType{DocTypeIssue, DocTypeSprint, DocTypeVersion} {
+		n, err := x.backfillTypeInWorkspace(ctx, typ, wsID)
+		if err != nil {
+			return total, fmt.Errorf("reindex: %s ws=%d: %w", typ, wsID, err)
+		}
+		total += n
 	}
 	return total, nil
 }

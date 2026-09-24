@@ -1,8 +1,9 @@
 // Package notification — 通知域单元测试。
 //
 // 覆盖：EventTitle 模板完整性、Channel 枚举校验、Digest 默认值、
-//       Notification 模型 JSON 序列化、收件人解析器默认行为、
-//       IM 签名算法（钉钉 hmac-hex / 飞书 hmac-base64）。
+//
+//	Notification 模型 JSON 序列化、收件人解析器默认行为、
+//	IM 签名算法（钉钉 hmac-hex / 飞书 hmac-base64）。
 package notification
 
 import (
@@ -74,7 +75,7 @@ func TestNotification_JSONRoundTrip(t *testing.T) {
 		EventType: EventCommentCreated, EntityType: EntityIssue, EntityID: 100,
 		Title: "Alice 评论了工作项", Body: "请看一下这个实现",
 		ActionURL: "/acme/proj-1/issues/100",
-		ActorID: &actorID, ActorName: "Alice",
+		ActorID:   &actorID, ActorName: "Alice",
 		IsRead: true, IsArchived: false, ReadAt: &readAt,
 		Channel: ChannelInApp, Payload: payload,
 		CreatedAt: time.Date(2026, 8, 7, 9, 0, 0, 0, time.UTC),
@@ -170,8 +171,8 @@ func TestNotificationPreference_JSONRoundTrip(t *testing.T) {
 		DNDEnabled: true,
 		DNDStart:   "22:00", DNDEnd: "08:00",
 		IsEnabled: true,
-		CreatedAt:  time.Date(2026, 8, 7, 0, 0, 0, 0, time.UTC),
-		UpdatedAt:  time.Date(2026, 8, 7, 0, 0, 0, 0, time.UTC),
+		CreatedAt: time.Date(2026, 8, 7, 0, 0, 0, 0, time.UTC),
+		UpdatedAt: time.Date(2026, 8, 7, 0, 0, 0, 0, time.UTC),
 	}
 	data, err := json.Marshal(pref)
 	if err != nil {

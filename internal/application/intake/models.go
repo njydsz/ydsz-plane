@@ -34,44 +34,44 @@ const (
 
 // IntakeChannel 入口渠道。
 type IntakeChannel struct {
-	ID          int64           `json:"id"`
-	Code        string          `json:"code,omitempty"`
-	Name        string          `json:"name"`
-	Slug        string          `json:"slug"`
-	WorkspaceID int64           `json:"workspace_id"`
-	ProjectID   *int64          `json:"project_id,omitempty"`
-	Description string          `json:"description,omitempty"`
-	IsActive    bool            `json:"is_active"`
-	Config      map[string]any  `json:"config,omitempty"`
-	Status      string          `json:"status"`
-	IssueCount  int             `json:"issue_count,omitempty"`
-	CreatedBy   int64           `json:"created_by,omitempty"`
-	CreatedAt   time.Time       `json:"created_at"`
-	UpdatedAt   time.Time       `json:"updated_at"`
+	ID          int64          `json:"id"`
+	Code        string         `json:"code,omitempty"`
+	Name        string         `json:"name"`
+	Slug        string         `json:"slug"`
+	WorkspaceID int64          `json:"workspace_id"`
+	ProjectID   *int64         `json:"project_id,omitempty"`
+	Description string         `json:"description,omitempty"`
+	IsActive    bool           `json:"is_active"`
+	Config      map[string]any `json:"config,omitempty"`
+	Status      string         `json:"status"`
+	IssueCount  int            `json:"issue_count,omitempty"`
+	CreatedBy   int64          `json:"created_by,omitempty"`
+	CreatedAt   time.Time      `json:"created_at"`
+	UpdatedAt   time.Time      `json:"updated_at"`
 }
 
 // IntakeIssue 入口工单。
 type IntakeIssue struct {
-	ID              int64      `json:"id"`
-	Code            string     `json:"code,omitempty"`
-	Name            string     `json:"name"`
-	WorkspaceID     int64      `json:"workspace_id"`
-	ProjectID       *int64     `json:"project_id,omitempty"`
-	ChannelID       int64      `json:"channel_id"`
-	ChannelName     string     `json:"channel_name,omitempty"`
-	TrackingID      string     `json:"tracking_id"`
-	SubmitterName   string     `json:"submitter_name,omitempty"`
-	SubmitterEmail  string     `json:"submitter_email,omitempty"`
-	Description     string     `json:"description,omitempty"`
-	Priority        string     `json:"priority"`
-	Status          IssueStatus `json:"status"`
-	LinkedEntityType  string    `json:"linked_entity_type,omitempty"`
-	LinkedEntityID    *int64    `json:"linked_entity_id,omitempty"`
-	LinkedEntityIdent string    `json:"linked_entity_identifier,omitempty"`
-	ResolvedAt      *time.Time `json:"resolved_at,omitempty"`
-	ResolvedBy      *int64     `json:"resolved_by,omitempty"`
-	CreatedAt       time.Time  `json:"created_at"`
-	UpdatedAt       time.Time  `json:"updated_at"`
+	ID                int64       `json:"id"`
+	Code              string      `json:"code,omitempty"`
+	Name              string      `json:"name"`
+	WorkspaceID       int64       `json:"workspace_id"`
+	ProjectID         *int64      `json:"project_id,omitempty"`
+	ChannelID         int64       `json:"channel_id"`
+	ChannelName       string      `json:"channel_name,omitempty"`
+	TrackingID        string      `json:"tracking_id"`
+	SubmitterName     string      `json:"submitter_name,omitempty"`
+	SubmitterEmail    string      `json:"submitter_email,omitempty"`
+	Description       string      `json:"description,omitempty"`
+	Priority          string      `json:"priority"`
+	Status            IssueStatus `json:"status"`
+	LinkedEntityType  string      `json:"linked_entity_type,omitempty"`
+	LinkedEntityID    *int64      `json:"linked_entity_id,omitempty"`
+	LinkedEntityIdent string      `json:"linked_entity_identifier,omitempty"`
+	ResolvedAt        *time.Time  `json:"resolved_at,omitempty"`
+	ResolvedBy        *int64      `json:"resolved_by,omitempty"`
+	CreatedAt         time.Time   `json:"created_at"`
+	UpdatedAt         time.Time   `json:"updated_at"`
 }
 
 // genID 生成应用层 BIGINT 主键（雪花式：时间戳高位 + 随机低位）。

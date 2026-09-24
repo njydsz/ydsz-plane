@@ -24,8 +24,8 @@ import (
 	"github.com/njydsz/ydsz-plane/internal/application/automation"
 	"github.com/njydsz/ydsz-plane/internal/application/dashboard"
 	"github.com/njydsz/ydsz-plane/internal/application/dlq"
-	"github.com/njydsz/ydsz-plane/internal/application/issue"
 	"github.com/njydsz/ydsz-plane/internal/application/intake"
+	"github.com/njydsz/ydsz-plane/internal/application/issue"
 	"github.com/njydsz/ydsz-plane/internal/application/knowledge"
 	notif "github.com/njydsz/ydsz-plane/internal/application/notification"
 	"github.com/njydsz/ydsz-plane/internal/application/pages"
@@ -58,18 +58,18 @@ type Deps struct {
 	RBACStore *rbac.Store
 	// PrincipalParser 解析访问凭证（JWT 或 API Token）为认证主体。
 	// 由 cmd/api/main.go 装配复合解析器；未设置时回退为 JWT-only（测试环境）。
-	PrincipalParser func(token string) (auth.Principal, error)
-	ApiTokenSvc     *apitoken.Service
-	WorkspaceStore  *auth.WorkspaceMembershipStore
-	WorkspaceSvc    *workspace.Service
-	MemberSvc       *workspace.MemberService
-	InvitationSvc   *workspace.InvitationService
-	ProjectSvc      *workspace.ProjectService
+	PrincipalParser  func(token string) (auth.Principal, error)
+	ApiTokenSvc      *apitoken.Service
+	WorkspaceStore   *auth.WorkspaceMembershipStore
+	WorkspaceSvc     *workspace.Service
+	MemberSvc        *workspace.MemberService
+	InvitationSvc    *workspace.InvitationService
+	ProjectSvc       *workspace.ProjectService
 	ProjectMemberSvc *workspace.ProjectMemberService
-	TemplateSvc     *workspace.TemplateService
-	ProjectInitSvc  *issue.ProjectInitService
-	AuditSvc        *workspace.AuditService
-	Mail            mail.EmailService
+	TemplateSvc      *workspace.TemplateService
+	ProjectInitSvc   *issue.ProjectInitService
+	AuditSvc         *workspace.AuditService
+	Mail             mail.EmailService
 	// Issue 域
 	IssueSvc               *issue.Service
 	StateSvc               *issue.StateService
@@ -610,16 +610,16 @@ func NewEngine(d *Deps) *gin.Engine {
 			// S13 SAML SP Metadata (公开：供 IdP 管理员导入)
 			authGroup.GET("/saml/metadata", handleSAMLMetadata(d))
 		}
-		
-			// 已认证路由（需要有效 access token + 用户级限流）
-			authed := v1.Group("")
+
+		// 已认证路由（需要有效 access token + 用户级限流）
+		authed := v1.Group("")
 		authed.Use(middleware.RequireAuth(d.principalParser()))
 		authed.Use(middleware.RateLimit(d.Redis, 100, func(c *gin.Context) string {
 			return "user:" + userKey(c)
 		}))
 		{
 			authed.GET("/me", me(d))
-		authed.PATCH("/me", patchMe(d))
+			authed.PATCH("/me", patchMe(d))
 
 			// ----- 个人 API Token 管理（用户级，与工作空间无关） -----
 			authed.GET("/me/api-tokens", listMyApiTokens(d))

@@ -432,17 +432,17 @@ func createProject(d *Deps) gin.HandlerFunc {
 			coverImagePtr = &req.CoverImageUrl
 		}
 		p, err := d.ProjectSvc.Create(c.Request.Context(), workspace.ProjectCreateInput{
-			WorkspaceID:  wsID,
-			Name:         req.Name,
-			Slug:         req.Slug,
-			Identifier:   req.Identifier,
-			Description:  req.Description,
-			Network:      req.Network,
-			Icon:         req.Icon,
-			Color:        req.Color,
-			Template:     req.Template,
-			CreatedBy:    c.GetInt64(middleware.CtxUserID),
-			Modules:      modulesDTOToDomain(req.Modules),
+			WorkspaceID:   wsID,
+			Name:          req.Name,
+			Slug:          req.Slug,
+			Identifier:    req.Identifier,
+			Description:   req.Description,
+			Network:       req.Network,
+			Icon:          req.Icon,
+			Color:         req.Color,
+			Template:      req.Template,
+			CreatedBy:     c.GetInt64(middleware.CtxUserID),
+			Modules:       modulesDTOToDomain(req.Modules),
 			CoverImageUrl: coverImagePtr,
 		})
 		if err != nil {
@@ -484,6 +484,7 @@ func listProjectTemplates(d *Deps) gin.HandlerFunc {
 		c.JSON(http.StatusOK, tpls)
 	}
 }
+
 // getProject 返回指定项目的详情。
 func getProject(d *Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {

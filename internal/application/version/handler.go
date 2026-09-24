@@ -177,16 +177,7 @@ func (h *Handler) update(c *gin.Context) {
 		middleware.AbortWithError(c, errs.ErrValidation.WithDetails(fieldDetail(err)))
 		return
 	}
-	in := UpdateVersionInput{
-		Name:        req.Name,
-		Description: req.Description,
-		StartDate:   req.StartDate,
-		EndDate:     req.EndDate,
-		TargetDate:  req.TargetDate,
-		Semver:      req.Semver,
-		Checklist:   req.Checklist,
-		Version:     req.Version,
-	}
+	in := UpdateVersionInput(req)
 	v, err := h.svc.Update(c.Request.Context(), wsID, versionID, in)
 	if err != nil {
 		writeErr(c, err)
@@ -233,11 +224,7 @@ func (h *Handler) release(c *gin.Context) {
 		return
 	}
 
-	in := ReleaseVersionInput{
-		DraftOverride:         req.DraftOverride,
-		ForceChecklist:        req.ForceChecklist,
-		AddKnownIssuesToNotes: req.AddKnownIssuesToNotes,
-	}
+	in := ReleaseVersionInput(req)
 	v, err := h.svc.Release(c.Request.Context(), wsID, versionID, in, userID)
 	if err != nil {
 		writeErr(c, err)

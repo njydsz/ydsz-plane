@@ -1,14 +1,14 @@
 // Package sprint — Sprint 应用服务单元测试。
 //
 // 覆盖范围：
-//   1. 输入校验（CreateSprintInput）
-//   2. 错误码语义（mapPgError / mapPgErrorForStart）
-//   3. 生命周期状态机规则（planned→active→completed 不可逆）
-//   4. 完成策略枚举有效性
-//   5. 复盘快照计算（computeReview）
-//   6. 燃尽图理想线计算（BurndownData）
-//   7. 速率统计 P50 中位数
-//   8. 进度饱和度计算
+//  1. 输入校验（CreateSprintInput）
+//  2. 错误码语义（mapPgError / mapPgErrorForStart）
+//  3. 生命周期状态机规则（planned→active→completed 不可逆）
+//  4. 完成策略枚举有效性
+//  5. 复盘快照计算（computeReview）
+//  6. 燃尽图理想线计算（BurndownData）
+//  7. 速率统计 P50 中位数
+//  8. 进度饱和度计算
 //
 // 互联网大厂标准：
 //   - 表驱动测试 (table-driven tests)
@@ -37,9 +37,9 @@ func TestValidateSprintInput(t *testing.T) {
 	future := now.AddDate(0, 0, 14)
 
 	cases := []struct {
-		name  string
-		input CreateSprintInput
-		wantErr bool
+		name     string
+		input    CreateSprintInput
+		wantErr  bool
 		errField string
 	}{
 		{
@@ -55,37 +55,37 @@ func TestValidateSprintInput(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "缺少 workspace_id",
-			input: CreateSprintInput{WorkspaceID: 0, ProjectID: 1, Name: "Sprint", CreatedBy: 1},
-			wantErr: true,
+			name:     "缺少 workspace_id",
+			input:    CreateSprintInput{WorkspaceID: 0, ProjectID: 1, Name: "Sprint", CreatedBy: 1},
+			wantErr:  true,
 			errField: "workspace_id",
 		},
 		{
-			name: "缺少 project_id",
-			input: CreateSprintInput{WorkspaceID: 1, ProjectID: 0, Name: "Sprint", CreatedBy: 1},
-			wantErr: true,
+			name:     "缺少 project_id",
+			input:    CreateSprintInput{WorkspaceID: 1, ProjectID: 0, Name: "Sprint", CreatedBy: 1},
+			wantErr:  true,
 			errField: "project_id",
 		},
 		{
-			name: "名称为空",
-			input: CreateSprintInput{WorkspaceID: 1, ProjectID: 1, Name: "", CreatedBy: 1},
-			wantErr: true,
+			name:     "名称为空",
+			input:    CreateSprintInput{WorkspaceID: 1, ProjectID: 1, Name: "", CreatedBy: 1},
+			wantErr:  true,
 			errField: "name",
 		},
 		{
-			name: "名称超长 >80",
-			input: CreateSprintInput{WorkspaceID: 1, ProjectID: 1, Name: string(make([]byte, 81)), CreatedBy: 1},
-			wantErr: true,
+			name:     "名称超长 >80",
+			input:    CreateSprintInput{WorkspaceID: 1, ProjectID: 1, Name: string(make([]byte, 81)), CreatedBy: 1},
+			wantErr:  true,
 			errField: "name",
 		},
 		{
-			name: "名称=80 合法",
-			input: CreateSprintInput{WorkspaceID: 1, ProjectID: 1, Name: string(make([]byte, 80)), CreatedBy: 1},
+			name:    "名称=80 合法",
+			input:   CreateSprintInput{WorkspaceID: 1, ProjectID: 1, Name: string(make([]byte, 80)), CreatedBy: 1},
 			wantErr: false,
 		},
 		{
-			name: "无日期（允许，planned 迭代设计上先建后填）",
-			input: CreateSprintInput{WorkspaceID: 1, ProjectID: 1, Name: "无日期迭代", CreatedBy: 1},
+			name:    "无日期（允许，planned 迭代设计上先建后填）",
+			input:   CreateSprintInput{WorkspaceID: 1, ProjectID: 1, Name: "无日期迭代", CreatedBy: 1},
 			wantErr: false,
 		},
 	}
@@ -119,8 +119,8 @@ func TestMapPgError(t *testing.T) {
 	svc := &Service{db: nil}
 
 	cases := []struct {
-		name    string
-		err     error
+		name     string
+		err      error
 		wantCode string
 		wantHTTP int
 	}{
@@ -432,12 +432,12 @@ func TestSprintModel_JSONRoundTrip(t *testing.T) {
 		CreatedAt:   now,
 		UpdatedAt:   now,
 		Progress: SprintProgress{
-			TotalPoints: 100,
-			DonePoints:  50,
-			TotalIssues: 10,
-			DoneIssues:  5,
+			TotalPoints:  100,
+			DonePoints:   50,
+			TotalIssues:  10,
+			DoneIssues:   5,
 			ByStateGroup: map[string]float64{"completed": 50},
-			Saturation: 0.75,
+			Saturation:   0.75,
 		},
 	}
 

@@ -15,8 +15,9 @@
 //     优先级队列，以及企业工作流所需的灵活 topic 路由模式。
 //
 // "plane.events" 下的 topic 层级使用点分隔路由键：
-//   plane.events.<aggregate_type>.<event_type>
-//   例如 plane.events.issue.created、plane.events.workspace.member_added
+//
+//	plane.events.<aggregate_type>.<event_type>
+//	例如 plane.events.issue.created、plane.events.workspace.member_added
 //
 // 消费者队列使用通配符模式绑定，实现灵活订阅。
 package mq
@@ -79,11 +80,11 @@ type Client struct {
 	log    *zap.Logger
 	tls    *tls.Config
 
-	mu       sync.RWMutex
-	conn     *amqp.Connection
-	ch       *amqp.Channel
+	mu   sync.RWMutex
+	conn *amqp.Connection
+	ch   *amqp.Channel
 
-	chanMU   sync.Mutex // 串行化 channel 级发布
+	chanMU sync.Mutex // 串行化 channel 级发布
 
 	connClose chan *amqp.Error
 	chanClose chan *amqp.Error
@@ -345,6 +346,7 @@ func (c *Client) PublishRaw(ctx context.Context, exchange, routingKey string, ms
 		return fmt.Errorf("mq: publish cancelled: %w", ctx.Err())
 	}
 }
+
 // PublishEvent 以领域事件方式发布：自动补全 EventExchange 与路由键。
 func (c *Client) PublishEvent(ctx context.Context, envelope EventEnvelope) error {
 	envelope.Exchange = EventExchange

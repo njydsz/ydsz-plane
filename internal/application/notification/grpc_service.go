@@ -1,10 +1,12 @@
 // Package notification — Notification 模块的 gRPC 接口实现。
 //
 // Phase-0（当前）：在单体核心进程内以 gRPC Service 形式暴露通知能力，
-//   API Gateway 内部将 HTTP 请求转化为 gRPC 进程内调用，验证接口等价性。
+//
+//	API Gateway 内部将 HTTP 请求转化为 gRPC 进程内调用，验证接口等价性。
 //
 // Phase-1（S14 P2）：将本文件编译进 cmd/notification-service 成为独立进程，
-//   通过 gRPC Server 对外服务，core-service 通过 gRPC Client 调用。
+//
+//	通过 gRPC Server 对外服务，core-service 通过 gRPC Client 调用。
 //
 // 两种模式共享同一份 business logic，仅入口不同。
 package notification
@@ -147,7 +149,7 @@ func toProtoNotification(n *Notification) *notificationv1.Notification {
 		IsArchived:  n.IsArchived,
 		Channel:     string(n.Channel),
 		Payload:     []byte(n.Payload),
-		CreatedAt:    timestamppb.New(n.CreatedAt).AsTime().Unix(),
+		CreatedAt:   timestamppb.New(n.CreatedAt).AsTime().Unix(),
 	}
 }
 

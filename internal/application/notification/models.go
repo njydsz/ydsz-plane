@@ -14,18 +14,18 @@ import (
 type EventType string
 
 const (
-	EventIssueCreated      EventType = "issue.created"
-	EventIssueAssigned     EventType = "issue.assigned"
+	EventIssueCreated       EventType = "issue.created"
+	EventIssueAssigned      EventType = "issue.assigned"
 	EventIssueStatusChanged EventType = "issue.status_changed"
-	EventIssueDeleted      EventType = "issue.deleted"
-	EventCommentCreated    EventType = "comment.created"
-	EventSprintStarted     EventType = "sprint.started"
-	EventSprintCompleted   EventType = "sprint.completed"
-	EventVersionReleased   EventType = "version.released"
-	EventMemberAdded       EventType = "member.added"
-	EventMemberRemoved     EventType = "member.removed"
-	EventMemberRoleChanged EventType = "member.role_changed"
-	EventInvitationSent    EventType = "invitation.sent"
+	EventIssueDeleted       EventType = "issue.deleted"
+	EventCommentCreated     EventType = "comment.created"
+	EventSprintStarted      EventType = "sprint.started"
+	EventSprintCompleted    EventType = "sprint.completed"
+	EventVersionReleased    EventType = "version.released"
+	EventMemberAdded        EventType = "member.added"
+	EventMemberRemoved      EventType = "member.removed"
+	EventMemberRoleChanged  EventType = "member.role_changed"
+	EventInvitationSent     EventType = "invitation.sent"
 )
 
 // EntityType 通知关联的对象类型。
@@ -45,11 +45,11 @@ const (
 type Channel string
 
 const (
-	ChannelInApp   Channel = "in_app"
-	ChannelEmail   Channel = "email"
-	ChannelWeCom   Channel = "wecom"
+	ChannelInApp    Channel = "in_app"
+	ChannelEmail    Channel = "email"
+	ChannelWeCom    Channel = "wecom"
 	ChannelDingTalk Channel = "dingtalk"
-	ChannelFeishu  Channel = "feishu"
+	ChannelFeishu   Channel = "feishu"
 )
 
 // Digest 摘要频率。
@@ -66,39 +66,39 @@ const (
 
 // Notification 通知聚合根。
 type Notification struct {
-	ID          int64      `json:"id"`
-	WorkspaceID int64      `json:"workspace_id"`
-	RecipientID int64      `json:"recipient_id"`
-	EventType   EventType  `json:"event_type"`
-	EntityType  EntityType `json:"entity_type"`
-	EntityID    int64      `json:"entity_id"`
-	Title       string     `json:"title"`
-	Body        string     `json:"body"`
-	ActionURL   string     `json:"action_url"`
-	ActorID     *int64     `json:"actor_id"`
-	ActorName   string     `json:"actor_name"`
-	IsRead      bool       `json:"is_read"`
-	IsArchived  bool       `json:"is_archived"`
-	ReadAt      *time.Time `json:"read_at"`
-	Channel     Channel    `json:"channel"`
+	ID          int64           `json:"id"`
+	WorkspaceID int64           `json:"workspace_id"`
+	RecipientID int64           `json:"recipient_id"`
+	EventType   EventType       `json:"event_type"`
+	EntityType  EntityType      `json:"entity_type"`
+	EntityID    int64           `json:"entity_id"`
+	Title       string          `json:"title"`
+	Body        string          `json:"body"`
+	ActionURL   string          `json:"action_url"`
+	ActorID     *int64          `json:"actor_id"`
+	ActorName   string          `json:"actor_name"`
+	IsRead      bool            `json:"is_read"`
+	IsArchived  bool            `json:"is_archived"`
+	ReadAt      *time.Time      `json:"read_at"`
+	Channel     Channel         `json:"channel"`
 	Payload     json.RawMessage `json:"payload"`
-	CreatedAt   time.Time  `json:"created_at"`
+	CreatedAt   time.Time       `json:"created_at"`
 }
 
 // NotificationPreference 用户通知偏好。
 type NotificationPreference struct {
-	ID          int64           `json:"id"`
-	UserID      int64           `json:"user_id"`
-	WorkspaceID int64           `json:"workspace_id"`
-	EventTypes  []string        `json:"event_types"`
-	Channels    []string        `json:"channels"`
-	Digest      Digest          `json:"digest"`
-	DNDEnabled  bool            `json:"dnd_enabled"`
-	DNDStart    string          `json:"dnd_start"`
-	DNDEnd      string          `json:"dnd_end"`
-	IsEnabled   bool            `json:"is_enabled"`
-	CreatedAt   time.Time       `json:"created_at"`
-	UpdatedAt   time.Time       `json:"updated_at"`
+	ID          int64     `json:"id"`
+	UserID      int64     `json:"user_id"`
+	WorkspaceID int64     `json:"workspace_id"`
+	EventTypes  []string  `json:"event_types"`
+	Channels    []string  `json:"channels"`
+	Digest      Digest    `json:"digest"`
+	DNDEnabled  bool      `json:"dnd_enabled"`
+	DNDStart    string    `json:"dnd_start"`
+	DNDEnd      string    `json:"dnd_end"`
+	IsEnabled   bool      `json:"is_enabled"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
 }
 
 // CreateNotificationInput 创建通知的入参。

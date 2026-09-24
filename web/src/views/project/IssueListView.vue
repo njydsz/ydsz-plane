@@ -20,6 +20,7 @@ import ViewsManager from "./ViewsManager.vue";
 import { AppErrorState, AppEmptyState, InlineEdit, InlineSelectEdit, AppSkeleton } from "@/components";
 import { type FilterState, filterToListParams } from "@/lib/filter-adapter";
 import ImportDialog from "@/components/ImportDialog.vue";
+import { useTranslation } from "@/composables/useTranslation";
 
 const props = withDefaults(defineProps<{
   /** 固定类型过滤 — 传入后列表仅展示该类型（requirement/task/defect），用户无法覆盖 */
@@ -31,6 +32,7 @@ const props = withDefaults(defineProps<{
 const route = useRoute();
 const issueStore = useIssueStore();
 const peek = usePeekStore();
+const { t, $tc } = useTranslation();
 
 /** P1-3: 列表视图字段裁剪 — 默认仅取关键字段，展开/详情时再加载全量 */
 const LIST_VIEW_FIELDS = ["id", "identifier", "name", "state_id", "priority", "type_code", "severity", "point", "assignees", "updated_at"];
@@ -119,6 +121,7 @@ const totalSelectedCount = computed(() => selectedIds.value.size);
 // ========== P1-2: 列配置 ==========
 interface ColumnConfig {
   key: string;
+  i18nKey: string;
   label: string;
   width?: string;
   sortable?: boolean;
@@ -126,16 +129,28 @@ interface ColumnConfig {
   pinned?: boolean;
 }
 
+const KEY_TO_I18N: Record<string, string> = {
+  identifier: "issue.identifier",
+  name: "common.name",
+  type_code: "issue.type",
+  priority: "issue.priority",
+  state: "common.status",
+  severity: "issue.severity",
+  point: "issue.detail.estimmate",
+  assignees: "issue.assignee",
+  updatedAt: "common.updatedAt",
+};
+
 const defaultColumns: ColumnConfig[] = [
-  { key: "identifier", label: "编号", width: "120px", visible: true },
-  { key: "name", label: "名称", sortable: true, visible: true },
-  { key: "type_code", label: "类型", width: "72px", sortable: true, visible: true },
-  { key: "priority", label: "优先级", width: "72px", sortable: true, visible: true },
-  { key: "state", label: "状态", width: "90px", visible: true },
-  { key: "severity", label: "严重度", width: "72px", sortable: true, visible: true },
-  { key: "point", label: "点数", width: "60px", sortable: true, visible: true },
-  { key: "assignees", label: "指派人", width: "100px", visible: true },
-  { key: "updated_at", label: "更新时间", width: "130px", sortable: true, visible: true },
+  { key: "identifier", i18nKey: KEY_TO_I18N.identifier, label: "编号", width: "120px", visible: true },
+  { key: "name", i18nKey: KEY_TO_I18N.name, label: "名称", sortable: true, visible: true },
+  { key: "type_code", i18nKey: KEY_TO_I18N.type_code, label: "类型", width: "72px", sortable: true, visible: true },
+  { key: "priority", i18nKey: KEY_TO_I18N.priority, label: "优先级", width: "72px", sortable: true, visible: true },
+  { key: "state", i18nKey: KEY_TO_I18N.state, label: "状态", width: "90px", visible: true },
+  { key: "severity", i18nKey: KEY_TO_I18N.severity, label: "严重度", width: "72px", sortable: true, visible: true },
+  { key: "point", i18nKey: KEY_TO_I18N.point, label: "点数", width: "60px", sortable: true, visible: true },
+  { key: "assignees", i18nKey: KEY_TO_I18N.assignees, label: "指派人", width: "100px", visible: true },
+  { key: "updated_at", i18nKey: KEY_TO_I18N.updatedAt, label: "更新时间", width: "130px", sortable: true, visible: true },
 ];
 
 const columnConfigs = ref<ColumnConfig[]>(JSON.parse(JSON.stringify(defaultColumns)));
@@ -143,8 +158,16 @@ const showColumnConfigModal = ref(false);
 const columnConfigDraft = ref<ColumnConfig[]>([]);
 const savingColumnConfig = ref(false);
 
-/** 可见列 */
-const visibleColumns = computed(() => columnConfigs.value.filter((c) => c.visible));
+/** 本地化后的列标签（语言切换时响应式更新） */
+const l10n = computed(() =>
+  columnConfigs.value.map((c) => ({
+    ...c,
+    label: t(c.i18nKey),
+  })),
+);
+
+/** 可见列（i18n 感知） */
+const visibleColumns = computed(() => l10n.value.filter((c) => c.visible));
 
 /** 从偏好加载列配置 */
 async function loadColumnConfig() {
@@ -454,6 +477,14 @@ async function batchDelete() {
   }
 }
 
+function confirmTransition(toStateId: number) {
+  const count = selectedIds.value.size
+  const ok = window.confirm(
+    `确定要将选中的 ${count} 项工作项流转至该状态？跨状态批量流转将统一调用 update 接口。`
+  )
+  if (ok) void batchTransition(toStateId)
+}
+
 async function batchTransition(toStateId: number) {
   try {
     const r = await issueApi.batch(wsId.value, projectId.value, {
@@ -619,8 +650,8 @@ const isCurrentPageAllSelected = computed(() => {
   <div class="list-view">
     <header class="list-view__header">
       <div>
-        <h1>列表</h1>
-        <p class="hint">共 {{ total }} 个需求/任务/缺陷</p>
+        <h1>{{ t('view.list.title') }}</h1>
+        <p class="hint">{{ $tc('view.list.totalCount', total) }}</p>
       </div>
       <div class="list-view__header-right">
         <div class="view-dropdown">
@@ -628,7 +659,7 @@ const isCurrentPageAllSelected = computed(() => {
             class="btn btn--sm btn--view"
             @click="showViewsDropdown = !showViewsDropdown"
           >
-            视图
+            {{ t('view.header.view') }}
           </button>
           <div v-if="showViewsDropdown" class="view-dropdown__panel">
             <ViewsManager
@@ -647,32 +678,32 @@ const isCurrentPageAllSelected = computed(() => {
             class="btn btn--sm btn--export"
             @mouseenter="showExportDropdown = true"
           >
-导出
-</button>
+            {{ t('view.header.export') }}
+          </button>
           <div v-if="showExportDropdown" class="export-dropdown__menu">
-            <a :href="exportCsvUrl" class="export-dropdown__item" download>导出 CSV</a>
-            <a :href="exportXlsxUrl" class="export-dropdown__item" download>导出 Excel (.xlsx)</a>
+            <a :href="exportCsvUrl" class="export-dropdown__item" download>{{ t('issue.export.csv') }}</a>
+            <a :href="exportXlsxUrl" class="export-dropdown__item" download>{{ t('issue.export.xlsx') }}</a>
           </div>
         </div>
         <button
           class="btn btn--sm btn--import"
           @click="showImportDialog = true"
         >
-          导入
+          {{ t('view.header.import') }}
         </button>
         <div class="view-switcher">
           <router-link
             :to="`/${route.params.workspaceId}/projects/${projectId}/board`"
             class="view-tab"
           >
-看板
-</router-link>
+            {{ t('view.header.kanban') }}
+          </router-link>
           <router-link
             :to="`/${route.params.workspaceId}/projects/${projectId}/list`"
             class="view-tab is-active"
           >
-列表
-</router-link>
+            {{ t('view.header.list') }}
+          </router-link>
         </div>
       </div>
     </header>
@@ -688,70 +719,76 @@ const isCurrentPageAllSelected = computed(() => {
     <!-- P1-2: 跨页批量操作工具栏 -->
     <div v-if="hasSelection" class="batch-bar">
       <span class="batch-bar__info">
-        已选 <strong>{{ totalSelectedCount }}</strong> 项
-        <template v-if="crossPageSelectedCount > 0">（含跨页 {{ crossPageSelectedCount }} 项）</template>
+        <template v-if="crossPageSelectedCount > 0">
+          <strong>{{ $tc('issue.batch.selected', totalSelectedCount) }}</strong> ({{ $tc('issue.batch.crossPageCount', crossPageSelectedCount) }})
+        </template>
+        <template v-else>
+          <strong>{{ $tc('issue.batch.selected', totalSelectedCount) }}</strong>
+        </template>
       </span>
-      <select class="batch-select" @change="(e: Event) => { const v = Number((e.target as HTMLSelectElement).value); if (v) batchTransition(v); (e.target as HTMLSelectElement).value = '' }">
-        <option value="">批量流转...</option>
+      <select class="batch-select" @change="(e: Event) => {
+        const v = Number((e.target as HTMLSelectElement).value)
+        if (v) confirmTransition(v)
+        ;(e.target as HTMLSelectElement).value = ''
+      }">
+        <option value="">{{ t('view.list.batchTransition') }}</option>
         <option v-for="st in issueStore.states" :key="st.id" :value="st.id">{{ st.name }}</option>
       </select>
       <select class="batch-select" @change="(e: Event) => { const v = (e.target as HTMLSelectElement).value; if (v) batchUpdatePriority(v); (e.target as HTMLSelectElement).value = '' }">
-        <option value="">批量优先级...</option>
-        <option value="urgent">紧急</option>
-        <option value="high">高</option>
-        <option value="medium">中</option>
-        <option value="low">低</option>
-        <option value="none">无</option>
+        <option value="">{{ t('view.list.batchPriority') }}</option>
+        <option value="urgent">{{ t('issue.priority.critical') }}</option>
+        <option value="high">{{ t('issue.priority.high') }}</option>
+        <option value="medium">{{ t('issue.priority.medium') }}</option>
+        <option value="low">{{ t('issue.priority.low') }}</option>
+        <option value="none">{{ t('view.placeholder.priority') }}</option>
       </select>
 
-      <!-- 批量指派 -->
       <div class="batch-inline-dropdown">
         <button class="btn btn--sm" :class="{ 'btn--active': showBatchAssign }" @click="showBatchAssign = !showBatchAssign">
-          批量指派
+          {{ t('issue.batch.assign') }}
         </button>
         <div v-if="showBatchAssign" class="batch-inline-panel">
           <select v-model="batchAssignId" class="batch-select">
-            <option :value="null" disabled>选择成员...</option>
+            <option :value="null" disabled>{{ t('view.list.selectMember') }}</option>
             <option v-for="m in members" :key="m.id" :value="m.id">{{ m.display_name || m.email }}</option>
           </select>
           <button class="btn btn--sm btn--primary" :disabled="batchAssignId == null || batchOperating" @click="batchAssign">
-            {{ batchOperating ? '处理中...' : '确认' }}
+            {{ batchOperating ? t('view.batch.processing') : t('view.batch.confirmBtn') }}
           </button>
         </div>
       </div>
 
-      <!-- 批量标签 -->
       <div class="batch-inline-dropdown">
         <button
           class="btn btn--sm"
           :class="{ 'btn--active': showBatchLabel }"
           :disabled="!LABEL_API_AVAILABLE"
-          :title="LABEL_API_AVAILABLE ? '' : '标签 API 暂未上线'"
+          :title="LABEL_API_AVAILABLE ? '' : t('view.list.labelApiUnavailable')"
           @click="showBatchLabel = !showBatchLabel"
         >
-          批量标签
+          {{ t('issue.batch.labels') }}
         </button>
         <div v-if="showBatchLabel" class="batch-inline-panel">
           <select v-model="batchLabelId" class="batch-select" :disabled="!LABEL_API_AVAILABLE">
-            <option :value="null" disabled>{{ LABEL_API_AVAILABLE ? '选择标签...' : '标签 API 暂未上线' }}</option>
+            <option :value="null" disabled>{{ t('view.list.selectLabel') }}</option>
             <option v-for="l in labels" :key="l.id" :value="l.id">{{ l.name }}</option>
           </select>
           <button class="btn btn--sm btn--primary" :disabled="batchLabelId == null || batchOperating || !LABEL_API_AVAILABLE" @click="batchAddLabel">
-            {{ batchOperating ? '处理中...' : '确认' }}
+            {{ batchOperating ? t('view.batch.processing') : t('view.batch.confirmBtn') }}
           </button>
         </div>
       </div>
 
-      <button class="btn btn--sm btn--danger" @click="showDeleteConfirm = true">批量删除</button>
-      <button class="btn btn--sm btn--ghost" @click="clearSelection">清空选择</button>
-      <button class="btn btn--sm btn--ghost" @click="selectAllMatching">选择全部匹配项</button>
+      <button class="btn btn--sm btn--danger" @click="showDeleteConfirm = true">{{ t('issue.batch.delete') }}</button>
+      <button class="btn btn--sm btn--ghost" @click="clearSelection">{{ t('view.list.clearSelection') }}</button>
+      <button class="btn btn--sm btn--ghost" @click="selectAllMatching">{{ t('view.list.selectAllMatching') }}</button>
     </div>
 
     <!-- 列头右键菜单 -->
     <div v-if="showColumnContextMenu" class="context-menu-overlay" @click="closeContextMenu">
       <div class="context-menu" :style="{ left: '50%', top: '120px' }" @click.stop>
         <button class="context-menu__item" @click="openColumnConfigModal(); closeContextMenu()">
-          配置列...
+          {{ t('view.list.configureColumns') }}
         </button>
       </div>
     </div>
@@ -762,8 +799,8 @@ const isCurrentPageAllSelected = computed(() => {
     <!-- 表格 -->
     <AppEmptyState
       v-else-if="!loading && !error && issueStore.issues.length === 0"
-      title="暂无需求/任务/缺陷"
-      description="当前过滤条件下没有需求/任务/缺陷"
+      :title="t('common.noData')"
+      :description="t('view.list.unfilteredEmpty')"
     />
     <div v-else class="table-wrap">
       <table class="table">
@@ -829,12 +866,12 @@ const isCurrentPageAllSelected = computed(() => {
               <span class="name-link" @click="openIssue(iss.id)">
                 <span class="type-dot" :class="`dot-${iss.type_code}`"></span>
               </span>
-              <InlineEdit
-                :model-value="iss.name"
-                placeholder="未命名"
-                :max-length="200"
-                @submit="(v) => inlineUpdate(iss, { name: v })"
-              />
+            <InlineEdit
+              :model-value="iss.name"
+              :placeholder="t('view.placeholder.name')"
+              :max-length="200"
+              @submit="(v) => inlineUpdate(iss, { name: v })"
+            />
             </td>
             <td v-if="visibleColumns.some(c => c.key === 'type_code')">
               <span class="badge-sm" :class="`type-${iss.type_code}`">
@@ -845,7 +882,7 @@ const isCurrentPageAllSelected = computed(() => {
               <InlineSelectEdit
                 :model-value="iss.priority"
                 :options="priorityOptions"
-                placeholder="无"
+                :placeholder="t('view.placeholder.priority')"
                 @submit="(v) => inlineUpdate(iss, { priority: v as IssuePriority })"
               >
                 <template #trigger>
@@ -859,7 +896,7 @@ const isCurrentPageAllSelected = computed(() => {
               <InlineSelectEdit
                 :model-value="iss.state_id"
                 :options="issueStore.states.map((s) => ({ value: s.id, label: s.name, color: s.color }))"
-                placeholder="未设置状态"
+                :placeholder="t('view.list.unsetState')"
                 @submit="(v) => handleStateChange(iss.id, Number(v))"
               >
                 <template #trigger>
@@ -893,7 +930,7 @@ const isCurrentPageAllSelected = computed(() => {
           </tr>
             <tr v-if="visibleIssues.length === 0">
               <td :colspan="visibleColumns.length + 1" class="empty-cell">
-                暂无需求/任务/缺陷
+                {{ t('common.noData') }}
               </td>
             </tr>
           </tbody>
@@ -908,8 +945,8 @@ const isCurrentPageAllSelected = computed(() => {
           :disabled="page <= 1"
           @click="goToPage(page - 1)"
         >
-上一页
-</button>
+          {{ t('view.list.prevPage') }}
+        </button>
 
         <template v-for="p in totalPages" :key="p">
           <button
@@ -928,27 +965,27 @@ const isCurrentPageAllSelected = computed(() => {
           :disabled="page >= totalPages"
           @click="goToPage(page + 1)"
         >
-下一页
-</button>
+          {{ t('view.list.nextPage') }}
+        </button>
 
-        <span class="page-info">第 {{ page }} / {{ totalPages }} 页</span>
+        <span class="page-info">{{ $tc('view.list.pageInfo', page, { totalPages }) }}</span>
       </div>
     </div>
 
     <!-- 删除确认弹窗 -->
     <div v-if="showDeleteConfirm" class="modal-overlay" @click.self="showDeleteConfirm = false">
       <div class="modal-box">
-        <h3>确认删除</h3>
-        <p>确定要批量删除 {{ selectedIds.size }} 个需求/任务/缺陷吗？此操作不可撤销。</p>
+        <h3>{{ t('view.batch.deleteTitle') }}</h3>
+        <p>{{ $tc('view.batch.deleteConfirm', selectedIds.size) }}</p>
         <div class="modal-actions">
-          <button class="btn btn--ghost" @click="showDeleteConfirm = false">取消</button>
+          <button class="btn btn--ghost" @click="showDeleteConfirm = false">{{ t('common.cancel') }}</button>
           <button
             class="btn btn--danger"
             :disabled="batchDeleting"
             @click="batchDelete"
           >
-{{ batchDeleting ? "删除中..." : "确认删除" }}
-</button>
+            {{ batchDeleting ? t('view.batch.deleting') : t('view.batch.deleteConfirmBtn') }}
+          </button>
         </div>
       </div>
     </div>
@@ -957,10 +994,10 @@ const isCurrentPageAllSelected = computed(() => {
     <div v-if="showColumnConfigModal" class="modal-overlay" @click.self="showColumnConfigModal = false">
       <div class="column-config-modal">
         <div class="column-config-modal__header">
-          <h3>配置列</h3>
+          <h3>{{ t('view.list.columnTitle') }}</h3>
           <button class="btn btn--ghost btn--sm" @click="showColumnConfigModal = false">×</button>
         </div>
-        <p class="column-config-modal__hint">拖拽排序 / 勾选显示 / 输入宽度</p>
+        <p class="column-config-modal__hint">{{ t('view.list.columnHint') }}</p>
         <ul class="column-config-list">
           <li
             v-for="col in columnConfigDraft"
@@ -984,9 +1021,9 @@ const isCurrentPageAllSelected = computed(() => {
           </li>
         </ul>
         <div class="column-config-modal__actions">
-          <button class="btn btn--ghost" @click="showColumnConfigModal = false">取消</button>
+          <button class="btn btn--ghost" @click="showColumnConfigModal = false">{{ t('common.cancel') }}</button>
           <button class="btn btn--primary" :disabled="savingColumnConfig" @click="applyColumnConfig">
-            {{ savingColumnConfig ? '保存中...' : '保存配置' }}
+            {{ savingColumnConfig ? t('common.loading') : t('view.list.saveConfig') }}
           </button>
         </div>
       </div>

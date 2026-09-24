@@ -161,7 +161,7 @@ func (h *ModuleHandler) updateModule(c *gin.Context) {
 	in := UpdateModuleInput{
 		ID: extractModuleID(c), WorkspaceID: extractWsID(c),
 		ProjectID: extractProjectID(c),
-		Name: req.Name, Description: req.Description, LeadID: req.LeadID,
+		Name:      req.Name, Description: req.Description, LeadID: req.LeadID,
 		Status: req.Status, SortOrder: req.SortOrder,
 	}
 	if req.StartDate != nil {

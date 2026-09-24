@@ -60,7 +60,7 @@ async function loadChannel() {
 
 async function submit() {
   if (!form.value.name.trim()) { submitError.value = "请填写标题"; return; }
-  if (!form.value.email) { submitError.value = "请填写联系邮箱，用于跟踪处理进度"; return; }
+  if (!form.value.submitter_email.trim()) { submitError.value = "请填写联系邮箱，用于跟踪处理进度"; return; }
   submitError.value = "";
   submitting.value = true;
   try {

@@ -5,25 +5,25 @@
 // 错误码遵循 DOMAIN.SNAKE_CASE 格式，由两部分组成，以点号分隔：
 //
 //   - DOMAIN（前缀）：大写字母，标识业务域或错误大类。
-//     - 通用错误：VALIDATION / AUTH / RBAC / RATE_LIMIT / INTERNAL / RESOURCE
-//     - 业务域：ISSUE（需求和缺陷域，代号 S3+）、SPRINT（迭代域，代号 S5）
-//       后续新增域按项目管理代号扩展（如 TESTCASE、RELEASE 等）。
+//   - 通用错误：VALIDATION / AUTH / RBAC / RATE_LIMIT / INTERNAL / RESOURCE
+//   - 业务域：ISSUE（需求和缺陷域，代号 S3+）、SPRINT（迭代域，代号 S5）
+//     后续新增域按项目管理代号扩展（如 TESTCASE、RELEASE 等）。
 //   - SNAKE_CASE（后缀）：大写蛇形命名，描述具体错误场景。
 //
 // 命名示例：RESOURCE.NOT_FOUND、AUTH.TOKEN_EXPIRED、ISSUE.VERSION_CONFLICT。
 //
 // ## 设计目标
 //
-//   1. 单一错误类型跨越所有分层边界（handler → service → repository），统一序列化为错误信封响应。
-//   2. 支持 Go 1.13+ errors.Is / errors.As 错误链追责，便于在中间层溯源根因。
-//   3. 错误码全局唯一、枚举化管理，配合 docs/architecture/05 文档对外暴露给前端做国际化映射。
+//  1. 单一错误类型跨越所有分层边界（handler → service → repository），统一序列化为错误信封响应。
+//  2. 支持 Go 1.13+ errors.Is / errors.As 错误链追责，便于在中间层溯源根因。
+//  3. 错误码全局唯一、枚举化管理，配合 docs/architecture/05 文档对外暴露给前端做国际化映射。
 //
 // ## 使用约定
 //
-//  - 错误码变量（如 ErrNotFound）是单例，业务代码中直接引用，不做值修改。
-//  - 链式调用 From → WithCodeMessage → Details 构造错误实例，避免误改全局变量。
-//  - 在中间层通过 errors.As(err, &appErr) 提取 AppError 进行日志埋点或链路追踪。
-//  - HTTP 状态码与错误码一一对应，handler 层必须读取 AppError.HTTP 写入响应头。
+//   - 错误码变量（如 ErrNotFound）是单例，业务代码中直接引用，不做值修改。
+//   - 链式调用 From → WithCodeMessage → Details 构造错误实例，避免误改全局变量。
+//   - 在中间层通过 errors.As(err, &appErr) 提取 AppError 进行日志埋点或链路追踪。
+//   - HTTP 状态码与错误码一一对应，handler 层必须读取 AppError.HTTP 写入响应头。
 //
 // 参考模式：Google Cloud Error Model、Uber Go Style Guide 中的错误处理章节。
 package errs
@@ -119,7 +119,7 @@ func New(code, message string, httpStatus int) *AppError {
 // From 从错误码单例（如 ErrNotFound）克隆一个新的 AppError 实例。
 //
 // 推荐在 service 层使用：它返回错误码变量的拷贝，确保后续链式调用
-//（如 Details）不会修改全局共享的错误码单例。
+// （如 Details）不会修改全局共享的错误码单例。
 //
 // 使用场景：
 //
@@ -165,6 +165,7 @@ func (e *AppError) WithCodeMessage(code, message string) *AppError {
 //	    errs.FieldDetail{Field: "title", Reason: "不能为空"},
 //	    errs.FieldDetail{Field: "assigneeId", Reason: "用户不存在"},
 //	)
+//
 // WithDetails 附加字段级错误明细。每次调用返回新实例（不变性）。
 func (e *AppError) WithDetails(details ...FieldDetail) *AppError {
 	if len(details) == 0 {
@@ -322,18 +323,18 @@ var (
 	ErrSprintCapacityExceeded = New("SPRINT.CAPACITY_EXCEEDED", "迭代容量已超出设定值", http.StatusUnprocessableEntity)
 
 	// ==========================================================================
-// 版本域（Domain: VERSION，代号 S6）
-// ==========================================================================
+	// 版本域（Domain: VERSION，代号 S6）
+	// ==========================================================================
 
-// ErrVersionDataConflict 版本数据冲突（HTTP 409 Conflict）。
-//
-// 触发场景：并发修改同一版本、semver 唯一性冲突、乐观锁 version 字段比对失败。
-ErrVersionDataConflict = New("VERSION.CONFLICT", "版本状态冲突或版本号已被占用", http.StatusConflict)
+	// ErrVersionDataConflict 版本数据冲突（HTTP 409 Conflict）。
+	//
+	// 触发场景：并发修改同一版本、semver 唯一性冲突、乐观锁 version 字段比对失败。
+	ErrVersionDataConflict = New("VERSION.CONFLICT", "版本状态冲突或版本号已被占用", http.StatusConflict)
 
-// ErrVersionInvalidLifecycle 版本生命周期非法（HTTP 422 Unprocessable Entity）。
-//
-// 触发场景：对已归档/已发布的版本执行编辑、尝试回退到 planning。
-ErrVersionInvalidLifecycle = New("VERSION.INVALID_LIFECYCLE", "当前版本状态不允许该操作", http.StatusUnprocessableEntity)
+	// ErrVersionInvalidLifecycle 版本生命周期非法（HTTP 422 Unprocessable Entity）。
+	//
+	// 触发场景：对已归档/已发布的版本执行编辑、尝试回退到 planning。
+	ErrVersionInvalidLifecycle = New("VERSION.INVALID_LIFECYCLE", "当前版本状态不允许该操作", http.StatusUnprocessableEntity)
 
 	// ErrVersionSemverInvalid 语义版本号非法（HTTP 422 Unprocessable Entity）。
 	//
@@ -350,8 +351,8 @@ ErrVersionInvalidLifecycle = New("VERSION.INVALID_LIFECYCLE", "当前版本状�
 	// 触发场景：必要检查项未全部勾选试图发布。
 	ErrVersionChecklistIncomplete = New("VERSION.CHECKLIST_INCOMPLETE", "发布检查清单还有未完成的必要项", http.StatusUnprocessableEntity)
 
-// ErrVersionNotFound 版本不存在（HTTP 404 Not Found）。
-ErrVersionNotFound = New("VERSION.NOT_FOUND", "版本不存在", http.StatusNotFound)
+	// ErrVersionNotFound 版本不存在（HTTP 404 Not Found）。
+	ErrVersionNotFound = New("VERSION.NOT_FOUND", "版本不存在", http.StatusNotFound)
 )
 
 // As 包装标准库 errors.As，方便调用方直接 errs.As(err, &appErr) 而无需额外导入 errors 包。

@@ -4,8 +4,9 @@
 // 正式代码由 `buf generate` 从 notification.proto 自动生成并覆盖本文件。
 //
 // 前置依赖（需在线安装）：
-//   go get google.golang.org/grpc@v1.78.0
-//   随后运行 buf generate 生成正式代码
+//
+//	go get google.golang.org/grpc@v1.78.0
+//	随后运行 buf generate 生成正式代码
 package notificationv1
 
 import (

@@ -17,22 +17,22 @@ import "time"
 
 // WorkbenchSummary 工作台首屏聚合数据。
 type WorkbenchSummary struct {
-	MyIssues      MyIssuesBucket    `json:"my_issues"`       // 我的任务分桶
+	MyIssues        MyIssuesBucket   `json:"my_issues"`        // 我的任务分桶
 	SprintOverviews []SprintOverview `json:"sprint_overviews"` // 参与迭代概览
-	RecentItems   []RecentItem      `json:"recent_items"`    // 最近访问
-	OverdueCount  int               `json:"overdue_count"`   // 逾期总数
-	BlockedCount  int               `json:"blocked_count"`   // 阻塞总数
-	QuickActions  QuickActionSet    `json:"quick_actions"`   // 快捷操作
+	RecentItems     []RecentItem     `json:"recent_items"`     // 最近访问
+	OverdueCount    int              `json:"overdue_count"`    // 逾期总数
+	BlockedCount    int              `json:"blocked_count"`    // 阻塞总数
+	QuickActions    QuickActionSet   `json:"quick_actions"`    // 快捷操作
 }
 
 // MyIssuesBucket 我的工作项分桶视图。
 type MyIssuesBucket struct {
-	Total     int           `json:"total"`      // 总计（不含取消/已完成）
-	Today     []IssueDigest `json:"today"`      // 今日任务（target_date = 今天）
-	Upcoming  []IssueDigest `json:"upcoming"`   // 即将开始（未开始 + 7 天内）
-	Overdue   []IssueDigest `json:"overdue"`    // 逾期（target_date < 今天 + 未完成）
+	Total      int           `json:"total"`       // 总计（不含取消/已完成）
+	Today      []IssueDigest `json:"today"`       // 今日任务（target_date = 今天）
+	Upcoming   []IssueDigest `json:"upcoming"`    // 即将开始（未开始 + 7 天内）
+	Overdue    []IssueDigest `json:"overdue"`     // 逾期（target_date < 今天 + 未完成）
 	InProgress []IssueDigest `json:"in_progress"` // 进行中
-	Backlog   []IssueDigest `json:"backlog"`    // 待规划
+	Backlog    []IssueDigest `json:"backlog"`     // 待规划
 }
 
 // IssueDigest 工作项工作台摘要。
@@ -139,21 +139,21 @@ type RecordRecentInput struct {
 
 // WorkbenchTemplate 工作台模板。
 type WorkbenchTemplate struct {
-	ID          int64          `json:"id"`
-	Name        string         `json:"name"`
-	Slug        string         `json:"slug"`
-	Description string         `json:"description"`
-	Layout      LayoutConfig   `json:"layout"`
-	Icon        string         `json:"icon"`
-	IsDefault   bool           `json:"is_default"`
-	SortOrder   int            `json:"sort_order"`
+	ID          int64        `json:"id"`
+	Name        string       `json:"name"`
+	Slug        string       `json:"slug"`
+	Description string       `json:"description"`
+	Layout      LayoutConfig `json:"layout"`
+	Icon        string       `json:"icon"`
+	IsDefault   bool         `json:"is_default"`
+	SortOrder   int          `json:"sort_order"`
 }
 
 // ApplyTemplateInput 应用模板到工作台。
 type ApplyTemplateInput struct {
-	WorkspaceID int64
-	ProjectID   *int64
-	UserID      int64
+	WorkspaceID  int64
+	ProjectID    *int64
+	UserID       int64
 	TemplateSlug string
 }
 

@@ -12,7 +12,7 @@ func TestSanitizeFilename(t *testing.T) {
 		in, want string
 	}{
 		{"report.pdf", "report.pdf"},
-		{"a/b/c.pdf", "c.pdf"},            // 取 base 防目录穿越
+		{"a/b/c.pdf", "c.pdf"},             // 取 base 防目录穿越
 		{"..\\..\\evil.sh", "evil.sh"},     // 反斜杠路径取 base
 		{"../etc/passwd", "passwd"},        // base 后无特殊字符
 		{"file name.txt", "file_name.txt"}, // 空格转下划线

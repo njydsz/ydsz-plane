@@ -29,24 +29,24 @@ func (s VersionStatusCode) IsValid() bool {
 
 // Version 版本聚合根。
 type Version struct {
-	ID             int64             `json:"id"`
-	WorkspaceID    int64             `json:"workspace_id"`
-	ProjectID      int64             `json:"project_id"`
-	Name           string            `json:"name"`
-	Semver         string            `json:"semver"`
-	Description    *string           `json:"description,omitempty"`
-	Status         VersionStatusCode `json:"status"`
-	Version        int               `json:"version"`
-	StartDate      *string           `json:"start_date,omitempty"`
-	EndDate        *string           `json:"end_date,omitempty"`
-	TargetDate     *string           `json:"target_date,omitempty"`
-	Checklist      []ChecklistItem   `json:"checklist,omitempty"`
-	ReleaseNotes   *string           `json:"release_notes,omitempty"`
-	DeliveredAt    *time.Time        `json:"delivered_at,omitempty"`
-	ArchivedAt     *time.Time        `json:"archived_at,omitempty"`
-	CreatedBy      int64             `json:"created_by"`
-	CreatedAt      time.Time         `json:"created_at"`
-	UpdatedAt      time.Time         `json:"updated_at"`
+	ID           int64             `json:"id"`
+	WorkspaceID  int64             `json:"workspace_id"`
+	ProjectID    int64             `json:"project_id"`
+	Name         string            `json:"name"`
+	Semver       string            `json:"semver"`
+	Description  *string           `json:"description,omitempty"`
+	Status       VersionStatusCode `json:"status"`
+	Version      int               `json:"version"`
+	StartDate    *string           `json:"start_date,omitempty"`
+	EndDate      *string           `json:"end_date,omitempty"`
+	TargetDate   *string           `json:"target_date,omitempty"`
+	Checklist    []ChecklistItem   `json:"checklist,omitempty"`
+	ReleaseNotes *string           `json:"release_notes,omitempty"`
+	DeliveredAt  *time.Time        `json:"delivered_at,omitempty"`
+	ArchivedAt   *time.Time        `json:"archived_at,omitempty"`
+	CreatedBy    int64             `json:"created_by"`
+	CreatedAt    time.Time         `json:"created_at"`
+	UpdatedAt    time.Time         `json:"updated_at"`
 	// 聚合 (按需填充)
 	Sprints        []SprintRef      `json:"sprints,omitempty"`
 	Progress       *VersionProgress `json:"progress,omitempty"`
@@ -64,12 +64,12 @@ type ChecklistItem struct {
 
 // SprintRef 版本关联的迭代摘要。
 type SprintRef struct {
-	SprintID    int64             `json:"sprint_id"`
-	Name        string            `json:"name"`
-	Status      string            `json:"status"`
-	StartDate   *string           `json:"start_date,omitempty"`
-	EndDate     *string           `json:"end_date,omitempty"`
-	CompletedAt *string           `json:"completed_at,omitempty"`
+	SprintID    int64              `json:"sprint_id"`
+	Name        string             `json:"name"`
+	Status      string             `json:"status"`
+	StartDate   *string            `json:"start_date,omitempty"`
+	EndDate     *string            `json:"end_date,omitempty"`
+	CompletedAt *string            `json:"completed_at,omitempty"`
 	Progress    *SprintProgressRef `json:"progress,omitempty"`
 }
 

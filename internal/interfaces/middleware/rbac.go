@@ -99,10 +99,10 @@ func RequirePermission(store *auth.WorkspaceMembershipStore, perm string) gin.Ha
 			}
 		}
 
-	c.Set("workspace_role", string(m.Role))
-	c.Set("workspace_is_owner", m.Role == auth.RoleOwner)
-	c.Next()
-}
+		c.Set("workspace_role", string(m.Role))
+		c.Set("workspace_is_owner", m.Role == auth.RoleOwner)
+		c.Next()
+	}
 }
 
 // RequirePermissionFromDB 从 DB-backed rbac.Store 解析权限，是 RequirePermission 的 DB 版替代。

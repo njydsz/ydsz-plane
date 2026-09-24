@@ -39,19 +39,19 @@ const (
 
 // KnowledgeSpace 知识库空间。
 type KnowledgeSpace struct {
-	ID                int64          `json:"id"`
-	WorkspaceID       int64          `json:"workspace_id"`
-	ProjectID         *int64         `json:"project_id,omitempty"`
-	Name              string         `json:"name"`
-	Slug              string         `json:"slug"`
-	Description       string         `json:"description,omitempty"`
-	OwnerID           *int64         `json:"owner_id,omitempty"`
+	ID                int64           `json:"id"`
+	WorkspaceID       int64           `json:"workspace_id"`
+	ProjectID         *int64          `json:"project_id,omitempty"`
+	Name              string          `json:"name"`
+	Slug              string          `json:"slug"`
+	Description       string          `json:"description,omitempty"`
+	OwnerID           *int64          `json:"owner_id,omitempty"`
 	DefaultPermission SpacePermission `json:"default_permission"`
-	IsPrivate         bool           `json:"is_private"`
-	CoverImage        string         `json:"cover_image,omitempty"`
-	CreatedAt         time.Time      `json:"created_at"`
-	UpdatedAt         time.Time      `json:"updated_at"`
-	DeletedAt         *time.Time     `json:"deleted,omitempty"`
+	IsPrivate         bool            `json:"is_private"`
+	CoverImage        string          `json:"cover_image,omitempty"`
+	CreatedAt         time.Time       `json:"created_at"`
+	UpdatedAt         time.Time       `json:"updated_at"`
+	DeletedAt         *time.Time      `json:"deleted,omitempty"`
 }
 
 // KnowledgePage 知识库文档。
@@ -95,35 +95,35 @@ type KnowledgePageVersion struct {
 
 // KnowledgePageRelation 文档与工作项的关联关系。
 type KnowledgePageRelation struct {
-	ID           int64           `json:"id"`
-	PageID       int64           `json:"page_id"`
-	IssueID      int64           `json:"issue_id"`
+	ID           int64            `json:"id"`
+	PageID       int64            `json:"page_id"`
+	IssueID      int64            `json:"issue_id"`
 	RelationType PageRelationType `json:"relation_type"`
-	CreatedAt    time.Time       `json:"created_at"`
+	CreatedAt    time.Time        `json:"created_at"`
 }
 
 // --- 输入 DTO ---
 
 // CreateSpaceInput 创建空间入参。
 type CreateSpaceInput struct {
-	WorkspaceID       int64          `json:"workspace_id"`
-	ProjectID         *int64         `json:"project_id,omitempty"`
-	Name              string         `json:"name" binding:"required,max=255"`
-	Slug              string         `json:"slug" binding:"required,max=128"`
-	Description       string         `json:"description"`
-	OwnerID           *int64         `json:"owner_id"`
+	WorkspaceID       int64           `json:"workspace_id"`
+	ProjectID         *int64          `json:"project_id,omitempty"`
+	Name              string          `json:"name" binding:"required,max=255"`
+	Slug              string          `json:"slug" binding:"required,max=128"`
+	Description       string          `json:"description"`
+	OwnerID           *int64          `json:"owner_id"`
 	DefaultPermission SpacePermission `json:"default_permission"`
-	IsPrivate         bool           `json:"is_private"`
-	CoverImage        string         `json:"cover_image"`
+	IsPrivate         bool            `json:"is_private"`
+	CoverImage        string          `json:"cover_image"`
 }
 
 // UpdateSpaceInput 更新空间入参（指针字段为 nil 时不更新）。
 type UpdateSpaceInput struct {
-	Name              *string         `json:"name,omitempty"`
-	Description       *string         `json:"description,omitempty"`
+	Name              *string          `json:"name,omitempty"`
+	Description       *string          `json:"description,omitempty"`
 	DefaultPermission *SpacePermission `json:"default_permission,omitempty"`
-	IsPrivate         *bool           `json:"is_private,omitempty"`
-	CoverImage        *string         `json:"cover_image,omitempty"`
+	IsPrivate         *bool            `json:"is_private,omitempty"`
+	CoverImage        *string          `json:"cover_image,omitempty"`
 }
 
 // CreatePageInput 创建文档入参。
@@ -163,8 +163,8 @@ type CreatePageVersionInput struct {
 
 // AddPageRelationInput 添加关联入参。
 type AddPageRelationInput struct {
-	PageID       int64           `json:"page_id"`
-	IssueID      int64           `json:"issue_id"`
+	PageID       int64            `json:"page_id"`
+	IssueID      int64            `json:"issue_id"`
 	RelationType PageRelationType `json:"relation_type"`
 }
 

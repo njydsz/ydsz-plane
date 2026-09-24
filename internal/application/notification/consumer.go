@@ -17,8 +17,8 @@ package notification
 
 import (
 	"context"
-	"errors"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
 	"time"
@@ -108,17 +108,17 @@ func (c *consumer) HandleEvent(ctx context.Context, event mq.EventEnvelope) erro
 
 // eventPayload 是通知相关事件的通用 payload 结构。
 type eventPayload struct {
-	WorkspaceID int64  `json:"workspace_id"`
-	ProjectID   int64  `json:"project_id"`
-	ActorID     int64  `json:"actor_id"`
-	ActorName   string `json:"actor_name"`
-	IssueID     int64  `json:"issue_id"`
-	Identifier  string `json:"identifier"`
-	Name        string `json:"name"`
+	WorkspaceID int64   `json:"workspace_id"`
+	ProjectID   int64   `json:"project_id"`
+	ActorID     int64   `json:"actor_id"`
+	ActorName   string  `json:"actor_name"`
+	IssueID     int64   `json:"issue_id"`
+	Identifier  string  `json:"identifier"`
+	Name        string  `json:"name"`
 	AssigneeIDs []int64 `json:"assignee_ids"`
 	FromState   string  `json:"from_state"`
 	ToState     string  `json:"to_state"`
-	CommentID   int64  `json:"comment_id"`
+	CommentID   int64   `json:"comment_id"`
 	Content     string  `json:"content"`
 }
 
@@ -413,4 +413,3 @@ func (c *consumer) getProjectName(ctx context.Context, projectID int64) string {
 	}
 	return name
 }
-

@@ -16,18 +16,18 @@ import (
 // - 需求(requirement)：关闭超过5年自动归档
 // 已归档的工作项不参与日常查询、搜索索引，只读归档库可查询
 type WorkitemArchiveService struct {
-	db                 *pgxpool.Pool
-	defectArchiveYears  int
-	taskArchiveYears    int
+	db                      *pgxpool.Pool
+	defectArchiveYears      int
+	taskArchiveYears        int
 	requirementArchiveYears int
 }
 
 // NewWorkitemArchiveService 创建归档服务，传入各类工作项的归档年限
 func NewWorkitemArchiveService(db *pgxpool.Pool) *WorkitemArchiveService {
 	return &WorkitemArchiveService{
-		db:                 db,
-		defectArchiveYears:  2,
-		taskArchiveYears:    3,
+		db:                      db,
+		defectArchiveYears:      2,
+		taskArchiveYears:        3,
 		requirementArchiveYears: 5,
 	}
 }
@@ -35,7 +35,7 @@ func NewWorkitemArchiveService(db *pgxpool.Pool) *WorkitemArchiveService {
 // ArchiveExpiredWorkitems 执行过期工作项归档，返回归档的工作项数量
 func (s *WorkitemArchiveService) ArchiveExpiredWorkitems(ctx context.Context) (int, error) {
 	totalArchived := 0
-	
+
 	// 1. 归档过期缺陷
 	defectCutoff := time.Now().AddDate(-s.defectArchiveYears, 0, 0)
 	var defectCount int
@@ -50,7 +50,7 @@ func (s *WorkitemArchiveService) ArchiveExpiredWorkitems(ctx context.Context) (i
 	if err == nil {
 		totalArchived += defectCount
 	}
-	
+
 	// 2. 归档过期任务
 	taskCutoff := time.Now().AddDate(-s.taskArchiveYears, 0, 0)
 	var taskCount int
@@ -65,7 +65,7 @@ func (s *WorkitemArchiveService) ArchiveExpiredWorkitems(ctx context.Context) (i
 	if err == nil {
 		totalArchived += taskCount
 	}
-	
+
 	// 3. 归档过期需求
 	reqCutoff := time.Now().AddDate(-s.requirementArchiveYears, 0, 0)
 	var reqCount int
@@ -80,7 +80,7 @@ func (s *WorkitemArchiveService) ArchiveExpiredWorkitems(ctx context.Context) (i
 	if err == nil {
 		totalArchived += reqCount
 	}
-	
+
 	return totalArchived, nil
 }
 
@@ -97,7 +97,7 @@ func (s *WorkitemArchiveService) RestoreArchivedWorkitem(ctx context.Context, ws
 	default:
 		return errs.ErrValidation.WithDetails(errs.FieldDetail{Field: "entity_type", Reason: "不支持的工作项类型"})
 	}
-	
+
 	_, err := s.db.Exec(ctx, `
 		UPDATE `+tableName+` 
 		SET archived_at = NULL
@@ -119,7 +119,7 @@ func (s *WorkitemArchiveService) IsArchived(ctx context.Context, entityType Issu
 	default:
 		return false, errs.ErrValidation.WithDetails(errs.FieldDetail{Field: "entity_type", Reason: "不支持的工作项类型"})
 	}
-	
+
 	var archived bool
 	err := s.db.QueryRow(ctx, `
 		SELECT archived_at IS NOT NULL FROM `+tableName+` WHERE id = $1

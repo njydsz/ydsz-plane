@@ -91,13 +91,13 @@ func (h *Handler) createSprint(c *gin.Context) {
 	userID := c.GetInt64(middleware.CtxUserID)
 
 	var req struct {
-		Name        string  `json:"name" binding:"required,min=1,max=80"`
-		Description string  `json:"description" binding:"max=500"`
-		Goal        string  `json:"goal" binding:"max=500"`
-		StartDate   *string `json:"start_date" binding:"omitempty,datetime=2006-01-02"`
-		EndDate     *string `json:"end_date" binding:"omitempty,datetime=2006-01-02"`
+		Name        string   `json:"name" binding:"required,min=1,max=80"`
+		Description string   `json:"description" binding:"max=500"`
+		Goal        string   `json:"goal" binding:"max=500"`
+		StartDate   *string  `json:"start_date" binding:"omitempty,datetime=2006-01-02"`
+		EndDate     *string  `json:"end_date" binding:"omitempty,datetime=2006-01-02"`
 		Capacity    *float64 `json:"capacity" binding:"omitempty,min=0,max=99999"`
-		OwnerID     *int64  `json:"owner_id"`
+		OwnerID     *int64   `json:"owner_id"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		middleware.AbortWithError(c, errs.ErrValidation.WithDetails(fieldDetail(err)))

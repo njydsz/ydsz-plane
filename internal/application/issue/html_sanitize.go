@@ -9,8 +9,9 @@
 //   - 表达式/CSS 注入：<div style="background-url:evil">
 //
 // 防御纵深：
-//   客户端（ProseMirror 渲染）→ 服务端二次净化（本模块）
-//   → 前端渲染（v-html + trusted sanitizer）
+//
+//	客户端（ProseMirror 渲染）→ 服务端二次净化（本模块）
+//	→ 前端渲染（v-html + trusted sanitizer）
 //
 // 由于 content_html 是从客户端富文本编辑器接受的，我们假设它是不可信的。
 package issue

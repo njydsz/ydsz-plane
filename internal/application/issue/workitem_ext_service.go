@@ -50,7 +50,7 @@ func (s *WorkitemExtService) CreateOrUpdate(ctx context.Context, wsID, projectID
 	if err := s.ValidateExtValue(fieldSchema, fieldValue); err != nil {
 		return err
 	}
-	
+
 	return s.withTx(ctx, wsID, func(tx pgx.Tx) error {
 		var tableName string
 		var entityColName string
@@ -67,10 +67,10 @@ func (s *WorkitemExtService) CreateOrUpdate(ctx context.Context, wsID, projectID
 		default:
 			return errs.ErrValidation.WithDetails(errs.FieldDetail{Field: "entity_type", Reason: "不支持的工作项类型"})
 		}
-		
+
 		valueByte, _ := json.Marshal(fieldValue)
 		schemaByte, _ := json.Marshal(fieldSchema)
-		
+
 		//  upsert操作：存在则更新，不存在则创建
 		_, err := tx.Exec(ctx, fmt.Sprintf(`
 			INSERT INTO %s (workspace_id, project_id, %s, field_name, field_value, field_schema, created_by, updated_at)
@@ -102,7 +102,7 @@ func (s *WorkitemExtService) GetByEntity(ctx context.Context, wsID int64, entity
 	default:
 		return nil, errs.ErrValidation.WithDetails(errs.FieldDetail{Field: "entity_type", Reason: "不支持的工作项类型"})
 	}
-	
+
 	rows, err := s.db.Query(ctx, fmt.Sprintf(`
 		SELECT id, workspace_id, project_id, %s, field_name, field_value, field_schema, created_by, created_at, updated_at
 		FROM %s 
@@ -112,7 +112,7 @@ func (s *WorkitemExtService) GetByEntity(ctx context.Context, wsID int64, entity
 		return nil, err
 	}
 	defer rows.Close()
-	
+
 	var exts []WorkitemExtension
 	for rows.Next() {
 		var ext WorkitemExtension
@@ -145,7 +145,7 @@ func (s *WorkitemExtService) Delete(ctx context.Context, wsID, entityID int64, e
 	default:
 		return errs.ErrValidation.WithDetails(errs.FieldDetail{Field: "entity_type", Reason: "不支持的工作项类型"})
 	}
-	
+
 	_, err := s.db.Exec(ctx, fmt.Sprintf(`
 		DELETE FROM %s WHERE workspace_id = $1 AND %s = $2 AND field_name = $3
 	`, tableName, entityColName), wsID, entityID, fieldName)
@@ -169,7 +169,7 @@ func (s *WorkitemExtService) DeleteAllByEntity(ctx context.Context, wsID, entity
 	default:
 		return errs.ErrValidation.WithDetails(errs.FieldDetail{Field: "entity_type", Reason: "不支持的工作项类型"})
 	}
-	
+
 	_, err := s.db.Exec(ctx, fmt.Sprintf(`
 		DELETE FROM %s WHERE workspace_id = $1 AND %s = $2
 	`, tableName, entityColName), wsID, entityID)
@@ -183,11 +183,11 @@ func (s *WorkitemExtService) withTx(ctx context.Context, wsID int64, fn func(pgx
 		return errs.ErrInternal.Wrap(err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	
+
 	if _, err := tx.Exec(ctx, "SELECT set_config('app.workspace_id', $1, true)", wsID); err != nil {
 		return errs.ErrInternal.Wrap(err)
 	}
-	
+
 	if err := fn(tx); err != nil {
 		return err
 	}

@@ -70,10 +70,6 @@ const isReviewer = computed(() => {
 });
 
 /** 当前用户是否已提交过决定 */
-const hasDecided = computed(() => {
-  // 简化：后端记录评审人决定状态；前端仅通过是否有 active review 判断
-  return false;
-});
 
 /** 是否允许提交评审（ owner/admin 或创建者） */
 const canSubmitReview = computed(() => {
@@ -96,8 +92,7 @@ async function loadReviews() {
 
 async function loadMembers() {
   try {
-    const { results } = await workspaceApi.getMembers(props.workspaceId);
-    members.value = results;
+    members.value = await workspaceApi.listMembers(props.workspaceId);
   } catch {
     // 静默失败
   }
@@ -149,7 +144,7 @@ async function decideReview(decision: 'approved' | 'rejected') {
 
 function getMemberName(id: number): string {
   const m = members.value.find(m => m.id === id);
-  return m?.nickname || m?.email || `用户${id}`;
+  return m?.display_name || m?.email || `用户${id}`;
 }
 
 function statusLabel(status: string): string {
@@ -240,7 +235,7 @@ watch(() => props.issueId, () => {
         <label class="rp-form__label">评审人 *</label>
         <select v-model="submitReviewers" class="rp-select" multiple>
           <option v-for="m in members" :key="m.id" :value="m.id">
-            {{ m.nickname || m.email }}
+            {{ m.display_name || m.email }}
           </option>
         </select>
       </div>

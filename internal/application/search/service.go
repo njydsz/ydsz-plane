@@ -134,8 +134,10 @@ func (s *Service) searchPG(ctx context.Context, q SearchQuery, jql *searchql.Que
 	argIdx := 2
 
 	// FTS 条件（如果有搜索文本）
+	// websearch_to_tsquery('simple', ...) 对任意用户输入安全（不会因特殊字符 500），
+	// 且天然支持空格-AND、引号短语、-排除等 web 搜索语义，无需手动拆分拼接。
 	if tsQuery != "" {
-		whereParts = append(whereParts, fmt.Sprintf("d.search_tsv @@ to_tsquery('simple', $%d)", argIdx))
+		whereParts = append(whereParts, fmt.Sprintf("d.search_tsv @@ websearch_to_tsquery('simple', $%d)", argIdx))
 		args = append(args, tsQuery)
 		argIdx++
 	}
@@ -190,7 +192,7 @@ func (s *Service) searchPG(ctx context.Context, q SearchQuery, jql *searchql.Que
 	queryArgs := append(args, q.Limit, q.Offset)
 
 	// 构建高亮 SQL
-	highlightSQL := "ts_headline('simple', coalesce(d.content, ''), to_tsquery('simple', $1), " +
+	highlightSQL := "ts_headline('simple', coalesce(d.content, ''), websearch_to_tsquery('simple', $1), " +
 		"'StartSel=<mark>, StopSel=</mark>, MaxFragments=3, FragmentDelimiter=...')"
 	if tsQuery == "" {
 		highlightSQL = "d.content" // 无搜索词时不尝试高亮
@@ -210,7 +212,7 @@ func (s *Service) searchPG(ctx context.Context, q SearchQuery, jql *searchql.Que
 	// 如果没有搜索文本，调整参数绑定
 	if tsQuery == "" {
 		// 用占位符避免 $1 不存在
-		sql = strings.Replace(sql, "to_tsquery('simple', $1)", "to_tsquery('simple', '')", -1)
+		sql = strings.ReplaceAll(sql, "websearch_to_tsquery('simple', $1)", "websearch_to_tsquery('simple', '')")
 	}
 
 	rows, err := s.db.Query(ctx, sql, queryArgs...)
@@ -529,7 +531,7 @@ func toTSQuery(input string) string {
 			continue
 		}
 		// 前缀匹配: "foo*" → "foo:*"
-		parts = append(parts, tok + ":*")
+		parts = append(parts, tok+":*")
 	}
 	return strings.Join(parts, " & ")
 }

@@ -18,6 +18,7 @@ import { useAuthStore } from "@/stores/auth";
 import IssueCreateModal from "./IssueCreateModal.vue";
 import IssueFilter from "./IssueFilter.vue";
 import { AppErrorState, AppEmptyState, InlineEdit, InlineSelectEdit, AppSkeleton } from "@/components";
+import { useTranslation } from "@/composables/useTranslation";
 import {
   type FilterState,
   safeParseFilters,
@@ -28,6 +29,7 @@ const route = useRoute();
 const issueStore = useIssueStore();
 const peek = usePeekStore();
 const authStore = useAuthStore();
+const { t } = useTranslation();
 
 const projectId = computed(() => Number(route.params.projectId));
 const wsId = ref(0);
@@ -329,11 +331,11 @@ async function inlineUpdate(iss: Issue, patch: Partial<Pick<Issue, "name" | "pri
 }
 
 const priorityOptions = [
-  { value: "urgent" as IssuePriority, label: "紧急", color: "var(--danger-500)", icon: "🔴" },
-  { value: "high" as IssuePriority, label: "高", color: "var(--warning-500)", icon: "🟠" },
-  { value: "medium" as IssuePriority, label: "中", color: "var(--brand-500)", icon: "🔵" },
-  { value: "low" as IssuePriority, label: "低", color: "var(--text-tertiary)", icon: "⚪" },
-  { value: "none" as IssuePriority, label: "无", color: "var(--text-tertiary)", icon: "⬜" },
+  { value: "urgent" as IssuePriority, label: "🔴", color: "var(--danger-500)" },
+  { value: "high" as IssuePriority, label: "🟠", color: "var(--warning-500)" },
+  { value: "medium" as IssuePriority, label: "🔵", color: "var(--brand-500)" },
+  { value: "low" as IssuePriority, label: "⚪", color: "var(--text-tertiary)" },
+  { value: "none" as IssuePriority, label: "⬜", color: "var(--text-tertiary)" },
 ];
 
 onMounted(() => {
@@ -367,8 +369,8 @@ function handleRemoteIssueUpdate(data: { project_id?: number; issue_id?: number;
   <div class="kanban">
     <header class="kanban__header">
       <div>
-        <h1>看板</h1>
-        <p class="hint">拖拽需求/任务/缺陷到不同列进行流转，列内拖拽调整排序</p>
+        <h1>{{ t('view.kanban.title') }}</h1>
+        <p class="hint">{{ t('view.kanban.hint') }}</p>
       </div>
       <div class="header-right">
         <div class="view-switcher">
@@ -376,16 +378,16 @@ function handleRemoteIssueUpdate(data: { project_id?: number; issue_id?: number;
             :to="`/${route.params.workspaceId}/projects/${projectId}/board`"
             class="view-tab is-active"
           >
-          看板
+            {{ t('view.header.kanban') }}
           </router-link>
           <router-link
             :to="`/${route.params.workspaceId}/projects/${projectId}/list`"
             class="view-tab"
           >
-          列表
+            {{ t('view.header.list') }}
           </router-link>
         </div>
-        <button class="btn btn--primary" @click="showCreateModal = true">+ 创建需求/任务/缺陷</button>
+        <button class="btn btn--primary" @click="showCreateModal = true">{{ t('view.kanban.createBtn') }}</button>
       </div>
     </header>
 
@@ -400,8 +402,8 @@ function handleRemoteIssueUpdate(data: { project_id?: number; issue_id?: number;
 
     <AppSkeleton v-if="loading" variant="board" :cols="issueStore.states.length || 4" />
     <AppErrorState v-else-if="error" :message="error" @retry="load" />
-    <AppEmptyState v-else-if="issueStore.issues.length === 0" icon="📋" title="暂无需求/任务/缺陷" description="创建或拖拽需求/任务/缺陷到此看板">
-      <button class="btn btn--primary" @click="showCreateModal = true">+ 创建需求/任务/缺陷</button>
+    <AppEmptyState v-else-if="issueStore.issues.length === 0" icon="📋" :title="t('common.noData')" :description="t('view.kanban.createBtn')">
+      <button class="btn btn--primary" @click="showCreateModal = true">{{ t('view.kanban.createBtn') }}</button>
     </AppEmptyState>
 
     <div v-else class="kanban__board" :style="{ '--column-width': columnWidth + 'px' }">
@@ -415,7 +417,7 @@ function handleRemoteIssueUpdate(data: { project_id?: number; issue_id?: number;
           <span class="kanban__column-count">{{ issuesInState(state.id).length }}</span>
           <span
             class="kanban__col-resize"
-            title="拖拽调整列宽"
+            :title="t('view.kanban.columnWidthHint')"
             @pointerdown="startColumnResize"
           >⋮</span>
         </div>
@@ -451,7 +453,7 @@ function handleRemoteIssueUpdate(data: { project_id?: number; issue_id?: number;
                 class="issue-card__priority-edit"
                 :model-value="iss.priority"
                 :options="priorityOptions"
-                placeholder="优先级"
+                :placeholder="t('issue.priority')"
                 align="right"
                 @submit="(v) => inlineUpdate(iss, { priority: v as IssuePriority })"
               />
@@ -460,7 +462,7 @@ function handleRemoteIssueUpdate(data: { project_id?: number; issue_id?: number;
               <InlineEdit
                 :model-value="iss.name"
                 trigger="dblclick"
-                placeholder="双击编辑名称..."
+                :placeholder="t('view.placeholder.doubleClick')"
                 @submit="(v) => inlineUpdate(iss, { name: v })"
               />
             </div>
@@ -488,7 +490,7 @@ function handleRemoteIssueUpdate(data: { project_id?: number; issue_id?: number;
 
           <template #footer>
             <div v-if="issuesInState(state.id).length === 0" class="kanban__empty">
-              <p>拖拽需求/任务/缺陷到此处</p>
+              <p>{{ t('view.kanban.dropHere') }}</p>
             </div>
           </template>
         </VueDraggable>

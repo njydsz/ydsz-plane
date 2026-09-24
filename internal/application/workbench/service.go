@@ -259,7 +259,7 @@ func (s *Service) getSprintOverviews(ctx context.Context, wsID, userID int64, pr
 			ov.Progress = float64(doneCount) / float64(totalCount)
 		}
 		if endDate != nil {
-			ov.DaysRemaining = int(endDate.Sub(time.Now()).Hours() / 24)
+			ov.DaysRemaining = int(time.Until(*endDate).Hours() / 24)
 		}
 		overviews = append(overviews, ov)
 	}

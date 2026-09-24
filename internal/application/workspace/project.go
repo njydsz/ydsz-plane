@@ -58,23 +58,23 @@ func ProjectModuleAllEnabled() ProjectModuleToggles {
 
 // Project 项目 DTO。
 type Project struct {
-	ID             int64                  `json:"id"`
-	WorkspaceID    int64                  `json:"workspace_id"`
-	Name           string                 `json:"name"`
-	Slug           string                 `json:"slug"`
-	Identifier     string                 `json:"identifier"`
-	Description    *string                `json:"description,omitempty"`
-	Network        string                 `json:"network"`
-	Icon           *string                `json:"icon,omitempty"`
-	Color          *string                `json:"color,omitempty"`
-	CoverImageUrl  *string                `json:"cover_image_url,omitempty"`
-	Template       string                 `json:"template"`
-	Status         string                 `json:"status"`
-	SortOrder      float64                `json:"sort_order"`
-	Modules        ProjectModuleToggles   `json:"modules"`
-	CreatedBy      int64                  `json:"created_by"`
-	CreatedAt      time.Time              `json:"created_at"`
-	UpdatedAt      time.Time              `json:"updated_at"`
+	ID            int64                `json:"id"`
+	WorkspaceID   int64                `json:"workspace_id"`
+	Name          string               `json:"name"`
+	Slug          string               `json:"slug"`
+	Identifier    string               `json:"identifier"`
+	Description   *string              `json:"description,omitempty"`
+	Network       string               `json:"network"`
+	Icon          *string              `json:"icon,omitempty"`
+	Color         *string              `json:"color,omitempty"`
+	CoverImageUrl *string              `json:"cover_image_url,omitempty"`
+	Template      string               `json:"template"`
+	Status        string               `json:"status"`
+	SortOrder     float64              `json:"sort_order"`
+	Modules       ProjectModuleToggles `json:"modules"`
+	CreatedBy     int64                `json:"created_by"`
+	CreatedAt     time.Time            `json:"created_at"`
+	UpdatedAt     time.Time            `json:"updated_at"`
 }
 
 // ProjectCreateInput 入参。
@@ -367,4 +367,3 @@ func normalizeIdentifier(s, fallback string) string {
 	}
 	return s
 }
-

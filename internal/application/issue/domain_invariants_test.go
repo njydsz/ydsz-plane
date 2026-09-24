@@ -22,8 +22,8 @@ import (
 // TestWBSDepthConstraint_DepthLimit 验证 WBS 深度限制为 3 层的不变量。
 func TestWBSDepthConstraint_DepthLimit(t *testing.T) {
 	cases := []struct {
-		name      string
-		depth     int
+		name       string
+		depth      int
 		allowChild bool
 	}{
 		{"depth=1 允许子级", 1, true},

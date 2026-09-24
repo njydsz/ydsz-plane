@@ -59,13 +59,35 @@ func (s *WorkitemCacheService) InvalidateDetail(ctx context.Context, entityType 
 	return s.redisClient.Del(ctx, key).Err()
 }
 
-// InvalidateListCache 失效工作项列表缓存（用于筛选条件变化时）
+// InvalidateListCache 失效工作项列表缓存（用于筛选条件变化时）。
+// 使用 Scan 扫描 + Pipeline 批量 UNLINK（异步非阻塞删除），
+// 避免原来逐条同步 DEL 的 O(N) 阻塞问题。
 func (s *WorkitemCacheService) InvalidateListCache(ctx context.Context, wsID, projectID int64) error {
-	// 用通配符删除该项目下的所有列表缓存
 	pattern := fmt.Sprintf("workitem:list:%d:%d:*", wsID, projectID)
-	iter := s.redisClient.Scan(ctx, 0, pattern, 0).Iterator()
+	const batchSize = 200
+
+	iter := s.redisClient.Scan(ctx, 0, pattern, batchSize*10).Iterator()
+	pipe := s.redisClient.Pipeline()
+	count := 0
+	flush := func() error {
+		if count == 0 {
+			return nil
+		}
+		_, err := pipe.Exec(ctx)
+		count = 0
+		return err
+	}
 	for iter.Next(ctx) {
-		_ = s.redisClient.Del(ctx, iter.Val())
+		pipe.Unlink(ctx, iter.Val())
+		count++
+		if count >= batchSize {
+			if err := flush(); err != nil {
+				return err
+			}
+		}
+	}
+	if err := flush(); err != nil {
+		return err
 	}
 	return iter.Err()
 }

@@ -162,12 +162,7 @@ func (h *Handler) Update(c *gin.Context) {
 		return
 	}
 
-	input := UpdateInput{
-		Name:      req.Name,
-		TargetURL: req.TargetURL,
-		Events:    req.Events,
-		IsActive:  req.IsActive,
-	}
+	input := UpdateInput(req)
 
 	w, err := h.svc.Update(c.Request.Context(), wsID, webhookID, input)
 	if err != nil {

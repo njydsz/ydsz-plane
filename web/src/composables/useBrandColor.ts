@@ -4,7 +4,7 @@
  * 工作空间设置的品牌色（HEX 格式）会被转换为 oklch 色彩空间，
  * 并覆盖 --brand-* 系列 CSS 变量，实现全局主题色切换。
  */
-import { ref, watch, type Ref } from "vue";
+import { reactive, ref, watch, type Ref } from "vue";
 
 /** 默认品牌色（与 tokens.css 中的 --brand-default 一致） */
 const DEFAULT_BRAND_COLOR = "#2563eb";
@@ -170,11 +170,13 @@ export function useBrandColor(brandColor: Ref<string | undefined | null>) {
     clearBrandColor();
   }
 
-  return {
+  // reactive 深度解包 currentColor，使 template 中 brand.currentColor
+  // 直接得到 string 而非 Ref<string>，同时保留响应式。
+  return reactive({
     currentColor,
     setBrandColor,
     resetBrandColor,
     presets: BRAND_COLOR_PRESETS,
     defaultColor: DEFAULT_BRAND_COLOR,
-  };
+  });
 }

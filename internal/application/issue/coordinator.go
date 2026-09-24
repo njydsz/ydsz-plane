@@ -22,39 +22,39 @@ import (
 
 // Issue 仅用于跨类型过渡 API 返回；聚合根优先使用 Requirement / Task / Defect。
 type Issue struct {
-	ID          int64     `json:"id"`
-	PublicID    string    `json:"public_id"`
-	WorkspaceID int64     `json:"workspace_id"`
-	ProjectID   int64     `json:"project_id"`
-	SequenceID  int64     `json:"sequence_id"`
-	Identifier  string    `json:"identifier"`
+	ID          int64         `json:"id"`
+	PublicID    string        `json:"public_id"`
+	WorkspaceID int64         `json:"workspace_id"`
+	ProjectID   int64         `json:"project_id"`
+	SequenceID  int64         `json:"sequence_id"`
+	Identifier  string        `json:"identifier"`
 	TypeCode    IssueTypeCode `json:"type_code"`
-	ParentID    *int64    `json:"parent_id,omitempty"`
-	Depth       int       `json:"depth"`
-	Name        string    `json:"name"`
-	StateID     int64     `json:"state_id"`
-	State       *State    `json:"state,omitempty"`
+	ParentID    *int64        `json:"parent_id,omitempty"`
+	Depth       int           `json:"depth"`
+	Name        string        `json:"name"`
+	StateID     int64         `json:"state_id"`
+	State       *State        `json:"state,omitempty"`
 	Priority    IssuePriority `json:"priority"`
-	SprintID    *int64    `json:"sprint_id,omitempty"`
-	VersionID   *int64    `json:"version_id,omitempty"`
-	Progress    int       `json:"progress"`
-	StartDate   *time.Time `json:"start_date,omitempty"`
-	TargetDate  *time.Time `json:"target_date,omitempty"`
-	CompletedAt *time.Time `json:"completed_at,omitempty"`
-	IsDraft     bool      `json:"is_draft"`
-	SortOrder   float64   `json:"sort_order"`
-	Version     int       `json:"version"`
-	CreatedBy   int64     `json:"created_by"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	SprintID    *int64        `json:"sprint_id,omitempty"`
+	VersionID   *int64        `json:"version_id,omitempty"`
+	Progress    int           `json:"progress"`
+	StartDate   *time.Time    `json:"start_date,omitempty"`
+	TargetDate  *time.Time    `json:"target_date,omitempty"`
+	CompletedAt *time.Time    `json:"completed_at,omitempty"`
+	IsDraft     bool          `json:"is_draft"`
+	SortOrder   float64       `json:"sort_order"`
+	Version     int           `json:"version"`
+	CreatedBy   int64         `json:"created_by"`
+	CreatedAt   time.Time     `json:"created_at"`
+	UpdatedAt   time.Time     `json:"updated_at"`
 	// 按类型的可选字段
-	Severity   *int     `json:"severity,omitempty"`
-	FoundPhase *string  `json:"found_phase,omitempty"`
-	Category   *string  `json:"category,omitempty"`
-	Point      *int     `json:"point,omitempty"`
-	Assignees  []int64  `json:"assignees,omitempty"`
-	Labels     []int64  `json:"labels,omitempty"`
-	Modules    []int64  `json:"modules,omitempty"`
+	Severity   *int    `json:"severity,omitempty"`
+	FoundPhase *string `json:"found_phase,omitempty"`
+	Category   *string `json:"category,omitempty"`
+	Point      *int    `json:"point,omitempty"`
+	Assignees  []int64 `json:"assignees,omitempty"`
+	Labels     []int64 `json:"labels,omitempty"`
+	Modules    []int64 `json:"modules,omitempty"`
 }
 
 // CreateIssueInput 创建工作项的入参（过渡 API 用）。
@@ -187,7 +187,7 @@ func (s *Service) Create(ctx context.Context, in CreateIssueInput) (*Issue, erro
 			IsDraft: in.IsDraft, CreatedBy: in.CreatedBy, Severity: *in.Severity,
 			FoundPhase: *in.FoundPhase, ReproduceSteps: in.ReproduceSteps, Environment: in.Environment,
 			SourceVersionID: in.FoundVersionID,
-			Assignees: in.Assignees, Labels: in.Labels, Modules: in.Modules,
+			Assignees:       in.Assignees, Labels: in.Labels, Modules: in.Modules,
 		})
 		if err != nil {
 			return nil, err
@@ -206,15 +206,21 @@ func (s *Service) GetByID(ctx context.Context, wsID, issueID int64) (*Issue, err
 	switch tc {
 	case TypeTask:
 		t, err := s.Task.GetByID(ctx, wsID, issueID)
-		if err != nil { return nil, err }
+		if err != nil {
+			return nil, err
+		}
 		return taskToIssue(t), nil
 	case TypeRequirement:
 		r, err := s.Requirement.GetByID(ctx, wsID, issueID)
-		if err != nil { return nil, err }
+		if err != nil {
+			return nil, err
+		}
 		return requirementToIssue(r), nil
 	case TypeDefect:
 		d, err := s.Defect.GetByID(ctx, wsID, issueID)
-		if err != nil { return nil, err }
+		if err != nil {
+			return nil, err
+		}
 		return defectToIssue(d), nil
 	}
 	return nil, errs.ErrNotFound
@@ -233,7 +239,9 @@ func (s *Service) Update(ctx context.Context, wsID, issueID int64, in UpdateIssu
 			ParentID: in.ParentID, Point: in.Point, TargetDate: in.TargetDate, Progress: in.Progress,
 			DelayReason: in.DelayReason, Version: in.Version, Assignees: in.Assignees, Labels: in.Labels, Modules: in.Modules,
 		})
-		if err != nil { return nil, err }
+		if err != nil {
+			return nil, err
+		}
 		return taskToIssue(updated), nil
 	case TypeRequirement:
 		updated, err := s.Requirement.Update(ctx, wsID, issueID, UpdateRequirementInput{
@@ -241,7 +249,9 @@ func (s *Service) Update(ctx context.Context, wsID, issueID int64, in UpdateIssu
 			ParentID: in.ParentID, Point: in.Point, TargetDate: in.TargetDate, Progress: in.Progress,
 			Version: in.Version, Assignees: in.Assignees, Labels: in.Labels, Modules: in.Modules,
 		})
-		if err != nil { return nil, err }
+		if err != nil {
+			return nil, err
+		}
 		return requirementToIssue(updated), nil
 	case TypeDefect:
 		updated, err := s.Defect.Update(ctx, wsID, issueID, UpdateDefectInput{
@@ -251,7 +261,9 @@ func (s *Service) Update(ctx context.Context, wsID, issueID int64, in UpdateIssu
 			RootCauseCategory: in.RootCauseCategory, Assignees: in.Assignees, Labels: in.Labels, Modules: in.Modules,
 			FoundVersionID: in.FoundVersionID, FixVersionID: in.FixVersionID,
 		})
-		if err != nil { return nil, err }
+		if err != nil {
+			return nil, err
+		}
 		return defectToIssue(updated), nil
 	}
 	return nil, errs.ErrNotFound
@@ -260,11 +272,16 @@ func (s *Service) Update(ctx context.Context, wsID, issueID int64, in UpdateIssu
 // SoftDelete 跨类型删除。
 func (s *Service) SoftDelete(ctx context.Context, wsID, issueID int64) error {
 	tc, err := s.detectType(ctx, wsID, issueID)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	switch tc {
-	case TypeTask: return s.Task.SoftDelete(ctx, wsID, issueID)
-	case TypeRequirement: return s.Requirement.SoftDelete(ctx, wsID, issueID)
-	case TypeDefect: return s.Defect.SoftDelete(ctx, wsID, issueID)
+	case TypeTask:
+		return s.Task.SoftDelete(ctx, wsID, issueID)
+	case TypeRequirement:
+		return s.Requirement.SoftDelete(ctx, wsID, issueID)
+	case TypeDefect:
+		return s.Defect.SoftDelete(ctx, wsID, issueID)
 	}
 	return errs.ErrNotFound
 }
@@ -272,11 +289,16 @@ func (s *Service) SoftDelete(ctx context.Context, wsID, issueID int64) error {
 // Restore 从回收站恢复。
 func (s *Service) Restore(ctx context.Context, wsID, issueID int64) error {
 	tc, err := s.detectType(ctx, wsID, issueID)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	switch tc {
-	case TypeTask: return s.Task.Restore(ctx, wsID, issueID)
-	case TypeRequirement: return s.Requirement.Restore(ctx, wsID, issueID)
-	case TypeDefect: return s.Defect.Restore(ctx, wsID, issueID)
+	case TypeTask:
+		return s.Task.Restore(ctx, wsID, issueID)
+	case TypeRequirement:
+		return s.Requirement.Restore(ctx, wsID, issueID)
+	case TypeDefect:
+		return s.Defect.Restore(ctx, wsID, issueID)
 	}
 	return errs.ErrNotFound
 }
@@ -284,19 +306,27 @@ func (s *Service) Restore(ctx context.Context, wsID, issueID int64) error {
 // Transition 执行状态流转。
 func (s *Service) Transition(ctx context.Context, wsID, projectID, issueID, toStateID, userID int64) (*Issue, error) {
 	tc, err := s.detectType(ctx, wsID, issueID)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	switch tc {
 	case TypeTask:
 		t, err := s.Task.Transition(ctx, wsID, projectID, issueID, toStateID, userID)
-		if err != nil { return nil, err }
+		if err != nil {
+			return nil, err
+		}
 		return taskToIssue(t), nil
 	case TypeRequirement:
 		r, err := s.Requirement.Transition(ctx, wsID, projectID, issueID, toStateID, userID)
-		if err != nil { return nil, err }
+		if err != nil {
+			return nil, err
+		}
 		return requirementToIssue(r), nil
 	case TypeDefect:
 		d, err := s.Defect.Transition(ctx, wsID, projectID, issueID, toStateID, userID)
-		if err != nil { return nil, err }
+		if err != nil {
+			return nil, err
+		}
 		return defectToIssue(d), nil
 	}
 	return nil, errs.ErrNotFound
@@ -305,7 +335,9 @@ func (s *Service) Transition(ctx context.Context, wsID, projectID, issueID, toSt
 // Reorder 看板拖拽排序 — 按类型分派。
 func (s *Service) Reorder(ctx context.Context, wsID, issueID int64, in ReorderInput) (*Issue, error) {
 	tc, err := s.detectType(ctx, wsID, issueID)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 
 	var newOrder float64
 	switch {
@@ -325,14 +357,20 @@ func (s *Service) Reorder(ctx context.Context, wsID, issueID int64, in ReorderIn
 			UPDATE `+table+` SET sort_order = $1, updated_at = now(), version = version + 1
 			WHERE id = $2 AND workspace_id = $3 AND deleted = false AND version = $4`,
 			newOrder, issueID, wsID, *in.Version)
-		if err != nil { return nil, errs.ErrInternal.Wrap(err) }
-		if tag.RowsAffected() == 0 { return nil, errs.ErrVersionConflict }
+		if err != nil {
+			return nil, errs.ErrInternal.Wrap(err)
+		}
+		if tag.RowsAffected() == 0 {
+			return nil, errs.ErrVersionConflict
+		}
 	} else {
 		_, err := s.db.Exec(ctx, `
 			UPDATE `+table+` SET sort_order = $1, updated_at = now(), version = version + 1
 			WHERE id = $2 AND workspace_id = $3 AND deleted = false`,
 			newOrder, issueID, wsID)
-		if err != nil { return nil, errs.ErrInternal.Wrap(err) }
+		if err != nil {
+			return nil, errs.ErrInternal.Wrap(err)
+		}
 	}
 	return s.GetByID(ctx, wsID, issueID)
 }
@@ -355,7 +393,9 @@ func (s *Service) BatchUpdate(ctx context.Context, wsID, projectID, userID int64
 			}
 			var ver int
 			batchErr = s.db.QueryRow(ctx, `SELECT version FROM `+tc.Table()+` WHERE id = $1 AND workspace_id = $2 AND deleted = false`, id, wsID).Scan(&ver)
-			if batchErr != nil { break }
+			if batchErr != nil {
+				break
+			}
 			batchErr = s.directUpdate(ctx, tc, wsID, id, in.AssigneeID, in.Priority, ver)
 		}
 		if batchErr != nil {
@@ -375,16 +415,24 @@ func (s *Service) directUpdate(ctx context.Context, tc IssueTypeCode, wsID, issu
 	idCol := prefix + "_id"
 	return coordinatorWithTx(ctx, s.db, wsID, func(tx pgx.Tx) error {
 		if assigneeID != nil {
-			if _, err := tx.Exec(ctx, fmt.Sprintf(`DELETE FROM %s_assignees WHERE %s = $1`, prefix, idCol), issueID); err != nil { return err }
-			if _, err := tx.Exec(ctx, fmt.Sprintf(`INSERT INTO %s_assignees (%s, user_id) VALUES ($1,$2) ON CONFLICT DO NOTHING`, prefix, idCol), issueID, *assigneeID); err != nil { return err }
+			if _, err := tx.Exec(ctx, fmt.Sprintf(`DELETE FROM %s_assignees WHERE %s = $1`, prefix, idCol), issueID); err != nil {
+				return err
+			}
+			if _, err := tx.Exec(ctx, fmt.Sprintf(`INSERT INTO %s_assignees (%s, user_id) VALUES ($1,$2) ON CONFLICT DO NOTHING`, prefix, idCol), issueID, *assigneeID); err != nil {
+				return err
+			}
 		}
 		if priority != nil {
 			tag, err := tx.Exec(ctx, `
 				UPDATE `+tc.Table()+` SET priority = $1, updated_at = now(), version = version + 1
 				WHERE id = $2 AND workspace_id = $3 AND deleted = false AND version = $4`,
 				*priority, issueID, wsID, expectedVersion)
-			if err != nil { return err }
-			if tag.RowsAffected() == 0 { return errs.ErrVersionConflict }
+			if err != nil {
+				return err
+			}
+			if tag.RowsAffected() == 0 {
+				return errs.ErrVersionConflict
+			}
 		}
 		return nil
 	})
@@ -392,8 +440,12 @@ func (s *Service) directUpdate(ctx context.Context, tc IssueTypeCode, wsID, issu
 
 // List 跨类型列表 — UNION ALL 三表。
 func (s *Service) List(ctx context.Context, opts ListIssuesOptions) ([]Issue, int64, error) {
-	if opts.Limit <= 0 || opts.Limit > 100 { opts.Limit = 50 }
-	if opts.Offset < 0 { opts.Offset = 0 }
+	if opts.Limit <= 0 || opts.Limit > 100 {
+		opts.Limit = 50
+	}
+	if opts.Offset < 0 {
+		opts.Offset = 0
+	}
 
 	where, args := buildCoordinatorWhere(opts)
 	limitIdx := len(args) + 1
@@ -432,7 +484,9 @@ func (s *Service) List(ctx context.Context, opts ListIssuesOptions) ([]Issue, in
 		`+where+`
 		ORDER BY `+buildCoordinatorSort(opts)+`
 		LIMIT $`+strconv.Itoa(limitIdx)+` OFFSET $`+strconv.Itoa(offsetIdx), args...)
-	if err != nil { return nil, 0, errs.ErrInternal.Wrap(err) }
+	if err != nil {
+		return nil, 0, errs.ErrInternal.Wrap(err)
+	}
 	defer rows.Close()
 
 	var issues []Issue
@@ -463,12 +517,16 @@ func (s *Service) List(ctx context.Context, opts ListIssuesOptions) ([]Issue, in
 			v := int(severity.Int64)
 			iss.Severity = &v
 		}
-		if category.Valid { iss.Category = &category.String }
+		if category.Valid {
+			iss.Category = &category.String
+		}
 		if point.Valid {
 			v := int(point.Int64)
 			iss.Point = &v
 		}
-		if targetDate.Valid { iss.TargetDate = &targetDate.Time }
+		if targetDate.Valid {
+			iss.TargetDate = &targetDate.Time
+		}
 		iss.Identifier = identifier + "-" + strconv.FormatInt(iss.SequenceID, 10)
 		issues = append(issues, iss)
 	}
@@ -487,7 +545,9 @@ func (s *Service) Watch(ctx context.Context, wsID, issueID, userID int64) error 
 	_, err = s.db.Exec(ctx,
 		fmt.Sprintf(`INSERT INTO %s_watchers (workspace_id, %s_id, user_id) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING`, prefix, prefix),
 		wsID, issueID, userID)
-	if err != nil { return errs.ErrInternal.Wrap(err) }
+	if err != nil {
+		return errs.ErrInternal.Wrap(err)
+	}
 	return nil
 }
 
@@ -499,7 +559,9 @@ func (s *Service) Unwatch(ctx context.Context, wsID, issueID, userID int64) erro
 	prefix := workitemM2MPrefix(tc)
 	_, err = s.db.Exec(ctx,
 		fmt.Sprintf(`DELETE FROM %s_watchers WHERE %s_id = $1 AND user_id = $2`, prefix, prefix), issueID, userID)
-	if err != nil { return errs.ErrInternal.Wrap(err) }
+	if err != nil {
+		return errs.ErrInternal.Wrap(err)
+	}
 	return nil
 }
 
@@ -523,7 +585,9 @@ func (s *Service) detectType(ctx context.Context, wsID, issueID int64) (IssueTyp
 		SELECT 'defect' FROM defect WHERE id = $1 AND workspace_id = $2 AND deleted = false
 		LIMIT 1`, issueID, wsID).Scan(&tc)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) { return "", errs.ErrNotFound }
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "", errs.ErrNotFound
+		}
 		return "", errs.ErrInternal.Wrap(err)
 	}
 	return IssueTypeCode(tc), nil
@@ -536,11 +600,11 @@ var validDependencyTypes = map[string]bool{"fs": true, "ss": true, "ff": true, "
 
 // IssueDependency 任务依赖关系。
 type IssueDependency struct {
-	ID              int64  `json:"id"`
-	IssueID         int64  `json:"issue_id"`
-	DependsOnID     int64  `json:"depends_on_id"`
-	DependencyType  string `json:"dependency_type"`
-	LagDays         int    `json:"lag_days"`
+	ID             int64  `json:"id"`
+	IssueID        int64  `json:"issue_id"`
+	DependsOnID    int64  `json:"depends_on_id"`
+	DependencyType string `json:"dependency_type"`
+	LagDays        int    `json:"lag_days"`
 }
 
 // CreateDependencyInput 创建依赖入参。
@@ -642,21 +706,28 @@ func (s *Service) DeleteDependency(ctx context.Context, wsID, depID int64) error
 
 func coordinatorWithTx(ctx context.Context, db *pgxpool.Pool, wsID int64, fn func(tx pgx.Tx) error) error {
 	tx, err := db.Begin(ctx)
-	if err != nil { return errs.ErrInternal.Wrap(err) }
+	if err != nil {
+		return errs.ErrInternal.Wrap(err)
+	}
 	defer func() { _ = tx.Rollback(ctx) }()
 	if _, err := tx.Exec(ctx, "SELECT set_config('app.workspace_id', $1, true)", strconv.FormatInt(wsID, 10)); err != nil {
 		return errs.ErrInternal.Wrap(err)
 	}
-	if err := fn(tx); err != nil { return err }
+	if err := fn(tx); err != nil {
+		return err
+	}
 	return tx.Commit(ctx)
 }
 
 // Table 返回类型对应的表名。
 func (tc IssueTypeCode) Table() string {
 	switch tc {
-	case TypeTask: return "task"
-	case TypeRequirement: return "requirement"
-	case TypeDefect: return "defect"
+	case TypeTask:
+		return "task"
+	case TypeRequirement:
+		return "requirement"
+	case TypeDefect:
+		return "defect"
 	}
 	return "task"
 }
@@ -709,57 +780,83 @@ func buildCoordinatorWhere(opts ListIssuesOptions) (string, []interface{}) {
 	args := []interface{}{opts.WorkspaceID}
 	arg := 2
 	if opts.ProjectID != 0 {
-		clauses = append(clauses, "i.project_id = $"+strconv.Itoa(arg)); args = append(args, opts.ProjectID); arg++
+		clauses = append(clauses, "i.project_id = $"+strconv.Itoa(arg))
+		args = append(args, opts.ProjectID)
+		arg++
 	}
 	if opts.StateID != nil {
-		clauses = append(clauses, "i.state_id = $"+strconv.Itoa(arg)); args = append(args, *opts.StateID); arg++
+		clauses = append(clauses, "i.state_id = $"+strconv.Itoa(arg))
+		args = append(args, *opts.StateID)
+		arg++
 	}
 	if opts.Group != nil {
-		clauses = append(clauses, `s."group" = $`+strconv.Itoa(arg)); args = append(args, string(*opts.Group)); arg++
+		clauses = append(clauses, `s."group" = $`+strconv.Itoa(arg))
+		args = append(args, string(*opts.Group))
+		arg++
 	}
 	if opts.TypeCode != nil {
-		clauses = append(clauses, "i.type_code = $"+strconv.Itoa(arg)); args = append(args, string(*opts.TypeCode)); arg++
+		clauses = append(clauses, "i.type_code = $"+strconv.Itoa(arg))
+		args = append(args, string(*opts.TypeCode))
+		arg++
 	}
 	if opts.Priority != nil {
-		clauses = append(clauses, "i.priority = $"+strconv.Itoa(arg)); args = append(args, string(*opts.Priority)); arg++
+		clauses = append(clauses, "i.priority = $"+strconv.Itoa(arg))
+		args = append(args, string(*opts.Priority))
+		arg++
 	}
 	if opts.ParentID != nil {
-		clauses = append(clauses, "i.parent_id = $"+strconv.Itoa(arg)); args = append(args, *opts.ParentID); arg++
+		clauses = append(clauses, "i.parent_id = $"+strconv.Itoa(arg))
+		args = append(args, *opts.ParentID)
+		arg++
 	}
 	if opts.Search != "" {
-		clauses = append(clauses, "i.name ILIKE $"+strconv.Itoa(arg)); args = append(args, "%"+opts.Search+"%"); arg++
+		clauses = append(clauses, "i.name ILIKE $"+strconv.Itoa(arg))
+		args = append(args, "%"+opts.Search+"%")
+		arg++
 	}
 	if opts.AssigneeID != nil {
 		clauses = append(clauses, "EXISTS(SELECT 1 FROM task_assignees WHERE task_id = i.id AND user_id = $"+strconv.Itoa(arg)+" UNION ALL SELECT 1 FROM requirement_assignees WHERE requirement_id = i.id AND user_id = $"+strconv.Itoa(arg)+" UNION ALL SELECT 1 FROM defect_assignees WHERE defect_id = i.id AND user_id = $"+strconv.Itoa(arg)+")")
-		args = append(args, *opts.AssigneeID); arg++
+		args = append(args, *opts.AssigneeID)
+		arg++
 	}
 	if opts.LabelID != nil {
 		clauses = append(clauses, "EXISTS(SELECT 1 FROM task_labels WHERE task_id = i.id AND label_id = $"+strconv.Itoa(arg)+" UNION ALL SELECT 1 FROM requirement_labels WHERE requirement_id = i.id AND label_id = $"+strconv.Itoa(arg)+" UNION ALL SELECT 1 FROM defect_labels WHERE defect_id = i.id AND label_id = $"+strconv.Itoa(arg)+")")
-		args = append(args, *opts.LabelID); arg++
+		args = append(args, *opts.LabelID)
+		arg++
 	}
 	if opts.ModuleID != nil {
 		clauses = append(clauses, "EXISTS(SELECT 1 FROM task_modules WHERE task_id = i.id AND module_id = $"+strconv.Itoa(arg)+" UNION ALL SELECT 1 FROM requirement_modules WHERE requirement_id = i.id AND module_id = $"+strconv.Itoa(arg)+" UNION ALL SELECT 1 FROM defect_modules WHERE defect_id = i.id AND module_id = $"+strconv.Itoa(arg)+")")
-		args = append(args, *opts.ModuleID); arg++
+		args = append(args, *opts.ModuleID)
+		arg++
 	}
 	if opts.SprintID != nil {
 		clauses = append(clauses, "EXISTS(SELECT 1 FROM sprint_tasks WHERE task_id = i.id AND sprint_id = $"+strconv.Itoa(arg)+" UNION ALL SELECT 1 FROM sprint_requirements WHERE requirement_id = i.id AND sprint_id = $"+strconv.Itoa(arg)+" UNION ALL SELECT 1 FROM sprint_defects WHERE defect_id = i.id AND sprint_id = $"+strconv.Itoa(arg)+")")
-		args = append(args, *opts.SprintID); arg++
+		args = append(args, *opts.SprintID)
+		arg++
 	}
 	if opts.StartDateFrom != nil {
-		clauses = append(clauses, "i.start_date >= $"+strconv.Itoa(arg)+"::date"); args = append(args, *opts.StartDateFrom); arg++
+		clauses = append(clauses, "i.start_date >= $"+strconv.Itoa(arg)+"::date")
+		args = append(args, *opts.StartDateFrom)
+		arg++
 	}
 	if opts.TargetDateTo != nil {
-		clauses = append(clauses, "i.target_date <= $"+strconv.Itoa(arg)+"::date"); args = append(args, *opts.TargetDateTo); arg++
+		clauses = append(clauses, "i.target_date <= $"+strconv.Itoa(arg)+"::date")
+		args = append(args, *opts.TargetDateTo)
+		arg++
 	}
 	if opts.SeverityFrom != nil {
-		clauses = append(clauses, "i.severity >= $"+strconv.Itoa(arg)); args = append(args, *opts.SeverityFrom); arg++
+		clauses = append(clauses, "i.severity >= $"+strconv.Itoa(arg))
+		args = append(args, *opts.SeverityFrom)
+		arg++
 	}
 	return "WHERE " + strings.Join(clauses, " AND "), args
 }
 
 func buildCoordinatorSort(opts ListIssuesOptions) string {
 	dir := "ASC"
-	if opts.SortDesc { dir = "DESC" }
+	if opts.SortDesc {
+		dir = "DESC"
+	}
 	switch opts.SortBy {
 	case "priority":
 		return `CASE i.priority WHEN 'urgent' THEN 1 WHEN 'high' THEN 2 WHEN 'medium' THEN 3 WHEN 'low' THEN 4 ELSE 5 END ` + dir
@@ -773,4 +870,3 @@ func buildCoordinatorSort(opts ListIssuesOptions) string {
 		return "i.updated_at " + dir
 	}
 }
-

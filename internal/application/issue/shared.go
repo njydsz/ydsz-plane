@@ -19,17 +19,17 @@ import (
 
 // workitemEventPayload 跨类型工作项事件的统一 payload 格式。
 type workitemEventPayload struct {
-	WorkspaceID  int64    `json:"workspace_id"`
-	ProjectID    int64    `json:"project_id"`
-	WorkitemType string   `json:"workitem_type"` // requirement | task | defect
-	WorkitemID   int64    `json:"workitem_id"`
-	ActorID      int64    `json:"actor_id"`
-	ActorName    string   `json:"actor_name"`
-	Identifier   string   `json:"identifier"`
-	Name         string   `json:"name"`
-	AssigneeIDs  []int64  `json:"assignee_ids"`
-	FromState    string   `json:"from_state"`
-	ToState      string   `json:"to_state"`
+	WorkspaceID  int64   `json:"workspace_id"`
+	ProjectID    int64   `json:"project_id"`
+	WorkitemType string  `json:"workitem_type"` // requirement | task | defect
+	WorkitemID   int64   `json:"workitem_id"`
+	ActorID      int64   `json:"actor_id"`
+	ActorName    string  `json:"actor_name"`
+	Identifier   string  `json:"identifier"`
+	Name         string  `json:"name"`
+	AssigneeIDs  []int64 `json:"assignee_ids"`
+	FromState    string  `json:"from_state"`
+	ToState      string  `json:"to_state"`
 }
 
 // recordWorkitemEvent 在既有事务内将领域事件写入 Outbox（domain_events 表）。

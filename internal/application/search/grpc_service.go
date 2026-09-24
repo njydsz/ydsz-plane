@@ -3,8 +3,9 @@
 // Phase-3（S14 P3）：独立搜索服务，提供 ES 读写 + PG FTS 降级能力。
 //
 // 部署方式：
-//   cmd/search-service 启动独立进程，内部嵌入本 gRPC Service + ESBackend。
-//   core-service 通过 gRPC Client 调用。
+//
+//	cmd/search-service 启动独立进程，内部嵌入本 gRPC Service + ESBackend。
+//	core-service 通过 gRPC Client 调用。
 package search
 
 import (

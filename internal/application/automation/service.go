@@ -168,7 +168,7 @@ func (s *Service) Update(ctx context.Context, wsID, ruleID int64, in UpdateRuleI
 		return s.GetByID(ctx, wsID, ruleID)
 	}
 
-	sets = append(sets, fmt.Sprintf("updated_at = now()"))
+	sets = append(sets, "updated_at = now()")
 
 	// 乐观锁: version 检查
 	args = append(args, wsID, ruleID, in.Version)

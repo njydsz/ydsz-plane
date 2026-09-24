@@ -23,9 +23,10 @@ func TestValidate_PortRange(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			cfg := &Config{
-				Server:   ServerConfig{Port: tc.port, Env: "production"},
-				Auth:     AuthConfig{JWTSecret: "x"},
-				Database: DatabaseConfig{URL: "postgres://"},
+				Server:     ServerConfig{Port: tc.port, Env: "production"},
+				Auth:       AuthConfig{JWTSecret: "x"},
+				Database:   DatabaseConfig{URL: "postgres://localhost/db"},
+				Storage:    StorageConfig{SecretKey: "test-secret-key"},
 				Attachment: AttachmentConfig{MaxFileSize: 1024},
 			}
 			err := cfg.validate()
@@ -43,9 +44,10 @@ func TestValidate_PortRange(t *testing.T) {
 func TestValidate_ProductionRequiresSecret(t *testing.T) {
 	// 空密钥 → 失败
 	cfg := &Config{
-		Server:   ServerConfig{Env: "production", Port: 8080},
-		Auth:     AuthConfig{JWTSecret: ""},
-		Database: DatabaseConfig{URL: "postgres://localhost/db"},
+		Server:     ServerConfig{Env: "production", Port: 8080},
+		Auth:       AuthConfig{JWTSecret: ""},
+		Database:   DatabaseConfig{URL: "postgres://localhost/db"},
+		Storage:    StorageConfig{SecretKey: "test-secret-key"},
 		Attachment: AttachmentConfig{MaxFileSize: 1024},
 	}
 	if err := cfg.validate(); err == nil {
@@ -87,6 +89,8 @@ func TestValidate_AttachmentLimits(t *testing.T) {
 			cfg := &Config{
 				Server:     ServerConfig{Env: "development", Port: 8080},
 				Auth:       AuthConfig{JWTSecret: "dev-key"},
+				Database:   DatabaseConfig{URL: "postgres://localhost/db"},
+				Storage:    StorageConfig{SecretKey: "test-secret-key"},
 				Attachment: AttachmentConfig{MaxFileSize: tc.size},
 			}
 			err := cfg.validate()

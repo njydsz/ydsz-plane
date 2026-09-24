@@ -19,11 +19,11 @@ const WorkspaceLogoMaxSize = 5 * 1024 * 1024
 
 // allowedLogoContentTypes 是 MIME 类型白名单（仅图片）。
 var allowedLogoContentTypes = map[string]string{
-	"image/jpeg": ".jpg",
-	"image/png":  ".png",
-	"image/gif":  ".gif",
-	"image/webp": ".webp",
-	"image/svg":  ".svg",
+	"image/jpeg":    ".jpg",
+	"image/png":     ".png",
+	"image/gif":     ".gif",
+	"image/webp":    ".webp",
+	"image/svg":     ".svg",
 	"image/svg+xml": ".svg",
 }
 

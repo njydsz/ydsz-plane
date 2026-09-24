@@ -23,40 +23,40 @@ import (
 // 完整事件目录（与 domain_events、RabbitMQ routing key 对齐）。
 const (
 	// --- Issue 事件 ---
-	EventIssueCreated         = "issue.created"
-	EventIssueUpdated         = "issue.updated"
-	EventIssueDeleted         = "issue.deleted"
-	EventIssueStatusChanged   = "issue.status_changed"
-	EventIssueCommented       = "issue.commented"
-	EventIssueCommentUpdated  = "issue.comment_updated"
-	EventIssueCommentDeleted  = "issue.comment_deleted"
-	EventIssueAttachmentAdded = "issue.attachment_added"
+	EventIssueCreated           = "issue.created"
+	EventIssueUpdated           = "issue.updated"
+	EventIssueDeleted           = "issue.deleted"
+	EventIssueStatusChanged     = "issue.status_changed"
+	EventIssueCommented         = "issue.commented"
+	EventIssueCommentUpdated    = "issue.comment_updated"
+	EventIssueCommentDeleted    = "issue.comment_deleted"
+	EventIssueAttachmentAdded   = "issue.attachment_added"
 	EventIssueAttachmentRemoved = "issue.attachment_removed"
 
 	// --- Project 事件 ---
-	EventProjectCreated      = "project.created"
-	EventProjectUpdated      = "project.updated"
-	EventProjectDeleted      = "project.deleted"
-	EventProjectMemberAdded  = "project.member_added"
+	EventProjectCreated       = "project.created"
+	EventProjectUpdated       = "project.updated"
+	EventProjectDeleted       = "project.deleted"
+	EventProjectMemberAdded   = "project.member_added"
 	EventProjectMemberRemoved = "project.member_removed"
 
 	// --- State / Module / Label 事件 ---
-	EventStateCreated = "state.created"
-	EventStateUpdated = "state.updated"
-	EventStateDeleted = "state.deleted"
+	EventStateCreated  = "state.created"
+	EventStateUpdated  = "state.updated"
+	EventStateDeleted  = "state.deleted"
 	EventModuleCreated = "module.created"
 	EventModuleUpdated = "module.updated"
 	EventModuleDeleted = "module.deleted"
-	EventLabelCreated = "label.created"
-	EventLabelUpdated = "label.updated"
-	EventLabelDeleted = "label.deleted"
+	EventLabelCreated  = "label.created"
+	EventLabelUpdated  = "label.updated"
+	EventLabelDeleted  = "label.deleted"
 
 	// --- Sprint 事件 ---
-	EventSprintCreated     = "sprint.created"
-	EventSprintStarted     = "sprint.started"
-	EventSprintCompleted   = "sprint.completed"
-	EventSprintDeleted     = "sprint.deleted"
-	EventSprintIssueAdded  = "sprint.issue_added"
+	EventSprintCreated      = "sprint.created"
+	EventSprintStarted      = "sprint.started"
+	EventSprintCompleted    = "sprint.completed"
+	EventSprintDeleted      = "sprint.deleted"
+	EventSprintIssueAdded   = "sprint.issue_added"
 	EventSprintIssueRemoved = "sprint.issue_removed"
 
 	// --- Attachment 事件（Issue 维度已在上方声明） ---

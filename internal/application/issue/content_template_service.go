@@ -59,12 +59,12 @@ type CreateTemplateInput struct {
 
 // UpdateTemplateInput 更新模板入参。
 type UpdateTemplateInput struct {
-	ID           int64
-	WorkspaceID  int64
-	Name         *string
-	ContentJSON  map[string]any
-	ContentHTML  *string
-	IsDefault    *bool
+	ID          int64
+	WorkspaceID int64
+	Name        *string
+	ContentJSON map[string]any
+	ContentHTML *string
+	IsDefault   *bool
 }
 
 // ListTemplatesFilter 模板列表筛选。
@@ -202,7 +202,7 @@ func (s *ContentTemplateService) Update(ctx context.Context, in UpdateTemplateIn
 
 	var t ContentTemplate
 	err := s.db.QueryRow(ctx, `
-		UPDATE content_templates SET `+fmt.Sprintf("%s", joinStrings(sets, ", "))+`
+		UPDATE content_templates SET `+joinStrings(sets, ", ")+`
 		WHERE id = $`+strconv.Itoa(argIdx)+` AND workspace_id = $`+strconv.Itoa(argIdx+1)+` AND deleted = false
 		RETURNING id, tenant_id, workspace_id, project_id, name, template_type, content_json, content_html, is_default, status, created_by, created_at, updated_at`,
 		args...).Scan(

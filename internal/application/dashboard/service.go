@@ -337,7 +337,7 @@ func (s *Service) getActiveSprintBurndown(ctx context.Context, projectID int64) 
 	}
 	w.BurnedPoints = w.BurnedIssues * (w.TotalPoints / max(w.TotalIssues, 1))
 	if endDate != nil {
-		w.RemainingDays = int(endDate.Sub(time.Now()).Hours() / 24)
+		w.RemainingDays = int(time.Until(*endDate).Hours() / 24)
 	}
 	w.IsActive = true
 	return &w, nil

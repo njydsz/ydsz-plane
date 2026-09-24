@@ -255,8 +255,11 @@ export default {
       title: "Batch operations",
       selectAll: "Select all",
       selected: "{count} selected",
+      crossPageCount: "{count} cross-page",
       transition: "Batch transition",
       assign: "Batch assign",
+      assignLabel: "Assign",
+      labels: "Batch label",
       priority: "Batch priority",
       delete: "Batch delete",
     },
@@ -579,5 +582,139 @@ export default {
     logout: "Sign out",
     language: "Language",
     timezone: "Timezone",
+  },
+
+  // ===== High-frequency view-level UI (IssueListView / IssueDetailView / KanbanBoardView shared) =====
+  view: {
+    // --- List view ---
+    list: {
+      title: "List",
+      totalCount: "{count} issues total",
+      unnamed: "Untitled",
+      unfilteredEmpty: "No issues match the current filters",
+      noDataFiltered: "No data",
+      selectMember: "Select member...",
+      selectLabel: "Select label...",
+      labelApiUnavailable: "Label API not available yet",
+      selectAllMatching: "Select all matching",
+      clearSelection: "Clear selection",
+      batchTransition: "Batch transition...",
+      batchPriority: "Batch priority...",
+      batchDelete: "Delete",
+      configureColumns: "Configure columns",
+      columnTitle: "Configure columns",
+      columnHint: "Drag to reorder / check to show / enter width",
+      saveConfig: "Save config",
+      prevPage: "Previous",
+      nextPage: "Next",
+      pageInfo: "Page {page} / {totalPages}",
+      emptyCell: "—",
+      unsetState: "No state",
+      exportCsv: "Export CSV",
+      exportXlsx: "Export Excel (.xlsx)",
+      filterConditionEmpty: "No results match the filter",
+    },
+
+    // --- Detail view ---
+    detail: {
+      backToBoard: "← Back to board",
+      offerDefect: "🐛 Report defect",
+      deleteBtn: "Archive",
+      notFoundTitle: "Issue not found or already deleted",
+      notFoundDesc: "Please check the issue ID is correct",
+      saving: "Saving...",
+      loading: "Loading...",
+      deleteConfirm: "Are you sure you want to archive this issue?",
+      deleteSuccess: "Issue archived",
+      deleteFailed: "Delete failed",
+      stateTransition: "State transition",
+      expectedResultSection: "Expected result",
+      actualResultSection: "Actual result",
+      environment: "Environment",
+      defectInfo: "Defect info",
+      reproSteps: "Reproduction steps",
+      activityLog: "Activity log",
+      noActivity: "No activity records",
+      noTimeLogs: "No time logs",
+      timeLogSection: "Time log",
+      hourUnit: "h",
+      minuteUnit: "m",
+      totalTimeLog: "Total {duration}",
+      actualEffort: "Actual {duration}",
+      remainingEffort: "Remaining {duration}",
+      logTime: "＋ Log time",
+      timeDescPlaceholder: "Time description (optional)",
+      deleteTimeLogTitle: "Are you sure you want to delete this time log?",
+      timeLogDeleteSuccess: "Time log deleted",
+      recordTimeLogSuccess: "Time logged",
+      timeLogValidateError: "Enter a valid duration (1 min - 24 h)",
+      timeLogFailed: "Logging failed",
+      subIssuesSection: "Sub-issues",
+      addSubIssue: "＋ Add sub-issue",
+      addSubSubIssue: "＋ Sub-item",
+      noSubIssues: "No sub-issues",
+      loadingSubIssues: "Loading…",
+      noSubItems: "No sub-items",
+    },
+
+    // --- Kanban view ---
+    kanban: {
+      title: "Board",
+      hint: "Drag issues between columns to transition; reorder within a column",
+      createBtn: "+ Create issue",
+      dropHere: "Drop issues here",
+      transitionHint: "Transitioning...",
+      sortingHint: "Reordering...",
+      columnWidthHint: "Drag to resize column",
+    },
+
+    // --- Activity ---
+    activity: {
+      createdIssue: "created the issue",
+      systemName: "System",
+      transitioned: "Transitioned: {from} → {to}",
+      updated: "{field}: {from} → {to}",
+    },
+
+    // --- Description ---
+    description: {
+      noDesc: "No description yet, click edit to add",
+    },
+
+    // --- Time format ---
+    time: {
+      minute: "{n}m",
+      hour: "{n}h",
+    },
+
+    // --- Batch operations ---
+    batch: {
+      deleteTitle: "Confirm deletion",
+      deleteConfirm: "Are you sure you want to delete {count} issues? This cannot be undone.",
+      deleting: "Deleting...",
+      deleteConfirmBtn: "Confirm delete",
+      confirmBtn: "Confirm",
+      processing: "Processing...",
+    },
+
+    // --- Header / view switcher ---
+    header: {
+      kanban: "Board",
+      list: "List",
+      view: "View",
+      export: "Export",
+      import: "Import",
+    },
+
+    // --- Inline edit placeholders ---
+    placeholder: {
+      name: "Untitled",
+      priority: "None",
+      title: "Enter title...",
+      description: "Enter description...",
+      expectedResult: "Describe expected result...",
+      actualResult: "Describe actual result...",
+      doubleClick: "Double-click to edit name...",
+    },
   },
 } as const;

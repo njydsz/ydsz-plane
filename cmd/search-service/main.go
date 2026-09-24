@@ -13,8 +13,9 @@
 //   - RabbitMQ（消费领域事件）
 //
 // 部署方式：
-//   docker run ydsz-plane-search:latest
-//   环境变量：DATABASE_URL、ES_URLS、RABBITMQ_URL、GRPC_PORT
+//
+//	docker run ydsz-plane-search:latest
+//	环境变量：DATABASE_URL、ES_URLS、RABBITMQ_URL、GRPC_PORT
 package main
 
 import (
@@ -54,7 +55,7 @@ func main() {
 
 	// 1. 初始化搜索服务
 	// TODO: 接入真实 DB/ES/RabbitMQ 连接池
-	var searchSvc *search.Service   // = search.NewService(dbPool)
+	var searchSvc *search.Service     // = search.NewService(dbPool)
 	var searchIndexer *search.Indexer // = search.NewIndexer(dbPool)
 
 	// 2. gRPC Server

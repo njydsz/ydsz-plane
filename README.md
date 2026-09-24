@@ -20,7 +20,7 @@
 
 ---
 
-> **项目定位**：Ydsz Plane 是一款对标 [Jira](https://www.atlassian.com/software/jira)、[Linear](https://linear.app)、[云效](https://www.aliyun.com/product/yunxiao)、[TAPD](https://www.tapd.cn)、[ONES](https://ones.cn) 的开源项目管理平台，面向中国软件团队量身定制。以 **模块化单体 + 异步 Worker** 为核心架构，覆盖 **工作空间 ⟶ 项目 ⟶ 工作项（需求/任务/缺陷）** 主价值链，辅以迭代（Sprint）、版本（Version）、看板、效能度量、全文检索、实时通知、Webhook 与自动化规则等能力。遵循 DDD 分层设计，向后兼容微服务拆分；全栈 MIT 开源，支持私有化部署与信创交付。核心模型：WBS 三层级（Epic→Feature→Story）、PDM 四类依赖、M2M 多分配人、需求/任务/缺陷独立追踪。
+> **项目定位**：Ydsz Plane 是一款对标 [Jira](https://www.atlassian.com/software/jira)、[Linear](https://linear.app)、[云效](https://www.aliyun.com/product/yunxiao)、[TAPD](https://www.tapd.cn)、[ONES](https://ones.cn) 的开源项目管理平台，面向中国软件团队量身定制。以 **模块化单体 + 异步 Worker** 为核心架构，覆盖 **工作空间 ⟶ 项目 ⟶ 工作项（需求/任务/缺陷）** 主价值链，辅以迭代（Sprint）、版本（Version）、看板、效能度量、全文检索、实时通知、Webhook 与自动化规则等能力。采用模块化分层单体（application / infrastructure / interfaces）设计，可按需演进微服务；全栈 MIT 开源，支持私有化部署与信创交付。核心模型：WBS 三层级（Epic→Feature→Story）、PDM 四类依赖、M2M 多分配人、需求/任务/缺陷独立追踪。
 
 ---
 
@@ -50,7 +50,7 @@
 
 | 能力 | 说明 |
 |------|------|
-| **工作空间** | 多租户隔离（RLS + 应用层双保险）、4 级角色（Owner/Admin/Member/Guest）、邮箱邀请、SSO/OIDC（规划中） |
+| **工作空间** | 多租户隔离（应用层 tenant_id 强制过滤；RLS 策略列入长期演进）、4 级角色（Owner/Admin/Member/Guest）、邮箱邀请、SSO/OIDC（规划中） |
 | **项目** | 标识符路由（Identifier 唯一键）、网络类型（公开/私有/内部）、功能模块开关（Intake/Sprint/Version/Estimate） |
 | **需求** | 产品需求管理，WBS 三层级（Epic→Feature→Story），M2M 分配，状态机流转 |
 | **任务** | 技术任务管理，WBS 三层级（主任务→子任务→子子任务），PDM 四类依赖，支持工时估算与实际工作量 |
@@ -73,7 +73,7 @@
 | **自动化** | JSON DSL 规则引擎，事件驱动（创建/更新/删除/状态变更）+ DLQ 保障 |
 | **Webhook** | HMAC 签名 + 重放防护 + 投递日志 + 手动重试 |
 | **AI 集成** | OpenAI/Claude 接口：摘要、分类、估算建议、智能标签 |
-| **知识库** | 层级页面、版本历史、评论、@mention、协同编辑 |
+| **知识库** | 层级页面、版本历史、评论、@mention、版本化编辑（乐观锁 + 历史回滚；实时协同列入长期） |
 
 ---
 
@@ -142,7 +142,7 @@ cp .env.example .env
 
 ## 功能模块
 
-根据 DDD 限界上下文划分，后端采用 20 个应用服务模块：
+根据领域职责划分，后端采用 20 个应用服务模块（分层单体，无独立 domain 层）：
 
 ```
 internal/application/
@@ -376,12 +376,12 @@ make openapi
 - [x] S10 Webhook + 开放集成
 - [x] S11 自动化规则 + AI + 知识库
 - [x] S12 安全/性能/信创交付 + E2E 收尾
-- [ ] S13 Phase 2：OIDC/SAML、多语言翻译
-- [x] S14 Phase 3（已完成）：微服务拆分
+- [~] S13 Phase 2（进行中）：OIDC/SAML、多语言翻译（IssueListView / IssueDetailView / KanbanBoardView 已接入，覆盖率持续提升）
+- [x] S14 Phase 3（gRPC 服务独立部署形态）：
   - [x] Proto 契约先行：NotificationService + SearchService gRPC API
   - [x] 通知服务独立部署（notification-svc）：独立 PG 数据库 + RabbitMQ 消费
   - [x] 搜索服务独立部署（search-svc）：ES 读写 + PG FTS 降级
-  - [ ] Phase 4：Webhook/Metrics 服务独立（长期）
+  - [ ] 单体 → gRPC 流量切流（当前单体内仍直调 internal/application；完整切流列入 Phase 4）
 
 ---
 

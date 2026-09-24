@@ -70,38 +70,38 @@ type State struct {
 
 // Requirement 需求工作项（独立聚合根）。
 type Requirement struct {
-	ID                 int64          `json:"id"`
-	PublicID           string         `json:"public_id"`
-	WorkspaceID        int64          `json:"workspace_id"`
-	ProjectID          int64          `json:"project_id"`
-	SequenceID         int64          `json:"sequence_id"`
-	Identifier         string         `json:"identifier"`
-	TypeCode           IssueTypeCode  `json:"type_code"`
-	ParentID           *int64         `json:"parent_id,omitempty"`
-	Depth              int            `json:"depth"`
-	Name               string         `json:"name"`
-	DescriptionJSON    map[string]any `json:"description_json,omitempty"`
-	DescriptionHTML    string         `json:"description_html,omitempty"`
-	StateID            int64          `json:"state_id"`
-	State              *State         `json:"state,omitempty"`
-	Priority           IssuePriority  `json:"priority"`
-	Point              *int           `json:"point,omitempty"`
-	SprintID           *int64         `json:"sprint_id,omitempty"`
-	VersionID          *int64         `json:"version_id,omitempty"`
-	Progress           int            `json:"progress"`
-	StartDate          *time.Time     `json:"start_date,omitempty"`
-	TargetDate         *time.Time     `json:"target_date,omitempty"`
-	CompletedAt        *time.Time     `json:"completed_at,omitempty"`
-	IsDraft            bool           `json:"is_draft"`
-	SortOrder          float64        `json:"sort_order"`
-	Version            int            `json:"version"`
-	Assignees          []int64        `json:"assignees,omitempty"`
-	Labels             []int64        `json:"labels,omitempty"`
-	Modules            []int64        `json:"modules,omitempty"`
-	Watchers           []int64        `json:"watchers,omitempty"`
-	CreatedBy          int64          `json:"created_by"`
-	CreatedAt          time.Time      `json:"created_at"`
-	UpdatedAt          time.Time      `json:"updated_at"`
+	ID              int64          `json:"id"`
+	PublicID        string         `json:"public_id"`
+	WorkspaceID     int64          `json:"workspace_id"`
+	ProjectID       int64          `json:"project_id"`
+	SequenceID      int64          `json:"sequence_id"`
+	Identifier      string         `json:"identifier"`
+	TypeCode        IssueTypeCode  `json:"type_code"`
+	ParentID        *int64         `json:"parent_id,omitempty"`
+	Depth           int            `json:"depth"`
+	Name            string         `json:"name"`
+	DescriptionJSON map[string]any `json:"description_json,omitempty"`
+	DescriptionHTML string         `json:"description_html,omitempty"`
+	StateID         int64          `json:"state_id"`
+	State           *State         `json:"state,omitempty"`
+	Priority        IssuePriority  `json:"priority"`
+	Point           *int           `json:"point,omitempty"`
+	SprintID        *int64         `json:"sprint_id,omitempty"`
+	VersionID       *int64         `json:"version_id,omitempty"`
+	Progress        int            `json:"progress"`
+	StartDate       *time.Time     `json:"start_date,omitempty"`
+	TargetDate      *time.Time     `json:"target_date,omitempty"`
+	CompletedAt     *time.Time     `json:"completed_at,omitempty"`
+	IsDraft         bool           `json:"is_draft"`
+	SortOrder       float64        `json:"sort_order"`
+	Version         int            `json:"version"`
+	Assignees       []int64        `json:"assignees,omitempty"`
+	Labels          []int64        `json:"labels,omitempty"`
+	Modules         []int64        `json:"modules,omitempty"`
+	Watchers        []int64        `json:"watchers,omitempty"`
+	CreatedBy       int64          `json:"created_by"`
+	CreatedAt       time.Time      `json:"created_at"`
+	UpdatedAt       time.Time      `json:"updated_at"`
 	// 需求专属字段
 	Source             *string        `json:"source,omitempty"`
 	AcceptanceCriteria map[string]any `json:"acceptance_criteria,omitempty"`
@@ -113,81 +113,81 @@ type Requirement struct {
 
 // Task 任务工作项（独立聚合根）。
 type Task struct {
-	ID                int64          `json:"id"`
-	PublicID          string         `json:"public_id"`
-	WorkspaceID       int64          `json:"workspace_id"`
-	ProjectID         int64          `json:"project_id"`
-	SequenceID        int64          `json:"sequence_id"`
-	Identifier        string         `json:"identifier"`
-	TypeCode          IssueTypeCode  `json:"type_code"`
-	ParentID          *int64         `json:"parent_id,omitempty"`
-	Depth             int            `json:"depth"`
-	Name              string         `json:"name"`
-	DescriptionJSON   map[string]any `json:"description_json,omitempty"`
-	DescriptionHTML   string         `json:"description_html,omitempty"`
-	StateID           int64          `json:"state_id"`
-	State             *State         `json:"state,omitempty"`
-	Priority          IssuePriority  `json:"priority"`
-	Point             *int           `json:"point,omitempty"`
-	SprintID          *int64         `json:"sprint_id,omitempty"`
-	VersionID         *int64         `json:"version_id,omitempty"`
-	Progress          int            `json:"progress"`
-	StartDate         *time.Time     `json:"start_date,omitempty"`
-	TargetDate        *time.Time     `json:"target_date,omitempty"`
-	CompletedAt       *time.Time     `json:"completed_at,omitempty"`
-	IsDraft           bool           `json:"is_draft"`
-	SortOrder         float64        `json:"sort_order"`
-	Version           int            `json:"version"`
-	Assignees         []int64        `json:"assignees,omitempty"`
-	Labels            []int64        `json:"labels,omitempty"`
-	Modules           []int64        `json:"modules,omitempty"`
-	Watchers          []int64        `json:"watchers,omitempty"`
-	CreatedBy         int64          `json:"created_by"`
-	CreatedAt         time.Time      `json:"created_at"`
-	UpdatedAt         time.Time      `json:"updated_at"`
+	ID              int64          `json:"id"`
+	PublicID        string         `json:"public_id"`
+	WorkspaceID     int64          `json:"workspace_id"`
+	ProjectID       int64          `json:"project_id"`
+	SequenceID      int64          `json:"sequence_id"`
+	Identifier      string         `json:"identifier"`
+	TypeCode        IssueTypeCode  `json:"type_code"`
+	ParentID        *int64         `json:"parent_id,omitempty"`
+	Depth           int            `json:"depth"`
+	Name            string         `json:"name"`
+	DescriptionJSON map[string]any `json:"description_json,omitempty"`
+	DescriptionHTML string         `json:"description_html,omitempty"`
+	StateID         int64          `json:"state_id"`
+	State           *State         `json:"state,omitempty"`
+	Priority        IssuePriority  `json:"priority"`
+	Point           *int           `json:"point,omitempty"`
+	SprintID        *int64         `json:"sprint_id,omitempty"`
+	VersionID       *int64         `json:"version_id,omitempty"`
+	Progress        int            `json:"progress"`
+	StartDate       *time.Time     `json:"start_date,omitempty"`
+	TargetDate      *time.Time     `json:"target_date,omitempty"`
+	CompletedAt     *time.Time     `json:"completed_at,omitempty"`
+	IsDraft         bool           `json:"is_draft"`
+	SortOrder       float64        `json:"sort_order"`
+	Version         int            `json:"version"`
+	Assignees       []int64        `json:"assignees,omitempty"`
+	Labels          []int64        `json:"labels,omitempty"`
+	Modules         []int64        `json:"modules,omitempty"`
+	Watchers        []int64        `json:"watchers,omitempty"`
+	CreatedBy       int64          `json:"created_by"`
+	CreatedAt       time.Time      `json:"created_at"`
+	UpdatedAt       time.Time      `json:"updated_at"`
 	// 任务专属字段
-	Category          *string  `json:"category,omitempty"`
-	ActualEffort      *float64 `json:"actual_effort,omitempty"`
-	RemainingEffort   *float64 `json:"remaining_effort,omitempty"`
-	DelayReason       *string  `json:"delay_reason,omitempty"`
+	Category        *string  `json:"category,omitempty"`
+	ActualEffort    *float64 `json:"actual_effort,omitempty"`
+	RemainingEffort *float64 `json:"remaining_effort,omitempty"`
+	DelayReason     *string  `json:"delay_reason,omitempty"`
 }
 
 // --- 缺陷 ---
 
 // Defect 缺陷工作项（独立聚合根）。
 type Defect struct {
-	ID                int64          `json:"id"`
-	PublicID          string         `json:"public_id"`
-	WorkspaceID       int64          `json:"workspace_id"`
-	ProjectID         int64          `json:"project_id"`
-	SequenceID        int64          `json:"sequence_id"`
-	Identifier        string         `json:"identifier"`
-	TypeCode          IssueTypeCode  `json:"type_code"`
-	ParentID          *int64         `json:"parent_id,omitempty"`
-	Depth             int            `json:"depth"`
-	Name              string         `json:"name"`
-	DescriptionJSON   map[string]any `json:"description_json,omitempty"`
-	DescriptionHTML   string         `json:"description_html,omitempty"`
-	StateID           int64          `json:"state_id"`
-	State             *State         `json:"state,omitempty"`
-	Priority          IssuePriority  `json:"priority"`
-	Point             *int           `json:"point,omitempty"`
-	SprintID          *int64         `json:"sprint_id,omitempty"`
-	VersionID         *int64         `json:"version_id,omitempty"`
-	Progress          int            `json:"progress"`
-	StartDate         *time.Time     `json:"start_date,omitempty"`
-	TargetDate        *time.Time     `json:"target_date,omitempty"`
-	CompletedAt       *time.Time     `json:"completed_at,omitempty"`
-	IsDraft           bool           `json:"is_draft"`
-	SortOrder         float64        `json:"sort_order"`
-	Version           int            `json:"version"`
-	Assignees         []int64        `json:"assignees,omitempty"`
-	Labels            []int64        `json:"labels,omitempty"`
-	Modules           []int64        `json:"modules,omitempty"`
-	Watchers          []int64        `json:"watchers,omitempty"`
-	CreatedBy         int64          `json:"created_by"`
-	CreatedAt         time.Time      `json:"created_at"`
-	UpdatedAt         time.Time      `json:"updated_at"`
+	ID              int64          `json:"id"`
+	PublicID        string         `json:"public_id"`
+	WorkspaceID     int64          `json:"workspace_id"`
+	ProjectID       int64          `json:"project_id"`
+	SequenceID      int64          `json:"sequence_id"`
+	Identifier      string         `json:"identifier"`
+	TypeCode        IssueTypeCode  `json:"type_code"`
+	ParentID        *int64         `json:"parent_id,omitempty"`
+	Depth           int            `json:"depth"`
+	Name            string         `json:"name"`
+	DescriptionJSON map[string]any `json:"description_json,omitempty"`
+	DescriptionHTML string         `json:"description_html,omitempty"`
+	StateID         int64          `json:"state_id"`
+	State           *State         `json:"state,omitempty"`
+	Priority        IssuePriority  `json:"priority"`
+	Point           *int           `json:"point,omitempty"`
+	SprintID        *int64         `json:"sprint_id,omitempty"`
+	VersionID       *int64         `json:"version_id,omitempty"`
+	Progress        int            `json:"progress"`
+	StartDate       *time.Time     `json:"start_date,omitempty"`
+	TargetDate      *time.Time     `json:"target_date,omitempty"`
+	CompletedAt     *time.Time     `json:"completed_at,omitempty"`
+	IsDraft         bool           `json:"is_draft"`
+	SortOrder       float64        `json:"sort_order"`
+	Version         int            `json:"version"`
+	Assignees       []int64        `json:"assignees,omitempty"`
+	Labels          []int64        `json:"labels,omitempty"`
+	Modules         []int64        `json:"modules,omitempty"`
+	Watchers        []int64        `json:"watchers,omitempty"`
+	CreatedBy       int64          `json:"created_by"`
+	CreatedAt       time.Time      `json:"created_at"`
+	UpdatedAt       time.Time      `json:"updated_at"`
 	// 缺陷专属字段
 	Severity          int            `json:"severity"`
 	FoundPhase        string         `json:"found_phase"`
@@ -230,13 +230,13 @@ type WorkitemView struct {
 	CreatedAt   time.Time     `json:"created_at"`
 	UpdatedAt   time.Time     `json:"updated_at"`
 	// 按类型的可选项
-	Severity          *int           `json:"severity,omitempty"`
-	FoundPhase        *string        `json:"found_phase,omitempty"`
-	Category          *string        `json:"category,omitempty"`
-	Source            *string        `json:"source,omitempty"`
-	Assignees         []int64        `json:"assignees,omitempty"`
-	Labels            []int64        `json:"labels,omitempty"`
-	Modules           []int64        `json:"modules,omitempty"`
+	Severity   *int    `json:"severity,omitempty"`
+	FoundPhase *string `json:"found_phase,omitempty"`
+	Category   *string `json:"category,omitempty"`
+	Source     *string `json:"source,omitempty"`
+	Assignees  []int64 `json:"assignees,omitempty"`
+	Labels     []int64 `json:"labels,omitempty"`
+	Modules    []int64 `json:"modules,omitempty"`
 }
 
 // ToView 将 Requirement 投影为跨类型只读视图。
@@ -284,22 +284,22 @@ func (d Defect) ToView() WorkitemView {
 
 // CreateRequirementInput 创建需求入参。
 type CreateRequirementInput struct {
-	WorkspaceID       int64
-	ProjectID         int64
-	Name              string
-	DescriptionHTML   string
-	StateID           int64
-	Priority          IssuePriority
-	ParentID          *int64
-	Source            *string
-	Assignees         []int64
-	Labels            []int64
-	Modules           []int64
-	Point             *int
-	StartDate         *time.Time
-	TargetDate        *time.Time
-	IsDraft           bool
-	CreatedBy         int64
+	WorkspaceID     int64
+	ProjectID       int64
+	Name            string
+	DescriptionHTML string
+	StateID         int64
+	Priority        IssuePriority
+	ParentID        *int64
+	Source          *string
+	Assignees       []int64
+	Labels          []int64
+	Modules         []int64
+	Point           *int
+	StartDate       *time.Time
+	TargetDate      *time.Time
+	IsDraft         bool
+	CreatedBy       int64
 }
 
 // CreateTaskInput 创建任务入参。
@@ -324,59 +324,59 @@ type CreateTaskInput struct {
 
 // CreateDefectInput 创建缺陷入参。
 type CreateDefectInput struct {
-	WorkspaceID       int64
-	ProjectID         int64
-	Name              string
-	DescriptionHTML   string
-	StateID           int64
-	Priority          IssuePriority
-	ParentID          *int64
-	Severity          int
-	FoundPhase        string
-	ReproduceSteps    map[string]any
-	Environment       map[string]any
-	SourceVersionID   *int64
-	Assignees         []int64
-	Labels            []int64
-	Modules           []int64
-	Point             *int
-	StartDate         *time.Time
-	TargetDate        *time.Time
-	IsDraft           bool
-	CreatedBy         int64
+	WorkspaceID     int64
+	ProjectID       int64
+	Name            string
+	DescriptionHTML string
+	StateID         int64
+	Priority        IssuePriority
+	ParentID        *int64
+	Severity        int
+	FoundPhase      string
+	ReproduceSteps  map[string]any
+	Environment     map[string]any
+	SourceVersionID *int64
+	Assignees       []int64
+	Labels          []int64
+	Modules         []int64
+	Point           *int
+	StartDate       *time.Time
+	TargetDate      *time.Time
+	IsDraft         bool
+	CreatedBy       int64
 }
 
 // UpdateRequirementInput 更新需求入参。
 type UpdateRequirementInput struct {
-	Name              *string
-	DescriptionHTML   *string
-	Priority          *IssuePriority
-	ParentID          *int64
-	Source            *string
-	Assignees         []int64
-	Labels            []int64
-	Modules           []int64
-	Point             *int
-	TargetDate        *time.Time
-	Progress          *int
-	Version           int
+	Name            *string
+	DescriptionHTML *string
+	Priority        *IssuePriority
+	ParentID        *int64
+	Source          *string
+	Assignees       []int64
+	Labels          []int64
+	Modules         []int64
+	Point           *int
+	TargetDate      *time.Time
+	Progress        *int
+	Version         int
 }
 
 // UpdateTaskInput 更新任务入参。
 type UpdateTaskInput struct {
-	Name              *string
-	DescriptionHTML   *string
-	Priority          *IssuePriority
-	ParentID          *int64
-	Category          *string
-	Assignees         []int64
-	Labels            []int64
-	Modules           []int64
-	Point             *int
-	TargetDate        *time.Time
-	Progress          *int
-	DelayReason       *string
-	Version           int
+	Name            *string
+	DescriptionHTML *string
+	Priority        *IssuePriority
+	ParentID        *int64
+	Category        *string
+	Assignees       []int64
+	Labels          []int64
+	Modules         []int64
+	Point           *int
+	TargetDate      *time.Time
+	Progress        *int
+	DelayReason     *string
+	Version         int
 }
 
 // 任务延期原因枚举
@@ -432,25 +432,25 @@ type UpdateDefectInput struct {
 
 // ListWorkitemsOptions 跨类型列表查询选项。
 type ListWorkitemsOptions struct {
-	WorkspaceID      int64
-	ProjectID        int64
-	StateID          *int64
-	Group            *StateGroup
-	TypeCode         *IssueTypeCode
-	Priority         *IssuePriority
-	ParentID         *int64
-	Search           string
-	SortBy           string
-	SortDesc         bool
-	Limit            int
-	Offset           int
-	AssigneeID       *int64
-	LabelID          *int64
-	ModuleID         *int64
-	SprintID         *int64
-	StartDateFrom    *string // ISO date string
-	TargetDateTo     *string
-	SeverityFrom     *int
+	WorkspaceID   int64
+	ProjectID     int64
+	StateID       *int64
+	Group         *StateGroup
+	TypeCode      *IssueTypeCode
+	Priority      *IssuePriority
+	ParentID      *int64
+	Search        string
+	SortBy        string
+	SortDesc      bool
+	Limit         int
+	Offset        int
+	AssigneeID    *int64
+	LabelID       *int64
+	ModuleID      *int64
+	SprintID      *int64
+	StartDateFrom *string // ISO date string
+	TargetDateTo  *string
+	SeverityFrom  *int
 }
 
 // BatchUpdateInput 批量操作输入。
@@ -487,16 +487,16 @@ type WorkitemExtension struct {
 
 // BizEntityRelation 工作项关联关系
 type BizEntityRelation struct {
-	ID            int64         `json:"id"`
-	WorkspaceID   int64         `json:"workspace_id"`
-	ProjectID     int64         `json:"project_id"`
-	SourceType    IssueTypeCode `json:"source_type"`
-	SourceID      int64         `json:"source_id"`
-	TargetType    IssueTypeCode `json:"target_type"`
-	TargetID      int64         `json:"target_id"`
-	RelationType  string        `json:"relation_type"`
-	CreatedBy     int64         `json:"created_by"`
-	CreatedAt     time.Time     `json:"created_at"`
+	ID           int64         `json:"id"`
+	WorkspaceID  int64         `json:"workspace_id"`
+	ProjectID    int64         `json:"project_id"`
+	SourceType   IssueTypeCode `json:"source_type"`
+	SourceID     int64         `json:"source_id"`
+	TargetType   IssueTypeCode `json:"target_type"`
+	TargetID     int64         `json:"target_id"`
+	RelationType string        `json:"relation_type"`
+	CreatedBy    int64         `json:"created_by"`
+	CreatedAt    time.Time     `json:"created_at"`
 }
 
 // Module 项目模块。

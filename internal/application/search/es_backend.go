@@ -311,14 +311,14 @@ func (b *ESBackend) transformESResponse(esResp *es.SearchResponse, q SearchQuery
 		}
 
 		hitResult := SearchHit{
-			DocType:     dt,
-			DocID:       docID,
-			Title:       title,
-			Identifier:  identifier,
-			Highlight:   highlight,
-			ProjectID:   projID,
-			Rank:        hit.Score,
-			URL:         buildDocURL(dt, docID, projID),
+			DocType:    dt,
+			DocID:      docID,
+			Title:      title,
+			Identifier: identifier,
+			Highlight:  highlight,
+			ProjectID:  projID,
+			Rank:       hit.Score,
+			URL:        buildDocURL(dt, docID, projID),
 		}
 
 		switch dt {

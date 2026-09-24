@@ -11,17 +11,17 @@ import "time"
 
 // Attachment 附件域模型（跨 per-type 表的统一视图）。
 type Attachment struct {
-	ID          int64     `json:"id"`
-	WorkspaceID int64     `json:"workspace_id"`
-	ProjectID   int64     `json:"project_id"`
+	ID          int64 `json:"id"`
+	WorkspaceID int64 `json:"workspace_id"`
+	ProjectID   int64 `json:"project_id"`
 	// EntityType 由调用方上下文决定，JSON 序列化时回填。
 	EntityType string `json:"entity_type,omitempty"`
 	// EntityID 为对应 per-type 表中具体 FK 的值（task_id / requirement_id / defect_id）。
-	EntityID    int64     `json:"entity_id"`
-	FileName    string    `json:"file_name"`
-	FileSize    int64     `json:"file_size"`
-	ContentType string    `json:"content_type"`
-	StorageKey  string    `json:"storage_key"`
+	EntityID    int64  `json:"entity_id"`
+	FileName    string `json:"file_name"`
+	FileSize    int64  `json:"file_size"`
+	ContentType string `json:"content_type"`
+	StorageKey  string `json:"storage_key"`
 	// StorageURL 为按需生成的预签名下载 URL，不持久化。
 	StorageURL string    `json:"storage_url,omitempty"`
 	ThumbKey   string    `json:"thumb_key,omitempty"`

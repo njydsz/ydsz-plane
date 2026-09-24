@@ -19,14 +19,14 @@ import (
 
 // ProjectMember 项目成员信息（API 响应）。
 type ProjectMember struct {
-	ID        int64     `json:"id"`
-	UserID    int64     `json:"user_id"`
-	Email     string    `json:"email"`
-	DisplayName string  `json:"display_name"`
-	AvatarURL string    `json:"avatar_url,omitempty"`
-	Role      string    `json:"role"`
-	JoinedAt  time.Time `json:"joined_at"`
-	CreatedBy int64     `json:"created_by,omitempty"`
+	ID          int64     `json:"id"`
+	UserID      int64     `json:"user_id"`
+	Email       string    `json:"email"`
+	DisplayName string    `json:"display_name"`
+	AvatarURL   string    `json:"avatar_url,omitempty"`
+	Role        string    `json:"role"`
+	JoinedAt    time.Time `json:"joined_at"`
+	CreatedBy   int64     `json:"created_by,omitempty"`
 }
 
 // ProjectMemberService 项目成员管理服务。

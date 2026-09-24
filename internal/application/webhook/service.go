@@ -263,7 +263,7 @@ func (s *Service) Update(ctx context.Context, workspaceID, webhookID int64, inpu
 		return s.GetByID(ctx, workspaceID, webhookID)
 	}
 
-	sets = append(sets, fmt.Sprintf("updated_at = NOW()"))
+	sets = append(sets, "updated_at = NOW()")
 	query := fmt.Sprintf("UPDATE webhooks SET %s WHERE id = $%d AND workspace_id = $%d", joinSets(sets), argIdx, argIdx+1)
 	args = append(args, webhookID, workspaceID)
 

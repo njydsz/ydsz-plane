@@ -53,13 +53,13 @@ type SAMLInitiateResult struct {
 
 // samlAuthnRequest SAML AuthnRequest XML 顶层结构（简化）。
 type samlAuthnRequest struct {
-	XMLName                        xml.Name  `xml:"urn:oasis:names:tc:SAML:2.0:protocol AuthnRequest"`
-	ID                             string    `xml:"ID,attr"`
-	Version                        string    `xml:"Version,attr"`
-	IssueInstant                   string    `xml:"IssueInstant,attr"`
-	Destination                    string    `xml:"Destination,omitempty"`
-	AssertionConsumerServiceURL    string    `xml:"AssertionConsumerServiceURL,attr"`
-	Issuer                         samlIssuer `xml:"urn:oasis:names:tc:SAML:2.0:assertion Issuer"`
+	XMLName                     xml.Name   `xml:"urn:oasis:names:tc:SAML:2.0:protocol AuthnRequest"`
+	ID                          string     `xml:"ID,attr"`
+	Version                     string     `xml:"Version,attr"`
+	IssueInstant                string     `xml:"IssueInstant,attr"`
+	Destination                 string     `xml:"Destination,omitempty"`
+	AssertionConsumerServiceURL string     `xml:"AssertionConsumerServiceURL,attr"`
+	Issuer                      samlIssuer `xml:"urn:oasis:names:tc:SAML:2.0:assertion Issuer"`
 }
 
 type samlIssuer struct {
@@ -75,9 +75,9 @@ type samlResponseWrapper struct {
 }
 
 type samlAssertion struct {
-	Subject samlSubject  `xml:"urn:oasis:names:tc:SAML:2.0:assertion Subject"`
-	NameID  samlNameID   `xml:"urn:oasis:names:tc:SAML:2.0:assertion Subject>NameID"`
-	Attrs   []samlAttr   `xml:"urn:oasis:names:tc:SAML:2.0:assertion AttributeStatement>Attribute"`
+	Subject samlSubject `xml:"urn:oasis:names:tc:SAML:2.0:assertion Subject"`
+	NameID  samlNameID  `xml:"urn:oasis:names:tc:SAML:2.0:assertion Subject>NameID"`
+	Attrs   []samlAttr  `xml:"urn:oasis:names:tc:SAML:2.0:assertion AttributeStatement>Attribute"`
 }
 
 type samlSubject struct {
@@ -85,7 +85,7 @@ type samlSubject struct {
 }
 
 type samlNameID struct {
-	Value string `xml:",chardata"`
+	Value  string `xml:",chardata"`
 	Format string `xml:"Format,attr"`
 }
 

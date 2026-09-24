@@ -374,4 +374,138 @@ export default {
     theme: "テーマ",
     logout: "ログアウト",
   },
+
+  // ===== 高頻度ビュー固有UI（IssueListView / IssueDetailView / KanbanBoardView 共通） =====
+  view: {
+    // --- リストビュー ---
+    list: {
+      title: "リスト",
+      totalCount: "合計 {count} 件の課題",
+      unnamed: "名称未設定",
+      unfilteredEmpty: "現在のフィルタ条件に一致する課題がありません",
+      noDataFiltered: "データなし",
+      selectMember: "メンバー選択...",
+      selectLabel: "ラベル選択...",
+      labelApiUnavailable: "ラベルAPIはまだ利用できません",
+      selectAllMatching: "すべて選択",
+      clearSelection: "選択解除",
+      batchTransition: "一括遷移...",
+      batchPriority: "一括優先度...",
+      batchDelete: "削除",
+      configureColumns: "列の設定",
+      columnTitle: "列の設定",
+      columnHint: "ドラッグで並び替え / チェックで表示 / 幅を入力",
+      saveConfig: "設定を保存",
+      prevPage: "前へ",
+      nextPage: "次へ",
+      pageInfo: "{page} / {totalPages} ページ",
+      emptyCell: "—",
+      unsetState: "ステータス未設定",
+      exportCsv: "CSV エクスポート",
+      exportXlsx: "Excel (.xlsx) エクスポート",
+      filterConditionEmpty: "フィルタ条件に一致する結果がありません",
+    },
+
+    // --- 詳細ビュー ---
+    detail: {
+      backToBoard: "← ボードに戻る",
+      offerDefect: "🐛 不具合を報告",
+      deleteBtn: "アーカイブ",
+      notFoundTitle: "課題が見つかりません、または削除されました",
+      notFoundDesc: "課題IDが正しいかご確認ください",
+      saving: "保存中...",
+      loading: "読み込み中...",
+      deleteConfirm: "この課題をアーカイブしてもよろしいですか？",
+      deleteSuccess: "課題がアーカイブされました",
+      deleteFailed: "削除に失敗しました",
+      stateTransition: "ステータス遷移",
+      expectedResultSection: "期待結果",
+      actualResultSection: "実際の結果",
+      environment: "環境",
+      defectInfo: "不具合情報",
+      reproSteps: "再現手順",
+      activityLog: "アクティビティログ",
+      noActivity: "アクティビティ記録がありません",
+      noTimeLogs: "時間記録がありません",
+      timeLogSection: "時間",
+      hourUnit: "時間",
+      minuteUnit: "分",
+      totalTimeLog: "合計 {duration}",
+      actualEffort: "· 実績 {duration}",
+      remainingEffort: "· 残り {duration}",
+      logTime: "＋ 時間を記録",
+      timeDescPlaceholder: "時間の説明（オプション）",
+      deleteTimeLogTitle: "この時間記録を削除してもよろしいですか？",
+      timeLogDeleteSuccess: "時間記録が削除されました",
+      recordTimeLogSuccess: "時間を記録しました",
+      timeLogValidateError: "有効な時間を入力してください（1分〜24時間）",
+      timeLogFailed: "記録に失敗しました",
+      subIssuesSection: "サブ課題",
+      addSubIssue: "＋ サブ課題を追加",
+      addSubSubIssue: "＋ サブアイテム",
+      noSubIssues: "サブ課題がありません",
+      loadingSubIssues: "読み込み中…",
+      noSubItems: "サブアイテムなし",
+    },
+
+    // --- カンバンビュー ---
+    kanban: {
+      title: "ボード",
+      hint: "課題を列間ドラッグして遷移、列内ドラッグで並び替え",
+      createBtn: "+ 課題を作成",
+      dropHere: "課題をここにドロップ",
+      transitionHint: "遷移中...",
+      sortingHint: "並び替え中...",
+      columnWidthHint: "ドラッグして列幅を調整",
+    },
+
+    // --- アクティビティ ---
+    activity: {
+      createdIssue: "課題を作成しました",
+      systemName: "システム",
+      transitioned: "遷移: {from} → {to}",
+      updated: "{field}: {from} → {to}",
+    },
+
+    // --- 説明 ---
+    description: {
+      noDesc: "説明がありません。編集をクリックして追加してください",
+    },
+
+    // --- 時間フォーマット ---
+    time: {
+      minute: "{n}分",
+      hour: "{n}時間",
+    },
+
+    // --- 一括操作 ---
+    batch: {
+      deleteTitle: "削除の確認",
+      deleteConfirm: "{count} 件の課題を削除してもよろしいですか？この操作は元に戻せません。",
+      deleting: "削除中...",
+      deleteConfirmBtn: "削除を確認",
+      confirmBtn: "確認",
+      processing: "処理中...",
+    },
+
+    // --- ヘッダー / ビュー切替 ---
+    header: {
+      kanban: "ボード",
+      list: "リスト",
+      view: "ビュー",
+      export: "エクスポート",
+      import: "インポート",
+    },
+
+    // --- インライン編集プレースホルダ ---
+    placeholder: {
+      name: "名称未設定",
+      priority: "なし",
+      title: "タイトルを入力...",
+      description: "説明を入力...",
+      expectedResult: "期待結果を記述...",
+      actualResult: "実際の結果を記述...",
+      doubleClick: "ダブルクリックして名前を編集...",
+    },
+  },
 };

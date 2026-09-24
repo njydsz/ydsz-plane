@@ -107,14 +107,35 @@ func (s *TaskService) GetByID(ctx context.Context, wsID, taskID int64) (*Task, e
 
 	t.Identifier = identifier + "-" + strconv.FormatInt(t.SequenceID, 10)
 	t.State = &State{ID: t.StateID, Name: stateName, Color: stateColor, Group: stateGroup}
-	if parentID.Valid { v := parentID.Int64; t.ParentID = &v }
-	if category.Valid { v := category.String; t.Category = &v }
-	if point.Valid { v := int(point.Int64); t.Point = &v }
-	if startDate.Valid { t.StartDate = &startDate.Time }
-	if targetDate.Valid { t.TargetDate = &targetDate.Time }
-	if completedAt.Valid { t.CompletedAt = &completedAt.Time }
-	if sprintID.Valid { v := sprintID.Int64; t.SprintID = &v }
-	if versionID.Valid { v := versionID.Int64; t.VersionID = &v }
+	if parentID.Valid {
+		v := parentID.Int64
+		t.ParentID = &v
+	}
+	if category.Valid {
+		v := category.String
+		t.Category = &v
+	}
+	if point.Valid {
+		v := int(point.Int64)
+		t.Point = &v
+	}
+	if startDate.Valid {
+		t.StartDate = &startDate.Time
+	}
+	if targetDate.Valid {
+		t.TargetDate = &targetDate.Time
+	}
+	if completedAt.Valid {
+		t.CompletedAt = &completedAt.Time
+	}
+	if sprintID.Valid {
+		v := sprintID.Int64
+		t.SprintID = &v
+	}
+	if versionID.Valid {
+		v := versionID.Int64
+		t.VersionID = &v
+	}
 	t.Assignees, _ = loadIntArray(ctx, s.db, `SELECT user_id FROM task_assignees WHERE task_id = $1`, taskID)
 	t.Labels, _ = loadIntArray(ctx, s.db, `SELECT label_id FROM task_labels WHERE task_id = $1`, taskID)
 	t.Modules, _ = loadIntArray(ctx, s.db, `SELECT module_id FROM task_modules WHERE task_id = $1`, taskID)
@@ -127,7 +148,9 @@ func (s *TaskService) GetByID(ctx context.Context, wsID, taskID int64) (*Task, e
 func (s *TaskService) Update(ctx context.Context, wsID, taskID int64, in UpdateTaskInput) (*Task, error) {
 	err := s.withTx(ctx, wsID, func(tx pgx.Tx) error {
 		current, err := s.getByIDTx(ctx, tx, taskID, wsID)
-		if err != nil { return err }
+		if err != nil {
+			return err
+		}
 		if in.Version != current.Version {
 			return errs.ErrVersionConflict
 		}
@@ -146,11 +169,17 @@ func (s *TaskService) Update(ctx context.Context, wsID, taskID int64, in UpdateT
 		args = append(args, taskID, wsID, in.Version)
 
 		tag, err := tx.Exec(ctx, query, args...)
-		if err != nil { return err }
-		if tag.RowsAffected() == 0 { return errs.ErrVersionConflict }
+		if err != nil {
+			return err
+		}
+		if tag.RowsAffected() == 0 {
+			return errs.ErrVersionConflict
+		}
 		return sharedUpdateM2M(ctx, tx, TypeTask, wsID, current.ProjectID, taskID, in.Assignees, in.Labels, in.Modules)
 	})
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	return s.GetByID(ctx, wsID, taskID)
 }
 
@@ -163,8 +192,12 @@ func (s *TaskService) SoftDelete(ctx context.Context, wsID, taskID int64) error 
 		tag, err := tx.Exec(ctx, `
 			UPDATE task SET deleted = true, updated_at = now()
 			WHERE id = $1 AND workspace_id = $2 AND deleted = false`, taskID, wsID)
-		if err != nil { return err }
-		if tag.RowsAffected() == 0 { return errs.ErrNotFound }
+		if err != nil {
+			return err
+		}
+		if tag.RowsAffected() == 0 {
+			return errs.ErrNotFound
+		}
 		return nil
 	})
 }
@@ -174,8 +207,12 @@ func (s *TaskService) Restore(ctx context.Context, wsID, taskID int64) error {
 	tag, err := s.db.Exec(ctx, `
 		UPDATE task SET deleted = false, updated_at = now()
 		WHERE id = $1 AND workspace_id = $2 AND deleted = true`, taskID, wsID)
-	if err != nil { return errs.ErrInternal.Wrap(err) }
-	if tag.RowsAffected() == 0 { return errs.ErrNotFound }
+	if err != nil {
+		return errs.ErrInternal.Wrap(err)
+	}
+	if tag.RowsAffected() == 0 {
+		return errs.ErrNotFound
+	}
 	return nil
 }
 
@@ -183,8 +220,12 @@ func (s *TaskService) Restore(ctx context.Context, wsID, taskID int64) error {
 func (s *TaskService) Transition(ctx context.Context, wsID, projectID, taskID, toStateID, userID int64) (*Task, error) {
 	err := s.withTx(ctx, wsID, func(tx pgx.Tx) error {
 		t, err := s.getByIDTx(ctx, tx, taskID, wsID)
-		if err != nil { return err }
-		if t.StateID == toStateID { return nil }
+		if err != nil {
+			return err
+		}
+		if t.StateID == toStateID {
+			return nil
+		}
 		if err := s.stateSvc.ValidateTransition(ctx, wsID, projectID, TransitionInput{
 			IssueID: taskID, FromState: t.StateID, ToState: toStateID, TypeCode: t.TypeCode,
 		}); err != nil {
@@ -192,7 +233,9 @@ func (s *TaskService) Transition(ctx context.Context, wsID, projectID, taskID, t
 		}
 
 		toGroup, err := s.stateSvc.StateGroupByID(ctx, toStateID)
-		if err != nil { return err }
+		if err != nil {
+			return err
+		}
 		completedAtClause := "NULL"
 		progress := t.Progress
 		if toGroup == GroupCompleted {
@@ -214,7 +257,9 @@ func (s *TaskService) Transition(ctx context.Context, wsID, projectID, taskID, t
 		return recordWorkitemEvent(ctx, tx, "workitem.status_changed", wsID, projectID, taskID, TypeTask,
 			userID, actorName, identifier, name, assignees, loadStateName(ctx, tx, t.StateID), loadStateName(ctx, tx, toStateID))
 	})
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	return s.GetByID(ctx, wsID, taskID)
 }
 
@@ -259,10 +304,15 @@ func (s *TaskService) getByIDTx(ctx context.Context, tx pgx.Tx, taskID, wsID int
 		&t.TypeCode, &parentID, &t.Depth,
 		&t.Name, &t.StateID, &t.Priority, &t.Version, &t.CreatedBy)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) { return nil, errs.ErrNotFound }
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, errs.ErrNotFound
+		}
 		return nil, errs.ErrInternal.Wrap(err)
 	}
-	if parentID.Valid { v := parentID.Int64; t.ParentID = &v }
+	if parentID.Valid {
+		v := parentID.Int64
+		t.ParentID = &v
+	}
 	return &t, nil
 }
 
@@ -272,18 +322,24 @@ func (s *TaskService) nextSequenceID(ctx context.Context, projectID int64) (int6
 		INSERT INTO project_sequences (project_id, next_value) VALUES ($1, 2)
 		ON CONFLICT (project_id) DO UPDATE SET next_value = project_sequences.next_value + 1
 		RETURNING next_value - 1`, projectID).Scan(&seq)
-	if err != nil { return 0, errs.ErrInternal.Wrap(err) }
+	if err != nil {
+		return 0, errs.ErrInternal.Wrap(err)
+	}
 	return seq, nil
 }
 
 func (s *TaskService) withTx(ctx context.Context, wsID int64, fn func(tx pgx.Tx) error) error {
 	tx, err := s.db.Begin(ctx)
-	if err != nil { return errs.ErrInternal.Wrap(err) }
+	if err != nil {
+		return errs.ErrInternal.Wrap(err)
+	}
 	defer func() { _ = tx.Rollback(ctx) }()
 	if _, err := tx.Exec(ctx, "SELECT set_config('app.workspace_id', $1, true)", strconv.FormatInt(wsID, 10)); err != nil {
 		return errs.ErrInternal.Wrap(err)
 	}
-	if err := fn(tx); err != nil { return err }
+	if err := fn(tx); err != nil {
+		return err
+	}
 	return tx.Commit(ctx)
 }
 
@@ -292,31 +348,49 @@ func buildTaskUpdateSet(in UpdateTaskInput) ([]string, []interface{}) {
 	var args []interface{}
 	arg := 1
 	if in.Name != nil {
-		sets = append(sets, "name = $"+strconv.Itoa(arg)); args = append(args, *in.Name); arg++
+		sets = append(sets, "name = $"+strconv.Itoa(arg))
+		args = append(args, *in.Name)
+		arg++
 	}
 	if in.DescriptionHTML != nil {
-		sets = append(sets, "description_html = $"+strconv.Itoa(arg)); args = append(args, *in.DescriptionHTML); arg++
+		sets = append(sets, "description_html = $"+strconv.Itoa(arg))
+		args = append(args, *in.DescriptionHTML)
+		arg++
 	}
 	if in.Priority != nil {
-		sets = append(sets, "priority = $"+strconv.Itoa(arg)); args = append(args, string(*in.Priority)); arg++
+		sets = append(sets, "priority = $"+strconv.Itoa(arg))
+		args = append(args, string(*in.Priority))
+		arg++
 	}
 	if in.ParentID != nil {
-		sets = append(sets, "parent_id = $"+strconv.Itoa(arg)); args = append(args, *in.ParentID); arg++
+		sets = append(sets, "parent_id = $"+strconv.Itoa(arg))
+		args = append(args, *in.ParentID)
+		arg++
 	}
 	if in.Category != nil {
-		sets = append(sets, "category = $"+strconv.Itoa(arg)); args = append(args, *in.Category); arg++
+		sets = append(sets, "category = $"+strconv.Itoa(arg))
+		args = append(args, *in.Category)
+		arg++
 	}
 	if in.Point != nil {
-		sets = append(sets, "point = $"+strconv.Itoa(arg)); args = append(args, *in.Point); arg++
+		sets = append(sets, "point = $"+strconv.Itoa(arg))
+		args = append(args, *in.Point)
+		arg++
 	}
 	if in.TargetDate != nil {
-		sets = append(sets, "target_date = $"+strconv.Itoa(arg)); args = append(args, *in.TargetDate); arg++
+		sets = append(sets, "target_date = $"+strconv.Itoa(arg))
+		args = append(args, *in.TargetDate)
+		arg++
 	}
 	if in.Progress != nil {
-		sets = append(sets, "progress = $"+strconv.Itoa(arg)); args = append(args, *in.Progress); arg++
+		sets = append(sets, "progress = $"+strconv.Itoa(arg))
+		args = append(args, *in.Progress)
+		arg++
 	}
 	if in.DelayReason != nil {
-		sets = append(sets, "delay_reason = $"+strconv.Itoa(arg)); args = append(args, *in.DelayReason); arg++
+		sets = append(sets, "delay_reason = $"+strconv.Itoa(arg))
+		args = append(args, *in.DelayReason)
+		arg++
 	}
 	return sets, args
 }
@@ -328,6 +402,8 @@ func mapTaskPgError(err error) error {
 			return errs.New("TASK.DUPLICATE_SEQ", "任务序号冲突，请重试", 409)
 		}
 	}
-	if errors.Is(err, pgx.ErrNoRows) { return errs.ErrNotFound }
+	if errors.Is(err, pgx.ErrNoRows) {
+		return errs.ErrNotFound
+	}
 	return errs.ErrInternal.Wrap(err)
 }

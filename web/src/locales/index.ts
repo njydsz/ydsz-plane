@@ -46,6 +46,13 @@ function detectLocale(): SupportedLocale {
   return "zh-CN";
 }
 
+/** 可用语言列表（LocaleSwitcher 等组件用）— 含友好显示名，不含 flag */
+export const availableLocales: { code: SupportedLocale; name: string }[] = [
+  { code: "zh-CN", name: "简体中文" },
+  { code: "en-US", name: "English" },
+  { code: "ja-JP", name: "日本語" },
+];
+
 /** 创建 i18n 实例 */
 export const i18n = createI18n({
   legacy: false, // 使用 Composition API 模式

@@ -36,7 +36,7 @@ var (
 	RequestDurationMs = promauto.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Namespace: namespace,
-		Subsystem: subsystem,
+			Subsystem: subsystem,
 			Name:      "request_duration_ms",
 			Help:      "HTTP request latency distribution.",
 			Buckets:   prometheus.DefBuckets, // .005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10

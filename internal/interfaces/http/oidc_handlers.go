@@ -6,9 +6,10 @@
 //   - PKCE 强制: 所有 SPA 登录请求必须带 code_challenge (S256)
 //
 // 路由:
-//   POST  /api/v1/auth/oidc/:provider_id/login   → 返回 IdP redirect URL（JSON）
-//   GET   /api/v1/auth/sso/:wid/providers/:pid/login → 浏览器重定向到 IdP
-//   GET   /api/v1/auth/oidc/callback              → IdP 回调 → Cookie → 重定向前端
+//
+//	POST  /api/v1/auth/oidc/:provider_id/login   → 返回 IdP redirect URL（JSON）
+//	GET   /api/v1/auth/sso/:wid/providers/:pid/login → 浏览器重定向到 IdP
+//	GET   /api/v1/auth/oidc/callback              → IdP 回调 → Cookie → 重定向前端
 package httpapi
 
 import (

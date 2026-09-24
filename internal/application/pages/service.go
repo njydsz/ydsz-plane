@@ -707,7 +707,7 @@ func (s *Service) UpdateShare(ctx context.Context, wsID, shareID int64, input Up
 	if input.Password != nil {
 		if strings.TrimSpace(*input.Password) == "" {
 			// 空字符串表示清除密码
-			sets = append(sets, fmt.Sprintf("password_hash = NULL"))
+			sets = append(sets, "password_hash = NULL")
 		} else {
 			hash, err := bcrypt.GenerateFromPassword([]byte(strings.TrimSpace(*input.Password)), bcrypt.DefaultCost)
 			if err != nil {
