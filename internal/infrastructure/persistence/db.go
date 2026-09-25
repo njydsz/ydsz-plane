@@ -117,7 +117,7 @@ func NewPool(ctx context.Context, url string, maxConns int32) (*Pool, error) {
 }
 
 // WithTenantTx 在设置了租户上下文的事务内执行 fn，
-// 使 RLS 策略（current_setting('app.workspace_id')）按行隔离数据。
+// 使 RLS 策略（tenant_id = get_tenant()）按行隔离数据。
 // SET LOCAL 仅作用于当前事务，在连接池下是安全的。
 func (p *Pool) WithTenantTx(ctx context.Context, workspaceID int64, fn func(tx pgx.Tx) error) error {
 	tx, err := p.Begin(ctx)
@@ -126,8 +126,11 @@ func (p *Pool) WithTenantTx(ctx context.Context, workspaceID int64, fn func(tx p
 	}
 	defer func() { _ = tx.Rollback(ctx) }() // Commit 后为 no-op
 
-	if _, err := tx.Exec(ctx, "SELECT set_config('app.workspace_id', $1, true)", workspaceID); err != nil {
+	if _, err := tx.Exec(ctx, "SELECT set_tenant($1)", workspaceID); err != nil {
 		return fmt.Errorf("persistence: set tenant: %w", err)
+	}
+	if _, err := tx.Exec(ctx, "SELECT set_config('app.workspace_id', $1, true)", workspaceID); err != nil {
+		return fmt.Errorf("persistence: set workspace: %w", err)
 	}
 	if err := fn(tx); err != nil {
 		return err
@@ -136,6 +139,25 @@ func (p *Pool) WithTenantTx(ctx context.Context, workspaceID int64, fn func(tx p
 		return fmt.Errorf("persistence: commit: %w", err)
 	}
 	return nil
+}
+
+// WithTenant 在设置了租户上下文的连接上执行 fn。
+// 用于非事务场景（如单次查询），确保 RLS 策略生效。
+// 用法：pool.WithTenant(ctx, tenantID, func(conn *pgx.Conn) error { ... })
+func (p *Pool) WithTenant(ctx context.Context, tenantID int64, fn func(conn *pgx.Conn) error) error {
+	conn, err := p.Acquire(ctx)
+	if err != nil {
+		return fmt.Errorf("persistence: acquire conn: %w", err)
+	}
+	defer conn.Release()
+
+	if _, err := conn.Exec(ctx, "SELECT set_tenant($1)", tenantID); err != nil {
+		return fmt.Errorf("persistence: set tenant: %w", err)
+	}
+	if _, err := conn.Exec(ctx, "SELECT set_config('app.workspace_id', $1, true)", tenantID); err != nil {
+		return fmt.Errorf("persistence: set workspace: %w", err)
+	}
+	return fn(conn)
 }
 
 // Ping 委托给底层连接池（供 /readyz 探活使用）。
