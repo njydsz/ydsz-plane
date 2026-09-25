@@ -55,10 +55,8 @@ async function onSubmit() {
   } catch (e) {
     if (e instanceof ApiError) {
       errorMsg.value = e.message;
-      if (e.isValidation && e.details) {
-        for (const d of e.details) {
-          fieldErrors.value[d.field] = d.reason;
-        }
+      if (e.isValidation) {
+        fieldErrors.value = e.fields;
       }
     } else {
       errorMsg.value = "网络异常，请稍后再试";

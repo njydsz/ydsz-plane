@@ -245,7 +245,7 @@ func (s *OIDCService) validateSAMLResponse(_ []byte, provider *SAMLProviderConfi
 		// 生产环境部署禁止设置 SAML_DEV_ONLY=true。
 		if os.Getenv("SAML_DEV_ONLY") != "true" {
 			return errs.New("SSO.SAML_DEV_ONLY_REQUIRED",
-				"SAML skip_signature=true 但环境变量 SAML_DEV_ONLY 未设置为 "true"；"+
+				"SAML skip_signature=true 但环境变量 SAML_DEV_ONLY 未设置为 \u201ctrue\u201d；"+
 					"生产部署禁止关闭签名校验。请集成 xml-sec 库或在测试环境显式设置 SAML_DEV_ONLY=true",
 				500)
 		}

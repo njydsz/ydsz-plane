@@ -59,8 +59,17 @@ func (h *Handler) Register(r *gin.RouterGroup) {
 	}
 }
 
-// Create godoc
-//   - POST .../webhooks
+// Create 创建 Webhook 订阅。
+//
+//	@Summary		创建 Webhook
+//	@Description	在工作空间下新建一个 Webhook 订阅，创建时返回 secret（后续不再返回）
+//	@Tags			webhook
+//	@Accept			json
+//	@Produce		json
+//	@Param			body	body		createRequest	true	"Webhook 配置"
+//	@Success		201		{object}	createResponse
+//	@Failure		422		{object}	errs.AppError
+//	@Router			/webhooks [post]
 func (h *Handler) Create(c *gin.Context) {
 	wsID := c.GetInt64("workspace_id")
 	userID := c.GetInt64("user_id")
@@ -104,8 +113,17 @@ func (h *Handler) Create(c *gin.Context) {
 	})
 }
 
-// List godoc
-//   - GET .../webhooks?project_id=&limit=&offset=
+// List 列出 Webhook 订阅。
+//
+//	@Summary		列出 Webhook
+//	@Description	列出工作空间下的全部 Webhook 订阅，支持分页与项目过滤
+//	@Tags			webhook
+//	@Produce		json
+//	@Param			project_id	query		int	false	"项目 ID"
+//	@Param			limit		query		int	false	"每页数 (1-100)"
+//	@Param			offset		query		int	false	"偏移"
+//	@Success		200			{object}	map[string]any
+//	@Router			/webhooks [get]
 func (h *Handler) List(c *gin.Context) {
 	wsID := c.GetInt64("workspace_id")
 
@@ -136,8 +154,16 @@ func (h *Handler) List(c *gin.Context) {
 	})
 }
 
-// Get godoc
-//   - GET .../webhooks/:webhook_id
+// Get 获取 Webhook 详情。
+//
+//	@Summary		获取 Webhook 详情
+//	@Description	返回单个 Webhook 的完整配置（不含 secret）
+//	@Tags			webhook
+//	@Produce		json
+//	@Param			webhook_id	path		int	true	"Webhook ID"
+//	@Success		200			{object}	Webhook
+//	@Failure		404			{object}	errs.AppError
+//	@Router			/webhooks/{webhook_id} [get]
 func (h *Handler) Get(c *gin.Context) {
 	wsID := c.GetInt64("workspace_id")
 	webhookID := c.GetInt64("webhook_id")
@@ -150,8 +176,18 @@ func (h *Handler) Get(c *gin.Context) {
 	c.JSON(http.StatusOK, w)
 }
 
-// Update godoc
-//   - PATCH .../webhooks/:webhook_id
+// Update 更新 Webhook 配置。
+//
+//	@Summary		更新 Webhook
+//	@Description	PATCH 更新 Webhook 的 URL / 事件 / 名称 / 启用状态
+//	@Tags			webhook
+//	@Accept			json
+//	@Produce		json
+//	@Param			webhook_id	path		int				true	"Webhook ID"
+//	@Param			body		body		updateRequest	true	"更新字段"
+//	@Success		200			{object}	Webhook
+//	@Failure		404			{object}	errs.AppError
+//	@Router			/webhooks/{webhook_id} [patch]
 func (h *Handler) Update(c *gin.Context) {
 	wsID := c.GetInt64("workspace_id")
 	webhookID := c.GetInt64("webhook_id")

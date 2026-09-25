@@ -94,6 +94,18 @@ func (h *Handler) RegisterWrite(r *gin.RouterGroup) {
 // --- 空间 handlers ---
 
 // listSpaces 列出工作空间下的知识库空间。
+//
+//	@Summary		列出知识库空间
+//	@Description	按工作空间 + 可选项目过滤，支持关键词搜索和分页
+//	@Tags			knowledge
+//	@Produce		json
+//	@Param			limit		query		int		false	"每页数 (1-100)"	default(50)
+//	@Param			offset		query		int		false	"偏移"			default(0)
+//	@Param			keyword		query		string	false	"关键词"
+//	@Param			project_id	query		int		false	"项目 ID"
+//	@Success		200			{object}	map[string]any
+//	@Failure		500			{object}	errs.AppError
+//	@Router			/spaces [get]
 func (h *Handler) listSpaces(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 
@@ -118,6 +130,15 @@ func (h *Handler) listSpaces(c *gin.Context) {
 }
 
 // getSpace 获取单个空间详情。
+//
+//	@Summary		获取知识库空间详情
+//	@Description	返回指定知识库空间的完整信息
+//	@Tags			knowledge
+//	@Produce		json
+//	@Param			sid	path		int	true	"空间 ID"
+//	@Success		200	{object}	Space
+//	@Failure		404	{object}	errs.AppError
+//	@Router			/spaces/{sid} [get]
 func (h *Handler) getSpace(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	sid := int64Param(c, "sid")
@@ -131,6 +152,16 @@ func (h *Handler) getSpace(c *gin.Context) {
 }
 
 // createSpace 创建知识库空间。
+//
+//	@Summary		创建知识库空间
+//	@Description	在工作空间下新建一个知识库空间
+//	@Tags			knowledge
+//	@Accept			json
+//	@Produce		json
+//	@Param			body	body		createSpaceBody	true	"空间信息"
+//	@Success		201		{object}	Space
+//	@Failure		422		{object}	errs.AppError
+//	@Router			/spaces [post]
 func (h *Handler) createSpace(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	userID := c.GetInt64(middleware.CtxUserID)

@@ -1,4 +1,58 @@
 // Command api 启动 Ydsz Plane 的 HTTP API 服务。
+//
+//	@title			Ydsz Plane API
+//	@version		1.0.0
+//	@description	项目管理平台 Ydsz Plane 的 REST API（需求/任务/缺陷/迭代/版本/自动化/Webhook/知识库/仪表盘/全局搜索/通知等）。
+//	@host			localhost:8080
+//	@BasePath		/api/v1
+//
+//	@securityDefinitions.apikey	Bearer
+//	@in							header
+//	@name						Authorization
+//	@description				"格式: Bearer {access_token}。登录/注册接口返回 access_token 后填入。"
+//
+//	@tag.name			auth
+//	@tag.description	认证与账号域
+//	@tag.name			workspace
+//	@tag.description	工作空间域
+//	@tag.name			project
+//	@tag.description	项目域
+//	@tag.name			issue
+//	@tag.description	需求/任务/缺陷域
+//	@tag.name			sprint
+//	@tag.description	迭代域
+//	@tag.name			version
+//	@tag.description	版本域
+//	@tag.name			automation
+//	@tag.description	自动化域
+//	@tag.name			webhook
+//	@tag.description	Webhook 集成域
+//	@tag.name			knowledge
+//	@tag.description	知识库域
+//	@tag.name			ai
+//	@tag.description	AI 智能域
+//	@tag.name			search
+//	@tag.description	全局搜索域
+//	@tag.name			notification
+//	@tag.description	通知域
+//	@tag.name			intake
+//	@tag.description	收件箱/匿名提报域
+//	@tag.name			metrics
+//	@tag.description	效能度量域
+//	@tag.name			dashboard
+//	@tag.description	仪表盘域
+//	@tag.name			dlq
+//	@tag.description	死信队列管理域
+//	@tag.name			pages
+//	@tag.description	页面管理域
+//	@tag.name			preference
+//	@tag.description	偏好设置域
+//	@tag.name			workbench
+//	@tag.description	工作台域
+//	@tag.name			user
+//	@tag.description	当前用户域
+//	@tag.name			attachment
+//	@tag.description	附件域
 package main
 
 import (

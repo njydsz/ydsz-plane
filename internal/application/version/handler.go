@@ -96,6 +96,17 @@ type addSprintRequest struct {
 
 // --- 集合操作 ---
 
+// list 列出版本列表。
+//
+//	@Summary		列出版本
+//	@Description	按工作空间 + 项目列出版本，支持状态过滤和分页
+//	@Tags			version
+//	@Produce		json
+//	@Param			limit	query		int		false	"每页数"	default(50)
+//	@Param			offset	query		int		false	"偏移"	default(0)
+//	@Param			status	query		string	false	"状态码 (planning/active/released/archived)"
+//	@Success		200		{object}	map[string]any
+//	@Router			/versions [get]
 func (h *Handler) list(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	projectID := c.GetInt64(middleware.CtxProjectID)
@@ -123,6 +134,17 @@ func (h *Handler) list(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"results": versions, "total": total})
 }
 
+// create 创建版本。
+//
+//	@Summary		创建版本
+//	@Description	在工作空间 + 项目下新建版本，需提供名称和语义版本号
+//	@Tags			version
+//	@Accept			json
+//	@Produce		json
+//	@Param			body	body		createVersionRequest	true	"版本信息"
+//	@Success		201		{object}	Version
+//	@Failure		422		{object}	errs.AppError
+//	@Router			/versions [post]
 func (h *Handler) create(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	projectID := c.GetInt64(middleware.CtxProjectID)
@@ -213,6 +235,18 @@ func (h *Handler) activate(c *gin.Context) {
 	c.JSON(http.StatusOK, v)
 }
 
+// release 发布版本。
+//
+//	@Summary		发布版本
+//	@Description	执行版本发布流程（质量门禁 → 清单校验 → 发布），返回更新后的版本
+//	@Tags			version
+//	@Accept			json
+//	@Produce		json
+//	@Param			version_id	path		int						true	"版本 ID"
+//	@Param			body		body		releaseVersionRequest	true	"发布参数"
+//	@Success		200			{object}	Version
+//	@Failure		422			{object}	errs.AppError
+//	@Router			/versions/{version_id}/release [post]
 func (h *Handler) release(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	versionID := int64Param(c, "version_id")

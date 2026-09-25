@@ -93,6 +93,12 @@ openapi:
 	swag init -g cmd/api/main.go --output docs/swagger --parseDependency --parseInternal
 	@echo "→ Swagger UI: http://localhost:8080/swagger/index.html"
 
+# gen-types: 通过 swag + openapi-typescript 生成前端 API 类型（P0-6）
+gen-types:
+	swag init -g cmd/api/main.go -o docs/swagger
+	cd web && npx openapi-typescript ../docs/swagger/swagger.yaml -o src/types/api.generated.ts --path-params-as-hash-map false
+	@echo "Generated web/src/types/api.generated.ts"
+
 reindex:
 	go run ./scripts/reindex
 

@@ -12,20 +12,27 @@ import axios, {
   type AxiosRequestConfig,
   type AxiosResponse,
 } from "axios";
+import {
+  ApiError,
+  type ApiEnvelope,
+  makeApiError,
+} from "./errors";
+
+export {
+  ApiError,
+  type ApiEnvelope,
+  type ApiErrorInit,
+  type ApiErrorDetailItem,
+  makeApiError,
+  envelopeToInit,
+} from "./errors";
 
 /* ------------------------------------------------------------------ */
 /* 公共类型                                                             */
 /* ------------------------------------------------------------------ */
 
-/** 后端错误 envelope（与 pkg/errs.AppError 对齐） */
-export interface ApiErrorBody {
-  error?: {
-    code: string;
-    message: string;
-    details?: Array<{ field: string; reason: string }>;
-    request_id?: string;
-  };
-}
+/** @deprecated 使用 ApiEnvelope 替代 */
+export type ApiErrorBody = { error?: ApiEnvelope["error"] };
 
 /** 类型化 API 响应 envelope */
 export interface ApiResponse<T = unknown> {
@@ -35,52 +42,6 @@ export interface ApiResponse<T = unknown> {
 
 export { AxiosResponse };
 export type { AxiosRequestConfig };
-
-/* ------------------------------------------------------------------ */
-/* ApiError                                                             */
-/* ------------------------------------------------------------------ */
-
-export class ApiError extends Error {
-  code: string;
-  status: number;
-  details?: Array<{ field: string; reason: string }>;
-  requestId?: string;
-
-  constructor(status: number, body: ApiErrorBody | undefined) {
-    super(body?.error?.message ?? `请求失败 (${status})`);
-    this.name = "ApiError";
-    this.status = status;
-    this.code = body?.error?.code ?? "UNKNOWN";
-    this.details = body?.error?.details;
-    this.requestId = body?.error?.request_id;
-  }
-
-  get isValidation() {
-    return this.status === 422;
-  }
-  get isAuth() {
-    return this.status === 401;
-  }
-  get isForbidden() {
-    return this.status === 403;
-  }
-  get isNotFound() {
-    return this.status === 404;
-  }
-  get isRateLimited() {
-    return this.status === 429;
-  }
-  get isNetwork() {
-    return this.status === 0;
-  }
-
-  /** 字段级错误映射到 form key，便于表单组件直接使用 */
-  fieldErrors(): Record<string, string> {
-    const out: Record<string, string> = {};
-    for (const d of this.details ?? []) out[d.field] = d.reason;
-    return out;
-  }
-}
 
 /* ------------------------------------------------------------------ */
 /* 限流回调                                                              */
@@ -193,7 +154,7 @@ http.interceptors.response.use(
     //   return res.data?.data ?? res.data
     return res;
   },
-  async (error: AxiosError<ApiErrorBody>) => {
+  async (error: AxiosError<ApiEnvelope>) => {
     const status = error.response?.status ?? 0;
     const respHeaders = error.response?.headers ?? {};
     const config = error.config as (AxiosRequestConfig & RequestMeta) | undefined;
@@ -222,17 +183,17 @@ http.interceptors.response.use(
         return http.request(config);
       } catch {
         window.location.assign("/login?reason=expired");
-        return Promise.reject(new ApiError(401, { error: { code: "AUTH.EXPIRED", message: "登录已过期，请重新登录" } }));
+        return Promise.reject(new ApiError({ code: "AUTH.EXPIRED", message: "登录已过期，请重新登录" }, 401));
       }
     }
 
     // 网络错误 / CORS / 断网
     if (!error.response) {
       return Promise.reject(
-        new ApiError(0, { error: { code: "NETWORK", message: "网络不可用或请求被拦截" } }),
+        new ApiError({ code: "NETWORK", message: "网络不可用或请求被拦截" }, 0),
       );
     }
 
-    return Promise.reject(new ApiError(status, error.response.data));
+    return Promise.reject(makeApiError(status, error.response.data));
   },
 );

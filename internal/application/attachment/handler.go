@@ -138,6 +138,16 @@ func (h *Handler) validateUploadInput(fileName, contentType string, fileSize int
 }
 
 // listAttachments GET /attachments?entity_type=task&entity_id=123
+//
+//	@Summary		列出附件
+//	@Description	按工作项类型 + ID 查询关联的附件列表
+//	@Tags			attachment
+//	@Produce		json
+//	@Param			entity_type	query		string	true	"工作项类型 (task/requirement/defect/issue)"
+//	@Param			entity_id	query		int		true	"工作项 ID"
+//	@Success		200			{object}	ListResponse
+//	@Failure		422			{object}	errs.AppError
+//	@Router			/attachments [get]
 func (h *Handler) listAttachments(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	projectID := c.GetInt64(middleware.CtxProjectID)
@@ -171,8 +181,16 @@ func (h *Handler) listAttachments(c *gin.Context) {
 }
 
 // getPresignedUploadURL 获取预签名上传 URL。
-// POST /attachments/presigned-upload
-// Body: { "file_name": "xxx.png", "content_type": "image/png", "entity_type": "task", "entity_id": 1 }
+//
+//	@Summary		获取预签名上传 URL
+//	@Description	申请临时预签名 PUT URL 用于客户端直传对象存储
+//	@Tags			attachment
+//	@Accept			json
+//	@Produce		json
+//	@Param			body	body		presignedUploadBody	true	"上传元信息"
+//	@Success		200		{object}	map[string]any
+//	@Failure		422		{object}	errs.AppError
+//	@Router			/attachments/presigned-upload [post]
 func (h *Handler) getPresignedUploadURL(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	projectID := c.GetInt64(middleware.CtxProjectID)
@@ -224,6 +242,15 @@ func (h *Handler) getPresignedUploadURL(c *gin.Context) {
 }
 
 // listIssueAttachments GET /issues/:issue_id/attachments — 便捷路由，自动解析工作项类型。
+//
+//	@Summary		列出工作项附件
+//	@Description	指定工作项 ID，自动解析具体类型后返回附件列表
+//	@Tags			attachment
+//	@Produce		json
+//	@Param			issue_id	path		int	true	"工作项 ID"
+//	@Success		200			{object}	ListResponse
+//	@Failure		404			{object}	errs.AppError
+//	@Router			/issues/{issue_id}/attachments [get]
 func (h *Handler) listIssueAttachments(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	projectID := c.GetInt64(middleware.CtxProjectID)

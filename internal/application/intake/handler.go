@@ -72,6 +72,8 @@ func (h *Handler) RegisterWrite(r *gin.RouterGroup) {
 }
 
 // RegisterPublic 注册公开路由（/api/v1/public/intake 前缀，免登）。
+//
+//	@Tags	intake-public
 func (h *PublicHandler) RegisterPublic(r *gin.RouterGroup) {
 	g := r.Group("/intake")
 	{
@@ -107,6 +109,17 @@ type createChannelRequest struct {
 	Config      map[string]any `json:"config"`
 }
 
+// createChannel POST /intake/channels
+//
+//	@Summary		创建收件箱渠道
+//	@Description	在工作空间下创建新的匿名提报渠道
+//	@Tags			intake
+//	@Accept			json
+//	@Produce		json
+//	@Param			body	body		createChannelRequest	true	"渠道配置"
+//	@Success		201		{object}	Channel
+//	@Failure		422		{object}	errs.AppError
+//	@Router			/intake/channels [post]
 func (h *Handler) createChannel(c *gin.Context) {
 	var req createChannelRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -197,6 +210,18 @@ func (h *Handler) deleteChannel(c *gin.Context) {
 // ---- 工单（认证） ----
 
 // listIssues GET /intake/issues?status=&channel_id=&project_id=&limit=&offset=
+//
+//	@Summary		列出收件箱工单
+//	@Description	按渠道/状态分页列出匿名提报工单
+//	@Tags			intake
+//	@Produce		json
+//	@Param			status		query		string	false	"工单状态"
+//	@Param			channel_id	query		int		false	"渠道 ID"
+//	@Param			project_id	query		int		false	"项目 ID"
+//	@Param			limit		query		int		false	"每页数"	default(50)
+//	@Param			offset		query		int		false	"偏移"	default(0)
+//	@Success		200			{object}	map[string]any
+//	@Router			/intake/issues [get]
 func (h *Handler) listIssues(c *gin.Context) {
 	f := ListIssuesFilter{WorkspaceID: wsID(c), Status: c.Query("status")}
 	if v, err := strconv.ParseInt(c.Query("channel_id"), 10, 64); err == nil && v > 0 {
@@ -319,6 +344,16 @@ func (h *PublicHandler) publicGetChannel(c *gin.Context) {
 }
 
 // publicSubmitIssue POST /public/intake/issues
+//
+//	@Summary		公开提交匿名工单
+//	@Description	免登录提交匿名提报工单（无需 Authorization）
+//	@Tags			intake-public
+//	@Accept			json
+//	@Produce		json
+//	@Param			body	body		SubmitIssueInput	true	"工单内容"
+//	@Success		201		{object}	IntakeIssue
+//	@Failure		422		{object}	errs.AppError
+//	@Router			/public/intake/issues [post]
 func (h *PublicHandler) publicSubmitIssue(c *gin.Context) {
 	var req SubmitIssueInput
 	if err := c.ShouldBindJSON(&req); err != nil {
