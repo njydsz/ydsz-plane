@@ -87,10 +87,11 @@ watch(
     <div class="flex items-center justify-between">
       <h1 class="text-2xl font-bold tracking-tight">工作空间</h1>
       <button
+        v-if="!showForm"
         class="rounded-md bg-[var(--brand-600)] px-3 py-1.5 text-sm font-medium text-white hover:bg-[var(--brand-700)]"
-        @click="showForm = !showForm"
+        @click="showForm = true"
       >
-        {{ showForm ? "取消" : "新建工作空间" }}
+        新建工作空间
       </button>
     </div>
 
@@ -106,13 +107,22 @@ watch(
           <input v-model="form.slug" type="text" class="mt-1 w-full rounded-md border border-[var(--border-subtle)] px-3 py-2 text-sm" placeholder="my-team" />
         </div>
       </div>
-      <button
-        :disabled="saving"
-        class="rounded-md bg-[var(--brand-600)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--brand-700)] disabled:opacity-50"
-        @click="create"
-      >
-        {{ saving ? "创建中…" : "创建" }}
-      </button>
+      <div class="flex items-center gap-2">
+        <button
+          :disabled="saving"
+          class="rounded-md bg-[var(--brand-600)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--brand-700)] disabled:opacity-50"
+          @click="create"
+        >
+          {{ saving ? "创建中…" : "创建" }}
+        </button>
+        <button
+          :disabled="saving"
+          class="rounded-md border border-[var(--border-subtle)] px-4 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] disabled:opacity-50"
+          @click="showForm = false; form = { name: '', slug: '' }"
+        >
+          取消
+        </button>
+      </div>
     </div>
 
     <div v-if="loading" class="space-y-3">

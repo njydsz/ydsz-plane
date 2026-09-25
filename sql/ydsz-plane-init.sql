@@ -91,6 +91,8 @@ $$ LANGUAGE plpgsql;
 -- ===========================================================================
 CREATE SEQUENCE IF NOT EXISTS states_id_seq START 1 INCREMENT 1;
 CREATE SEQUENCE IF NOT EXISTS state_transitions_id_seq START 1 INCREMENT 1;
+CREATE SEQUENCE IF NOT EXISTS workspaces_id_seq START 1 INCREMENT 1;
+CREATE SEQUENCE IF NOT EXISTS workspace_members_id_seq START 1 INCREMENT 1;
 
 -- ===========================================================================
 -- 建表 (110 张)

@@ -88,12 +88,17 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*Workspace, error
 
 	var ws *Workspace
 	err := pgx.BeginTxFunc(ctx, s.db, pgx.TxOptions{}, func(tx pgx.Tx) error {
+		// 生成工作空间 ID（使用序列，表 id 列无 DEFAULT）
+		var wsID int64
+		if err := tx.QueryRow(ctx, "SELECT nextval('workspaces_id_seq')").Scan(&wsID); err != nil {
+			return errs.ErrInternal.Wrap(err)
+		}
 		var w Workspace
 		err := tx.QueryRow(ctx, `
-			INSERT INTO workspaces (name, slug, timezone, language, owner_id)
-			VALUES ($1, $2, $3, $4, $5)
+			INSERT INTO workspaces (id, name, slug, timezone, language, owner_id)
+			VALUES ($1, $2, $3, $4, $5, $6)
 			RETURNING id, name, slug, coalesce(logo_url,''), timezone, language, status, owner_id, created_at, updated_at`,
-			in.Name, slug, tz, in.Language, in.OwnerID).
+			wsID, in.Name, slug, tz, in.Language, in.OwnerID).
 			Scan(&w.ID, &w.Name, &w.Slug, &w.LogoURL, &w.Timezone, &w.Language, &w.Status, &w.OwnerID, &w.CreatedAt, &w.UpdatedAt)
 		if err != nil {
 			if strings.Contains(err.Error(), "uq_workspaces_slug") {
@@ -101,10 +106,15 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*Workspace, error
 			}
 			return errs.ErrInternal.Wrap(err)
 		}
+		// 生成 workspace_members ID
+		var memberID int64
+		if err := tx.QueryRow(ctx, "SELECT nextval('workspace_members_id_seq')").Scan(&memberID); err != nil {
+			return errs.ErrInternal.Wrap(err)
+		}
 		_, err = tx.Exec(ctx, `
-			INSERT INTO workspace_members (workspace_id, user_id, role, joined_at)
-			VALUES ($1, $2, 'owner', now())`,
-			w.ID, in.OwnerID)
+			INSERT INTO workspace_members (id, workspace_id, user_id, role, joined_at)
+			VALUES ($1, $2, $3, 'owner', now())`,
+			memberID, w.ID, in.OwnerID)
 		if err != nil {
 			return errs.ErrInternal.Wrap(err)
 		}

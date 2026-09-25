@@ -56,7 +56,14 @@ async function save() {
   if (!form.value.name.trim()) { toast.warning("请输入名称"); return; }
   saving.value = true;
   try {
-    await workspaceApi.update(workspaceId.value, form.value);
+    // brand_color 仅在非空时下发；空字符串发出去会触发 hexcolor 校验失败（"参数校验失败"）
+    const payload: { name: string; timezone: string; language: string; brand_color?: string } = {
+      name: form.value.name,
+      timezone: form.value.timezone,
+      language: form.value.language,
+    };
+    if (form.value.brand_color) payload.brand_color = form.value.brand_color;
+    await workspaceApi.update(workspaceId.value, payload);
     toast.success("已保存");
   } catch (err: unknown) {
     toast.error(err instanceof Error ? err.message : "保存失败");

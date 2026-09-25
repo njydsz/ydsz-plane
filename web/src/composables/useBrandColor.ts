@@ -143,12 +143,12 @@ export function clearBrandColor() {
 
 /** 品牌色 composable */
 export function useBrandColor(brandColor: Ref<string | undefined | null>) {
-  const currentColor = ref(brandColor.value || "");
+  const currentColor = ref(brandColor.value || DEFAULT_BRAND_COLOR);
 
   watch(
     brandColor,
     (newColor) => {
-      currentColor.value = newColor || "";
+      currentColor.value = newColor || DEFAULT_BRAND_COLOR;
       if (newColor) {
         applyBrandColor(newColor);
       } else {
