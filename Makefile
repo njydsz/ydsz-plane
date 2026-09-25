@@ -129,18 +129,35 @@ else
 	@xdg-open coverage.html 2>/dev/null || open coverage.html 2>/dev/null || echo "coverage.html ready"
 endif
 
-# --- OpenAPI & type generation ---
+# --- OpenAPI & type generation S16 P0-1 ---
 ## openapi: 生成 Swagger 文档（swag init）
 openapi:
 	swag init -g cmd/api/main.go --output docs/swagger --parseDependency --parseInternal
 	@echo "→ Swagger UI: http://localhost:8080/swagger/index.html"
 
-## gen: 同步生成 swagger + 前端类型（保持前后端一致）
-gen: openapi build-types-dev
-
-build-types-dev:
-	cd web && npx openapi-typescript ../docs/swagger/swagger.yaml -o src/types/api.generated.ts --path-params-as-hash-map false
+## gen-types: 从已生成的 swagger.yaml 生成前端 TS 类型
+## 注意：orval 安装需在 web/ 下运行 pnpm add -D orval
+gen-types:
+	cd web && npx orval --config orval.config.ts 2>/dev/null \
+		|| npx openapi-typescript ../docs/swagger/swagger.yaml -o src/types/api.generated.ts --path-params-as-hash-map false
 	@echo "Generated web/src/types/api.generated.ts"
+
+## gen: 同步生成 swagger + 前端类型（保持前后端一致）
+gen: openapi gen-types
+
+## gen-diff: CI 门禁 — 检查 committed 类型与生成类型是否一致
+## 当不一致时返回非零退出码（阻断合并）
+gen-diff: gen
+	git diff --exit-code web/src/types/api.generated.ts docs/swagger/swagger.yaml \
+		|| (echo "::error::前后端类型不同步，请运行 make gen 后提交" && exit 1)
+	@echo "✅ 前后端类型一致"
+
+swagger-coverage:
+	@echo "→ Swagger 注解覆盖率（当前仅统计 path 数量）"
+	@PKGS=20; PATHS=$$(grep -c '^  /api/' docs/swagger/swagger.yaml 2>/dev/null || echo 0); \
+	COVER=$$(( PATHS * 100 / (PKGS * 18) )); \
+	echo "  已注解 API paths: $$PATHS"; \
+	echo "  估算覆盖率: $$COVER%  (目标: 80%)"
 
 # --- DevOnly secret tool ---
 ## dev-secrets: 生成 YDSZ_SSO_SECRET_KEY 并写入 .env.local（gitignored，不覆盖已有文件）

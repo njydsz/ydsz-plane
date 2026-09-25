@@ -114,11 +114,12 @@ jobs:
           retention-days: 14
 
   # ------------------------------------------------------------------
-  # Job 2a: Coverage Ratchet 门禁（P2-3）
-  # 确保 PR 覆盖率不下降，低于 50% 阈值时阻断合并
-  # ------------------------------------------------------------------
+  # Job 2a: Coverage Ratchet 门禁（S16 P2-3）
+  // 确保 PR 覆盖率不下降（allowed_diff ≥ 0）。
+  // 整体覆盖率目标 ≥50%；PR 级别的 diff 不允许负值。
+  // ------------------------------------------------------------------
   coverage-gate:
-    name: Coverage Gate (>= 50%)
+    name: Coverage Gate (≥50%, PR diff ≥0%)
     needs: go-test
     runs-on: ubuntu-latest
     steps:
@@ -146,6 +147,94 @@ jobs:
             exit 1
           fi
           echo "✅ Coverage gate passed: $COVERAGE% >= 50%"
+
+      - name: Diff-check: PR coverage must not decrease (S16 ratchet)
+        if: github.event_name == 'pull_request'
+        run: |
+          # 获取 main 分支最新覆盖率作为 baseline
+          git fetch origin main --depth=1 2>/dev/null || true
+          git stash 2>/dev/null || true
+          git checkout origin/main -- . 2>/dev/null || echo "SKIP_BASELINE"
+          if [ -f go.mod ]; then
+            PKGS=$(go list ./... | grep -v '/web/node_modules/' | grep -v '/scripts/')
+            go test -count=1 -timeout 300s -coverprofile=coverage-main.out -covermode=atomic $PKGS 2>/dev/null || echo "BASELINE_BUILD_FAILED=1"
+            if [ -f coverage-main.out ]; then
+              MAIN_COV=$(grep -oP 'total:\s+\(statements\)\s+\K[0-9.]+' <(go tool cover -func=coverage-main.out | tail -1) || echo "0")
+              git checkout HEAD -- .
+              git stash pop 2>/dev/null || true
+              PKGS=$(go list ./... 2>/dev/null | grep -v '/web/node_modules/' | grep -v '/scripts/')
+              go test -count=1 -timeout 300s -coverprofile=coverage-pr.out -covermode=atomic $PKGS 2>/dev/null
+              PR_COV=$(grep -oP 'total:\s+\(statements\)\s+\K[0-9.]+' <(go tool cover -func=coverage-pr.out | tail -1) || echo "0")
+              DIFF=$(echo "$PR_COV - $MAIN_COV" | bc -l)
+              echo "Main coverage: $MAIN_COV%, PR coverage: $PR_COV%, diff: $DIFF%"
+              if (( $(echo "$DIFF < 0" | bc -l) )); then
+                echo "::error::PR decreased coverage by ${DIFF#-}% ($MAIN_COV% → $PR_COV%). Please add tests for new code."
+                exit 1
+              fi
+              echo "✅ PR coverage diff >= 0 ($DIFF%)"
+            fi
+          fi
+          git checkout HEAD -- . 2>/dev/null || true
+          git stash pop 2>/dev/null || true
+
+  # ------------------------------------------------------------------
+  # Job 2d: API Contract Sync Check (S16 P0-1)
+  # 检查 committed api.generated.ts 与 regenerated 的是否一致
+  # 注意：当 swagger 注解覆盖率 <80% 时为 warning（不阻断）
+  # ------------------------------------------------------------------
+  api-sync-check:
+    name: API Contract Sync (gen-diff)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - uses: pnpm/action-setup@v3
+        with:
+          version: latest
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "pnpm"
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      - name: Install web dependencies
+        run: pnpm install --frozen-lockfile
+        working-directory: web
+
+      - name: Install openapi-typescript
+        run: pnpm add -D openapi-typescript
+        working-directory: web
+
+      - name: Install swag
+        run: go install github.com/swaggo/swag/cmd/swag@latest
+
+      - name: Generate swagger + types
+        run: |
+          swag init -g cmd/api/main.go -o docs/swagger --parseDependency --parseInternal 2>&1 || echo "SWAG_GEN_WARN=1"
+          cd web && npx openapi-typescript ../docs/swagger/swagger.yaml -o src/types/api.generated.ts --path-params-as-hash-map false
+
+      - name: Check diff (warning mode until coverage ≥80%)
+        run: |
+          DIFF=$(git diff --stat web/src/types/api.generated.ts docs/swagger/swagger.yaml 2>/dev/null || true)
+          if [ -n "$DIFF" ]; then
+            echo "::warning::API contract drift detected. Run 'make gen' locally and commit changes."
+            echo "$DIFF"
+            # TODO: 注解覆盖率 ≥80% 后将 warning 升级为 error（阻断合并）
+            # exit 1
+          else
+            echo "✅ API contract in sync"
+          fi
+
+      - name: Report swagger coverage
+        run: |
+          PATHS=$(grep -c '^  /api/' docs/swagger/swagger.yaml 2>/dev/null || echo 0)
+          echo "::notice::Swagger annotated paths: $PATHS (target: ≥160 for 80% coverage)"
 
   # ------------------------------------------------------------------
   # Job 2c: API Breaking Change 门禁 — oasdiff（P2-9）
@@ -510,6 +599,104 @@ jobs:
 
       - name: run Playwright E2E tests
         run: cd web && pnpm exec playwright test --project=chromium
+
+      - name: stop API server
+        if: always()
+        run: pkill -f /tmp/ydsz-api 2>/dev/null || true
+
+  # ------------------------------------------------------------------
+  # Job 7: k6 Performance Baseline — S16 P2-2
+  # 轻量级性能基线验证（仅在 main 分支 push 时运行）
+  # 对标 Google SRE P95 < 200ms / 字节 API 规范
+  # ------------------------------------------------------------------
+  perf-baseline:
+    name: k6 Performance Baseline (P95 ≤ 200ms)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: go-test
+    concurrency: perf-${{ github.ref }}
+
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: ydsz_app
+          POSTGRES_PASSWORD: ydsz_test
+          POSTGRES_DB: ydsz_plane_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:8-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      YDSZ_DATABASE_URL: "postgres://ydsz_app:ydsz_test@localhost:5432/ydsz_plane_test?sslmode=disable"
+      YDSZ_REDIS_ADDR: "localhost:6379"
+      YDSZ_REDIS_PASSWORD: ""
+      YDSZ_SERVER_ENV: "development"
+      YDSZ_AUTH_JWT_SECRET: "ci-test-secret-key-at-least-32-bytes-long!!"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: init database schema
+        run: |
+          PGPASSWORD=ydsz_test psql -h localhost -U ydsz_app -d ydsz_plane_test \
+            -v ON_ERROR_STOP=1 \
+            -f sql/ydsz-plane-init.sql
+
+      - name: seed test data
+        run: go run ./scripts/seed
+
+      - name: build API binary
+        run: go build -o /tmp/ydsz-api ./cmd/api
+
+      - name: start API server
+        run: |
+          /tmp/ydsz-api > /tmp/api.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8080/healthz > /dev/null 2>&1; then
+              echo "API started after ${i}s"
+              break
+            fi
+            sleep 1
+          done
+
+      - name: install k6
+        run: |
+          sudo gpg -k
+          sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update
+          sudo apt-get install -y k6
+
+      - name: run k6 baseline smoke test
+        run: |
+          k6 run \
+            -e BASE_URL=http://localhost:8080/api/v1 \
+            -e TEST_USER_EMAIL=admin@njydsz.com \
+            -e TEST_USER_PASSWORD=Admin@1020 \
+            --summary-export=/tmp/k6-summary.json \
+            tests/perf/post-deploy-check.js
+          echo "--- k6 Summary ---"
+          cat /tmp/k6-summary.json || true
 
       - name: stop API server
         if: always()
