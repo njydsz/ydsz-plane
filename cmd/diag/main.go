@@ -4,10 +4,13 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+// Simulate the exact service.Create flow
 func main() {
 	db, err := pgxpool.New(context.Background(), "postgres://postgres:Limw1020@127.0.0.1:5432/ydsz-plane?sslmode=disable")
 	if err != nil {
@@ -16,53 +19,65 @@ func main() {
 	}
 	defer db.Close()
 
-	// 1. Create sequences
+	// Ensure sequences exist
 	_, _ = db.Exec(context.Background(), `CREATE SEQUENCE IF NOT EXISTS workspaces_id_seq START 1 INCREMENT 1`)
 	_, _ = db.Exec(context.Background(), `CREATE SEQUENCE IF NOT EXISTS workspace_members_id_seq START 1 INCREMENT 1`)
+	_, _ = db.Exec(context.Background(), `SELECT setval('workspaces_id_seq', (SELECT COALESCE(MAX(id), 0) + 1 FROM workspaces), false)`)
+	_, _ = db.Exec(context.Background(), `SELECT setval('workspace_members_id_seq', (SELECT COALESCE(MAX(id), 0) + 1 FROM workspace_members), false)`)
 
-	// 2. Set sequences to max(id)+1 to avoid collisions
-	_, err = db.Exec(context.Background(), `SELECT setval('workspaces_id_seq', (SELECT COALESCE(MAX(id), 0) + 1 FROM workspaces), false)`)
-	fmt.Printf("=== set worksequences start value: err=%v ===\n", err)
+	// Simulate workspace normalizelike service.normalizeSlug
+	name := "test-sim-1111"
+	slug := strings.ToLower(strings.ReplaceAll(name, " ", "-"))
 
-	_, err = db.Exec(context.Background(), `SELECT setval('workspace_members_id_seq', (SELECT COALESCE(MAX(id), 0) + 1 FROM workspace_members), false)`)
-	fmt.Printf("=== set workspace_members_id_seq start value: err=%v ===\n", err)
+	// Transaction
+	var wsID, memberID, memberCount int64
+	var wsName, wsSlug, wsRole string
+	err = pgx.BeginTxFunc(context.Background(), db, pgx.TxOptions{}, func(tx pgx.Tx) error {
+		if err := tx.QueryRow(context.Background(), "SELECT nextval('workspaces_id_seq')").Scan(&wsID); err != nil {
+			return fmt.Errorf("nextval workspace: %w", err)
+		}
+		var w struct {
+			id       int64
+			name     string
+			slug     string
+			logoURL  string
+			timezone string
+			language string
+			status   string
+			ownerID  int64
+		}
+		err := tx.QueryRow(context.Background(), `
+			INSERT INTO workspaces (id, name, slug, timezone, language, owner_id)
+			VALUES ($1, $2, $3, $4, $5, $6)
+			RETURNING id, name, slug, coalesce(logo_url,''), timezone, language, status, owner_id`,
+			wsID, name, slug, "Asia/Shanghai", "", 1).
+			Scan(&w.id, &w.name, &w.slug, &w.logoURL, &w.timezone, &w.language, &w.status, &w.ownerID)
+		if err != nil {
+			return fmt.Errorf("insert workspace: %w", err)
+		}
+		if err := tx.QueryRow(context.Background(), "SELECT nextval('workspace_members_id_seq')").Scan(&memberID); err != nil {
+			return fmt.Errorf("nextval member: %w", err)
+		}
+		if _, err := tx.Exec(context.Background(), `
+			INSERT INTO workspace_members (id, workspace_id, user_id, role, joined_at)
+			VALUES ($1, $2, $3, 'owner', now())`,
+			memberID, w.id, 1); err != nil {
+			return fmt.Errorf("insert member: %w", err)
+		}
+		wsID = w.id
+		wsName = w.name
+		wsSlug = w.slug
+		wsRole = "owner"
+		memberCount = 1
+		return nil
+	})
+	fmt.Printf("=== Create result: id=%d name=%s slug=%s role=%s members=%d err=%v ===\n",
+		wsID, wsName, wsSlug, wsRole, memberCount, err)
 
-	// 3. Verify sequences
-	rows, _ := db.Query(context.Background(), "SELECT relname, last_value FROM pg_class WHERE relkind='S' AND relname LIKE '%workspace%'")
-	fmt.Println("=== sequences (with current value) ===")
-	for rows.Next() {
-		var name string
-		var lastVal int64
-		rows.Scan(&name, &lastVal)
-		fmt.Printf("  %s (last_value=%d)\n", name, lastVal)
-	}
-	rows.Close()
-
-	// 4. Full test insert
-	var wsID int64
-	err = db.QueryRow(context.Background(), `
-		INSERT INTO workspaces (id, name, slug, owner_id)
-		VALUES (nextval('workspaces_id_seq'), 'test-full-1111', 'test-full-1111', 1)
-		RETURNING id
-	`).Scan(&wsID)
-	fmt.Printf("=== insert workspace: id=%d, err=%v ===\n", wsID, err)
-
-	if err == nil {
-		_, err = db.Exec(context.Background(), `
-			INSERT INTO workspace_members (id, workspace_id, user_id, role)
-			VALUES (nextval('workspace_members_id_seq'), $1, 1, 'owner')
-		`, wsID)
-		fmt.Printf("=== insert workspace_member: err=%v ===\n", err)
-	}
-
-	// 5. Cleanup test data
+	// Cleanup
 	if wsID > 0 {
 		db.Exec(context.Background(), "DELETE FROM workspace_members WHERE workspace_id = $1", wsID)
 		db.Exec(context.Background(), "DELETE FROM workspaces WHERE id = $1", wsID)
+		fmt.Println("=== cleanup done ===")
 	}
-
-	var seqCount, wsCount int
-	db.QueryRow(context.Background(), "SELECT count(*) FROM pg_class WHERE relkind='S' AND relname LIKE 'workspaces_id_seq'").Scan(&seqCount)
-	db.QueryRow(context.Background(), "SELECT count(*) FROM workspaces WHERE slug LIKE 'test-full%'").Scan(&wsCount)
-	fmt.Printf("=== final: sequences=%d, leftover_test_rows=%d ===\n", seqCount, wsCount)
 }
