@@ -135,8 +135,9 @@ func (d *PostgresDialect) JSONBExtract(column, key string) string {
 	if !isValidJSONBKey(key) {
 		panic(fmt.Sprintf("persistence: invalid JSONB key %q (仅允许 [a-zA-Z0-9_])", key))
 	}
-	// column 通过 QuoteIdentifier 转义后注入（调用方保证）
-	return fmt.Sprintf("%s->>'%s'", column, key)
+	// P0-安全修复：column 通过 QuoteIdentifier 转义，防止列名注入
+	quotedCol := d.QuoteIdentifier(column)
+	return fmt.Sprintf("%s->>'%s'", quotedCol, key)
 }
 
 // isValidJSONBKey 校验 JSONB key 仅包含安全字符（字母/数字/下划线）。
@@ -216,7 +217,13 @@ func (d *DamengDialect) ILike(column, placeholder string) string {
 }
 
 func (d *DamengDialect) JSONBExtract(column, key string) string {
-	return fmt.Sprintf("JSON_VALUE(%s, '$.%s')", column, key)
+	// P0-安全修复：key 白名单校验，防止达梦 JSON_VALUE 注入
+	if !isValidJSONBKey(key) {
+		panic(fmt.Sprintf("persistence: invalid JSONB key %q (仅允许 [a-zA-Z0-9_])", key))
+	}
+	// column 通过 QuoteIdentifier 转义
+	quotedCol := d.QuoteIdentifier(column)
+	return fmt.Sprintf("JSON_VALUE(%s, '$.%s')", quotedCol, key)
 }
 
 func (d *DamengDialect) FullTextSearch(column, placeholder string) string {
