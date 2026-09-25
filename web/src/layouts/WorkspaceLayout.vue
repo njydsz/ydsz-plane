@@ -317,8 +317,8 @@ watch(
             </button>
           </div>
           <div class="ws-switcher__actions">
-            <button class="ws-switcher__action" @click="gotoList">📋 查看所有</button>
-            <button class="ws-switcher__action" @click="gotoCreate">＋ 创建新空间</button>
+            <button class="ws-switcher__action" @click="gotoList">📋 查看所有空间</button>
+            <button class="ws-switcher__action" @click="gotoCreate">＋ 创建工作空间</button>
           </div>
         </div>
       </div>
