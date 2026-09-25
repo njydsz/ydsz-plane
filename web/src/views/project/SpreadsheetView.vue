@@ -160,10 +160,11 @@ async function commitEdit() {
   if (!editingCell.value) return;
   const { row, col } = editingCell.value;
   const issue = issues.value[row];
-  const originalValue = String(issue?.[col as keyof Issue] ?? "");
+  const colVal = issue?.[col as keyof Issue] as string | number | boolean | null | undefined;
+  const originalValue = colVal != null ? String(colVal) : "";
 
   // 先更新本地（乐观更新）
-  issues.value[row] = { ...issue, [col]: editValue.value } as Issue;
+  issues.value[row] = { ...issue, [col]: editValue.value };
   editingCell.value = null;
 
   // 如果值没有变化，跳过 API 调用
@@ -219,7 +220,9 @@ function handleKeydown(e: KeyboardEvent) {
       const cols = visibleColumns.value.filter((c) => c.editable);
       const idx = cols.findIndex((c) => c.key === editingCell.value!.col);
       if (idx < cols.length - 1) {
-        startEdit(editingCell.value!.row, cols[idx + 1].key, String(issues.value[editingCell.value!.row]?.[cols[idx + 1].key as keyof Issue] ?? ""));
+        const nextColKey = cols[idx + 1].key as keyof Issue;
+        const nextVal = issues.value[editingCell.value.row]?.[nextColKey] as string | number | boolean | null | undefined;
+        startEdit(editingCell.value.row, cols[idx + 1].key, nextVal != null ? String(nextVal) : "");
       }
     }
     return;
@@ -240,8 +243,9 @@ function handleKeydown(e: KeyboardEvent) {
         const firstEditableCol = visibleColumns.value.find((c) => c.editable);
         if (firstEditableCol) {
           const issue = issues.value[activeRowIndex.value];
-          const val = String(issue?.[firstEditableCol.key as keyof Issue] ?? "");
-          startEdit(activeRowIndex.value, firstEditableCol.key, val);
+          const colKey = firstEditableCol.key as keyof Issue;
+          const cellVal = issue?.[colKey] as string | number | boolean | null | undefined;
+          startEdit(activeRowIndex.value, firstEditableCol.key, cellVal != null ? String(cellVal) : "");
         }
       }
       break;
@@ -310,6 +314,7 @@ function getCellValue(issue: Issue, colKey: string): string {
   }
   const val = issue[colKey as keyof Issue];
   if (val === null || val === undefined) return "";
+  if (typeof val === "object") return JSON.stringify(val);
   return String(val);
 }
 

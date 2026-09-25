@@ -203,20 +203,25 @@ func (s *DefectService) Update(ctx context.Context, wsID, defectID int64, in Upd
 // SoftDelete 归档。
 func (s *DefectService) SoftDelete(ctx context.Context, wsID, defectID int64) error {
 	return s.withTx(ctx, wsID, func(tx pgx.Tx) error {
-		if _, err := tx.Exec(ctx, `DELETE FROM sprint_defects WHERE defect_id = $1`, defectID); err != nil {
-			return err
-		}
-		tag, err := tx.Exec(ctx, `
-			UPDATE defect SET deleted = true, updated_at = now()
-			WHERE id = $1 AND workspace_id = $2 AND deleted = false`, defectID, wsID)
-		if err != nil {
-			return err
-		}
-		if tag.RowsAffected() == 0 {
-			return errs.ErrNotFound
-		}
-		return nil
+		return s.softDeleteTx(ctx, tx, wsID, defectID)
 	})
+}
+
+// softDeleteTx 在调用方提供的事务内执行软删除（供 BatchUpdate 复用，保持语义一致）。
+func (s *DefectService) softDeleteTx(ctx context.Context, tx pgx.Tx, wsID, defectID int64) error {
+	if _, err := tx.Exec(ctx, `DELETE FROM sprint_defects WHERE defect_id = $1`, defectID); err != nil {
+		return errs.ErrInternal.Wrap(err)
+	}
+	tag, err := tx.Exec(ctx, `
+		UPDATE defect SET deleted = true, updated_at = now()
+		WHERE id = $1 AND workspace_id = $2 AND deleted = false`, defectID, wsID)
+	if err != nil {
+		return errs.ErrInternal.Wrap(err)
+	}
+	if tag.RowsAffected() == 0 {
+		return errs.ErrNotFound
+	}
+	return nil
 }
 
 // Restore 从回收站恢复。
@@ -236,69 +241,78 @@ func (s *DefectService) Restore(ctx context.Context, wsID, defectID int64) error
 // Transition 执行状态流转。缺陷完成时需要额外校验 root_cause_category + fix_version_id。
 func (s *DefectService) Transition(ctx context.Context, wsID, projectID, defectID, toStateID, userID int64) (*Defect, error) {
 	err := s.withTx(ctx, wsID, func(tx pgx.Tx) error {
-		d, err := s.getByIDTx(ctx, tx, defectID, wsID)
-		if err != nil {
-			return err
-		}
-		if d.StateID == toStateID {
-			return nil
-		}
-
-		toGroup, err := s.stateSvc.StateGroupByID(ctx, toStateID)
-		if err != nil {
-			return err
-		}
-		if err := s.stateSvc.ValidateTransition(ctx, wsID, projectID, TransitionInput{
-			IssueID: defectID, FromState: d.StateID, ToState: toStateID, TypeCode: d.TypeCode,
-			Context: TransitionContext{RootCauseCategory: d.RootCauseCategory, FixVersionID: d.FixVersionID},
-		}); err != nil {
-			return err
-		}
-
-		// 缺陷完成时必填校验
-		if toGroup == GroupCompleted {
-			var rc sql.NullString
-			var fv sql.NullInt64
-			if scanErr := tx.QueryRow(ctx,
-				`SELECT root_cause_category, fix_version_id FROM defect WHERE id = $1 AND workspace_id = $2`,
-				defectID, wsID).Scan(&rc, &fv); scanErr != nil {
-				return errs.ErrInternal.Wrap(scanErr)
-			}
-			if !rc.Valid || rc.String == "" {
-				return errs.ErrValidation.WithDetails(errs.FieldDetail{Field: "root_cause_category", Reason: "缺陷关闭时根因分类为必填"})
-			}
-			if !fv.Valid {
-				return errs.ErrValidation.WithDetails(errs.FieldDetail{Field: "fix_version_id", Reason: "缺陷关闭时修复版本为必填"})
-			}
-		}
-
-		completedAtClause := "NULL"
-		progress := d.Progress
-		if toGroup == GroupCompleted {
-			completedAtClause = "now()"
-			progress = 100
-		}
-		query := fmt.Sprintf(`UPDATE defect SET state_id = $1, completed_at = %s,
-			progress = $2, version = version + 1, updated_at = now()
-			WHERE id = $3 AND workspace_id = $4 AND deleted = false`, completedAtClause)
-		if _, err := tx.Exec(ctx, query, toStateID, progress, defectID, wsID); err != nil {
-			return err
-		}
-		d.StateID = toStateID
-
-		assignees := loadIntArrayTx(ctx, tx, `SELECT user_id FROM defect_assignees WHERE defect_id = $1`, defectID)
-		var identifier, defectName string
-		_ = tx.QueryRow(ctx, `SELECT p.identifier, d.name
-			FROM defect d JOIN projects p ON p.id = d.project_id
-			WHERE d.id = $1`, defectID).Scan(&identifier, &defectName)
-		actorName := getUserNameTx(ctx, tx, userID)
-		return recordWorkitemEvent(ctx, tx, "workitem.status_changed", wsID, projectID, defectID, TypeDefect,
-			userID, actorName, identifier, defectName, assignees, loadStateName(ctx, tx, d.StateID), loadStateName(ctx, tx, toStateID))
+		_, err := s.transitionTx(ctx, tx, wsID, projectID, defectID, toStateID, userID)
+		return err
 	})
 	if err != nil {
 		return nil, err
 	}
 	return s.GetByID(ctx, wsID, defectID)
+}
+
+// transitionTx 在调用方提供的事务内执行状态流转（不读取提交后状态，供 BatchUpdate 复用）。
+func (s *DefectService) transitionTx(ctx context.Context, tx pgx.Tx, wsID, projectID, defectID, toStateID, userID int64) (*Defect, error) {
+	d, err := s.getByIDTx(ctx, tx, defectID, wsID)
+	if err != nil {
+		return nil, err
+	}
+	if d.StateID == toStateID {
+		return d, nil
+	}
+
+	toGroup, err := s.stateSvc.StateGroupByID(ctx, toStateID)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.stateSvc.ValidateTransition(ctx, wsID, projectID, TransitionInput{
+		IssueID: defectID, FromState: d.StateID, ToState: toStateID, TypeCode: d.TypeCode,
+		Context: TransitionContext{RootCauseCategory: d.RootCauseCategory, FixVersionID: d.FixVersionID},
+	}); err != nil {
+		return nil, err
+	}
+
+	// 缺陷完成时必填校验
+	if toGroup == GroupCompleted {
+		var rc sql.NullString
+		var fv sql.NullInt64
+		if scanErr := tx.QueryRow(ctx,
+			`SELECT root_cause_category, fix_version_id FROM defect WHERE id = $1 AND workspace_id = $2`,
+			defectID, wsID).Scan(&rc, &fv); scanErr != nil {
+			return nil, errs.ErrInternal.Wrap(scanErr)
+		}
+		if !rc.Valid || rc.String == "" {
+			return nil, errs.ErrValidation.WithDetails(errs.FieldDetail{Field: "root_cause_category", Reason: "缺陷关闭时根因分类为必填"})
+		}
+		if !fv.Valid {
+			return nil, errs.ErrValidation.WithDetails(errs.FieldDetail{Field: "fix_version_id", Reason: "缺陷关闭时修复版本为必填"})
+		}
+	}
+
+	completedAtClause := "NULL"
+	progress := d.Progress
+	if toGroup == GroupCompleted {
+		completedAtClause = "now()"
+		progress = 100
+	}
+	query := fmt.Sprintf(`UPDATE defect SET state_id = $1, completed_at = %s,
+		progress = $2, version = version + 1, updated_at = now()
+		WHERE id = $3 AND workspace_id = $4 AND deleted = false`, completedAtClause)
+	if _, err := tx.Exec(ctx, query, toStateID, progress, defectID, wsID); err != nil {
+		return nil, err
+	}
+	d.StateID = toStateID
+
+	assignees := loadIntArrayTx(ctx, tx, `SELECT user_id FROM defect_assignees WHERE defect_id = $1`, defectID)
+	var identifier, defectName string
+	_ = tx.QueryRow(ctx, `SELECT p.identifier, d.name
+		FROM defect d JOIN projects p ON p.id = d.project_id
+		WHERE d.id = $1`, defectID).Scan(&identifier, &defectName)
+	actorName := getUserNameTx(ctx, tx, userID)
+	if err := recordWorkitemEvent(ctx, tx, "workitem.status_changed", wsID, projectID, defectID, TypeDefect,
+		userID, actorName, identifier, defectName, assignees, loadStateName(ctx, tx, d.StateID), loadStateName(ctx, tx, toStateID)); err != nil {
+		return nil, err
+	}
+	return d, nil
 }
 
 // --- 内部方法 ---

@@ -188,20 +188,25 @@ func (s *TaskService) Update(ctx context.Context, wsID, taskID int64, in UpdateT
 // SoftDelete 归档。
 func (s *TaskService) SoftDelete(ctx context.Context, wsID, taskID int64) error {
 	return s.withTx(ctx, wsID, func(tx pgx.Tx) error {
-		if _, err := tx.Exec(ctx, `DELETE FROM sprint_tasks WHERE task_id = $1`, taskID); err != nil {
-			return err
-		}
-		tag, err := tx.Exec(ctx, `
-			UPDATE task SET deleted = true, updated_at = now()
-			WHERE id = $1 AND workspace_id = $2 AND deleted = false`, taskID, wsID)
-		if err != nil {
-			return err
-		}
-		if tag.RowsAffected() == 0 {
-			return errs.ErrNotFound
-		}
-		return nil
+		return s.softDeleteTx(ctx, tx, wsID, taskID)
 	})
+}
+
+// softDeleteTx 在调用方提供的事务内执行软删除（供 BatchUpdate 复用，保持语义一致）。
+func (s *TaskService) softDeleteTx(ctx context.Context, tx pgx.Tx, wsID, taskID int64) error {
+	if _, err := tx.Exec(ctx, `DELETE FROM sprint_tasks WHERE task_id = $1`, taskID); err != nil {
+		return errs.ErrInternal.Wrap(err)
+	}
+	tag, err := tx.Exec(ctx, `
+		UPDATE task SET deleted = true, updated_at = now()
+		WHERE id = $1 AND workspace_id = $2 AND deleted = false`, taskID, wsID)
+	if err != nil {
+		return errs.ErrInternal.Wrap(err)
+	}
+	if tag.RowsAffected() == 0 {
+		return errs.ErrNotFound
+	}
+	return nil
 }
 
 // Restore 从回收站恢复。
@@ -221,48 +226,57 @@ func (s *TaskService) Restore(ctx context.Context, wsID, taskID int64) error {
 // Transition 执行状态流转。
 func (s *TaskService) Transition(ctx context.Context, wsID, projectID, taskID, toStateID, userID int64) (*Task, error) {
 	err := s.withTx(ctx, wsID, func(tx pgx.Tx) error {
-		t, err := s.getByIDTx(ctx, tx, taskID, wsID)
-		if err != nil {
-			return err
-		}
-		if t.StateID == toStateID {
-			return nil
-		}
-		if err := s.stateSvc.ValidateTransition(ctx, wsID, projectID, TransitionInput{
-			IssueID: taskID, FromState: t.StateID, ToState: toStateID, TypeCode: t.TypeCode,
-		}); err != nil {
-			return err
-		}
-
-		toGroup, err := s.stateSvc.StateGroupByID(ctx, toStateID)
-		if err != nil {
-			return err
-		}
-		completedAtClause := "NULL"
-		progress := t.Progress
-		if toGroup == GroupCompleted {
-			completedAtClause = "now()"
-			progress = 100
-		}
-		query := fmt.Sprintf(`UPDATE task SET state_id = $1, completed_at = %s, progress = $2, version = version + 1, updated_at = now()
-			WHERE id = $3 AND workspace_id = $4 AND deleted = false`, completedAtClause)
-		if _, err := tx.Exec(ctx, query, toStateID, progress, taskID, wsID); err != nil {
-			return err
-		}
-		t.StateID = toStateID
-
-		assignees := loadIntArrayTx(ctx, tx, `SELECT user_id FROM task_assignees WHERE task_id = $1`, taskID)
-		var identifier, name string
-		_ = tx.QueryRow(ctx, `SELECT p.identifier, t.name FROM task t JOIN projects p ON p.id = t.project_id
-			WHERE t.id = $1`, taskID).Scan(&identifier, &name)
-		actorName := getUserNameTx(ctx, tx, userID)
-		return recordWorkitemEvent(ctx, tx, "workitem.status_changed", wsID, projectID, taskID, TypeTask,
-			userID, actorName, identifier, name, assignees, loadStateName(ctx, tx, t.StateID), loadStateName(ctx, tx, toStateID))
+		_, err := s.transitionTx(ctx, tx, wsID, projectID, taskID, toStateID, userID)
+		return err
 	})
 	if err != nil {
 		return nil, err
 	}
 	return s.GetByID(ctx, wsID, taskID)
+}
+
+// transitionTx 在调用方提供的事务内执行状态流转（不读取提交后状态，供 BatchUpdate 复用）。
+func (s *TaskService) transitionTx(ctx context.Context, tx pgx.Tx, wsID, projectID, taskID, toStateID, userID int64) (*Task, error) {
+	t, err := s.getByIDTx(ctx, tx, taskID, wsID)
+	if err != nil {
+		return nil, err
+	}
+	if t.StateID == toStateID {
+		return t, nil
+	}
+	if err := s.stateSvc.ValidateTransition(ctx, wsID, projectID, TransitionInput{
+		IssueID: taskID, FromState: t.StateID, ToState: toStateID, TypeCode: t.TypeCode,
+	}); err != nil {
+		return nil, err
+	}
+
+	toGroup, err := s.stateSvc.StateGroupByID(ctx, toStateID)
+	if err != nil {
+		return nil, err
+	}
+	completedAtClause := "NULL"
+	progress := t.Progress
+	if toGroup == GroupCompleted {
+		completedAtClause = "now()"
+		progress = 100
+	}
+	query := fmt.Sprintf(`UPDATE task SET state_id = $1, completed_at = %s, progress = $2, version = version + 1, updated_at = now()
+		WHERE id = $3 AND workspace_id = $4 AND deleted = false`, completedAtClause)
+	if _, err := tx.Exec(ctx, query, toStateID, progress, taskID, wsID); err != nil {
+		return nil, err
+	}
+	t.StateID = toStateID
+
+	assignees := loadIntArrayTx(ctx, tx, `SELECT user_id FROM task_assignees WHERE task_id = $1`, taskID)
+	var identifier, name string
+	_ = tx.QueryRow(ctx, `SELECT p.identifier, t.name FROM task t JOIN projects p ON p.id = t.project_id
+		WHERE t.id = $1`, taskID).Scan(&identifier, &name)
+	actorName := getUserNameTx(ctx, tx, userID)
+	if err := recordWorkitemEvent(ctx, tx, "workitem.status_changed", wsID, projectID, taskID, TypeTask,
+		userID, actorName, identifier, name, assignees, loadStateName(ctx, tx, t.StateID), loadStateName(ctx, tx, toStateID)); err != nil {
+		return nil, err
+	}
+	return t, nil
 }
 
 // --- 内部方法 ---

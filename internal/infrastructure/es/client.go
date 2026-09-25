@@ -2,10 +2,11 @@
 //
 // 设计要点:
 //   - 支持 ES 8.x，使用官方 go-elasticsearch 客户端
-//   - 连接池配置（对标大厂：最大空闲连接 50，每个主机最多 10）
+//   - 连接池配置（对标 Google SRE Book Ch.17：最大空闲连接 50，每个主机最多 10）
 //   - 健康检查 + 自动降级标记
 //   - 零停机索引别名切换
 //   - 批量索引 (Bulk API)
+//   - Worker Pool 并行 Reindex（对标 Google SRE Book Ch.17：面向吞吐的重构）
 //
 // 环境变量:
 //   - YDSZ_ES_URLS: ES 集群地址，逗号分隔（默认 http://127.0.0.1:9200）
@@ -18,14 +19,21 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
+	"runtime"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+	"go.uber.org/zap"
 
 	"github.com/njydsz/ydsz-plane/pkg/errs"
 )
@@ -73,15 +81,46 @@ func DefaultConfig() Config {
 	}
 }
 
+// --- Prometheus Metrics (对标 Google SRE Book Ch.17: 负载监控) ---
+
+var (
+	// ReindexRequestsTotal 统计 ES reindex 请求总数（按 doc_type 分组）。
+	ReindexRequestsTotal = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: "plane",
+			Name:      "es_reindex_requests_total",
+			Help:      "Total ES reindex bulk requests.",
+		},
+		[]string{"doc_type"},
+	)
+
+	// ReindexErrorsTotal 统计 ES reindex 失败次数。
+	ReindexErrorsTotal = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: "plane",
+			Name:      "es_reindex_errors_total",
+			Help:      "Total ES reindex bulk failures.",
+		},
+		[]string{"doc_type"},
+	)
+)
+
 // Client ES 客户端封装。
 type Client struct {
 	cfg    Config
 	http   *http.Client
+	logger *zap.Logger
 	mu     sync.RWMutex
 	closed bool
 
 	// 健康状态（原子操作，零锁争用）
 	healthy atomic.Bool
+
+	// ReindexWorkers worker pool 并行度（默认 min(NumCPU, 8)）。
+	ReindexWorkers int
+
+	// ReindexBatchSize 每个 bulk 请求的批次大小（默认 1000）。
+	ReindexBatchSize int
 }
 
 // NewClient 创建 ES 客户端。
@@ -117,12 +156,21 @@ func NewClient(cfg Config) (*Client, error) {
 		},
 	}
 
+	// worker 并行度：默认 min(NumCPU, 8)，上限保护避免过多连接争用
+	workers := runtime.NumCPU()
+	if workers > 8 {
+		workers = 8
+	}
+	if workers < 1 {
+		workers = 4
+	}
+
 	c := &Client{
-		cfg: cfg,
-		http: &http.Client{
-			Transport: transport,
-			Timeout:   cfg.Timeout,
-		},
+		cfg:              cfg,
+		http:             &http.Client{Transport: transport, Timeout: cfg.Timeout},
+		logger:           zap.NewNop(),
+		ReindexWorkers:   workers,
+		ReindexBatchSize: 1000,
 	}
 
 	// 启动时标记为健康，由定期健康检查维护
@@ -734,6 +782,14 @@ type ReindexResult struct {
 	DurationMs int64 `json:"duration_ms"`
 }
 
+// ReindexStats 带统计的重建结果（原子计数器汇总）。
+type ReindexStats struct {
+	Total    int64 `json:"total"`
+	Success  int64 `json:"success"`
+	Failed   int64 `json:"failed"`
+	DurationMs int64 `json:"duration_ms"`
+}
+
 // Reindex 从 PostgreSQL search_documents 表全量重建 ES 索引。
 // 采用蓝绿部署：先建新索引 → bulk 写入 → 切别名 → 删旧索引。
 func (c *Client) Reindex(ctx context.Context, index string, mapping map[string]any, source <-chan BulkDoc) (*ReindexResult, error) {
@@ -829,3 +885,237 @@ func (c *Client) refreshIndex(ctx context.Context, index string) error {
 
 // ReindexSource 提供从 PG 读取数据以重建索引的通道。
 type ReindexSource func(ctx context.Context) (<-chan BulkDoc, <-chan error)
+
+// --- Parallel Reindex (对标 Google SRE Book Ch.17: Worker Pool) ---
+
+// reindexDoc 是 producer→worker 投递的内部消息。
+type reindexDoc struct {
+	workspaceID int64
+	doc         BulkDoc
+}
+
+// ReindexAll 使用 worker pool 并行重建索引（兼容旧接口：仅返回 error）。
+// 由 DB 按 workspace_id hash 分区投递到各 worker，各自独立构建 bulk request。
+func (c *Client) ReindexAll(ctx context.Context, index, docType string, mapping map[string]any, db *pgxpool.Pool) error {
+	_, err := c.ReindexAllWithStats(ctx, index, docType, mapping, db)
+	return err
+}
+
+// ReindexAllWithStats 带统计版本的并行重建。
+//
+// 工作流:
+//  1. producer 从 DB 查询 search_documents，按 workspace_id % workers hash 分区
+//  2. 各 worker 从独立 channel 读取文档，累积到 ReindexBatchSize 后执行 BulkIndex
+//  3. 使用 atomic 汇总 total/success/failed
+//  4. 蓝绿切换别名并刷新
+func (c *Client) ReindexAllWithStats(ctx context.Context, index, docType string, mapping map[string]any, db *pgxpool.Pool) (*ReindexStats, error) {
+	start := time.Now()
+	workers := c.ReindexWorkers
+	if workers < 1 {
+		workers = 4
+	}
+	batchSize := c.ReindexBatchSize
+	if batchSize < 1 {
+		batchSize = 1000
+	}
+
+	baseIdx := c.IndexName(index)
+	alias := baseIdx + "_current"
+	newIdx := baseIdx + "_" + time.Now().Format("20060102_150405")
+
+	// 1. 创建新索引
+	if err := c.CreateIndex(ctx, newIdx, mapping); err != nil {
+		return nil, err
+	}
+
+	// 2. 启动 worker pool + producer
+	stats := &ReindexStats{}
+	var success atomic.Int64
+	var failed atomic.Int64
+	var total atomic.Int64
+
+	// worker channel buffer = workers * 10
+	workerChs := make([]chan reindexDoc, workers)
+	for i := 0; i < workers; i++ {
+		workerChs[i] = make(chan reindexDoc, workers*10)
+	}
+
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	var wg sync.WaitGroup
+
+	// worker goroutines
+	for i := 0; i < workers; i++ {
+		wg.Add(1)
+		go func(id int, ch <-chan reindexDoc) {
+			defer wg.Done()
+			batch := make([]BulkDoc, 0, batchSize)
+			for d := range ch {
+				batch = append(batch, d.doc)
+				if len(batch) >= batchSize {
+					c.flushBatch(ctx, newIdx, docType, batch, &success, &failed)
+					batch = batch[:0]
+				}
+			}
+			// flush remaining
+			if len(batch) > 0 {
+				c.flushBatch(ctx, newIdx, docType, batch, &success, &failed)
+			}
+		}(i, workerChs[i])
+	}
+
+	// producer: 从 DB 读取 search_documents，按 workspace_id hash 分区投递
+producerLoop:
+	for {
+		rows, err := db.Query(ctx, `
+			SELECT workspace_id, project_id, doc_type, doc_id, identifier, title, content,
+			       state_id, state_name, priority, severity, assignee_ids, label_ids,
+			       module_ids, sprint_id, version_id, created_by, target_date, created_at, updated_at
+			FROM search_documents
+			WHERE doc_type = $1
+			ORDER BY workspace_id, doc_id`, docType)
+		if err != nil {
+			cancel()
+			for i := 0; i < workers; i++ {
+				close(workerChs[i])
+			}
+			wg.Wait()
+			_ = c.DeleteIndex(ctx, newIdx)
+			return nil, fmt.Errorf("es: reindex query: %w", err)
+		}
+
+		for rows.Next() {
+			var wsID, projectID, docID, stateID int64
+			var identifier, docTypeDB, title, content, stateName, priority string
+			var severity int
+			var assigneeIDs, labelIDs, moduleIDs []int64
+			var sprintID, versionID, createdBy int64
+			var targetDate sql.NullTime
+			var createdAt, updatedAt time.Time
+
+			err := rows.Scan(&wsID, &projectID, &docTypeDB, &docID, &identifier, &title, &content,
+				&stateID, &stateName, &priority, &severity, &assigneeIDs, &labelIDs,
+				&moduleIDs, &sprintID, &versionID, &createdBy, &targetDate, &createdAt, &updatedAt)
+			if err != nil {
+				rows.Close()
+				cancel()
+				for i := 0; i < workers; i++ {
+					close(workerChs[i])
+				}
+				wg.Wait()
+				_ = c.DeleteIndex(ctx, newIdx)
+				return nil, fmt.Errorf("es: reindex scan: %w", err)
+			}
+
+			total.Add(1)
+
+			doc := BulkDoc{
+				ID: fmt.Sprintf("%d_%d_%s_%d", wsID, projectID, docTypeDB, docID),
+				Source: map[string]any{
+					"workspace_id": wsID,
+					"project_id":   projectID,
+					"doc_type":     docTypeDB,
+					"doc_id":       docID,
+					"identifier":   identifier,
+					"title":        title,
+					"content":      content,
+					"state_id":     stateID,
+					"state_name":   stateName,
+					"priority":     priority,
+					"severity":     severity,
+					"assignee_ids": assigneeIDs,
+					"label_ids":    labelIDs,
+					"module_ids":   moduleIDs,
+					"sprint_id":    sprintID,
+					"version_id":   versionID,
+					"created_by":   createdBy,
+					"target_date":  targetDate,
+					"created_at":   createdAt,
+					"updated_at":   updatedAt,
+				},
+			}
+
+			// hash 分区
+			workerID := int(wsID) % workers
+			if workerID < 0 {
+				workerID = -workerID
+			}
+			select {
+			case <-ctx.Done():
+				rows.Close()
+				break producerLoop
+			case workerChs[workerID] <- reindexDoc{workspaceID: wsID, doc: doc}:
+			}
+		}
+		rows.Close()
+		break
+	}
+
+	// 关闭所有 worker channel（producer 完成）
+	for i := 0; i < workers; i++ {
+		close(workerChs[i])
+	}
+	wg.Wait()
+
+	// 3. 刷新索引
+	if err := c.refreshIndex(ctx, newIdx); err != nil {
+		_ = c.DeleteIndex(ctx, newIdx)
+		return nil, err
+	}
+
+	// 4. 原子切换别名
+	exists, _ := c.AliasExists(ctx, alias)
+	if exists {
+		if err := c.SwapAlias(ctx, alias, baseIdx+"_current", newIdx); err != nil {
+			_ = c.DeleteIndex(ctx, newIdx)
+			return nil, err
+		}
+	} else {
+		body := map[string]any{
+			"actions": []map[string]any{
+				{"add": map[string]any{"index": newIdx, "alias": alias}},
+			},
+		}
+		jsonBody, _ := json.Marshal(body)
+		resp, err := c.doRequest(ctx, "POST", "/_aliases", bytes.NewReader(jsonBody))
+		if err != nil {
+			_ = c.DeleteIndex(ctx, newIdx)
+			return nil, err
+		}
+		resp.Body.Close()
+	}
+
+	stats.Total = total.Load()
+	stats.Success = success.Load()
+	stats.Failed = failed.Load()
+	stats.DurationMs = time.Since(start).Milliseconds()
+
+	if c.logger != nil {
+		c.logger.Info("es reindex completed",
+			zap.String("doc_type", docType),
+			zap.Int64("total", stats.Total),
+			zap.Int64("success", stats.Success),
+			zap.Int64("failed", stats.Failed),
+			zap.Int64("duration_ms", stats.DurationMs),
+			zap.Int("workers", workers))
+	}
+
+	return stats, nil
+}
+
+// flushBatch 将一批文档 bulk 写入 ES 并原子更新统计。
+func (c *Client) flushBatch(ctx context.Context, index, docType string, batch []BulkDoc, success, failed *atomic.Int64) {
+	ReindexRequestsTotal.WithLabelValues(docType).Inc()
+	s, f, err := c.BulkIndex(ctx, index, batch)
+	if err != nil {
+		ReindexErrorsTotal.WithLabelValues(docType).Inc()
+		failed.Add(int64(len(batch)))
+		return
+	}
+	success.Add(int64(s))
+	failed.Add(int64(f))
+	if f > 0 {
+		ReindexErrorsTotal.WithLabelValues(docType).Add(float64(f))
+	}
+}

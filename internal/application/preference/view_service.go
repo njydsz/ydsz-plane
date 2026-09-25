@@ -1,4 +1,7 @@
 // Package preference — 视图偏好持久化及命名视图管理。
+//
+// 提供命名视图（Named View）的完整生命周期：创建、更新、删除、设为默认，
+// 支持"过滤器 + 排序 + 分组 + 列配置"的组合保存。
 package preference
 
 import (
@@ -10,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/njydsz/ydsz-plane/pkg/errs"
+	"github.com/njydsz/ydsz-plane/pkg/strutil"
 )
 
 // SavedViewScope 视图范围枚举。
@@ -128,27 +132,27 @@ func (s *ViewService) Update(ctx context.Context, viewID, userID int64, input *U
 	argIdx := 2
 
 	if input.Name != nil {
-		setClauses = append(setClauses, "name = $"+itoa(argIdx))
+		setClauses = append(setClauses, "name = $"+strutil.FastItoa(argIdx))
 		args = append(args, *input.Name)
 		argIdx++
 	}
 	if input.Type != nil {
-		setClauses = append(setClauses, "type = $"+itoa(argIdx))
+		setClauses = append(setClauses, "type = $"+strutil.FastItoa(argIdx))
 		args = append(args, string(*input.Type))
 		argIdx++
 	}
 	if input.Scope != nil {
-		setClauses = append(setClauses, "scope = $"+itoa(argIdx))
+		setClauses = append(setClauses, "scope = $"+strutil.FastItoa(argIdx))
 		args = append(args, string(*input.Scope))
 		argIdx++
 	}
 	if input.Config != nil {
-		setClauses = append(setClauses, "config = $"+itoa(argIdx))
+		setClauses = append(setClauses, "config = $"+strutil.FastItoa(argIdx))
 		args = append(args, *input.Config)
 		argIdx++
 	}
 	if input.IsShared != nil {
-		setClauses = append(setClauses, "is_shared = $"+itoa(argIdx))
+		setClauses = append(setClauses, "is_shared = $"+strutil.FastItoa(argIdx))
 		args = append(args, *input.IsShared)
 		argIdx++
 	}
@@ -305,18 +309,6 @@ func (s *ViewService) getOwnerID(ctx context.Context, viewID int64) (int64, erro
 }
 
 // --- helpers ---
-
-func itoa(n int) string {
-	res := make([]byte, 0, 4)
-	if n == 0 {
-		return "0"
-	}
-	for n > 0 {
-		res = append([]byte{byte('0' + n%10)}, res...)
-		n /= 10
-	}
-	return string(res)
-}
 
 func joinStrings(parts []string, sep string) string {
 	if len(parts) == 0 {

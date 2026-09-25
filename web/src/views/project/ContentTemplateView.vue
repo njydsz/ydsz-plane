@@ -50,6 +50,7 @@
           <span v-if="tpl.is_default" class="tpl-card__badge">默认</span>
         </div>
         <div class="tpl-card__type">{{ typeLabel }}</div>
+        <!-- eslint-disable-next-line vue/no-v-html -- 模板预存用户提交的 HTML，预览截断展示 -->
         <div v-if="tpl.content_html" class="tpl-card__preview" v-html="truncateHtml(tpl.content_html, 120)"></div>
         <div class="tpl-card__meta">
           创建于 {{ formatDate(tpl.created_at) }}

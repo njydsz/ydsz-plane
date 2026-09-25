@@ -1,3 +1,6 @@
+// Package issue — 工作项扩展属性服务。
+//
+// 支持三类工作项（task/requirement/defect）的自定义字段配置、值的 CRUD 和 JSON Schema 校验。
 package issue
 
 import (

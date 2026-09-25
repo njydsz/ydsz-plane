@@ -46,7 +46,7 @@ const (
 	// DeadLetterExchange 将重试耗尽的消息路由出来供检查/重放。
 	DeadLetterExchange = "plane.dlx"
 
-	// DefaultConsumerTag 是自动生成消费者标签的前缀。
+	// DefaultConsumerTag 是消费者标签的默认前缀。
 	DefaultConsumerTag = "plane-consumer"
 
 	// MaxReconnectAttempts 是放弃前的最大重连次数（指数退避）。

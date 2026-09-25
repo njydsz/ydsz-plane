@@ -1,4 +1,7 @@
 // Package knowledge — 知识库 HTTP handlers（REST API）。
+//
+// 提供知识库空间 CRUD、文档树管理、版本快照、工作项关联等 REST 端点。
+// 路由通过 RegisterKnowledgeRoutes 注册到 Gin 引擎。
 package knowledge
 
 import (
@@ -11,6 +14,7 @@ import (
 
 	"github.com/njydsz/ydsz-plane/internal/interfaces/middleware"
 	"github.com/njydsz/ydsz-plane/pkg/errs"
+	"github.com/njydsz/ydsz-plane/pkg/strutil"
 )
 
 // Handler Gin handler 集合。
@@ -407,7 +411,7 @@ func (h *Handler) revertVersion(c *gin.Context) {
 		ContentMD:     &targetVersion.ContentMD,
 		ContentHTML:   &targetVersion.ContentHTML,
 		Version:       page.Version,
-		ChangeSummary: strPtr("回滚到版本 " + itoa(*req.Version)),
+		ChangeSummary: strPtr("回滚到版本 " + strutil.FastItoaInt64(*req.Version)),
 	}
 
 	updated, err := h.svc.UpdatePage(c.Request.Context(), pageID, wsID, page.Version, in)
@@ -501,10 +505,6 @@ func parseInt(s string) (int, error) {
 	var v int
 	_, err := fmt.Sscanf(s, "%d", &v)
 	return v, err
-}
-
-func itoa(v int64) string {
-	return fmt.Sprintf("%d", v)
 }
 
 func strPtr(s string) *string {

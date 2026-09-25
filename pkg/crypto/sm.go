@@ -8,8 +8,8 @@
 // 设计要点:
 //   - 接口抽象: Signer / Hasher / Cipher 接口，支持运行时切换算法
 //   - Build Tag 隔离: 国密实现通过 build tag "cngm" 控制编译
-//     - 默认: 使用标准库 crypto (SHA-256 / AES-256-GCM / RSA/ECDSA)
-//     - cngm: 使用 tjfoc/gmsm (SM2/SM3/SM4)
+//   - 默认: 使用标准库 crypto (SHA-256 / AES-256-GCM / RSA/ECDSA)
+//   - cngm: 使用 tjfoc/gmsm (SM2/SM3/SM4)
 //   - 配置驱动: 通过 YDSZ_CRYPTO_PROVIDER 环境变量选择算法
 //   - 渐进迁移: 支持混合模式（JWT 仍用 RS256，存储加密用 SM4）
 //

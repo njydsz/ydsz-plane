@@ -76,6 +76,15 @@ coverage-html:
 	go test $(GOPKGS) -count=1 -coverprofile=coverage.out
 	go tool cover -html=coverage.out -o coverage.html
 
+# test-html: 一键跑测试并打开 coverage HTML（P2-7 快捷方式）
+test-html: coverage-html
+	@echo "Opening coverage report..."
+ifeq ($(OS),Windows_NT)
+	@start coverage.html
+else
+	@xdg-open coverage.html 2>/dev/null || open coverage.html 2>/dev/null || echo "coverage.html ready"
+endif
+
 build:
 	go build $(GOPKGS)
 	cd web && pnpm build

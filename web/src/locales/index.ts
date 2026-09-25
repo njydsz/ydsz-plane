@@ -33,7 +33,7 @@ function detectLocale(): SupportedLocale {
   // 1. 用户手动选择的语言
   const stored = localStorage.getItem("ydsz-locale");
   if (stored === "zh-CN" || stored === "en-US" || stored === "ja-JP") {
-    return stored as SupportedLocale;
+    return stored;
   }
 
   // 2. 浏览器首选语言
@@ -81,5 +81,5 @@ export function setLocale(locale: SupportedLocale): void {
 
 /** 获取当前语言 */
 export function getLocale(): SupportedLocale {
-  return i18n.global.locale.value as SupportedLocale;
+  return i18n.global.locale.value;
 }

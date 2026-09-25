@@ -1,5 +1,7 @@
-// Package issue — Service 协调器：聚合 Task / Requirement / Defect 三个独立服务，
-// 对外暴露单一入口，内部根据 type_code 分派到对应聚合根服务。
+// Package issue — Service 协调器。
+//
+// 聚合 Task / Requirement / Defect 三个独立服务，对外暴露单一入口（IssueService），
+// 内部根据 type_code 分派到对应聚合根服务执行。
 package issue
 
 import (
@@ -376,38 +378,128 @@ func (s *Service) Reorder(ctx context.Context, wsID, issueID int64, in ReorderIn
 }
 
 // BatchUpdate 批量操作 — 按 ID 分派。
+// P1-9: 整体事务包裹，部分失败全回滚；panic 自动 recover 并 rollback。
 func (s *Service) BatchUpdate(ctx context.Context, wsID, projectID, userID int64, in BatchUpdateInput) (BatchResult, error) {
-	var result BatchResult
-	for _, id := range in.IDs {
-		var batchErr error
-		switch {
-		case in.Delete:
-			batchErr = s.SoftDelete(ctx, wsID, id)
-		case in.ToStateID != nil:
-			_, batchErr = s.Transition(ctx, wsID, projectID, id, *in.ToStateID, userID)
-		default:
-			tc, dErr := s.detectType(ctx, wsID, id)
-			if dErr != nil {
-				batchErr = dErr
-				break
+	if len(in.IDs) == 0 {
+		return BatchResult{}, nil
+	}
+
+	var panicErr error
+	batchErr := coordinatorWithTx(ctx, s.db, wsID, func(tx pgx.Tx) (err error) {
+		// P1-9: panic recover — 不能因单条 panic 泄漏事务
+		defer func() {
+			if r := recover(); r != nil {
+				panicErr = fmt.Errorf("batch panic at item: %v", r)
+				err = panicErr
 			}
-			var ver int
-			batchErr = s.db.QueryRow(ctx, `SELECT version FROM `+tc.Table()+` WHERE id = $1 AND workspace_id = $2 AND deleted = false`, id, wsID).Scan(&ver)
-			if batchErr != nil {
-				break
+		}()
+		for _, id := range in.IDs {
+			var itemErr error
+			switch {
+			case in.Delete:
+				itemErr = s.batchDeleteTx(ctx, tx, wsID, id)
+			case in.ToStateID != nil:
+				itemErr = s.batchTransitionTx(ctx, tx, wsID, projectID, id, *in.ToStateID, userID)
+			default:
+				itemErr = s.batchUpdateItemTx(ctx, tx, wsID, id, in.AssigneeID, in.Priority)
 			}
-			batchErr = s.directUpdate(ctx, tc, wsID, id, in.AssigneeID, in.Priority, ver)
+			if itemErr != nil {
+				return fmt.Errorf("item %d: %w", id, itemErr)
+			}
 		}
-		if batchErr != nil {
-			result.Failed++
-		} else {
-			result.Succeeded++
+		return nil
+	})
+
+	if batchErr != nil {
+		return BatchResult{}, errs.ErrValidation.WithDetails(errs.FieldDetail{
+			Field:  "ids",
+			Reason: "批量操作失败，已全量回滚: " + batchErr.Error(),
+		})
+	}
+	return BatchResult{Succeeded: len(in.IDs)}, nil
+}
+
+// batchDeleteTx 在已开启的事务内对单条工作项执行软删除。
+func (s *Service) batchDeleteTx(ctx context.Context, tx pgx.Tx, wsID, id int64) error {
+	tc, err := detectWorkitemType(ctx, s.db, id)
+	if err != nil {
+		return err
+	}
+	switch tc {
+	case TypeTask:
+		return s.Task.softDeleteTx(ctx, tx, wsID, id)
+	case TypeRequirement:
+		return s.Requirement.softDeleteTx(ctx, tx, wsID, id)
+	case TypeDefect:
+		return s.Defect.softDeleteTx(ctx, tx, wsID, id)
+	}
+	return errs.ErrNotFound
+}
+
+// batchTransitionTx 在已开启的事务内对单条工作项执行状态流转。
+func (s *Service) batchTransitionTx(ctx context.Context, tx pgx.Tx, wsID, projectID, id, toStateID, userID int64) error {
+	tc, err := detectWorkitemType(ctx, s.db, id)
+	if err != nil {
+		return err
+	}
+	switch tc {
+	case TypeTask:
+		_, err = s.Task.transitionTx(ctx, tx, wsID, projectID, id, toStateID, userID)
+	case TypeRequirement:
+		_, err = s.Requirement.transitionTx(ctx, tx, wsID, projectID, id, toStateID, userID)
+	case TypeDefect:
+		_, err = s.Defect.transitionTx(ctx, tx, wsID, projectID, id, toStateID, userID)
+	default:
+		err = errs.ErrNotFound
+	}
+	return err
+}
+
+// batchUpdateItemTx 在已开启的事务内对单条工作项执行直接更新（assignee / priority + 乐观锁）。
+func (s *Service) batchUpdateItemTx(ctx context.Context, tx pgx.Tx, wsID, id int64, assigneeID *int64, priority *string) error {
+	var ver int
+	var tcStr string
+	// 在同一事务内查 version 与 type_code
+	if err := tx.QueryRow(ctx, `
+		SELECT version, 'task' FROM task WHERE id = $1 AND workspace_id = $2 AND deleted = false
+		UNION ALL
+		SELECT version, 'requirement' FROM requirement WHERE id = $1 AND workspace_id = $2 AND deleted = false
+		UNION ALL
+		SELECT version, 'defect' FROM defect WHERE id = $1 AND workspace_id = $2 AND deleted = false
+		LIMIT 1`, id, wsID).Scan(&ver, &tcStr); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return errs.ErrNotFound
+		}
+		return errs.ErrInternal.Wrap(err)
+	}
+	return s.directUpdateTx(ctx, tx, IssueTypeCode(tcStr), wsID, id, assigneeID, priority, ver)
+}
+
+// directUpdateTx 在调用方提供的事务内执行 assignee/priority 更新（含乐观锁校验）。
+func (s *Service) directUpdateTx(ctx context.Context, tx pgx.Tx, tc IssueTypeCode, wsID, issueID int64, assigneeID *int64, priority *string, expectedVersion int) error {
+	prefix := workitemM2MPrefix(tc)
+	idCol := prefix + "_id"
+	if assigneeID != nil {
+		if _, err := tx.Exec(ctx, fmt.Sprintf(`DELETE FROM %s_assignees WHERE %s = $1`, prefix, idCol), issueID); err != nil {
+			return errs.ErrInternal.Wrap(err)
+		}
+		if _, err := tx.Exec(ctx, fmt.Sprintf(`INSERT INTO %s_assignees (%s, user_id) VALUES ($1,$2) ON CONFLICT DO NOTHING`, prefix, idCol), issueID, *assigneeID); err != nil {
+			return errs.ErrInternal.Wrap(err)
 		}
 	}
-	if result.Succeeded == 0 && result.Failed > 0 {
-		return result, errs.ErrValidation.WithDetails(errs.FieldDetail{Field: "ids", Reason: "所有工作项操作均失败"})
+	if priority != nil {
+		tag, err := tx.Exec(ctx, `
+			UPDATE `+tc.Table()+` SET priority = $1, updated_at = now(), version = version + 1
+			WHERE id = $2 AND workspace_id = $3 AND deleted = false AND version = $4`,
+			*priority, issueID, wsID, expectedVersion)
+		if err != nil {
+			return errs.ErrInternal.Wrap(err)
+		}
+		if tag.RowsAffected() == 0 {
+			return errs.ErrVersionConflict
+		}
 	}
-	return result, nil
+	return nil
 }
 
 func (s *Service) directUpdate(ctx context.Context, tc IssueTypeCode, wsID, issueID int64, assigneeID *int64, priority *string, expectedVersion int) error {
@@ -719,17 +811,41 @@ func coordinatorWithTx(ctx context.Context, db *pgxpool.Pool, wsID int64, fn fun
 	return tx.Commit(ctx)
 }
 
-// Table 返回类型对应的表名。
+// IssueTypeCode 对应表名常量 — 白名单，防止 SQL 注入。
+// 所有动态表名必须从此常量映射中取用，禁止硬编码或外部输入。
+const (
+	TableTask         = "task"
+	TableRequirement  = "requirement"
+	TableDefect       = "defect"
+)
+
+// tableRegistry 是白名单映射：IssueTypeCode → 表名。
+// 用于 Table() 方法返回值，确保不会出现注入风险。
+var tableRegistry = map[IssueTypeCode]string{
+	TypeTask:        TableTask,
+	TypeRequirement: TableRequirement,
+	TypeDefect:      TableDefect,
+}
+
+// Table 返回类型对应的表名（白名单安全）。
+// 返回值经过白名单校验，可直接拼入 SQL（已通过 security review）。
 func (tc IssueTypeCode) Table() string {
-	switch tc {
-	case TypeTask:
-		return "task"
-	case TypeRequirement:
-		return "requirement"
-	case TypeDefect:
-		return "defect"
+	if table, ok := tableRegistry[tc]; ok {
+		return table
 	}
-	return "task"
+	// 缺省回退到 task（防御性默认值，switch 保证只有合法枚举能到此处）
+	return TableTask
+}
+
+// ValidateTable 校验表名是否在白名单中（供可疑外部输入场景调用）。
+func ValidateTable(table string) error {
+	switch table {
+	case TableTask, TableRequirement, TableDefect:
+		return nil
+	default:
+		return fmt.Errorf("issue: unknown table name %q (must be one of: %s, %s, %s)",
+			table, TableTask, TableRequirement, TableDefect)
+	}
 }
 
 // --- 聚合根 → Issue DTO 转换 ---

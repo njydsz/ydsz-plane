@@ -1,4 +1,7 @@
-// Package intake — 收件箱 HTTP handlers（认证路由 + 公开路由）。
+// Package intake — 收件箱（匿名提报）HTTP handlers。
+//
+// 提供渠道管理（CRUD）、工单列表/详情、工单审批/转正/拒绝等管理端 REST 端点，
+// 以及公开渠道查询、工单提交、工单跟踪等免登录端点。
 package intake
 
 import (

@@ -285,5 +285,5 @@ func findOtherState(stateIDs []int64, exclude int64) int64 {
 	return 0
 }
 
-func ptrStr(s string) *string         { return &s }
+func ptrStr(s string) *string                    { return &s }
 func priorityPtr(p IssuePriority) *IssuePriority { return &p }

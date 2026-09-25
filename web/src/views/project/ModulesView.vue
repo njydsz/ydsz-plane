@@ -74,7 +74,7 @@ function openEdit(mod: Module) {
 async function handleSubmit(payload: CreateModuleInput | UpdateModuleInput) {
   try {
     if (editingModule.value) {
-      await moduleApi.update(props.workspaceId, props.projectId, editingModule.value.id, payload as UpdateModuleInput);
+      await moduleApi.update(props.workspaceId, props.projectId, editingModule.value.id, payload);
       toast.success("模块已更新");
     } else {
       await moduleApi.create(props.workspaceId, props.projectId, payload as CreateModuleInput);

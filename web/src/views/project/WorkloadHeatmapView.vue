@@ -34,7 +34,7 @@
     </div>
 
     <!-- 汇总卡片 -->
-    <div class="wh-summary" v-if="data">
+    <div v-if="data" class="wh-summary">
       <div class="wh-summary__card">
         <span class="wh-summary__label">总工时</span>
         <span class="wh-summary__value">{{ formatHours(data.summary.total_hours) }}</span>
@@ -274,6 +274,8 @@ function getCellClass(userId: number, day: string): string {
 }
 
 function getCellStyle(_userId: number, _day: string): Record<string, string> {
+  void _userId;
+  void _day;
   return {};
 }
 

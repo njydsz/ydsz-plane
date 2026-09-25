@@ -380,19 +380,19 @@ function fmtTime(iso: string): string {
   ).padStart(2, "0")}`;
 }
 
-const statusActions = computed(() => {
+const statusActions = computed((): { status: PageStatus; label: string; icon: string }[] => {
   const st = currentPage.value?.status;
   if (!st) return [];
-  if (st === "draft") return [{ status: "published" as PageStatus, label: "发布", icon: "🚀" }];
+  if (st === "draft") return [{ status: "published", label: "发布", icon: "🚀" }];
   if (st === "published") {
     return [
-      { status: "draft" as PageStatus, label: "转为草稿", icon: "✎" },
-      { status: "archived" as PageStatus, label: "归档", icon: "🗄" },
+      { status: "draft", label: "转为草稿", icon: "✎" },
+      { status: "archived", label: "归档", icon: "🗄" },
     ];
   }
   return [
-    { status: "published" as PageStatus, label: "重新发布", icon: "🚀" },
-    { status: "draft" as PageStatus, label: "转为草稿", icon: "✎" },
+    { status: "published", label: "重新发布", icon: "🚀" },
+    { status: "draft", label: "转为草稿", icon: "✎" },
   ];
 });
 

@@ -1,4 +1,7 @@
-// Package issue — 项目 Issue 基础设施初始化（创建项目状态模板 + 流转规则）。
+// Package issue — 项目 Issue 基础设施初始化。
+//
+// 创建项目时自动注入状态模板（state_templates）与流转规则（state_transitions），
+// 对齐 agile / waterfall / generic 三种项目模板的默认状态机配置。
 package issue
 
 import (

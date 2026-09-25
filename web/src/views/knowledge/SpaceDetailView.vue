@@ -160,7 +160,7 @@ async function onPageDeleted(deletedId: number) {
 }
 
 /* 页面保存后刷新树 */
-async function onPageSaved(page: KnowledgePage) {
+function onPageSaved(page: KnowledgePage) {
   const prev = findNode(tree.value, page.id);
   tree.value = replaceNode(tree.value, toNode(page, prev));
 }

@@ -1,5 +1,7 @@
-// Package issue 工作项通知辅助：工作项变更时的站内通知与
-// WebSocket 实时广播编排。
+// Package issue — 工作项变更通知辅助。
+//
+// 封装工作项变更时的站内通知与 WebSocket 实时广播编排逻辑，
+// 由 IssueService/CommentService/状态流转等调用。
 package issue
 
 import (

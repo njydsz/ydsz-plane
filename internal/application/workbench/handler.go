@@ -1,4 +1,7 @@
 // Package workbench — 工作台 HTTP handlers。
+//
+// 为前端提供首屏数据端点：我的任务分桶、迭代概览、最近访问、快捷操作、效率趋势等。
+// 路由挂载于 /api/v1/workspaces/:wid/workbench 与 /projects/:pid/workbench。
 package workbench
 
 import (

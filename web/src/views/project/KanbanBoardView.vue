@@ -319,7 +319,7 @@ async function inlineUpdate(iss: Issue, patch: Partial<Pick<Issue, "name" | "pri
     const updated = await issueApi.updateIssue(wsId.value, projectId.value, iss.id, {
       ...patch,
       version: iss.version,
-    } as Parameters<typeof issueApi.updateIssue>[3]);
+    });
     const idx = issueStore.issues.findIndex((i) => i.id === iss.id);
     if (idx >= 0) issueStore.issues[idx] = updated;
   } catch (e: unknown) {

@@ -1,4 +1,7 @@
 // Package search — 搜索 HTTP handlers（REST API）。
+//
+// 提供项目级与工作空间级全文检索端点，以及搜索历史与书签管理。
+// 路由通过 RegisterSearchRoutes 注册到 Gin 引擎。
 package search
 
 import (

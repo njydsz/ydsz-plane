@@ -1,4 +1,6 @@
-// Package issue — 需求评审工作流 handler。
+// Package issue — 需求评审工作流 HTTP handlers。
+//
+// 提供评审提交、评审人决定（采纳/驳回）、评审列表等 REST 端点。
 package issue
 
 import (

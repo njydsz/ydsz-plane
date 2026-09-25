@@ -2,11 +2,11 @@
 //
 // 负责定时聚合 daily/weekly 通知摘要，并将聚合结果写入 notification_digests 表。
 // 主要流程：
-//   1. DigestRunner 定时触发（每分钟检查一次）
-//   2. DigestService.PendingDigests 找出所有到达计划时刻的 (用户,工作空间,频率) 组合
-//   3. DigestService.BuildDigest 聚合时间窗内的通知 → 生成摘要 JSON
-//   4. 通过 dispatchConfig.deliverEmail 发送，或写入 notification_digests 待 IM dispatcher 处理
-//   5. 聚合后的通知标记 is_archived = true（从收件箱隐藏，保留在 digest 记录中）
+//  1. DigestRunner 定时触发（每分钟检查一次）
+//  2. DigestService.PendingDigests 找出所有到达计划时刻的 (用户,工作空间,频率) 组合
+//  3. DigestService.BuildDigest 聚合时间窗内的通知 → 生成摘要 JSON
+//  4. 通过 dispatchConfig.deliverEmail 发送，或写入 notification_digests 待 IM dispatcher 处理
+//  5. 聚合后的通知标记 is_archived = true（从收件箱隐藏，保留在 digest 记录中）
 //
 // 参考: Linear Digest / Jira Notification Digest / GitHub Digest
 package notification

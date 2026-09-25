@@ -23,7 +23,7 @@ export const useAuthStore = defineStore("auth", {
     user: null as UserBrief | null,
     loaded: false,
     // 从 localStorage 恢复（页面刷新后保持登录态）
-    accessToken: (typeof localStorage !== "undefined" ? localStorage.getItem(TOKEN_KEY) : null) as string | null,
+    accessToken: (typeof localStorage !== "undefined" ? localStorage.getItem(TOKEN_KEY) : null),
   }),
   getters: {
     /** 是否已登录（user 非空） */
@@ -48,7 +48,7 @@ export const useAuthStore = defineStore("auth", {
     async register(input: { email: string; password: string; display_name: string }) {
       const { data } = await authApi.register(input);
       this.setSession(data);
-      return data as TokenPair;
+      return data;
     },
     /** 通过 refresh_token 换发新令牌对（响应拦截器 401 单飞刷新时调用） */
     async refresh() {

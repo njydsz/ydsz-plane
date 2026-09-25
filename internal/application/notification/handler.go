@@ -1,5 +1,6 @@
-// Package notification 通知域 HTTP 处理器：查询/标记已读/全部已读，
-// 以及通知偏好（preferences）的设置与读取。
+// Package notification — 通知域 HTTP handlers。
+//
+// 提供通知查询、标记已读、全部已读及通知偏好设置等 REST 端点。
 package notification
 
 import (

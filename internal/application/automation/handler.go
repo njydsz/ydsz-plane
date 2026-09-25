@@ -1,4 +1,6 @@
-// Package automation 提供自动化规则引擎 HTTP Handler。
+// Package automation — 自动化规则引擎 HTTP handlers。
+//
+// 提供规则 CRUD、模板预置、dry-run 预览等 REST 端点，路由通过 RegisterAutomationRoutes 注册。
 package automation
 
 import (

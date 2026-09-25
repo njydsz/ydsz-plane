@@ -71,7 +71,7 @@ function onLoadView(view: SavedView) {
 
   // 应用过滤
   if (cfg.filters) {
-    currentFilter.value = cfg.filters as FilterState;
+    currentFilter.value = cfg.filters;
   }
   // 应用排序
   if (cfg.sort) {
@@ -528,7 +528,7 @@ async function inlineUpdate(iss: any, patch: Record<string, unknown>) {
     const updated = await issueApi.updateIssue(wsId.value, projectId.value, iss.id, {
       ...patch,
       version: iss.version,
-    } as Parameters<typeof issueApi.updateIssue>[3]);
+    });
     if (idx >= 0) issueStore.issues[idx] = updated;
   } catch (e: unknown) {
     if (idx >= 0) issueStore.issues[idx] = prev;
@@ -726,11 +726,13 @@ const isCurrentPageAllSelected = computed(() => {
           <strong>{{ $tc('issue.batch.selected', totalSelectedCount) }}</strong>
         </template>
       </span>
-      <select class="batch-select" @change="(e: Event) => {
+      <select
+class="batch-select" @change="(e: Event) => {
         const v = Number((e.target as HTMLSelectElement).value)
         if (v) confirmTransition(v)
         ;(e.target as HTMLSelectElement).value = ''
-      }">
+      }"
+>
         <option value="">{{ t('view.list.batchTransition') }}</option>
         <option v-for="st in issueStore.states" :key="st.id" :value="st.id">{{ st.name }}</option>
       </select>

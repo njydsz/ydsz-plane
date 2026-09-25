@@ -80,7 +80,7 @@ const ZOOM_LEVELS: { value: ZoomLevel; label: string }[] = [
 const zoom = ref<ZoomLevel>("month");
 
 /** 筛选：全部状态 */
-const filterState = ref<"all" | string>("all");
+const filterState = ref<string>("all");
 /** 筛选：指派人 */
 const filterAssignee = ref<number | null>(null);
 /** 显示标注 */

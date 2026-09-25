@@ -1,4 +1,6 @@
 // Package preference — 视图偏好持久化（看板/列表布局、列配置、过滤条件）。
+//
+// 为每个项目内的用户提供视图布局与列配置持久化，支持 team 默认与 personal 个人覆盖两层作用域。
 package preference
 
 import (

@@ -1,4 +1,7 @@
 // Package preference — 命名视图 HTTP handlers。
+//
+// 提供命名视图 CRUD 与设为默认视图等 REST 端点。
+// 路由通过 RegisterViewRoutes 注册到 Gin 引擎。
 package preference
 
 import (

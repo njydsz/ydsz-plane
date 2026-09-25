@@ -18,7 +18,9 @@ import (
 type ChannelStatus string
 
 const (
-	ChannelActive   ChannelStatus = "active"
+	// ChannelActive 渠道状态：活跃（可接收提报）。
+	ChannelActive ChannelStatus = "active"
+	// ChannelArchived 渠道状态：已归档（不再接收新提报）。
 	ChannelArchived ChannelStatus = "archived"
 )
 
@@ -26,9 +28,13 @@ const (
 type IssueStatus string
 
 const (
-	IssueOpen     IssueStatus = "open"
+	// IssueOpen 工单状态：待处理（刚提交或待管理员审核）。
+	IssueOpen IssueStatus = "open"
+	// IssueAccepted 工单状态：已接受（待转正为正式工作项）。
 	IssueAccepted IssueStatus = "accepted"
+	// IssueRejected 工单状态：已拒绝。
 	IssueRejected IssueStatus = "rejected"
+	// IssueArchived 工单状态：已归档。
 	IssueArchived IssueStatus = "archived"
 )
 

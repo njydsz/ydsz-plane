@@ -1,7 +1,8 @@
 // Package middleware 提供 Gin 中间件链与可组合的安全/治理组件。
 //
 // 中间件执行顺序（外层 → 内层）：
-//   SecurityHeaders → RequestID → Recovery → CORS → CSRF → AccessLog → RateLimit → RequireAuth → RequirePermissionFromDB
+//
+//	SecurityHeaders → RequestID → Recovery → CORS → CSRF → AccessLog → RateLimit → RequireAuth → RequirePermissionFromDB
 //
 // 分层鉴权：
 //   - Filter 类（SecurityHeaders / RequestID / Recovery / CORS / AccessLog / Metrics）：每次请求必经
@@ -22,7 +23,6 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/gin-contrib/cors"
@@ -34,6 +34,7 @@ import (
 	"github.com/njydsz/ydsz-plane/internal/application/auth"
 	"github.com/njydsz/ydsz-plane/internal/config"
 	"github.com/njydsz/ydsz-plane/pkg/errs"
+	"github.com/njydsz/ydsz-plane/pkg/strutil"
 )
 
 // CtxKey 枚举存储在 gin.Context 中的键。
@@ -163,7 +164,7 @@ func RateLimit(rdb *redis.Client, limitPerMin int, keyFn func(*gin.Context) stri
 		member := float64(now)
 
 		pipe := rdb.TxPipeline()
-		pipe.ZRemRangeByScore(ctx, key, "0", itoa(now-60))
+		pipe.ZRemRangeByScore(ctx, key, "0", strutil.FastItoaInt64(now-60))
 		addCmd := pipe.ZAdd(ctx, key, redis.Z{Score: member, Member: memberWithRand(now)})
 		cardCmd := pipe.ZCard(ctx, key)
 		pipe.Expire(ctx, key, 2*time.Minute)
@@ -174,15 +175,15 @@ func RateLimit(rdb *redis.Client, limitPerMin int, keyFn func(*gin.Context) stri
 		}
 		_ = addCmd
 		remaining := int64(limitPerMin) - cardCmd.Val()
-		c.Header("X-RateLimit-Limit", itoa(int64(limitPerMin)))
-		c.Header("X-RateLimit-Reset", itoa(now+60))
+		c.Header("X-RateLimit-Limit", strutil.FastItoaInt64(int64(limitPerMin)))
+		c.Header("X-RateLimit-Reset", strutil.FastItoaInt64(now+60))
 		if remaining < 0 {
 			c.Header("Retry-After", "60")
 			respondError(c, errs.ErrRateLimited)
 			c.Abort()
 			return
 		}
-		c.Header("X-RateLimit-Remaining", itoa(remaining))
+		c.Header("X-RateLimit-Remaining", strutil.FastItoaInt64(remaining))
 		c.Next()
 	}
 }
@@ -190,10 +191,8 @@ func RateLimit(rdb *redis.Client, limitPerMin int, keyFn func(*gin.Context) stri
 func memberWithRand(now int64) any {
 	var b [8]byte
 	_, _ = rand.Read(b[:])
-	return itoa(now) + "-" + hex.EncodeToString(b[:])
+	return strutil.FastItoaInt64(now) + "-" + hex.EncodeToString(b[:])
 }
-
-func itoa(v int64) string { return strconv.FormatInt(v, 10) }
 
 // respondError 渲染统一错误信封。
 func respondError(c *gin.Context, e *errs.AppError) {

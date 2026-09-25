@@ -144,7 +144,7 @@ async function toggleChecklist(itemId: string) {
     await versionApi.updateVersion(wsId, projectId.value, versionId.value, {
       checklist: newList,
       version: (v as any).version ?? 0,
-    } as any);
+    });
     version.value = await versionApi.getVersion(wsId, projectId.value, versionId.value);
   } catch (e: unknown) {
     actionError.value = e instanceof Error ? e.message : "保存清单失败";

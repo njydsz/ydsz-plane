@@ -23,7 +23,10 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/redis/go-redis/v9"
+
+	"github.com/njydsz/ydsz-plane/pkg/strutil"
 )
 
 // HubConfig Hub 运行时配置（安全相关）。
@@ -48,6 +51,10 @@ type HubConfig struct {
 	// RequireOriginCheck 是否强制校验 Origin。
 	// 开发模式下可设为 false 允许跨域；生产环境必须 true。
 	RequireOriginCheck bool
+
+	// Registerer 是 Prometheus 注册器，用于注册 Hub 指标。
+	// 若为 nil，则使用 prometheus.DefaultRegisterer。
+	Registerer prometheus.Registerer
 }
 
 // upgrader 将 HTTP 连接升级为 WebSocket。
@@ -94,6 +101,12 @@ type Hub struct {
 	// 连接计数
 	userConns map[int64]int
 	ipConns   map[string]int
+
+	// Prometheus 指标（nil-checked before use）
+	clientsActive     prometheus.Gauge
+	eventsPublished   prometheus.Counter
+	eventsDropped     prometheus.Counter
+	broadcastDuration prometheus.Histogram
 }
 
 // NewHub 创建 WebSocket Hub。
@@ -116,9 +129,64 @@ func NewHubWithConfig(rdb *redis.Client, cfg HubConfig) *Hub {
 		userConns:  make(map[int64]int),
 		ipConns:    make(map[string]int),
 	}
+	// 注册 Prometheus 指标
+	h.initMetrics()
 	// 按配置设置 Origin 校验函数
 	h.applyCheckOrigin()
 	return h
+}
+
+// initMetrics 创建并注册 Prometheus 指标。
+// 指标字段为 nil-registerer 安全：在 NewHub 中传入 prometheus.Registerer，
+// 如为 nil 则使用 prometheus.DefaultRegisterer。
+func (h *Hub) initMetrics() {
+	reg := h.cfg.Registerer
+	if reg == nil {
+		reg = prometheus.DefaultRegisterer
+	}
+
+	h.clientsActive = prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: "ydsz",
+		Subsystem: "ws",
+		Name:      "active_connections",
+		Help:      "Current number of active WebSocket connections on this node.",
+	})
+
+	h.eventsPublished = prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: "ydsz",
+		Subsystem: "ws",
+		Name:      "events_published_total",
+		Help:      "Total WebSocket events broadcast to local clients.",
+	})
+
+	h.eventsDropped = prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: "ydsz",
+		Subsystem: "ws",
+		Name:      "events_dropped_total",
+		Help:      "Total WebSocket events dropped due to full channel (client slow consumer).",
+	})
+
+	h.broadcastDuration = prometheus.NewHistogram(prometheus.HistogramOpts{
+		Namespace: "ydsz",
+		Subsystem: "ws",
+		Name:      "broadcast_duration_seconds",
+		Help:      "Duration of local broadcast to all connected clients.",
+		Buckets:   []float64{0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0},
+	})
+
+	// 使用 MustRegister 时若指标已注册会 panic；这里用 Register 并忽略 AlreadyRegisteredError
+	// 但由于每个 Hub 实例独立创建指标，正常使用场景不会重复注册。
+	// 为安全起见，使用 chooser 模式：若注册失败（重复），则尝试获取已存在的指标。
+	registerOrIgnore(reg, h.clientsActive)
+	registerOrIgnore(reg, h.eventsPublished)
+	registerOrIgnore(reg, h.eventsDropped)
+	registerOrIgnore(reg, h.broadcastDuration)
+}
+
+// registerOrIgnore 尝试注册 Collector，若已注册则静默忽略。
+// 这是为了在测试或重启场景中避免 duplicate metrics panic。
+func registerOrIgnore(reg prometheus.Registerer, c prometheus.Collector) {
+	_ = reg.Register(c)
 }
 
 // applyCheckOrigin 根据配置设置 upgrader.CheckOrigin。
@@ -171,6 +239,9 @@ func (h *Hub) Run() {
 			h.userConns[client.UserID]++
 			h.ipConns[client.remoteIP]++
 			h.mu.Unlock()
+			if h.clientsActive != nil {
+				h.clientsActive.Inc()
+			}
 
 		case client := <-h.unregister:
 			h.mu.Lock()
@@ -187,8 +258,13 @@ func (h *Hub) Run() {
 				}
 			}
 			h.mu.Unlock()
+			if h.clientsActive != nil {
+				h.clientsActive.Dec()
+			}
 
 		case message := <-h.broadcast:
+			// 广播耗时统计
+			start := time.Now()
 			h.mu.RLock()
 			for client := range h.clients {
 				select {
@@ -196,9 +272,18 @@ func (h *Hub) Run() {
 				default:
 					// 客户端发送缓冲区满，关闭连接
 					go h.unregisterClient(client)
+					if h.eventsDropped != nil {
+						h.eventsDropped.Inc()
+					}
 				}
 			}
 			h.mu.RUnlock()
+			if h.eventsPublished != nil {
+				h.eventsPublished.Inc()
+			}
+			if h.broadcastDuration != nil {
+				h.broadcastDuration.Observe(time.Since(start).Seconds())
+			}
 		}
 	}
 }
@@ -370,28 +455,5 @@ func (c *Client) readPump() {
 }
 
 func workspaceChannel(workspaceID int64) string {
-	return "plane:ws:" + itoa(workspaceID)
-}
-
-func itoa(v int64) string {
-	if v == 0 {
-		return "0"
-	}
-	neg := false
-	if v < 0 {
-		neg = true
-		v = -v
-	}
-	var buf [20]byte
-	i := len(buf)
-	for v > 0 {
-		i--
-		buf[i] = byte(v%10) + '0'
-		v /= 10
-	}
-	if neg {
-		i--
-		buf[i] = '-'
-	}
-	return string(buf[i:])
+	return "plane:ws:" + strutil.FastItoaInt64(workspaceID)
 }

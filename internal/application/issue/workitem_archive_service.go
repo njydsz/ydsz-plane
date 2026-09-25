@@ -1,3 +1,6 @@
+// Package issue — 工作项归档服务。
+//
+// 实现差异化归档策略：缺陷关闭超过 2 年、任务超过 3 年、需求超过 5 年自动归档。
 package issue
 
 import (

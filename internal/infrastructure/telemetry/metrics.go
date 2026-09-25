@@ -7,9 +7,11 @@
 package telemetry
 
 import (
+	"context"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )
@@ -75,8 +77,8 @@ var (
 		[]string{"operation", "status"},
 	)
 
-	// VersionOperations 统计版本 CRUD 与生命周期操作（S6 大厂加固）。
-	// labels: operation=create|update|delete|active|released|archived, status=success|error
+	// VersionOperations 统计版本 CRUD 与生命周期操作结果。
+	// 维度 labels: operation=create|update|delete|active|released|archived, status=success|error。
 	VersionOperations = promauto.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: namespace,
@@ -86,8 +88,8 @@ var (
 		[]string{"operation", "status"},
 	)
 
-	// NotificationCreated 统计多渠道通知生成数（应用层）。
-	// labels: channel=in_app|email|wecom|dingtalk|feishu, status=created|deduped|error
+	// NotificationCreated 统计按渠道聚合的通知生成数量（含去重）。
+	// 维度 labels: channel=in_app|email|wecom|dingtalk|feishu, status=created|deduped|error。
 	NotificationCreated = promauto.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: namespace,
@@ -97,8 +99,8 @@ var (
 		[]string{"channel", "status"},
 	)
 
-	// NotificationDelivered 统计实际投递到外部渠道的成功/失败数。
-	// labels: channel=email|wecom|dingtalk|feishu, status=sent|failed
+	// NotificationDelivered 统计实际投递到外部渠道的成功与失败数。
+	// 维度 labels: channel=email|wecom|dingtalk|feishu, status=sent|failed。
 	NotificationDelivered = promauto.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: namespace,
@@ -119,7 +121,7 @@ var (
 		[]string{"channel"},
 	)
 
-	// WSConnections 当前活跃 WebSocket 连接数（Gauge）。
+	// WSConnections 是当前所有节点上活跃的 WebSocket 连接总数（Gauge）。
 	WSConnections = promauto.NewGauge(
 		prometheus.GaugeOpts{
 			Namespace: namespace,
@@ -128,9 +130,9 @@ var (
 		},
 	)
 
-	// AIOperations 记录 AI 端点调用次数（含服务降级状态）。
-	// labels: operation=smart_assign|detect_duplicates|classify|summarize|status,
-	//         source=llm|rule_engine|unavailable, status=success|error
+	// AIOperations 记录 AI 端点调用次数（包含降级来源）。
+	// 维度 labels: operation=smart_assign|detect_duplicates|classify|summarize,
+	//            source=llm|rule_engine|unavailable, status=success|error。
 	AIOperations = promauto.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: namespace,
@@ -151,8 +153,8 @@ var (
 		[]string{"operation"},
 	)
 
-	// AIFallbacks 记录 AI 从 LLM fallback 到规则引擎的次数。
-	AIFallbacks = promauto.NewCounterVec(
+// AIFallbacks 记录 AI 从 LLM fallback 到规则引擎的次数。
+AIFallbacks = promauto.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: namespace,
 			Name:      "ai_fallbacks_total",
@@ -161,6 +163,101 @@ var (
 		[]string{"operation"},
 	)
 )
+
+// ---------------------------------------------------------------------------
+// P1-6: DB 连接池 Prometheus 指标（Google SRE 第 6 章 — 导出关键资源利用率）
+// ---------------------------------------------------------------------------
+
+// planeDbPool 指标变量（延迟注册，由 PoolStatsCollector 在 Start 时写入）。
+// 使用独立的注册逻辑以避免与 promauto 的全局 Registry 冲突。
+var (
+	dbPoolTotalConns = promauto.NewGauge(
+		prometheus.GaugeOpts{
+			Namespace: namespace,
+			Name:      "db_pool_total_connections",
+			Help:      "Total number of connections in the database pool.",
+		},
+	)
+
+	dbPoolIdleConns = promauto.NewGauge(
+		prometheus.GaugeOpts{
+			Namespace: namespace,
+			Name:      "db_pool_idle_connections",
+			Help:      "Current number of idle connections in the database pool.",
+		},
+	)
+
+	dbPoolAcquireCount = promauto.NewCounter(
+		prometheus.CounterOpts{
+			Namespace: namespace,
+			Name:      "db_pool_acquire_count",
+			Help:      "Total number of connection acquires from the pool.",
+		},
+	)
+
+	dbPoolAcquireDuration = promauto.NewHistogram(
+		prometheus.HistogramOpts{
+			Namespace: namespace,
+			Name:      "db_pool_acquire_duration_seconds",
+			Help:      "Histogram of connection acquisition durations from the pool.",
+			Buckets:   []float64{0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0},
+		},
+	)
+
+	dbPoolAcquireTotal = promauto.NewCounter(
+		prometheus.CounterOpts{
+			Namespace: namespace,
+			Name:      "db_pool_acquire_total",
+			Help:      "Total number of successful connection acquires.",
+		},
+	)
+)
+
+// PoolStatsCollector 包装 *pgxpool.Pool 并按固定间隔采集连接池指标。
+// Uber Go Style Guide: "Use types to expose behavior, not just data."
+//
+// 使用方式：
+//
+//	collector := telemetry.NewPoolStatsCollector(pool)
+//	ticker := time.NewTicker(15 * time.Second)
+//	go collector.Start(ctx, ticker)
+//	defer ticker.Stop()
+type PoolStatsCollector struct {
+	pool *pgxpool.Pool
+}
+
+// NewPoolStatsCollector 构造一个连接池指标采集器。
+func NewPoolStatsCollector(pool *pgxpool.Pool) *PoolStatsCollector {
+	return &PoolStatsCollector{pool: pool}
+}
+
+// Collect 执行一次指标采集（导出到 Prometheus 寄存器）。
+// 对标 Google SRE "Four Golden Signals" 中的 Saturation：
+// 连接池接近上限时，acquire 延迟会显著上升，是容量规划的早期信号。
+func (c *PoolStatsCollector) Collect() {
+	if c.pool == nil {
+		return
+	}
+	stat := c.pool.Stat()
+	dbPoolTotalConns.Set(float64(stat.MaxConns()))
+	dbPoolIdleConns.Set(float64(stat.IdleConns()))
+	dbPoolAcquireCount.Add(float64(stat.AcquireCount()))
+	dbPoolAcquireDuration.Observe(stat.AcquireDuration().Seconds())
+	dbPoolAcquireTotal.Add(float64(stat.AcquireCount()))
+}
+
+// Start 在后台按 ticker 周期采集，ctx 取消时退出。
+// Uber Go Style: "Goroutines should be cleaned up when no longer needed."
+func (c *PoolStatsCollector) Start(ctx context.Context, ticker *time.Ticker) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			c.Collect()
+		}
+	}
+}
 
 // MetricsMiddleware 为每个请求记录 request_total 与 request_duration_ms。
 // 它提取匹配的路由模式（c.FullPath()），使形如

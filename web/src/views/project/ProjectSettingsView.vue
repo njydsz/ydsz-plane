@@ -7,7 +7,7 @@
 import { computed, onMounted, reactive, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
-import { workspaceApi, type Project, type ProjectModuleToggles } from "@/api/services/workspace";
+import { workspaceApi, type Project } from "@/api/services/workspace";
 import { ApiError } from "@/api/client";
 import { AppLoadingState, AppErrorState } from "@/components";
 import { useWorkspaceStore } from "@/stores/workspace";
@@ -41,7 +41,7 @@ const form = reactive({
     sprint: true,
     version: true,
     estimate: true,
-  } as ProjectModuleToggles,
+  },
 });
 
 const moduleToggles = reactive({

@@ -1,4 +1,7 @@
 // Package preference — 视图偏好 HTTP handlers。
+//
+// 提供看板/列表布局、列配置、过滤条件等视图偏好的持久化 REST 端点。
+// 路由通过 RegisterPreferenceRoutes 注册到 Gin 引擎。
 package preference
 
 import (

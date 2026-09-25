@@ -97,6 +97,7 @@ func run() error {
 
 	// ----- Outbox Relay (DB → RabbitMQ EventExchange) -----
 	relay := events.NewRelay(pool, mqClient, log)
+	events.RegisterRelay(relay) // 注册全局 notifier，供 API 层事件写入后唤醒
 	go relay.Run(ctx)
 
 	// ----- Task Worker (RabbitMQ TaskExchange → handlers) -----

@@ -1,3 +1,6 @@
+// Package issue — 工作项缓存服务。
+//
+// 基于 Redis 实现详情缓存与列表缓存失效逻辑，提升查询性能。
 package issue
 
 import (

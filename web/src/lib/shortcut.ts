@@ -36,7 +36,7 @@ class ShortcutManager {
     const target = e.target as HTMLElement
     const isInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable
 
-    for (const [_, def] of this.registry) {
+    for (const [, def] of this.registry) {
       if (isInput && def.scope !== 'global') continue
       const keyMatch = e.key.toLowerCase() === def.key.toLowerCase()
       const ctrlMatch = !!def.ctrlKey === (e.ctrlKey || e.metaKey)

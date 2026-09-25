@@ -20,6 +20,7 @@
     "build-storybook": "storybook build"
   },
   "dependencies": {
+    "@lucide/vue": "^1.48.0",
     "@tiptap/extension-color": "^3.29.2",
     "@tiptap/extension-highlight": "^3.29.2",
     "@tiptap/extension-image": "^3.29.2",
@@ -56,6 +57,7 @@
     "@storybook/vue3": "^10.5.7",
     "@tailwindcss/vite": "^4.3.3",
     "@types/node": "^20.16.0",
+    "@typescript-eslint/eslint-plugin": "^8.70.1",
     "@typescript-eslint/parser": "^8.13.0",
     "@vitejs/plugin-vue": "^5.1.4",
     "@vitest/coverage-v8": "^2.1.3",

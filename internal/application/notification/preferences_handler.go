@@ -1,4 +1,6 @@
-// Package notification — 通知偏好设置 handlers。
+// Package notification — 通知偏好设置 HTTP handlers。
+//
+// 提供用户对各类通知渠道（站内 / Email / 企微 / 钉钉 / 飞书）的订阅开关与免打扰设置。
 package notification
 
 import (

@@ -1,4 +1,6 @@
-// Package dlq — DLQ 管理 HTTP 处理器。
+// Package dlq — DLQ 管理 HTTP handlers。
+//
+// 提供死信列表查询、单条重试、标记已解决等管理端 REST 端点（workspace 管理员使用）。
 package dlq
 
 import (

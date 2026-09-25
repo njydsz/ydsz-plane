@@ -19,20 +19,34 @@ import "time"
 type WidgetType string
 
 const (
-	WidgetProgressOverview   WidgetType = "progress_overview"
-	WidgetBurndown           WidgetType = "burndown"
-	WidgetVelocity           WidgetType = "velocity"
-	WidgetPrioritySplit      WidgetType = "priority_split"
-	WidgetStateDistribution  WidgetType = "state_distribution"
-	WidgetOverdueList        WidgetType = "overdue_list"
-	WidgetBlockedList        WidgetType = "blocked_list"
-	WidgetRiskAlert          WidgetType = "risk_alert"
-	WidgetRecentActivity     WidgetType = "recent_activity"
-	WidgetTeamWorkload       WidgetType = "team_workload"
-	WidgetVersionBurndown    WidgetType = "version_burndown"
+	// WidgetProgressOverview 进度概览 widget：工作项总数/已完成/完成率。
+	WidgetProgressOverview WidgetType = "progress_overview"
+	// WidgetBurndown 燃尽图 widget：剩余故事点或工作项数随时间变化。
+	WidgetBurndown WidgetType = "burndown"
+	// WidgetVelocity 速率图 widget：每迭代完成的故事点趋势。
+	WidgetVelocity WidgetType = "velocity"
+	// WidgetPrioritySplit 优先级分布 widget：按优先级分组计数。
+	WidgetPrioritySplit WidgetType = "priority_split"
+	// WidgetStateDistribution 状态分布 widget：按状态分组计数。
+	WidgetStateDistribution WidgetType = "state_distribution"
+	// WidgetOverdueList 逾期列表 widget：已过预计结束日期的工作项。
+	WidgetOverdueList WidgetType = "overdue_list"
+	// WidgetBlockedList 阻塞列表 widget：被其他工作项阻塞的工作项。
+	WidgetBlockedList WidgetType = "blocked_list"
+	// WidgetRiskAlert 风险告警 widget：命中风险规则的工作项与阈值提示。
+	WidgetRiskAlert WidgetType = "risk_alert"
+	// WidgetRecentActivity 最近活动 widget：时间线形式展示最新变更。
+	WidgetRecentActivity WidgetType = "recent_activity"
+	// WidgetTeamWorkload 团队负载 widget：按成员的工作项数量/故事点分布。
+	WidgetTeamWorkload WidgetType = "team_workload"
+	// WidgetVersionBurndown 版本燃尽图 widget：指定版本的剩余进度。
+	WidgetVersionBurndown WidgetType = "version_burndown"
+	// WidgetModuleDistribution 模块分布 widget：按模块分组计数。
 	WidgetModuleDistribution WidgetType = "module_distribution"
-	WidgetDORA               WidgetType = "dora"
-	WidgetProjectCompare     WidgetType = "project_compare"
+	// WidgetDORA DORA 指标 widget：部署频率/变更前置时间/变更失败率/恢复时间。
+	WidgetDORA WidgetType = "dora"
+	// WidgetProjectCompare 项目对比 widget：多个项目的关键指标横向对比。
+	WidgetProjectCompare WidgetType = "project_compare"
 )
 
 // DashboardWidget widget 配置。

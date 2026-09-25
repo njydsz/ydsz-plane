@@ -248,7 +248,7 @@ function openEdit(rule: AutomationRule) {
   }));
   form.actions = rule.dsl.actions.map((a) => ({
     type: a.type,
-    params: { ...(a.params ?? {}) } as Record<string, string>,
+    params: { ...(a.params ?? {}) },
   }));
   formError.value = "";
   showForm.value = true;

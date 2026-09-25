@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/njydsz/ydsz-plane/internal/infrastructure/events"
 	"github.com/njydsz/ydsz-plane/pkg/errs"
 )
 
@@ -53,6 +54,8 @@ func recordWorkitemEvent(ctx context.Context, tx pgx.Tx, eventType string,
 	if err != nil {
 		return fmt.Errorf("record workitem event %s: %w", eventType, err)
 	}
+	// 事件驱动唤醒：通知 Relay 有新事件待发布（对标 Google SRE Book Ch.17）
+	events.NotifyNewEvent()
 	return nil
 }
 
@@ -86,6 +89,8 @@ func recordCommentEvent(ctx context.Context, tx pgx.Tx, workspaceID, issueID, co
 	if err != nil {
 		return fmt.Errorf("record comment event: %w", err)
 	}
+	// 事件驱动唤醒：通知 Relay 有新事件待发布（对标 Google SRE Book Ch.17）
+	events.NotifyNewEvent()
 	return nil
 }
 

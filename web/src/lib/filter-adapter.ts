@@ -144,8 +144,8 @@ export function filterToListParams(f: FilterState): ListIssuesParams {
   const p: ListIssuesParams = {};
   if (f.search?.trim()) p.search = f.search.trim();
   if (f.group) p.group = f.group;
-  if (f.type) p.type = f.type as ListIssuesParams["type"];
-  if (f.priority) p.priority = f.priority as ListIssuesParams["priority"];
+  if (f.type) p.type = f.type;
+  if (f.priority) p.priority = f.priority;
   if (f.assignee_id != null && !isNaN(f.assignee_id)) p.assignee_id = f.assignee_id;
   if (f.label_id != null && !isNaN(f.label_id)) p.label_id = f.label_id;
   if (f.module_id != null && !isNaN(f.module_id)) p.module_id = f.module_id;

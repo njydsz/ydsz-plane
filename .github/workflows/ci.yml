@@ -114,6 +114,100 @@ jobs:
           retention-days: 14
 
   # ------------------------------------------------------------------
+  # Job 2a: Coverage Ratchet 门禁（P2-3）
+  # 确保 PR 覆盖率不下降，低于 50% 阈值时阻断合并
+  # ------------------------------------------------------------------
+  coverage-gate:
+    name: Coverage Gate (>= 50%)
+    needs: go-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Run coverage with threshold
+        run: |
+          PKGS=$(go list ./... | grep -v '/web/node_modules/' | grep -v '/scripts/')
+          go test -count=1 -timeout 300s -coverprofile=coverage.out -covermode=atomic $PKGS 2>&1 | tee /tmp/test-output.txt
+          echo "--- 覆盖率摘要 ---"
+          go tool cover -func=coverage.out | tail -1 | tee /tmp/coverage-summary.txt
+          # 提取总覆盖率百分比
+          COVERAGE=$(grep -oP 'total:\s+\(statements\)\s+\K[0-9.]+' /tmp/coverage-summary.txt || echo "0")
+          echo "Coverage: $COVERAGE%"
+          echo "coverage=$COVERAGE" >> $GITHUB_OUTPUT
+          # 阈值检查: 50%
+          if (( $(echo "$COVERAGE < 50" | bc -l) )); then
+            echo "::error::Coverage dropped below threshold: $COVERAGE% < 50%"
+            echo "::error::Please add tests for new code paths before merging."
+            exit 1
+          fi
+          echo "✅ Coverage gate passed: $COVERAGE% >= 50%"
+
+  # ------------------------------------------------------------------
+  # Job 2c: API Breaking Change 门禁 — oasdiff（P2-9）
+  # 仅 PR 到 main 时运行，检测 swagger 破坏性变更
+  # ------------------------------------------------------------------
+  api-diff:
+    name: API Breaking Change (oasdiff)
+    needs: go-test
+    runs-on: ubuntu-latest
+    if: github.base_ref == 'main' || github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # 需要完整历史以对比 main 分支
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Install swag
+        run: |
+          go install github.com/swaggo/swag/cmd/swag@latest
+
+      - name: Generate current branch swagger
+        run: |
+          swag init -g cmd/api/main.go -o /tmp/new-swagger --parseDependency --parseInternal 2>&1 || echo "SWAG_GEN_FAILED=1"
+
+      - name: Fetch main branch swagger baseline
+        run: |
+          git fetch origin main --depth=1 2>&1 || true
+          git show origin/main:docs/swagger/swagger.yaml > /tmp/old-swagger.yaml 2>/dev/null || echo "NO_BASELINE=1"
+
+      - name: Run oasdiff breaking change detection
+        run: |
+          if [ "$NO_BASELINE" = "1" ] || [ "$SWAG_GEN_FAILED" = "1" ]; then
+            echo "::warning::Swagger diff check skipped in this environment"
+            echo "Reason: baseline or current swagger generation unavailable."
+            echo "This is non-blocking. The team should ensure swagger artifacts are committed."
+            exit 0
+          fi
+          go install github.com/oasdiff/oasdiff@latest 2>&1 || echo "OASDIFF_INSTALL_FAILED=1"
+          if [ "$OASDIFF_INSTALL_FAILED" = "1" ]; then
+            echo "::warning::oasdiff install failed, skipping breaking change check"
+            exit 0
+          fi
+          NEW_SWAGGER=$(find /tmp/new-swagger -name 'swagger.yaml' -o -name 'swagger.json' | head -1)
+          if [ -z "$NEW_SWAGGER" ]; then
+            echo "::warning::Generated swagger file not found in /tmp/new-swagger"
+            exit 0
+          fi
+          echo "Comparing: /tmp/old-swagger.yaml → $NEW_SWAGGER"
+          oasdiff breaking /tmp/old-swagger.yaml "$NEW_SWAGGER" --fail-on ERR 2>&1 || {
+            EXIT_CODE=$?
+            if [ $EXIT_CODE -ne 0 ]; then
+              echo "::error::API breaking changes detected! Review the diff above."
+              exit $EXIT_CODE
+            fi
+          }
+          echo "✅ No API breaking changes detected"
+
+  # ------------------------------------------------------------------
   # Job 2b: Go 深度静态分析（golangci-lint）
   # ------------------------------------------------------------------
   go-linter:
@@ -180,10 +274,13 @@ jobs:
         run: pnpm audit --prod --audit-level=high
 
       - name: type check
-        run: pnpm type-check 2>/dev/null || echo "::warning::type-check 未配置"
+        run: pnpm type-check
+        # S15 P0-5: 去掉历史遗留的 "|| echo" 吞错逻辑
+        # CI 门禁承诺（README 声称 CI 全绿）：lint/type-check 失败应阻断流水线
 
       - name: lint
-        run: pnpm lint 2>/dev/null || echo "::warning::lint 未配置"
+        run: pnpm lint
+        # S15 P0-5: lint 失败立即触发 job failed，max-warnings 0 严格执行
 
   # ------------------------------------------------------------------
   # Job 4: API 冒烟门禁（启动服务 + 健康检查）
@@ -314,3 +411,106 @@ jobs:
         uses: github/codeql-action/analyze@v3
         with:
           category: "/language:${{ matrix.language }}"
+
+  # ------------------------------------------------------------------
+  # Job 6: Playwright E2E 测试（仅 main 分支 push 时触发）
+  # ------------------------------------------------------------------
+  e2e:
+    name: Playwright E2E (chromium)
+    runs-on: ubuntu-latest    # 仅 main 分支推送时运行，避免 fork PR 服务不可用导致误报
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: go-test
+    concurrency: e2e-${{ github.ref }}
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: ydsz_app
+          POSTGRES_PASSWORD: ydsz_test
+          POSTGRES_DB: ydsz_plane_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      rabbitmq:
+        image: rabbitmq:3-management-alpine
+        ports:
+          - 5672:5672
+          - 15672:15672
+        options: >-
+          --health-cmd "rabbitmqctl status"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      YDSZ_DATABASE_URL: "postgres://ydsz_app:ydsz_test@localhost:5432/ydsz_plane_test?sslmode=disable"
+      YDSZ_REDIS_ADDR: "localhost:6379"
+      YDSZ_REDIS_PASSWORD: ""
+      YDSZ_RABBITMQ_URL: "amqp://guest:guest@localhost:5672/"
+      YDSZ_SERVER_ENV: "development"
+      YDSZ_AUTH_JWT_SECRET: "ci-test-secret-key-at-least-32-bytes-long!!"
+      YDSZ_STORAGE_SECRET_KEY: "ci-test-storage-secret-key-at-least-32-bytes!"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: install web dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: install Playwright browsers
+        run: cd web && npx playwright install --with-deps chromium
+
+      - name: build web frontend
+        run: cd web && pnpm build
+
+      - name: init database schema
+        run: |
+          PGPASSWORD=ydsz_test psql -h localhost -U ydsz_app -d ydsz_plane_test \
+            -v ON_ERROR_STOP=1 \
+            -f sql/ydsz-plane-init.sql
+
+      - name: build API binary
+        run: go build -o /tmp/ydsz-api ./cmd/api
+
+      - name: start API server (background)
+        run: |
+          /tmp/ydsz-api > /tmp/api.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8080/healthz > /dev/null 2>&1; then
+              echo "API started after ${i}s"
+              break
+            fi
+            sleep 1
+          done
+
+      - name: run Playwright E2E tests
+        run: cd web && pnpm exec playwright test --project=chromium
+
+      - name: stop API server
+        if: always()
+        run: pkill -f /tmp/ydsz-api 2>/dev/null || true

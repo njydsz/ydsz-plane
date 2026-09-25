@@ -169,7 +169,9 @@ if (typeof document !== "undefined") {
         <RouterLink
           :to="{ name: 'workspace-rbac', params: { workspaceId } }"
           class="text-[var(--brand-600)] hover:underline"
-        >角色与权限</RouterLink>
+        >
+角色与权限
+</RouterLink>
         页面查看。
       </p>
     </div>

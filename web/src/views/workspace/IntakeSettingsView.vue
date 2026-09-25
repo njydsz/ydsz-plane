@@ -108,7 +108,7 @@ function copyLink(ch: IntakeChannel) {
   );
 }
 
-async function openDetail(it: IntakeIssue) {
+function openDetail(it: IntakeIssue) {
   detail.value = it;
   showDetail.value = true;
   showPromote.value = false;
@@ -332,7 +332,9 @@ onMounted(load);
             v-if="detail.status === 'accepted' && !detail.linked_entity_id"
             class="rounded-md bg-[var(--brand-600)] px-3 py-2 text-sm text-white"
             @click="showPromote = !showPromote"
-          >{{ showPromote ? "取消转正" : "转正" }}</button>
+          >
+{{ showPromote ? "取消转正" : "转正" }}
+</button>
           <button v-if="detail.status === 'accepted' || detail.status === 'rejected'" class="rounded-md border border-[var(--border-subtle)] px-3 py-2 text-sm" @click="flow(detail, 'archive')">归档</button>
         </div>
       </div>

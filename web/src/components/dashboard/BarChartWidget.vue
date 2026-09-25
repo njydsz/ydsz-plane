@@ -13,11 +13,11 @@ const props = defineProps<{
 }>();
 
 function asStateData(d?: StateDistributionData | VelocityData): StateDistributionData | null {
-  return d && "by_state" in d ? (d as StateDistributionData) : null;
+  return d && "by_state" in d ? (d) : null;
 }
 
 function asVelocityData(d?: StateDistributionData | VelocityData): VelocityData | null {
-  return d && "sprints" in d ? (d as VelocityData) : null;
+  return d && "sprints" in d ? (d) : null;
 }
 
 function buildOption(): EChartsCoreOption {

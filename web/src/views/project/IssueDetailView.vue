@@ -437,7 +437,7 @@ async function saveDesc() {
   try {
     issue.value = await issueApi.updateIssue(
       ws.value.id, props.projectId, props.issueId,
-      { description_html: descHtml.value, version: issue.value.version } as Parameters<typeof issueApi.updateIssue>[3],
+      { description_html: descHtml.value, version: issue.value.version },
     );
     editingDesc.value = false;
   } catch (e: unknown) {
@@ -454,9 +454,24 @@ function cancelEditDesc() {
 }
 
 // --- 行内编辑 ---
+/** 将未知值转换为可编辑字符串：null/undefined/对象视为空，其余走 String()。 */
+function toEditStringValue(v: unknown): string {
+  if (v == null) return "";
+  switch (typeof v) {
+    case "string":
+    case "number":
+    case "boolean":
+    case "bigint":
+    case "symbol":
+      return String(v);
+    default:
+      return "";
+  }
+}
+
 function startEdit(field: string, currentValue: unknown) {
   editField.value = field;
-  editValue.value = String(currentValue ?? "");
+  editValue.value = toEditStringValue(currentValue);
   editError.value = "";
 }
 
@@ -511,13 +526,13 @@ async function saveEdit() {
         break;
       case "repr_expect":
         input.reproduce_steps = {
-          ...((issue.value?.reproduce_steps as Record<string, unknown>) ?? {}),
+          ...((issue.value?.reproduce_steps) ?? {}),
           expected: editValue.value,
         };
         break;
       case "repr_actual":
         input.reproduce_steps = {
-          ...((issue.value?.reproduce_steps as Record<string, unknown>) ?? {}),
+          ...((issue.value?.reproduce_steps) ?? {}),
           actual: editValue.value,
         };
         break;

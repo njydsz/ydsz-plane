@@ -137,7 +137,7 @@ onMounted(load);
       <section>
         <h2 class="mb-2 text-sm font-semibold text-[var(--text-secondary)]">免打扰时段</h2>
         <label class="flex items-center gap-2 text-sm text-[var(--text-primary)]">
-          <input type="checkbox" v-model="pref.dnd_enabled" />
+          <input v-model="pref.dnd_enabled" type="checkbox" />
           启用免打扰
         </label>
         <div v-if="pref.dnd_enabled" class="mt-2 flex items-center gap-2">

@@ -1,4 +1,7 @@
 // Package sprint — Sprint HTTP handlers（REST API）。
+//
+// 提供迭代 CRUD、生命周期管理（启动/完成/取消）、燃尽图/速率统计等 REST 端点。
+// 路由通过 RegisterSprintRoutes 注册到 Gin 引擎。
 package sprint
 
 import (

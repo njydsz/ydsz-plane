@@ -22,6 +22,8 @@ import type { SupportedLocale } from "../locales";
 import { setLocale as setGlobalLocale, getLocale } from "../locales";
 
 export function useTranslation() {
+  // vue-i18n 全局模式方法可安全解构（内部不依赖 this）；@typescript-eslint/unbound-method 误报
+  // eslint-disable-next-line @typescript-eslint/unbound-method
   const { t, te, tm, locale, messages } = useI18n({ useScope: "global" });
 
   /**

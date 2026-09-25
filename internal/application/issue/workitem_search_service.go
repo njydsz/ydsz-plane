@@ -1,3 +1,6 @@
+// Package issue — 工作项搜索服务。
+//
+// 支持分类型 ES 索引，ES 不可用时自动降级到 PostgreSQL 全文搜索。
 package issue
 
 import (

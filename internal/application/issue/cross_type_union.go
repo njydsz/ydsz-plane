@@ -1,4 +1,6 @@
-// Package issue — 三表联动 SQL 片段与常量（聚合根拆分后的跨表查询基础设施）。
+// Package issue — 三表联动 SQL 片段与常量。
+//
+// 聚合根拆分后的跨表查询基础设施，提供 requirement/task/defect 三表 UNION ALL 的标准列投影。
 package issue
 
 // CrossTypeWorkitemUnion 是 requirement/task/defect 三表 UNION ALL 的标准列投影。

@@ -6,16 +6,18 @@
 //   - OWASP SAML 安全指南 (Cheat Sheet)
 //
 // 流程:
-//   GET /api/v1/auth/sso/:workspace_id/providers/:pid/login (protocol=saml)
-//     → 生成 SAML AuthnRequest XML → Base64+URL 编码 → 302 重定向到 IdP SSO URL
 //
-//   POST /api/v1/auth/saml/acs (IdP Assertion Consumer Service)
-//     → 解码 SAML Response XML → 验证签名 (xmlsec) → 提取 NameID/Attributes
-//     → 创建会话 → 重定向到前端
+//	GET /api/v1/auth/sso/:workspace_id/providers/:pid/login (protocol=saml)
+//	  → 生成 SAML AuthnRequest XML → Base64+URL 编码 → 302 重定向到 IdP SSO URL
+//
+//	POST /api/v1/auth/saml/acs (IdP Assertion Consumer Service)
+//	  → 解码 SAML Response XML → 验证签名 (xmlsec) → 提取 NameID/Attributes
+//	  → 创建会话 → 重定向到前端
 //
 // 注意: 此为 MVP 骨架。完整的 SAML Response 签名验证依赖 xml-sec 库
-//   (如 /atro32/go-saml 或 /russellhaering/gosaml2)，生产部署时引入。
-//   当前 validateSAMLResponse 为桩实现，仅解析非签名 NameID 与 Attribute。
+//
+//	(如 /atro32/go-saml 或 /russellhaering/gosaml2)，生产部署时引入。
+//	当前 validateSAMLResponse 为桩实现，仅解析非签名 NameID 与 Attribute。
 package auth
 
 import (
@@ -29,6 +31,7 @@ import (
 	"fmt"
 	"io"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 
@@ -231,15 +234,26 @@ func (s *OIDCService) HandleSAMLACS(ctx context.Context, samlResponse, relayStat
 //
 // SAML 断言签名验证需要 xml-sec 库（如 crewjam/saml / russellhaering/gosaml2）执行
 // 规范的 exc-c14n + RSA 验签。Go 标准库无法保留 XML 前缀，无法正确实现该算法，
-// 因此本构建不内置验签。为保障安全，默认要求运维在受信环境**显式**设置 skip_signature=true
-// 以放行；否则视为配置错误并拒绝，避免静默接受伪造断言。
+// 因此本构建不内置验签。为保障安全：
+//   1. 默认拒绝未配置 xml-sec 的构建接受 SAML 断言（返回错误，阻断登录）
+//   2. 当 SkipSignature=true 时，要求环境变量 SAML_DEV_ONLY=true 门控
+//      （生产构建/容器镜像不应设置此变量，防止配置漂移导致静默跳过签名校验）
+// 对标 OWASP SAML 安全指南 + 等保三级：不得在未配置签名验签时接受外部 IdP 断言。
 func (s *OIDCService) validateSAMLResponse(_ []byte, provider *SAMLProviderConfig) error {
 	if provider.SkipSignature {
-		// 运维在受信网络/测试环境显式关闭校验
+		// P0-4: SAML 签名跳过门控 — 必须显式声明开发/测试环境。
+		// 生产环境部署禁止设置 SAML_DEV_ONLY=true。
+		if os.Getenv("SAML_DEV_ONLY") != "true" {
+			return errs.New("SSO.SAML_DEV_ONLY_REQUIRED",
+				"SAML skip_signature=true 但环境变量 SAML_DEV_ONLY 未设置为 "true"；"+
+					"生产部署禁止关闭签名校验。请集成 xml-sec 库或在测试环境显式设置 SAML_DEV_ONLY=true",
+				500)
+		}
+		// 运维在受信网络/测试环境显式关闭校验（需 SAML_DEV_ONLY=true 才能执行到此）
 		return nil
 	}
 	return errs.New("SSO.SAML_SIGNATURE_REQUIRED",
-		"SAML 签名校验未关闭，但当前构建未集成 xml-sec 校验库；请在受信环境设置 skip_signature=true，或集成 SAML 校验库后再启用严格校验", 500)
+		"SAML 签名校验未关闭，但当前构建未集成 xml-sec 校验库；请在受信环境设置 skip_signature=true + SAML_DEV_ONLY=true，或集成 SAML 校验库后再启用严格校验", 500)
 }
 
 // resolveSAMLProvider 通过 RelayState 关联发起 SSO 时保存的会话，定位 Provider。

@@ -188,11 +188,13 @@ watch(() => props.issueId, () => {
     <!-- 头部 -->
     <div class="rp-panel__header">
       <h3 class="rp-panel__title">需求评审</h3>
-      <span v-if="currentStatus && currentStatus !== 'draft'" class="rp-badge" :class="{
+      <span
+v-if="currentStatus && currentStatus !== 'draft'" class="rp-badge" :class="{
         'rp-badge--in-review': currentStatus === 'in_review',
         'rp-badge--approved': currentStatus === 'approved',
         'rp-badge--rejected': currentStatus === 'rejected',
-      }">
+      }"
+>
         {{
           currentStatus === 'in_review' ? '评审中' :
           currentStatus === 'approved' ? '已采纳' :

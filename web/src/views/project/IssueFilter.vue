@@ -16,7 +16,6 @@ import { preferenceApi } from "@/api/services/preference";
 import { useWorkspaceContext } from "@/composables/useWorkspaceContext";
 import {
   type FilterState,
-  type IssueTypeCode,
   safeParseFilters,
   hasActiveFilter,
   activeFilterCount,
@@ -156,7 +155,7 @@ function setGroup(v: StateGroup | ""): void {
   filters.value = { ...filters.value, group: v || undefined };
 }
 function setType(v: IssueType | ""): void {
-  filters.value = { ...filters.value, type: (v || undefined) as IssueTypeCode | undefined };
+  filters.value = { ...filters.value, type: (v || undefined) };
 }
 function setPriority(v: string): void {
   filters.value = { ...filters.value, priority: (v || undefined) as FilterState["priority"] };

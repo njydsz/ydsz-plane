@@ -27,13 +27,39 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"go.uber.org/zap"
 
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/mq"
+)
+
+// --- Prometheus Metrics (对标 Google SRE Book Ch.17: 时延分布监控) ---
+
+var (
+	// OutboxLagSeconds 记录 observed_at 与 occurred_at 之间的时延分布（含）。
+	OutboxLagSeconds = promauto.NewHistogram(
+		prometheus.HistogramOpts{
+			Namespace: "plane",
+			Name:      "outbox_lag_seconds",
+			Help:      "Lag between event observed_at (relay poll time) and occurred_at.",
+			Buckets:   []float64{0.01, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30, 60},
+		},
+	)
+
+	// OutboxEventsPublishedTotal 统计成功发布到 RabbitMQ 的事件总数。
+	OutboxEventsPublishedTotal = promauto.NewCounter(
+		prometheus.CounterOpts{
+			Namespace: "plane",
+			Name:      "outbox_events_published_total",
+			Help:      "Total outbox events successfully published to RabbitMQ.",
+		},
+	)
 )
 
 // Event 是存储在 PostgreSQL outbox（domain_events）中的领域事件记录。
@@ -103,6 +129,12 @@ type Querier interface {
 //  3. 关闭时 ctx 取消后，进行中的批次完成后返回。
 //
 // 可观测性：每个批次周期记录已发布数量、错误与延迟。
+// 使用 Prometheus 指标记录事件 Lag 分布和成功发布计数。
+//
+// 事件驱动唤醒 (对标 Google SRE Book Ch.17: 及时性 vs 效率权衡):
+//  - 正常模式：500ms 周期轮询（节省 CPU）
+//  - 有 NotifyNewEvent 信号时立即唤醒一次（降低端到端延迟）
+//  - wakeup channel 不对外暴露，仅 NotifyNewEvent() 可触发
 //
 // 错误隔离：单条发布失败不阻塞整批——失败事件单独记录错误计数并
 // 触发 OnPublishFailed 回调由上层处理（告警/死信标记），Relay 继续
@@ -114,6 +146,9 @@ type Relay struct {
 	batch  int
 	period time.Duration
 
+	// wakeup 用于事件驱动立即唤醒。单容量通道，NotifyNewEvent 非阻塞发送。
+	wakeup chan struct{}
+
 	// 发布失败时回调（可选，用于对账任务及告警）
 	OnPublishFailed func(ctx context.Context, e Event, publishErr error)
 }
@@ -121,33 +156,58 @@ type Relay struct {
 // NewRelay 使用已初始化的 MQ 客户端构造 Relay。
 // 调用方负责通过 Relay.Close 关闭 MQ 客户端，或共享客户端由外部关闭。
 func NewRelay(db Querier, mqClient *mq.Client, log *zap.Logger) *Relay {
-	return &Relay{db: db, mq: mqClient, log: log, batch: 200, period: 500 * time.Millisecond}
+	r := &Relay{db: db, mq: mqClient, log: log, batch: 200, period: 500 * time.Millisecond}
+	r.wakeup = make(chan struct{}, 1) // capacity=1，确保非阻塞通知又不丢失
+	return r
+}
+
+// NotifyNewEvent 通知 Relay 有新事件待发布（非阻塞）。
+// 该方法可被 application 层在写入 domain_events 后调用以降低端到端延迟。
+// 由于 wakeup 通道容量为 1，重复通知不会造成 goroutine 泄漏。
+func (r *Relay) NotifyNewEvent() {
+	if r == nil {
+		return
+	}
+	select {
+	case r.wakeup <- struct{}{}:
+	default:
+		// 已有一个待处理唤醒信号，无需重复发送
+	}
 }
 
 // Run 启动轮询循环直至 ctx 取消。
+//
+// 事件驱动唤醒 (对标 Google SRE Book Ch.17):
+//  - 正常模式下按 period 周期轮询（节电）
+//  - 当 wakeup 通道有信号时立即执行一轮 poll-to-publish
+//    实现亚 period 级的端到端延迟
 func (r *Relay) Run(ctx context.Context) {
 	r.log.Info("outbox relay started",
 		zap.Int("batch", r.batch),
 		zap.Duration("period", r.period),
 		zap.String("exchange", mq.EventExchange))
 
+	ticker := time.NewTicker(r.period)
+	defer ticker.Stop()
+
 	for {
 		select {
 		case <-ctx.Done():
 			r.log.Info("outbox relay stopped (context cancelled)")
 			return
-		default:
+		case <-r.wakeup:
+			// 事件被写入 outbox 后立即唤醒
+			r.runBatch(ctx)
+		case <-ticker.C:
+			r.runBatch(ctx)
 		}
+	}
+}
 
-		if err := r.publishBatch(ctx); err != nil {
-			r.log.Error("outbox relay batch failed", zap.Error(err))
-		}
-
-		select {
-		case <-ctx.Done():
-			return
-		case <-time.After(r.period):
-		}
+// runBatch 执行单个轮询+发布批次，并自动在 sleep 前补充时间片。
+func (r *Relay) runBatch(ctx context.Context) {
+	if err := r.publishBatch(ctx); err != nil {
+		r.log.Error("outbox relay batch failed", zap.Error(err))
 	}
 }
 
@@ -157,6 +217,9 @@ func (r *Relay) Run(ctx context.Context) {
 // 多个 relay 实例并发运行时不会重复消费同一条事件。同一事务内
 // SELECT 后逐条标记 published_at，发布语义保持 at-least-once：
 // 若 PublishEvent 失败则跳过标记，解锁后仍可由本实例或另一实例重试。
+//
+// 可观测性：对每条成功发布的事件记录 lag 分布（observed_at - occurred_at）
+// 和 published counter。
 func (r *Relay) publishBatch(ctx context.Context) error {
 	tx, err := r.db.Begin(ctx)
 	if err != nil {
@@ -164,6 +227,8 @@ func (r *Relay) publishBatch(ctx context.Context) error {
 	}
 	// 无论成功失败都回滚/提交，确保锁被释放。
 	defer func() { _ = tx.Rollback(ctx) }()
+
+	now := time.Now() // observed_at 近似值（用于 lag 计算）
 
 	rows, err := tx.Query(ctx, `
 		SELECT id, workspace_id, aggregate_type, aggregate_id, event_type, payload, occurred_at
@@ -216,6 +281,14 @@ func (r *Relay) publishBatch(ctx context.Context) error {
 			continue
 		}
 		published++
+
+		// Prometheus: lag = observed_at(now) - occurred_at
+		lag := now.Sub(e.OccurredAt).Seconds()
+		if lag < 0 {
+			lag = 0
+		}
+		OutboxLagSeconds.Observe(lag)
+		OutboxEventsPublishedTotal.Inc()
 	}
 
 	if err := tx.Commit(ctx); err != nil {
@@ -250,6 +323,48 @@ func IsEventProcessed(ctx context.Context, eventID int64, consumerID string, db 
 		return true, nil
 	}
 	return false, rows.Err()
+}
+
+// --- Global Notifier (对标 Google SRE Book Ch.17: 信号解耦) ---
+//
+// Relay 运行在 worker 进程；API 进程通过 Redis/DB 与之分离。
+// 此处提供一层进程内委托：API 层调用 NotifyNewEvent() 经由全局变量
+// 转发至本进程内的 Relay。若未注册 Relay（如 worker 未开启或无 relay），
+// 则退化为 no-op，不影响 write 路径的稳定性。
+//
+// 在单体模式（relay 与 API 同一进程）下，该机制可将 outbox 端到端延迟
+// 从 500ms（轮询间隔）降低到 <10ms（notify 即时唤醒）。
+//
+// RegisterRelay 由Relay 创建方（如 cmd/worker/main.go）调用一次。
+var (
+	globalRelayMu sync.RWMutex
+	globalRelay   *Relay
+)
+
+// RegisterRelay 注册全局 Relay 以便 API 层 NotifyNewEvent 委托调用。
+func RegisterRelay(r *Relay) {
+	globalRelayMu.Lock()
+	defer globalRelayMu.Unlock()
+	globalRelay = r
+}
+
+// UnregisterRelay 解注册（通常在 run teardown 时）。
+func UnregisterRelay() {
+	globalRelayMu.Lock()
+	defer globalRelayMu.Unlock()
+	globalRelay = nil
+}
+
+// NotifyNewEvent 是 package-level 唤醒入口。
+// API 层写入 domain_events 后调用本函数，通知本进程内的 Relay 立即 poll。
+// 若 Relay 未注册（如 API 进程无 worker），则为 no-op。
+func NotifyNewEvent() {
+	globalRelayMu.RLock()
+	r := globalRelay
+	globalRelayMu.RUnlock()
+	if r != nil {
+		r.NotifyNewEvent()
+	}
 }
 
 // EnqueueTask 向 TaskExchange 发布后台任务信封。

@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -29,6 +30,9 @@ import (
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 	"go.uber.org/zap"
+
+	"github.com/njydsz/ydsz-plane/internal/infrastructure/es"
+	"github.com/njydsz/ydsz-plane/internal/infrastructure/health"
 
 	"github.com/njydsz/ydsz-plane/internal/application/ai"
 	"github.com/njydsz/ydsz-plane/internal/application/apitoken"
@@ -57,6 +61,7 @@ import (
 	"github.com/njydsz/ydsz-plane/internal/interfaces/middleware"
 	"github.com/njydsz/ydsz-plane/internal/rbac"
 	"github.com/njydsz/ydsz-plane/pkg/errs"
+	"github.com/njydsz/ydsz-plane/pkg/strutil"
 )
 
 // Deps 携带各 handler 的依赖。
@@ -122,6 +127,13 @@ type Deps struct {
 	// 收件箱域（Intake，匿名提报）
 	IntakeHandler       *intake.Handler
 	IntakePublicHandler *intake.PublicHandler
+
+	// ReadyzDeps 携带 /readyz 连通性探测所需的可选外部依赖客户端。
+	// 若对应字段为 nil，则 /readyz 不检查该依赖。
+	// ESClient 是 ES 客户端（cmd/api 中若 ES 未连接则为 nil）。
+	// MQHealthy 返回 RabbitMQ 是否健康（cmd/api 中若 RabbitMQ 未连接则为 nil）。
+	ESClient  *es.Client
+	MQHealthy func() bool
 }
 
 // RegisterIssueRoutes 注册工作项路由（在 NewEngine 之后调用）。
@@ -740,14 +752,10 @@ func (d *Deps) principalParser() func(token string) (auth.Principal, error) {
 func userKey(c *gin.Context) string {
 	if uid, ok := c.Get(middleware.CtxUserID); ok {
 		if id, ok := uid.(int64); ok {
-			return "u" + itoa(id)
+			return "u" + strutil.FastItoaInt64(id)
 		}
 	}
 	return c.ClientIP()
-}
-
-func itoa(v int64) string {
-	return fmt.Sprintf("%d", v)
 }
 
 // --- handlers (platform-level) ---
@@ -760,31 +768,121 @@ func healthz() gin.HandlerFunc {
 
 func readyz(d *Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		ctx, cancel := context.WithTimeout(c.Request.Context(), 3*time.Second)
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
 		defer cancel()
 
-		checks := gin.H{}
-		healthy := true
-
-		if err := d.DB.Ping(ctx); err != nil {
-			checks["postgres"] = "down"
-			healthy = false
-		} else {
-			checks["postgres"] = "up"
-		}
-		if err := d.Redis.Ping(ctx).Err(); err != nil {
-			checks["redis"] = "down"
-			healthy = false
-		} else {
-			checks["redis"] = "up"
-		}
+		// --- 带缓存的就绪探测（30s TTL 避免探测过于频繁）---
+		checks, allOK := readyzCache.run(ctx, d)
 
 		status := http.StatusOK
-		if !healthy {
+		statusStr := "ok"
+		if !allOK {
 			status = http.StatusServiceUnavailable
+			statusStr = "degraded"
 		}
-		c.JSON(status, gin.H{"status": map[bool]string{true: "ready", false: "degraded"}[healthy], "checks": checks})
+		c.JSON(status, gin.H{"status": statusStr, "checks": checks})
 	}
+}
+
+// readyzCacheImpl 是 /readyz 探测结果的 30s TTL 缓存。
+// 每次请求构建 checker 列表（以捕获运行时配置变更如 OIDC Provider 增减），
+// 但仅在缓存过期时执行实际探测。
+var readyzCache = newReadyzCache(30 * time.Second)
+
+type readyzCacheImpl struct {
+	mu      sync.Mutex
+	ttl     time.Duration
+	checks  map[string]string
+	ok      bool
+	checked time.Time
+}
+
+func newReadyzCache(ttl time.Duration) *readyzCacheImpl {
+	return &readyzCacheImpl{
+		ttl:    ttl,
+		checks: make(map[string]string),
+	}
+}
+
+func (c *readyzCacheImpl) run(ctx context.Context, d *Deps) (map[string]string, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	// 缓存有效期内直接返回
+	if len(c.checks) > 0 && time.Since(c.checked) < c.ttl {
+		return c.checks, c.ok
+	}
+
+	// --- 构建 ConnectivityChecker 列表 ---
+	checkers := buildReadyzCheckers(ctx, d)
+
+	// --- 执行探测 ---
+	checks := make(map[string]string)
+	allOK := true
+	for _, checker := range checkers {
+		if checker == nil {
+			continue
+		}
+		if err := checker.Check(ctx); err != nil {
+			checks[checker.Name()] = "error: " + err.Error()
+			allOK = false
+		} else {
+			checks[checker.Name()] = "ok"
+		}
+	}
+
+	c.checks = checks
+	c.ok = allOK
+	c.checked = time.Now()
+	return checks, allOK
+}
+
+// buildReadyzCheckers 根据 Deps 中的运行时配置动态构建 checker 列表。
+func buildReadyzCheckers(ctx context.Context, d *Deps) []health.ConnectivityChecker {
+	checkers := make([]health.ConnectivityChecker, 0, 6)
+
+	// PostgreSQL（始终检查）
+	if d.DB != nil {
+		checkers = append(checkers, health.NewPostgresChecker(d.DB))
+	}
+	// Redis（始终检查）
+	if d.Redis != nil {
+		checkers = append(checkers, health.NewRedisChecker(d.Redis))
+	}
+
+	// RabbitMQ（可选：API 进程通常不连接 RabbitMQ）
+	if d.MQHealthy != nil {
+		checkers = append(checkers, health.NewRabbitMQChecker(d.MQHealthy))
+	}
+
+	// Elasticsearch（可选：API 进程可能未初始化 ES 客户端）
+	if d.ESClient != nil {
+		checkers = append(checkers, health.NewElasticsearchChecker(
+			func(ctx2 context.Context, _, _ string) (*http.Response, error) {
+				return d.ESClient.HealthCheckHTTP(ctx2)
+			},
+		))
+	}
+
+	// SMTP（当 host 非空时启用）
+	if d.Cfg.Email.Enabled && d.Cfg.Email.Host != "" {
+		checkers = append(checkers, health.NewSmtpChecker(
+			d.Cfg.Email.Host, d.Cfg.Email.Port, d.Cfg.Email.UseTLS,
+		))
+	}
+
+	// OIDC IdP（仅当存在已启用的 OIDC Provider 时探测）
+	if d.OIDCService != nil {
+		// 使用短超时避免 /readyz 响应过慢
+		oidcCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+		issuerURLs, err := d.OIDCService.ListIssuerURLs(oidcCtx)
+		cancel()
+		if err == nil && len(issuerURLs) > 0 {
+			checkers = append(checkers, health.NewOIDCChecker(issuerURLs))
+		}
+	}
+
+	return checkers
 }
 
 type loginRequest struct {

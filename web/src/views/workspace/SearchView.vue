@@ -170,6 +170,7 @@ onMounted(() => {
                 </span>
                 <div class="flex-1 min-w-0">
                   <div class="truncate text-sm text-[var(--text-primary)]">
+                    <!-- eslint-disable-next-line vue/no-v-html -- highlight 由服务端 ts_headline 生成，内容已转义 -->
                     <span v-html="item.highlight ?? item.name" />
                   </div>
                   <div v-if="item.description" class="truncate text-xs text-[var(--text-tertiary)]">

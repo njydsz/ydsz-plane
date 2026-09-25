@@ -7,9 +7,10 @@
 //   - OWASP ASVS V2.1 (认证架构)
 //
 // 流程:
-//   GET  /api/v1/auth/oidc/:provider_id/login    → 生成 state → 302 跳转 IdP
-//   GET  /api/v1/auth/oidc/callback              → 验证 state → 交换 code → 验证 id_token → 登录/创建用户
-//   GET  /api/v1/auth/oidc/providers             → 列出已启用的 SSO Providers
+//
+//	GET  /api/v1/auth/oidc/:provider_id/login    → 生成 state → 302 跳转 IdP
+//	GET  /api/v1/auth/oidc/callback              → 验证 state → 交换 code → 验证 id_token → 登录/创建用户
+//	GET  /api/v1/auth/oidc/providers             → 列出已启用的 SSO Providers
 //
 // 安全措施:
 //   - state 参数防 CSRF（crypto/rand 256-bit, 10 分钟有效期）
@@ -64,10 +65,11 @@ type OIDCProviderConfig struct {
 
 // OIDCService 处理 OIDC 登录流程。
 type OIDCService struct {
-	db         *pgxpool.Pool
-	authSvc    *Service
-	httpClient *http.Client
-	appBaseURL string
+	db            *pgxpool.Pool
+	authSvc       *Service
+	httpClient    *http.Client
+	appBaseURL    string
+	secretCipher  SecretCipher
 }
 
 // NewOIDCService 创建 OIDC 服务。
@@ -77,6 +79,17 @@ func NewOIDCService(db *pgxpool.Pool, authSvc *Service, appBaseURL string) *OIDC
 		authSvc:    authSvc,
 		httpClient: &http.Client{Timeout: 10 * time.Second},
 		appBaseURL: appBaseURL,
+	}
+}
+
+// NewOIDCServiceWithCipher 创建带加解密能力的 OIDC 服务。
+func NewOIDCServiceWithCipher(db *pgxpool.Pool, authSvc *Service, appBaseURL string, cipher SecretCipher) *OIDCService {
+	return &OIDCService{
+		db:           db,
+		authSvc:      authSvc,
+		httpClient:   &http.Client{Timeout: 10 * time.Second},
+		appBaseURL:   appBaseURL,
+		secretCipher: cipher,
 	}
 }
 
@@ -190,8 +203,8 @@ func (s *OIDCService) HandleCallback(ctx context.Context, in OIDCCallbackInput) 
 		return nil, err
 	}
 
-	// 7. 签发令牌对
-	pair, err := s.authSvc.issuePair(user.ID, user.Email, user.DisplayName, user.AvatarURL)
+	// 7. 签发令牌对（P0-3：SSO 场景传入 provider_id 以便关联家族记录）
+	pair, err := s.authSvc.issuePairWithProvider(user.ID, user.Email, user.DisplayName, user.AvatarURL, session.ProviderID)
 	if err != nil {
 		s.markSessionFailed(ctx, in.State, err.Error())
 		return nil, err
@@ -524,7 +537,47 @@ func (s *OIDCService) loadProviderConfig(ctx context.Context, providerID int64) 
 	cfg.Scopes = strings.Fields(scopesStr)
 	_ = json.Unmarshal(attrMapping, &cfg.AttributeMapping)
 
+	// 向后兼容解密：若已配置 cipher 且密文非空则解密；
+	// 解密失败（如存量明文数据）时记录 warning 并保留原文，便于迁移期共存。
+	if cfg.ClientSecret != "" && s.secretCipher != nil {
+		decrypted, decErr := s.secretCipher.Decrypt(cfg.ClientSecret)
+		if decErr == nil {
+			cfg.ClientSecret = decrypted
+		}
+		// 解密失败时保留原文（存量明文数据，待 migration 脚本回写为密文）
+	}
+
 	return &cfg, nil
+}
+
+// ListIssuerURLs 返回所有已启用 OIDC/SAML Provider 的去重 IssuerURL 列表。
+// 仅返回 protocol="oidc" 且 issuer_url 非空的 Provider。
+// 供 /readyz 连通性探测使用：探测每个 IssuerURL 的 .well-known/openid-configuration。
+func (s *OIDCService) ListIssuerURLs(ctx context.Context) ([]string, error) {
+	rows, err := s.db.Query(ctx, `
+		SELECT DISTINCT issuer_url
+		FROM sso_providers
+		WHERE enabled = TRUE AND protocol = 'oidc' AND issuer_url != ''`)
+	if err != nil {
+		return nil, errs.ErrInternal.Wrap(err)
+	}
+	defer rows.Close()
+
+	var urls []string
+	for rows.Next() {
+		var u string
+		if err := rows.Scan(&u); err != nil {
+			return nil, errs.ErrInternal.Wrap(err)
+		}
+		urls = append(urls, u)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, errs.ErrInternal.Wrap(err)
+	}
+	if urls == nil {
+		return []string{}, nil
+	}
+	return urls, nil
 }
 
 // ListProviders 列出启用的 SSO Providers。
@@ -608,6 +661,16 @@ func (s *OIDCService) CreateProvider(ctx context.Context, in *ProviderModifyInpu
 		attrJSON = []byte("{}")
 	}
 
+	// 加密 client_secret 后再入库（P0-2：client_secret 加密封存）
+	encryptedSecret := in.ClientSecret
+	if in.ClientSecret != "" && s.secretCipher != nil {
+		enc, err := s.secretCipher.Encrypt(in.ClientSecret)
+		if err != nil {
+			return nil, errs.ErrInternal.Wrap(fmt.Errorf("SSO.SECRET_ENCRYPT_FAILED: %w", err))
+		}
+		encryptedSecret = enc
+	}
+
 	var id int64
 	err := s.db.QueryRow(ctx, `
 		INSERT INTO sso_providers (workspace_id, name, protocol, issuer_url, client_id, client_secret,
@@ -615,7 +678,7 @@ func (s *OIDCService) CreateProvider(ctx context.Context, in *ProviderModifyInpu
 			auto_create_user, default_role, attribute_mapping, enabled)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15::jsonb, TRUE)
 		RETURNING id`,
-		in.WorkspaceID, in.Name, in.Protocol, in.IssuerURL, in.ClientID, in.ClientSecret,
+		in.WorkspaceID, in.Name, in.Protocol, in.IssuerURL, in.ClientID, encryptedSecret,
 		in.RedirectURI, in.AuthURL, in.TokenURL, in.UserInfoURL, in.JWKSURL, in.Scopes,
 		in.AutoCreateUser, in.DefaultRole, attrJSON).Scan(&id)
 	if err != nil {
@@ -629,6 +692,16 @@ func (s *OIDCService) UpdateProvider(ctx context.Context, id int64, in *Provider
 	attrJSON, _ := json.Marshal(in.AttributeMapping)
 	if len(attrJSON) == 0 || string(attrJSON) == "null" {
 		attrJSON = []byte("{}")
+	}
+
+	// 加密 client_secret 后再入库（仅当调用方显式传入非空 secret）
+	encryptedSecret := in.ClientSecret
+	if in.ClientSecret != "" && s.secretCipher != nil {
+		enc, err := s.secretCipher.Encrypt(in.ClientSecret)
+		if err != nil {
+			return nil, errs.ErrInternal.Wrap(fmt.Errorf("SSO.SECRET_ENCRYPT_FAILED: %w", err))
+		}
+		encryptedSecret = enc
 	}
 
 	tag, err := s.db.Exec(ctx, `
@@ -648,7 +721,7 @@ func (s *OIDCService) UpdateProvider(ctx context.Context, id int64, in *Provider
 			attribute_mapping = COALESCE($14::jsonb, attribute_mapping),
 			updated_at = now()
 		WHERE id = $1`,
-		id, in.Name, in.IssuerURL, in.ClientID, in.ClientSecret, in.RedirectURI,
+		id, in.Name, in.IssuerURL, in.ClientID, encryptedSecret, in.RedirectURI,
 		in.AuthURL, in.TokenURL, in.UserInfoURL, in.JWKSURL, in.Scopes,
 		in.AutoCreateUser, in.DefaultRole, attrJSON)
 	if err != nil {
@@ -672,7 +745,7 @@ func (s *OIDCService) DeleteProvider(ctx context.Context, id int64) error {
 	return nil
 }
 
-// GetProvider 获取单个 SSO Provider 详情。
+// GetProvider 获取单个 SSO Provider 详情（client_secret 不泄露，始终为空）。
 func (s *OIDCService) GetProvider(ctx context.Context, id int64) (*OIDCProviderConfig, error) {
 	rows, err := s.db.Query(ctx, `
 		SELECT id, workspace_id, name, protocol, issuer_url, client_id, client_secret,
@@ -703,6 +776,7 @@ func (s *OIDCService) GetProvider(ctx context.Context, id int64) (*OIDCProviderC
 	}
 	cfg.Scopes = strings.Fields(scopes)
 	_ = json.Unmarshal(attrMapping, &cfg.AttributeMapping)
+	cfg.ClientSecret = "" // 不泄露 secret（P0-2）
 	return &cfg, nil
 }
 

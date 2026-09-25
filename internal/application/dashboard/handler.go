@@ -1,4 +1,7 @@
-// Package dashboard — 仪表盘 HTTP handlers。
+// Package dashboard — 项目仪表盘 HTTP handlers。
+//
+// 为前端仪表盘提供 widget 数据接口：进度概览、燃尽图、速率、优先级分布等。
+// 路由通过 RegisterDashboardRoutes 注册到 Gin 引擎。
 package dashboard
 
 import (

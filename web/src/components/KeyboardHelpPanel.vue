@@ -1,5 +1,5 @@
-<!-- 快捷键帮助弹窗（"?" 触发，Esc 关闭）。 -->
 <script setup lang="ts">
+// 快捷键帮助弹窗（"?" 触发，Esc 关闭）
 defineProps<{ shortcuts: { key: string; label: string; description: string }[] }>()
 const emit = defineEmits<{ (e: "close"): void }>()
 </script>
@@ -94,3 +94,4 @@ const emit = defineEmits<{ (e: "close"): void }>()
   font-size: 12px;
   color: var(--text-tertiary);
 }
+</style>

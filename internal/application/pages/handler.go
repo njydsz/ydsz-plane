@@ -1,4 +1,7 @@
 // Package pages — 项目文档页面 HTTP handlers。
+//
+// 提供项目级页面树 CRUD（含富文本内容、父子嵌套、排序）与公开分享链接读取。
+// 路由通过 RegisterPagesRoutes / RegisterPagesPublicRoutes 注册到 Gin 引擎。
 package pages
 
 import (

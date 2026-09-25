@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 
 	"github.com/njydsz/ydsz-plane/internal/application/ai"
@@ -91,6 +92,13 @@ func run() error {
 	}
 	defer pool.Close()
 
+	// P1-6: 启动连接池 Prometheus 指标采集（每 15s 一轮）。
+	// Uber Go Style: "defer ticker.Stop() guarantees cleanup."
+	poolCollector := telemetry.NewPoolStatsCollector(pool.Pool)
+	poolTicker := time.NewTicker(15 * time.Second)
+	go poolCollector.Start(ctx, poolTicker)
+	defer poolTicker.Stop()
+
 	rdb, err := cache.NewClient(ctx, cfg.Redis.Addr, cfg.Redis.Password, cfg.Redis.DB)
 	if err != nil {
 		return err
@@ -110,7 +118,15 @@ func run() error {
 	resetSvc := auth.NewPasswordResetService(pool.Pool, nil, cfg.Email.AppBaseURL, cfg.Auth.BcryptCost)
 
 	// S13 OIDC / SSO 服务（单点登录）；仅在有 SSO Provider 配置时可用
-	oidcService := auth.NewOIDCService(pool.Pool, authSvc, cfg.Email.AppBaseURL)
+	// P0-2：client_secret 加密封存，需从环境变量 YDSZ_SSO_SECRET_KEY 加载 32 字节密钥
+	var oidcService *auth.OIDCService
+	if ssoCipher, cipherErr := auth.NewSecretCipher(); cipherErr != nil {
+		log.Warn("SSO secret cipher not configured (client_secret will be stored in plaintext): "+cipherErr.Error(),
+			zap.String("hint", "set YDSZ_SSO_SECRET_KEY env (32 bytes) to enable encryption"))
+		oidcService = auth.NewOIDCService(pool.Pool, authSvc, cfg.Email.AppBaseURL)
+	} else {
+		oidcService = auth.NewOIDCServiceWithCipher(pool.Pool, authSvc, cfg.Email.AppBaseURL, ssoCipher)
+	}
 
 	wsStore := auth.NewWorkspaceMembershipStore(pool.Pool)
 	wsSvc := workspace.NewService(pool.Pool)
@@ -153,11 +169,13 @@ func run() error {
 
 	// ---------- WebSocket Hub (before Issue, for real-time broadcast) ----------
 	// 生产环境安全配置：同源校验 + 连接级限流
+	// P1-10：传入 prometheus.DefaultRegisterer 以注册 WS 指标（clientsActive/eventsPublished/eventsDropped/broadcastDuration）
 	wsHub := ws.NewHubWithConfig(rdb, ws.HubConfig{
 		MaxConnsPerUser:    3,
 		MaxConnsPerIP:      10,
 		MaxConnsGlobal:     1000,
 		RequireOriginCheck: cfg.Server.Env != "development",
+		Registerer:         prometheus.DefaultRegisterer,
 	})
 	go wsHub.Run()
 	defer wsHub.Shutdown()

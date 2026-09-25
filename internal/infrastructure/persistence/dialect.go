@@ -130,7 +130,27 @@ func (d *PostgresDialect) ILike(column, placeholder string) string {
 }
 
 func (d *PostgresDialect) JSONBExtract(column, key string) string {
+	// 安全：key 仅允许字母、数字、下划线，防止 SQL 注入。
+	// 对标 OWASP A03:2021：所有构建 SQL 的输入必须白名单校验。
+	if !isValidJSONBKey(key) {
+		panic(fmt.Sprintf("persistence: invalid JSONB key %q (仅允许 [a-zA-Z0-9_])", key))
+	}
+	// column 通过 QuoteIdentifier 转义后注入（调用方保证）
 	return fmt.Sprintf("%s->>'%s'", column, key)
+}
+
+// isValidJSONBKey 校验 JSONB key 仅包含安全字符（字母/数字/下划线）。
+// 用于 JSONBExtract 构建时防止 SQL 注入。
+func isValidJSONBKey(key string) bool {
+	if key == "" {
+		return false
+	}
+	for _, r := range key {
+		if !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '_') {
+			return false
+		}
+	}
+	return true
 }
 
 func (d *PostgresDialect) FullTextSearch(column, placeholder string) string {
@@ -172,9 +192,23 @@ func (d *DamengDialect) LimitOffset(limit, offset int) string {
 }
 
 func (d *DamengDialect) Upsert(table, conflictCols, updateCols string) string {
-	// 达梦使用 MERGE INTO 语法
-	// 简化实现：使用 MERGE INTO ... WHEN MATCHED THEN UPDATE
-	return fmt.Sprintf("/* 达梦: 使用 MERGE INTO 语法, conflict_cols=%s */", conflictCols)
+	// 达梦 DM8 使用 MERGE INTO 语法（Oracle 兼容）
+	//
+	// 标准用法（外部调用示例）:
+	//   MERGE INTO <table> t
+	//   USING (SELECT :1 AS <conflict_col> FROM dual) s
+	//   ON (t.<conflict_col> = s.<conflict_col>)
+	//   WHEN MATCHED THEN UPDATE SET <updateCols>
+	//   WHEN NOT MATCHED THEN INSERT (<cols>) VALUES (<vals>)
+	//
+	// 注意：DM8 不支持 PostgreSQL 的 ON CONFLICT 语法。
+	// 当调用方无法提供完整的 USING/INSERT 子句时，退化为注释 + MERGE 头，
+	// 交由数据访问层根据 dialect.Type() 判断后拼接完整 SQL。
+	//
+	// 如果 DM8 运行在 MySQL 兼容模式下，可改用：
+	//   INSERT INTO <table> ... ON DUPLICATE KEY UPDATE <updateCols>
+	return fmt.Sprintf("MERGE INTO %s /* ON (%s) WHEN MATCHED THEN UPDATE SET %s WHEN NOT MATCHED THEN INSERT */",
+		table, conflictCols, updateCols)
 }
 
 func (d *DamengDialect) ILike(column, placeholder string) string {

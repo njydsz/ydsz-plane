@@ -3,10 +3,10 @@
 // 订阅 RabbitMQ EventExchange，将领域事件转换为站内通知。
 // 这是"最小闭环 MVP"的核心链路：
 //
-//   IssueService/CommentService → Outbox (domain_events)
-//     → OutboxRelay → RabbitMQ EventExchange
-//     → NotificationConsumer → notifications 表
-//     → 前端铃铛组件轮询 /api/v1/notifications/unread-count
+//	IssueService/CommentService → Outbox (domain_events)
+//	  → OutboxRelay → RabbitMQ EventExchange
+//	  → NotificationConsumer → notifications 表
+//	  → 前端铃铛组件轮询 /api/v1/notifications/unread-count
 //
 // 设计决策：
 //   - 直接在 EventExchange 上消费，不绕经 TaskExchange（减少一跳延迟）

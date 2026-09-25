@@ -102,9 +102,9 @@
                     v-for="(item, idx) in store.results.results.issues"
                     :key="'issue-' + item.id"
                     class="cp-item"
-                    :class="{ 'cp-item--selected': isSelected('search', idx, 'issues') }"
+                    :class="{ 'cp-item--selected': isSelected('search', idx) }"
                     @click="goTo('issue', item)"
-                    @mousemove="selectItem('search', idx, 'issues')"
+                    @mousemove="selectItem('search', idx)"
                   >
                     <span class="cp-item-icon cp-item-icon--hash">#</span>
                     <!-- eslint-disable-next-line vue/no-v-html -- highlight 由服务端 ts_headline 生成，内容已转义 -->
@@ -120,9 +120,9 @@
                     v-for="(item, idx) in store.results.results.sprints"
                     :key="'sprint-' + item.id"
                     class="cp-item"
-                    :class="{ 'cp-item--selected': isSelected('search', offsetSprint + idx, 'sprints') }"
+                    :class="{ 'cp-item--selected': isSelected('search', offsetSprint + idx) }"
                     @click="goTo('sprint', item)"
-                    @mousemove="selectItem('search', offsetSprint + idx, 'sprints')"
+                    @mousemove="selectItem('search', offsetSprint + idx)"
                   >
                     <span class="cp-item-icon" style="background: var(--extended-color-purple-50, #f3e8ff);">🏃</span>
                     <!-- eslint-disable-next-line vue/no-v-html -- highlight 由服务端 ts_headline 生成，内容已转义 -->
@@ -138,9 +138,9 @@
                     v-for="(item, idx) in store.results.results.versions"
                     :key="'version-' + item.id"
                     class="cp-item"
-                    :class="{ 'cp-item--selected': isSelected('search', offsetVersion + idx, 'versions') }"
+                    :class="{ 'cp-item--selected': isSelected('search', offsetVersion + idx) }"
                     @click="goTo('version', item)"
-                    @mousemove="selectItem('search', offsetVersion + idx, 'versions')"
+                    @mousemove="selectItem('search', offsetVersion + idx)"
                   >
                     <span class="cp-item-icon" style="background: var(--extended-color-emerald-50, #ecfdf5);">🚀</span>
                     <!-- eslint-disable-next-line vue/no-v-html -- highlight 由服务端 ts_headline 生成，内容已转义 -->
@@ -156,9 +156,9 @@
                     v-for="(item, idx) in store.results.results.projects"
                     :key="'project-' + item.id"
                     class="cp-item"
-                    :class="{ 'cp-item--selected': isSelected('search', offsetProject + idx, 'projects') }"
+                    :class="{ 'cp-item--selected': isSelected('search', offsetProject + idx) }"
                     @click="goTo('project', item)"
-                    @mousemove="selectItem('search', offsetProject + idx, 'projects')"
+                    @mousemove="selectItem('search', offsetProject + idx)"
                   >
                     <span class="cp-item-icon" style="background: var(--extended-color-indigo-50, #eef2ff);">📁</span>
                     <!-- eslint-disable-next-line vue/no-v-html -- highlight 由服务端 ts_headline 生成，内容已转义 -->
@@ -400,12 +400,12 @@ const offsetSprint = computed(() => store.results?.results.issues?.length ?? 0)
 const offsetVersion = computed(() => offsetSprint.value + (store.results?.results.sprints?.length ?? 0))
 const offsetProject = computed(() => offsetVersion.value + (store.results?.results.versions?.length ?? 0))
 
-function isSelected(group: Pick<CommandGroupDef, "title"> | string, idx: number, _entityType?: string) {
+function isSelected(group: Pick<CommandGroupDef, "title"> | string, idx: number) {
   const g = typeof group === "string" ? group : group.title
   return selectedGroup.value === g && selectedIdx.value === idx
 }
 
-function selectItem(groupTitle: string, idx: number, _entityType?: string) {
+function selectItem(groupTitle: string, idx: number) {
   selectedGroup.value = groupTitle
   selectedIdx.value = idx
 }
@@ -488,7 +488,7 @@ function getAllSearchItems(): any[] {
   ]
 }
 
-function getSelectedSearchItem(): any | null {
+function getSelectedSearchItem(): any {
   const items = getAllSearchItems()
   const flatIdx = getTotalFlatIdx()
   if (flatIdx >= 0 && flatIdx < items.length) return items[flatIdx]
