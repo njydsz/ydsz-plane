@@ -2,10 +2,10 @@
 //
 // 中间件执行顺序（外层 → 内层）：
 //
-//	SecurityHeaders → RequestID → Recovery → CORS → CSRF → AccessLog → RateLimit → RequireAuth → RequirePermissionFromDB
+//	TrustedHost → SecurityHeaders → CSPNonce → RequestID → Recovery → CORS → CSRF → AccessLog → RateLimit → RequireAuth → RequirePermissionFromDB
 //
 // 分层鉴权：
-//   - Filter 类（SecurityHeaders / RequestID / Recovery / CORS / AccessLog / Metrics）：每次请求必经
+//   - Filter 类（TrustedHost / SecurityHeaders / CSPNonce / RequestID / Recovery / CORS / AccessLog / Metrics）：每次请求必经
 //   - Auth 类（RequireAuth / SessionAuth / APIKeyAuth / AnonymousSession）：凭证校验与主体注入
 //   - RBAC 类（RequirePermission / RequirePermissionFromDB / RequireWorkspaceParam / RequireProjectParam）：权限校验
 //
@@ -21,8 +21,10 @@ package middleware
 
 import (
 	"crypto/rand"
+	"encoding/base64"
 	"encoding/hex"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-contrib/cors"
@@ -45,12 +47,19 @@ const (
 	CtxProjectID   = "project_id"
 	CtxAuthKind    = "auth_kind"
 	CtxAuthScopes  = "auth_scopes"
+	// CtxErrorCode 存储本次请求的业务错误码（errs.AppError.Code），供 SLI 中间件读取。
+	// 不携带任何 PII（如 user_id），仅用于错误率统计。
+	CtxErrorCode = "error_code"
+	// CSPNonceKey 是存储请求级 CSP nonce 的 ctx key，供模板/SFC 读取。
+	CSPNonceKey = "csp-nonce"
 )
 
 // SecurityHeaders 添加纵深防御型 HTTP 响应头。这些头补充反向代理 nginx
 // 的配置，即使边缘节点终止 TLS 也能加固应用。
 // 参考：OWASP Secure Header Project、Google gts/security 指南。
-func SecurityHeaders() gin.HandlerFunc {
+//
+// cfg 提供安全头开关：TLSEnabled 控制 HSTS。
+func SecurityHeaders(cfg *config.SecurityConfig) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// 禁止 MIME 类型嗅探
 		c.Header("X-Content-Type-Options", "nosniff")
@@ -74,15 +83,52 @@ func SecurityHeaders() gin.HandlerFunc {
 		c.Header("Cross-Origin-Opener-Policy", "same-origin")
 		c.Header("Cross-Origin-Resource-Policy", "same-origin")
 
+		// Origin-Agent-Cluster: 请求浏览器为此源启用独立的 Agent Cluster，
+		// 获得专用进程（如可用），隔离跨源资源。
+		c.Header("Origin-Agent-Cluster", "?1")
+
+		// HSTS 仅当 TLS 由边缘代理终结时才设置。由 cfg.TLSEnabled 门控，
+		// 使 API 可以运行在任何代理之后，避免与代理自身的 HSTS 配置冲突。
+		if cfg.TLSEnabled {
+			c.Header("Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload")
+		}
+
 		// Content-Security-Policy —— 基线限制性策略。
 		// 对 SPA（独立 Vite dev server + nginx 提供的生产包）而言，
 		// API 端点只需要最小策略；SPA 的 HTML 应通过 nginx meta 标签/
 		// 响应头设置自己的 CSP。
+		// CSPNonce 中间件会在此之上追加 nonce / strict-dynamic。
 		c.Header("Content-Security-Policy",
 			"default-src 'none'; frame-ancestors 'self'; base-uri 'none'; form-action 'self'")
 
-		// HSTS 仅由 TLS 终结边缘（nginx/CDN）设置。此处有意省略，
-		// 使 API 可以运行在任何代理之后，不会与代理的 HSTS max-age 冲突。
+		c.Next()
+	}
+}
+
+// CSPNonce 为每个请求生成随机 nonce（16 bytes base64），注入到
+// gin.Context 的 CSPNonceKey 中，供模板/SFC 读取。
+// 同时将 nonce 注入 CSP 头（叠加在 SecurityHeaders 的基线上），
+// 使 script-src 支持 'nonce-XXX' 'strict-dynamic'。
+func CSPNonce() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var b [16]byte
+		_, _ = rand.Read(b[:])
+		nonce := base64.StdEncoding.EncodeToString(b[:])
+		c.Set(CSPNonceKey, nonce)
+
+		// 将 nonce 叠加到现有 CSP 头上（SecurityHeaders 设置的基线）。
+		const prefix = "; script-src 'nonce-"
+		const suffix = "' 'strict-dynamic'"
+		existing := c.Writer.Header().Get("Content-Security-Policy")
+		if existing == "" {
+			// 无基线 CSP 时仍注入 nonce 版本
+			existing = "default-src 'none'; frame-ancestors 'self'; base-uri 'none'; form-action 'self'"
+		}
+		// 移除旧 script-src 片段以避免冲突（如果中间链中有人追加过）。
+		if idx := strings.Index(existing, "; script-src"); idx != -1 {
+			existing = existing[:idx]
+		}
+		c.Header("Content-Security-Policy", existing+prefix+nonce+suffix)
 
 		c.Next()
 	}
@@ -122,16 +168,80 @@ func Recovery(log *zap.Logger) gin.HandlerFunc {
 	}
 }
 
-// CORS 返回限制性 CORS 策略（可配置允许来源）。
-func CORS(allowedOrigins []string) gin.HandlerFunc {
-	return cors.New(cors.Config{
-		AllowOrigins:     allowedOrigins,
-		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
-		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization", "X-Api-Key", "X-CSRF-Token", "Idempotency-Key", "X-Request-ID"},
-		ExposeHeaders:    []string{"X-Request-ID", "X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset", "Retry-After"},
-		AllowCredentials: true,
-		MaxAge:           12 * time.Hour,
-	})
+// CORS 返回限制性 CORS 策略。
+//
+// defaultOrigins 是向后兼容的回退白名单；仅在 config.CORS.AllowedOrigins 为空时使用。
+// cfgCORS 来自 config.CORS：非空 AllowedOrigins 时严格按列表允许（逗号分隔），
+// 并支持显式 "*"（此时 credentials 自动置 false）。
+// 所有非通配响应均附加 Vary: Origin，避免 CDN/缓存污染。
+func CORS(defaultOrigins []string, cfgCORS config.CORSConfig, log *zap.Logger) gin.HandlerFunc {
+	allowOrigins, hasWildcard := buildAllowOrigins(defaultOrigins, cfgCORS.AllowedOrigins)
+	creds := cfgCORS.AllowCredentials
+
+	// 安全检查：wildcard 与 credentials 必须互斥。
+	// 配置期已拒绝该组合；此处作为运行期再保险，发现即降级。
+	if hasWildcard && creds {
+		log.Error("CORS: wildcard origin combined with AllowCredentials=true; forcing credentials off (misconfiguration)")
+		creds = false
+	}
+
+	var handler gin.HandlerFunc
+	if hasWildcard {
+		// 全通配时 Vary: Origin 无意义（响应对所有 origin 相同），
+		// gin-contrib/cors 内部也会跳过 Vary。
+		handler = cors.New(cors.Config{
+			AllowOrigins:     []string{"*"},
+			AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
+			AllowHeaders:     []string{"Origin", "Content-Type", "Authorization", "X-Api-Key", "X-CSRF-Token", "Idempotency-Key", "X-Request-ID"},
+			ExposeHeaders:    []string{"X-Request-ID", "X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset", "Retry-After"},
+			AllowCredentials: false,
+			MaxAge:           12 * time.Hour,
+		})
+	} else {
+		// 严格允许列表。空 allowOrigins 时没有任何 origin 能匹配 —— 配合 defaultOrigins 使用。
+		handler = cors.New(cors.Config{
+			AllowOrigins:     allowOrigins,
+			AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
+			AllowHeaders:     []string{"Origin", "Content-Type", "Authorization", "X-Api-Key", "X-CSRF-Token", "Idempotency-Key", "X-Request-ID"},
+			ExposeHeaders:    []string{"X-Request-ID", "X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset", "Retry-After"},
+			AllowCredentials: creds,
+			MaxAge:           12 * time.Hour,
+			// 显式拒绝未列出的 origin：不返回 ACAO，让浏览器拦截。
+			AllowOriginFunc: nil,
+		})
+	}
+
+	return func(c *gin.Context) {
+		handler(c)
+		// 非通配时显式 Vary: Origin，防止中间通配型 CDN 把某 origin 的
+		// ACAO 响应缓存给另一个 origin。
+		if !hasWildcard {
+			c.Header("Vary", "Origin")
+		}
+		c.Next()
+	}
+}
+
+// buildAllowOrigins 解析配置。当 allowedOrigins 非空时返回解析后的列表
+// （逗号分隔、trim）；否则返回 default 列表。返回 hasWildcard 表示列表包含 "*"。
+func buildAllowOrigins(defaultOrigins []string, envList string) ([]string, bool) {
+	if strings.TrimSpace(envList) == "" {
+		return defaultOrigins, false
+	}
+	parts := strings.Split(envList, ",")
+	out := make([]string, 0, len(parts))
+	hasWildcard := false
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		if p == "*" {
+			hasWildcard = true
+		}
+		out = append(out, p)
+	}
+	return out, hasWildcard
 }
 
 // AccessLog 每个请求输出一行结构化日志（跳过 /healthz 噪音）。
@@ -195,7 +305,10 @@ func memberWithRand(now int64) any {
 }
 
 // respondError 渲染统一错误信封。
+// 同时将 AppError.Code 注入到 gin.Context（CtxErrorCode），供 SLI 中间件读取。
 func respondError(c *gin.Context, e *errs.AppError) {
+	// 设置 ErrorCode 到 ctx 以供 SLI 指标采集（覆盖写入，最后一次有效）。
+	c.Set(CtxErrorCode, e.Code)
 	c.JSON(e.HTTP, gin.H{
 		"error": gin.H{
 			"code":       e.Code,

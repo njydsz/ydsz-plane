@@ -47,6 +47,27 @@ type Config struct {
 	Storage    StorageConfig    // 对象存储 (MinIO/S3) 配置。
 	Attachment AttachmentConfig // 附件上传限制（大小 / MIME 白名单）。
 	AI         AIConfig         // AI 智能功能配置（智能指派、重复检测、摘要等）
+	CORS       CORSConfig       // CORS origin 白名单控制。
+	Security   SecurityConfig   // 安全头与反向代理推导配置。
+}
+
+// CORSConfig 控制 CORS origin 白名单。
+type CORSConfig struct {
+	// AllowedOrigins 是逗号分隔的允许来源列表（如 "https://plane.example.com,https://app.example.com"）。
+	// 留空时使用应用默认行为（开发环境宽松白名单）。
+	AllowedOrigins string `mapstructure:"allowed_origins"`
+	// AllowCredentials 是否允许携带 Cookie / Authorization 头。
+	// 与 AllowedOrigins 包含 "*" 时必须互斥（按规范必须拒绝并日志告警）。
+	AllowCredentials bool `mapstructure:"allow_credentials"`
+}
+
+// SecurityConfig 控制 Helmet 类安全头的启用与配置。
+type SecurityConfig struct {
+	// AllowedHosts 是逗号分隔的可信 Host 列表，用于防护 Host 头注入。
+	// 空表示跳过 Host 校验。
+	AllowedHosts string `mapstructure:"allowed_hosts"`
+	// TLSEnabled 标识 TLS 由边缘代理终结。启用时添加 Strict-Transport-Security 头。
+	TLSEnabled bool `mapstructure:"tls_enabled"`
 }
 
 // ServerConfig 控制 HTTP 监听器。
@@ -299,6 +320,12 @@ func Load() (*Config, error) {
 		"zip", "7z", "txt", "csv", "md", "json", "xml",
 	})
 
+	// Security / 反向代理推导配置
+	v.SetDefault("security.allowed_hosts", "")
+	v.SetDefault("security.tls_enabled", false)
+	v.SetDefault("cors.allowed_origins", "") // 空 → 应用默认开发白名单
+	v.SetDefault("cors.allow_credentials", true)
+
 	// Storage 默认值
 	v.SetDefault("storage.endpoint", "127.0.0.1:9000")
 	v.SetDefault("storage.access_key", "admin")
@@ -415,6 +442,11 @@ func (c *Config) validate() error {
 		if c.Auth.JWTSecret == "" || strings.HasPrefix(c.Auth.JWTSecret, "dev-") {
 			return fmt.Errorf("config: YDSZ_AUTH_JWT_SECRET must be set to a strong value in production")
 		}
+	}
+
+	// CORS 不允许通配符与 credentials 同时使用（RFC 6454 / Fetch 规范）。
+	if c.CORS.AllowCredentials && strings.Contains(c.CORS.AllowedOrigins, "*") {
+		return fmt.Errorf("config: YDSZ_CORS_ALLOWED_ORIGINS cannot contain '*' when credentials are enabled")
 	}
 
 	// --- 通用不变量：合法 TCP 端口范围 ---

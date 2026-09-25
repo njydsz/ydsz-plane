@@ -347,6 +347,33 @@ make openapi
 - **分支策略**：GitHub Flow（`main` + 特性分支），PR squash merge
 - **版本管理**：SemVer（[CHANGELOG.md](./CHANGELOG.md)）
 
+### 本地热重载指南
+
+```shell
+# 1. 启动基础设施
+make up
+
+# 2. 数据库迁移 + 种子数据
+make migrate && make seed
+
+# 3. 后端热重载（air：保存 Go 文件自动重新编译 + 重启）
+make dev-api
+
+# 4. 测试 watch 模式（保存 Go 文件自动运行 application 层单测，另开终端）
+air -c .air.test.toml
+
+# 5. 前端热重载（另开终端）
+make dev-web
+```
+
+### DevOnly 工具
+
+| 工具 | 命令 | 用途 |
+|------|------|------|
+| Secret 生成器 | `make dev-secrets` | 生成随机 `YDSZ_SSO_SECRET_KEY`（32 字节 hex），写入 `.env.local`（gitignored）；已存在则不覆盖。仅本地开发/测试使用，生产必须通过 Vault/K8s Secret 注入。 |
+| Mock 工厂 | `pkg/testing/factories` | Builder Pattern 工厂：`NewRequirementFactory()` / `NewTaskFactory()` / `NewDefectFactory()`，供集成测试和本地 fixture seeding 复用。 |
+| 测试报告 | `make test` | 执行 `go vet` + `go test -race`，结果输出到 `go-test-report.txt`（CI artifact）。 |
+
 ---
 
 ## 对标竞品

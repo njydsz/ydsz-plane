@@ -7,3 +7,12 @@ tmp_dir = "tmp"
   delay = 800
   exclude_dir = ["tmp", "web", "docs", "node_modules"]
   include_ext = ["go", "yaml", "yml"]
+  # kill_delay >= 1s 避免快速重启竞争（文件保存事件密集时）
+  kill_delay = "1s"
+  # go test 失败时不重启（air 默认行为：cmd 非0退出则停止）
+  stop_on_error = true
+
+# --- 测试 watch 模式（独立配置文件：.air.test.toml） ---
+# 用法：air -c .air.test.toml
+# 效果：保存 Go 文件后自动执行 go test ./internal/application/...，
+#       测试失败时保持进程不重启（由 stop_on_error 控制）。

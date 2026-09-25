@@ -1,0 +1,16 @@
+# Air 测试 watch 模式配置。
+# 用法：air -c .air.test.toml
+# 效果：保存 Go 文件后自动执行 go test ./internal/application/...，
+#       测试失败时保持进程不重启（stop_on_error=true）。
+
+root = "."
+tmp_dir = "tmp-test"
+
+[build]
+  bin = "./tmp-test/test.exe"
+  cmd = "go test ./internal/application/... -count=1 -timeout 60s"
+  delay = 1000
+  exclude_dir = ["tmp", "tmp-test", "web", "docs", "node_modules"]
+  include_ext = ["go"]
+  kill_delay = "1s"
+  stop_on_error = true

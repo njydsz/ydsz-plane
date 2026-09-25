@@ -60,8 +60,10 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -676,6 +678,25 @@ func run() error {
 		errCh <- srv.ListenAndServe()
 	}()
 
+	// pprof 独立端口（默认 6060），仅当 YDSZ_PPROF_ENABLE=true 时启动。
+	// 独立端口避免性能分析端点与业务端口混用，生产环境默认关闭。
+	if enablePprof(os.Getenv("YDSZ_PPROF_ENABLE")) {
+		pprofPort := 6060
+		if v := os.Getenv("YDSZ_PPROF_PORT"); v != "" {
+			if parsed, err := strconv.Atoi(v); err == nil && parsed > 0 {
+				pprofPort = parsed
+			}
+		}
+		go func() {
+			pprofAddr := ":" + strconv.Itoa(pprofPort)
+			log.Info("pprof listening", zap.String("addr", pprofAddr),
+				zap.String("endpoints", "/debug/pprof/"))
+			if err := http.ListenAndServe(pprofAddr, nil); err != nil {
+				log.Error("pprof server error", zap.Error(err))
+			}
+		}()
+	}
+
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 
@@ -691,4 +712,14 @@ func run() error {
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 	return srv.Shutdown(shutdownCtx)
+}
+
+// enablePprof 判断字符串 v 是否为"启用"语义（true / 1 / yes / on）。
+func enablePprof(v string) bool {
+	switch strings.ToLower(strings.TrimSpace(v)) {
+	case "true", "1", "yes", "on":
+		return true
+	default:
+		return false
+	}
 }

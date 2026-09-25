@@ -150,6 +150,10 @@ func NewService(db *pgxpool.Pool) *Service {
 
 // Create 创建工作项 — 根据 TypeCode 分派。
 func (s *Service) Create(ctx context.Context, in CreateIssueInput) (*Issue, error) {
+	start := time.Now()
+	var success bool
+	defer func() { ObserveCreate(success, time.Since(start)) }()
+
 	switch in.TypeCode {
 	case TypeTask:
 		if in.Severity != nil {
@@ -165,6 +169,7 @@ func (s *Service) Create(ctx context.Context, in CreateIssueInput) (*Issue, erro
 		if err != nil {
 			return nil, err
 		}
+		success = true
 		return taskToIssue(created), nil
 	case TypeRequirement:
 		created, err := s.Requirement.Create(ctx, CreateRequirementInput{
@@ -177,6 +182,7 @@ func (s *Service) Create(ctx context.Context, in CreateIssueInput) (*Issue, erro
 		if err != nil {
 			return nil, err
 		}
+		success = true
 		return requirementToIssue(created), nil
 	case TypeDefect:
 		if in.Severity == nil || in.FoundPhase == nil {
@@ -194,6 +200,7 @@ func (s *Service) Create(ctx context.Context, in CreateIssueInput) (*Issue, erro
 		if err != nil {
 			return nil, err
 		}
+		success = true
 		return defectToIssue(created), nil
 	}
 	return nil, errs.ErrValidation.WithDetails(errs.FieldDetail{Field: "type_code", Reason: "无效的工作项类型"})
@@ -230,6 +237,10 @@ func (s *Service) GetByID(ctx context.Context, wsID, issueID int64) (*Issue, err
 
 // Update 按类型分派更新。
 func (s *Service) Update(ctx context.Context, wsID, issueID int64, in UpdateIssueInput) (*Issue, error) {
+	start := time.Now()
+	var success bool
+	defer func() { ObserveUpdate(success, time.Since(start)) }()
+
 	tc, err := s.detectType(ctx, wsID, issueID)
 	if err != nil {
 		return nil, err
@@ -244,6 +255,7 @@ func (s *Service) Update(ctx context.Context, wsID, issueID int64, in UpdateIssu
 		if err != nil {
 			return nil, err
 		}
+		success = true
 		return taskToIssue(updated), nil
 	case TypeRequirement:
 		updated, err := s.Requirement.Update(ctx, wsID, issueID, UpdateRequirementInput{
@@ -254,6 +266,7 @@ func (s *Service) Update(ctx context.Context, wsID, issueID int64, in UpdateIssu
 		if err != nil {
 			return nil, err
 		}
+		success = true
 		return requirementToIssue(updated), nil
 	case TypeDefect:
 		updated, err := s.Defect.Update(ctx, wsID, issueID, UpdateDefectInput{
@@ -266,6 +279,7 @@ func (s *Service) Update(ctx context.Context, wsID, issueID int64, in UpdateIssu
 		if err != nil {
 			return nil, err
 		}
+		success = true
 		return defectToIssue(updated), nil
 	}
 	return nil, errs.ErrNotFound
@@ -273,40 +287,62 @@ func (s *Service) Update(ctx context.Context, wsID, issueID int64, in UpdateIssu
 
 // SoftDelete 跨类型删除。
 func (s *Service) SoftDelete(ctx context.Context, wsID, issueID int64) error {
+	start := time.Now()
+	var success bool
+	defer func() { ObserveDelete(success, time.Since(start)) }()
+
 	tc, err := s.detectType(ctx, wsID, issueID)
 	if err != nil {
 		return err
 	}
 	switch tc {
 	case TypeTask:
-		return s.Task.SoftDelete(ctx, wsID, issueID)
+		err = s.Task.SoftDelete(ctx, wsID, issueID)
 	case TypeRequirement:
-		return s.Requirement.SoftDelete(ctx, wsID, issueID)
+		err = s.Requirement.SoftDelete(ctx, wsID, issueID)
 	case TypeDefect:
-		return s.Defect.SoftDelete(ctx, wsID, issueID)
+		err = s.Defect.SoftDelete(ctx, wsID, issueID)
+	default:
+		return errs.ErrNotFound
 	}
-	return errs.ErrNotFound
+	if err == nil {
+		success = true
+	}
+	return err
 }
 
 // Restore 从回收站恢复。
 func (s *Service) Restore(ctx context.Context, wsID, issueID int64) error {
+	start := time.Now()
+	var success bool
+	defer func() { ObserveOperation("restore", success, time.Since(start)) }()
+
 	tc, err := s.detectType(ctx, wsID, issueID)
 	if err != nil {
 		return err
 	}
 	switch tc {
 	case TypeTask:
-		return s.Task.Restore(ctx, wsID, issueID)
+		err = s.Task.Restore(ctx, wsID, issueID)
 	case TypeRequirement:
-		return s.Requirement.Restore(ctx, wsID, issueID)
+		err = s.Requirement.Restore(ctx, wsID, issueID)
 	case TypeDefect:
-		return s.Defect.Restore(ctx, wsID, issueID)
+		err = s.Defect.Restore(ctx, wsID, issueID)
+	default:
+		return errs.ErrNotFound
 	}
-	return errs.ErrNotFound
+	if err == nil {
+		success = true
+	}
+	return err
 }
 
 // Transition 执行状态流转。
 func (s *Service) Transition(ctx context.Context, wsID, projectID, issueID, toStateID, userID int64) (*Issue, error) {
+	start := time.Now()
+	var success bool
+	defer func() { ObserveTransition(success, time.Since(start)) }()
+
 	tc, err := s.detectType(ctx, wsID, issueID)
 	if err != nil {
 		return nil, err
@@ -317,18 +353,21 @@ func (s *Service) Transition(ctx context.Context, wsID, projectID, issueID, toSt
 		if err != nil {
 			return nil, err
 		}
+		success = true
 		return taskToIssue(t), nil
 	case TypeRequirement:
 		r, err := s.Requirement.Transition(ctx, wsID, projectID, issueID, toStateID, userID)
 		if err != nil {
 			return nil, err
 		}
+		success = true
 		return requirementToIssue(r), nil
 	case TypeDefect:
 		d, err := s.Defect.Transition(ctx, wsID, projectID, issueID, toStateID, userID)
 		if err != nil {
 			return nil, err
 		}
+		success = true
 		return defectToIssue(d), nil
 	}
 	return nil, errs.ErrNotFound
@@ -963,6 +1002,16 @@ func buildCoordinatorWhere(opts ListIssuesOptions) (string, []interface{}) {
 	if opts.SeverityFrom != nil {
 		clauses = append(clauses, "i.severity >= $"+strconv.Itoa(arg))
 		args = append(args, *opts.SeverityFrom)
+		arg++
+	}
+	if opts.CreatedAfter != nil {
+		clauses = append(clauses, "i.created_at >= $"+strconv.Itoa(arg)+"::timestamptz")
+		args = append(args, opts.CreatedAfter.Format(time.RFC3339))
+		arg++
+	}
+	if opts.UpdatedBefore != nil {
+		clauses = append(clauses, "i.updated_at <= $"+strconv.Itoa(arg)+"::timestamptz")
+		args = append(args, opts.UpdatedBefore.Format(time.RFC3339))
 		arg++
 	}
 	return "WHERE " + strings.Join(clauses, " AND "), args

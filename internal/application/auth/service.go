@@ -320,6 +320,9 @@ func generateFamilyID() (string, error) {
 // recordRefreshFamily 向 refresh_token_families 表插入新家族记录。
 // providerID 为 0 时存 NULL（密码登录场景）。
 func (s *Service) recordRefreshFamily(ctx context.Context, familyID string, userID int64, providerID int64, expiresAt time.Time) error {
+	if s.db == nil {
+		return nil
+	}
 	var pid *int64
 	if providerID != 0 {
 		pid = &providerID
@@ -334,6 +337,9 @@ func (s *Service) recordRefreshFamily(ctx context.Context, familyID string, user
 // CleanupExpiredFamilies 清理过期 7 天的 refresh token 家族记录。
 // 建议作为后台定时任务每日执行一次（由 cron_scheduler 调度或外部 cron 触发）。
 func (s *Service) CleanupExpiredFamilies(ctx context.Context) (int64, error) {
+	if s.db == nil {
+		return 0, nil
+	}
 	tag, err := s.db.Exec(ctx,
 		`DELETE FROM refresh_token_families WHERE expires_at < now() - interval '7 days'`)
 	if err != nil {

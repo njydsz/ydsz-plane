@@ -1,7 +1,7 @@
 // Package httpapi 装配 Gin 引擎、中间件链与全部子域路由表。
 //
 // 职责：
-//   - NewEngine 构建带完整中间件链的 HTTP 引擎（SecurityHeaders → RequestID → Recovery → CORS → CSRF → AccessLog → Metrics）
+//   - NewEngine 构建带完整中间件链的 HTTP 引擎（TrustedHost → SecurityHeaders → CSPNonce → RequestID → Recovery → CORS → CSRF → AccessLog → Metrics）
 //   - 集中注册认证、工作空间、项目、Issue、Sprint、Version、Search、Webhook、AI、DLQ 等子域路由
 //   - 是 cmd/api/main.go 引用本工程的唯一 HTTP 入口包；各子域 handler 通过 Register*Routes 函数注册
 //
@@ -586,23 +586,37 @@ func NewEngine(d *Deps) *gin.Engine {
 	r := gin.New()
 
 	// CORS 允许的 origins：包含 Vite 默认 5173 与备选 5174（端口冲突时回退）
-	// 以及后端自身的 8080（Swagger/SPA 直连场景）
-	origins := []string{
+	// 以及后端自身的 8080（Swagger/SPA 直连场景）。
+	// 当 YDSZ_CORS_ALLOWED_ORIGINS 设定时，该环境变量优先覆盖此白名单。
+	defaultOrigins := []string{
 		"http://localhost:5173", "http://127.0.0.1:5173",
 		"http://localhost:5174", "http://127.0.0.1:5174",
 		"http://localhost:8080", "http://127.0.0.1:8080",
 	}
+	// 解析可信 Host 列表（YDSZ_ALLOWED_HOSTS），用于防护 Host 头注入。
+	trustedHosts := parseAllowedHosts(d.Cfg.Security.AllowedHosts)
 	r.Use(
-		middleware.SecurityHeaders(),
+		// 可信 Host 校验 —— 最外层，拦截伪造 Host 头请求，
+		// 防护缓存欺骗 / 密码重置投毒 / 服务端包含类攻击。
+		middleware.TrustedHost(trustedHosts, d.Log),
+		middleware.SecurityHeaders(&d.Cfg.Security),
+		// CSP nonce 注入 —— 每个请求生成随机 nonce，注入 CSP 头 + ctx。
+		middleware.CSPNonce(),
 		middleware.RequestID(),
 		middleware.Recovery(d.Log),
-		middleware.CORS(origins),
+		// CORS 严格白名单：YDSZ_CORS_ALLOWED_ORIGINS 非空时按列表允许，
+		// 否则 fallback 到上述开发白名单。非通配响应附加 Vary: Origin。
+		middleware.CORS(defaultOrigins, d.Cfg.CORS, d.Log),
 		// CSRF 防护：仅对携带会话 Cookie 的状态变更请求生效。
 		// 位于 CORS 之后，可前置拦截跨站伪造请求；纯 API 客户端（无会话 Cookie）
 		// 不受影响 —— 见 internal/middleware/csrf.go 的设计说明。
 		middleware.CSRF(d.Cfg, d.Cfg.Auth.JWTSecret),
 		middleware.AccessLog(d.Log),
+		middleware.Latency(d.Log),
 		telemetry.MetricsMiddleware(),
+		// SLI 中间件：在请求结束后从 ctx 读取 ErrorCode 并记录业务错误指标。
+		// 注册在 Latency 之后，可复用 respondError 注入的 CtxErrorCode。
+		middleware.MetricsSLIMiddleware(),
 	)
 
 	r.GET("/healthz", healthz())
@@ -721,6 +735,23 @@ func NewEngine(d *Deps) *gin.Engine {
 	RegisterTieredRoutes(r, d)
 
 	return r
+}
+
+// parseAllowedHosts 解析 YDSZ_ALLOWED_HOSTS 为标准化的 host 切片。
+func parseAllowedHosts(s string) []string {
+	if strings.TrimSpace(s) == "" {
+		return nil
+	}
+	parts := strings.Split(s, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		out = append(out, strings.ToLower(p))
+	}
+	return out
 }
 
 // requireWsPermission 是组合中间件的语法糖，所有工作空间级路由统一使用 DB-backed 权限校验。

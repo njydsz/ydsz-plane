@@ -456,9 +456,15 @@ type ListWorkitemsOptions struct {
 	LabelID       *int64
 	ModuleID      *int64
 	SprintID      *int64
-	StartDateFrom *string // ISO date string
-	TargetDateTo  *string
+	StartDateFrom *string // ISO date string（保持向后兼容）
+	TargetDateTo  *string // ISO date string（保持向后兼容）
 	SeverityFrom  *int
+	// CreatedAfter (RFC3339) — 按创建时间下限筛选。
+	CreatedAfter *time.Time
+	// UpdatedBefore (RFC3339) — 按更新时间上限筛选。
+	UpdatedBefore *time.Time
+	// Fields 稀疏字段集（对标 Jira fields= / Linear nodes{}）。为空时返回完整字段。
+	Fields []string
 }
 
 // BatchUpdateInput 批量操作输入。

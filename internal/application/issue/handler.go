@@ -22,10 +22,12 @@ import (
 	"github.com/redis/go-redis/v9"
 
 	"github.com/njydsz/ydsz-plane/internal/application/auth"
+	"github.com/njydsz/ydsz-plane/internal/application/dto"
 	notif "github.com/njydsz/ydsz-plane/internal/application/notification"
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/ws"
 	"github.com/njydsz/ydsz-plane/internal/interfaces/middleware"
 	"github.com/njydsz/ydsz-plane/pkg/errs"
+	"github.com/njydsz/ydsz-plane/pkg/timeutil"
 )
 
 // HandlerDeps handler 依赖。
@@ -518,19 +520,28 @@ func (h *IssueHandler) createIssue(c *gin.Context) {
 
 // batchIssues 批量操作工作项（流转/指派/优先级/删除）。
 //
+// 预留 X-Idempotency-Key 幂等键头部：当前仅做日志记录，
+// 未来基于 Redis 实现幂等去重时可复用同一 key。
+//
 //	@Summary		批量操作工作项
-//	@Description	支持批量流转、指派、变更优先级、删除
+//	@Description	支持批量流转、指派、变更优先级、删除。返回统一 BatchResponse 结构。
 //	@Tags			issue
 //	@Accept			json
 //	@Produce		json
-//	@Param			body	body	batchIssuesRequest	true	"批量操作信息"
-//	@Success		200		{object}	map[string]interface{}
-//	@Failure		422		{object}	errs.AppError
+//	@Param			X-Idempotency-Key	header		string	false	"幂等键（当前仅记录日志，不做强制校验）"
+//	@Param			body				body	batchIssuesRequest	true	"批量操作信息"
+//	@Success		200					{object}	dto.BatchResponse
+//	@Failure		422					{object}	errs.AppError
 //	@Router			/issues/batch [post]
 func (h *IssueHandler) batchIssues(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	projectID := c.GetInt64(middleware.CtxProjectID)
 	userID := c.GetInt64(middleware.CtxUserID)
+
+	// 预留 X-Idempotency-Key：记录日志，暂不强校验
+	if idempotencyKey := c.GetHeader("X-Idempotency-Key"); idempotencyKey != "" {
+		fmt.Printf("[batch] idempotency_key=%s project_id=%d\n", idempotencyKey, projectID)
+	}
 
 	var req batchIssuesRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -559,7 +570,7 @@ func (h *IssueHandler) batchIssues(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"succeeded": result.Succeeded, "failed": result.Failed})
+	c.JSON(http.StatusOK, dto.NewBatchSuccess(result.Succeeded))
 }
 
 // getIssue 获取工作项详情（REST handler，Swagger 注解见下）。
@@ -870,26 +881,34 @@ func (h *IssueHandler) reorderIssue(c *gin.Context) {
 
 // listIssues 列出工作项（REST handler，Swagger 注解见下）。
 //
+// 支持稀疏字段集（?fields=summary,state,assignee）对标 Jira fields=  / Linear GraphQL nodes{}；
+// 支持 RFC3339 时间范围参数（created_after/updated_before），与现有 start_date_from/target_date_to 共存。
+//
 //	@Summary		列出工作项
+//	@Description	跨类型列表，支持稀疏字段集（fields）和 RFC3339 时间范围筛选。
 //	@Tags			issue
 //	@Produce		json
-//	@Param			state_id	query		int		false	"状态 ID"
-//	@Param			group		query		string	false	"状态分组 (backlog|started|completed|cancelled)"
-//	@Param			type		query		string	false	"类型 (epic|requirement|task|defect)"
-//	@Param			priority	query		string	false	"优先级"
-//	@Param			parent_id	query		int		false	"父级 ID"
-//	@Param			search		query		string	false	"名称搜索"
-//	@Param			assignee_id	query		int		false	"指派人 ID"
-//	@Param			label_id	query		int		false	"标签 ID"
-//	@Param			module_id	query		int		false	"模块 ID"
-//	@Param			sprint_id	query		int		false	"迭代 ID"
-//	@Param			start_date_from	query	string	false	"开始日期起 (ISO)"
-//	@Param			target_date_to	query	string	false	"截止日期止 (ISO)"
-//	@Param			severity_from	query	int		false	"最低严重级别"
-//	@Param			sort		query		string	false	"排序字段 (-updated_at, priority, target_date, created_at)"
-//	@Param			limit		query		int		false	"每页数量 (default 50, max 100)"
-//	@Param			offset		query		int		false	"偏移量"
-//	@Success		200			{object}	issueListResponse
+//	@Param			state_id		query		int		false	"状态 ID"
+//	@Param			group			query		string	false	"状态分组 (backlog|started|completed|cancelled)"
+//	@Param			type			query		string	false	"类型 (epic|requirement|task|defect)"
+//	@Param			priority		query		string	false	"优先级"
+//	@Param			parent_id		query		int		false	"父级 ID"
+//	@Param			search			query		string	false	"名称搜索"
+//	@Param			assignee_id		query		int		false	"指派人 ID"
+//	@Param			label_id		query		int		false	"标签 ID"
+//	@Param			module_id		query		int		false	"模块 ID"
+//	@Param			sprint_id		query		int		false	"迭代 ID"
+//	@Param			start_date_from	query		string	false	"开始日期起 (ISO date)"
+//	@Param			target_date_to	query		string	false	"截止日期止 (ISO date)"
+//	@Param			severity_from	query		int		false	"最低严重级别"
+//	@Param			created_after	query		string	false	"创建时间下限 (RFC3339, e.g. 2025-01-01T00:00:00Z)"
+//	@Param			updated_before	query		string	false	"更新时间上限 (RFC3339, e.g. 2025-06-30T23:59:59Z)"
+//	@Param			fields			query		string	false	"稀疏字段集，逗号分隔 (e.g. id,name,state,priority)。不传返回完整字段。"
+//	@Param			sort			query		string	false	"排序字段 (-updated_at, priority, target_date, created_at)"
+//	@Param			limit			query		int		false	"每页数量 (default 50, max 100)"
+//	@Param			offset			query		int		false	"偏移量"
+//	@Success		200				{object}	issueListResponse
+//	@Failure		400				{object}	errs.AppError	"时间参数格式错误"
 //	@Router			/issues [get]
 func (h *IssueHandler) listIssues(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
@@ -947,16 +966,58 @@ func (h *IssueHandler) listIssues(c *gin.Context) {
 			opts.SprintID = &id
 		}
 	}
+
+	// 兼容旧 ISO date 参数 + 返回格式校验错误
 	if v := c.Query("start_date_from"); v != "" {
+		if _, err := timeutil.ParseTime(v); err != nil {
+			middleware.AbortWithError(c, errs.ErrValidation.WithDetails(errs.FieldDetail{
+				Field: "start_date_from", Reason: "时间格式不符合 RFC3339 或 YYYY-MM-DD",
+			}))
+			return
+		}
 		opts.StartDateFrom = &v
 	}
 	if v := c.Query("target_date_to"); v != "" {
+		if _, err := timeutil.ParseTime(v); err != nil {
+			middleware.AbortWithError(c, errs.ErrValidation.WithDetails(errs.FieldDetail{
+				Field: "target_date_to", Reason: "时间格式不符合 RFC3339 或 YYYY-MM-DD",
+			}))
+			return
+		}
 		opts.TargetDateTo = &v
 	}
+
 	if v := c.Query("severity_from"); v != "" {
 		if sv, err := strconv.Atoi(v); err == nil {
 			opts.SeverityFrom = &sv
 		}
+	}
+
+	// RFC3339 时间范围参数：created_after / updated_before
+	if v := c.Query("created_after"); v != "" {
+		t, err := timeutil.ParseTime(v)
+		if err != nil {
+			middleware.AbortWithError(c, errs.ErrValidation.WithDetails(errs.FieldDetail{
+				Field: "created_after", Reason: "时间格式不符合 RFC3339 或 YYYY-MM-DD",
+			}))
+			return
+		}
+		opts.CreatedAfter = &t
+	}
+	if v := c.Query("updated_before"); v != "" {
+		t, err := timeutil.ParseTime(v)
+		if err != nil {
+			middleware.AbortWithError(c, errs.ErrValidation.WithDetails(errs.FieldDetail{
+				Field: "updated_before", Reason: "时间格式不符合 RFC3339 或 YYYY-MM-DD",
+			}))
+			return
+		}
+		opts.UpdatedBefore = &t
+	}
+
+	// 稀疏字段集（对标 Jira fields= / Linear GraphQL nodes{}）
+	if v := c.Query("fields"); v != "" {
+		opts.Fields = parseFields(v)
 	}
 
 	issues, total, err := h.d.IssueSvc.List(c.Request.Context(), opts)
@@ -965,7 +1026,62 @@ func (h *IssueHandler) listIssues(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"results": issues, "total": total, "limit": opts.Limit, "offset": opts.Offset})
+	// 有 fields 裁剪需求时做浅层过滤；否则完整返回（不传 fields 行为不变）
+	results := filterIssueFields(issues, opts.Fields)
+
+	c.JSON(http.StatusOK, gin.H{"results": results, "total": total, "limit": opts.Limit, "offset": opts.Offset})
+}
+
+// parseFields 解析逗号分隔的字段集。
+func parseFields(v string) []string {
+	var out []string
+	for _, f := range strings.Split(v, ",") {
+		f = strings.TrimSpace(f)
+		if f != "" {
+			out = append(out, f)
+		}
+	}
+	return out
+}
+
+// filterIssueFields 根据 fields 裁剪每个 Issue 的返回字段。
+//
+// 实现策略（浅层裁剪，对标 Jira ?fields=）：
+//  1. 将 Issue struct marshal 为 map[string]any；
+//  2. 仅保留 fields 中指定的 key；
+//  3. fields 为空时原样返回（不传 fields 行为不变）。
+//
+// 注意：不根据 DB Select 字段裁剪（SQL 已全量 SELECT），
+// 属于轻量级 handler 层裁剪，适合非极端性能敏感场景。
+func filterIssueFields(issues []Issue, fields []string) []any {
+	if len(fields) == 0 {
+		// 默认行为不变：返回完整 Issue 结构体
+		out := make([]any, len(issues))
+		for i := range issues {
+			out[i] = issues[i]
+		}
+		return out
+	}
+
+	fieldSet := make(map[string]struct{}, len(fields))
+	for _, f := range fields {
+		fieldSet[f] = struct{}{}
+	}
+
+	out := make([]any, len(issues))
+	for i, iss := range issues {
+		// 先序列化为 map 再做字段裁剪
+		var m map[string]any
+		b, _ := json.Marshal(iss)
+		_ = json.Unmarshal(b, &m)
+		for k := range m {
+			if _, ok := fieldSet[k]; !ok {
+				delete(m, k)
+			}
+		}
+		out[i] = m
+	}
+	return out
 }
 
 // exportIssues 导出工作项为 CSV 或 xlsx 文件。
