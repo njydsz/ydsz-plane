@@ -366,7 +366,7 @@ func TestCycleDetection_SelfReference(t *testing.T) {
 		t.Fatal("expected error when parent_id == self_id")
 	}
 	var appErr *errs.AppError
-	if !errs.As(err, &appErr) || appErr.Code != "VALIDATION.FAILED" {
+	if !errs.As(err, &appErr) || appErr.Code != "VALIDATION_ERROR" {
 		t.Errorf("expected ErrValidation, got %v", err)
 	}
 }
@@ -420,7 +420,7 @@ func TestDefectSeverity_OutOfRange(t *testing.T) {
 		t.Fatal("expected error for severity=999 (valid range 1-5)")
 	}
 	var appErr *errs.AppError
-	if !errs.As(err, &appErr) || appErr.Code != "VALIDATION.FAILED" {
+	if !errs.As(err, &appErr) || appErr.Code != "VALIDATION_ERROR" {
 		t.Errorf("expected ErrValidation, got %v", err)
 	}
 }
@@ -513,7 +513,7 @@ func TestOptimisticLock_VersionConflict(t *testing.T) {
 		t.Fatal("expected ErrVersionConflict when versions mismatch")
 	}
 	var ve *errs.AppError
-	if !errs.As(err, &ve) || ve.Code != "ISSUE.VERSION_CONFLICT" {
+	if !errs.As(err, &ve) || ve.Code != "ISSUE_VERSION_CONFLICT" {
 		t.Errorf("expected ErrVersionConflict, got %v", err)
 	}
 }
@@ -608,7 +608,7 @@ func TestBatchUpdate_NonExistentID(t *testing.T) {
 	if !errs.As(firstErr, &appErr) {
 		t.Errorf("expected AppError, got %v", firstErr)
 	}
-	if appErr.Code != "RESOURCE.NOT_FOUND" {
+	if appErr.Code != "NOT_FOUND" {
 		t.Errorf("expected ErrNotFound code, got %s", appErr.Code)
 	}
 	// 模拟整体 BatchUpdate 返回的错误被包装为 ErrValidation

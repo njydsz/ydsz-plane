@@ -84,10 +84,6 @@ async function createProject() {
   }
 }
 
-function openSettings() {
-  router.push(`/${wsId.value}/settings`);
-}
-
 /** 点击项目卡片：进入项目仪表盘。
  *  进入后 WorkspaceLayout 中的 currentProjectId 会随之变化，
  *  左侧导航会自动从「工作空间菜单」切换为「项目子菜单」展示项目内的全部能力。 */
@@ -116,7 +112,6 @@ onMounted(load);
         <p class="hint">管理工作空间下的项目</p>
       </div>
       <div class="actions">
-        <button class="btn" @click="openSettings">工作空间设置</button>
         <button class="btn btn--primary" @click="openCreateModal">创建项目</button>
       </div>
     </header>

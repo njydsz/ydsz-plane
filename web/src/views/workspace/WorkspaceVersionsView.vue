@@ -7,7 +7,7 @@
  * （/:wsId/projects/:projectId/versions）。
  */
 import { computed, onMounted, ref } from "vue";
-import { useRoute } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 
 import { workspaceApi, type Project } from "@/api/services/workspace";
 import { dashboardApi, type ProjectCompareItem } from "@/api/services/dashboard";
@@ -18,6 +18,7 @@ interface ProjectCard extends Project {
 }
 
 const route = useRoute();
+const router = useRouter();
 const workspaceId = computed(() => Number(route.params.workspaceId ?? 0));
 
 const loading = ref(true);
@@ -59,6 +60,12 @@ function percent(n: number | undefined): number {
   return Math.round(Math.max(0, Math.min(1, n)) * 100);
 }
 
+function goCreateVersion() {
+  const enabled = projects.value.filter(versionEnabled);
+  if (enabled.length === 0) return;
+  router.push(`/${workspaceId.value}/projects/${enabled[0].id}/versions`);
+}
+
 onMounted(load);
 </script>
 
@@ -72,10 +79,11 @@ onMounted(load);
         </p>
       </div>
       <button
-        class="text-sm text-[var(--brand-500)] hover:underline"
-        @click="load"
+        class="text-sm font-medium text-[var(--bg-accent-primary)] hover:underline disabled:opacity-40 disabled:no-underline"
+        :disabled="!projects.some(versionEnabled)"
+        @click="goCreateVersion"
       >
-        刷新
+        新建版本
       </button>
     </div>
 
