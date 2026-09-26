@@ -96,6 +96,7 @@ type Deps struct {
 	IssueHandler           *issue.IssueHandler
 	LabelHandler           *issue.LabelHandler
 	ModuleHandler          *issue.ModuleHandler
+	EstimatePointHandler   *issue.EstimatePointHandler
 	PrefHandler            *preference.Handler
 	ViewHandler            *preference.ViewHandler
 	PagesHandler           *pages.Handler
@@ -155,12 +156,15 @@ func RegisterIssueRoutes(r *gin.Engine, d *Deps) {
 	read.Use(middleware.RequirePermissionFromDB(d.RBACStore, auth.PermWorkspaceRead))
 	d.IssueHandler.Register(read, nil, nil)
 
-	// 标签 / 模块路由（同样挂在项目子路由组下，复用 workspace:read 权限）
+	// 标签 / 模块 / 估算点数路由（同样挂在项目子路由组下，复用 workspace:read 权限）
 	if d.LabelHandler != nil {
 		d.LabelHandler.Register(read)
 	}
 	if d.ModuleHandler != nil {
 		d.ModuleHandler.Register(read)
+	}
+	if d.EstimatePointHandler != nil {
+		d.EstimatePointHandler.Register(read)
 	}
 }
 

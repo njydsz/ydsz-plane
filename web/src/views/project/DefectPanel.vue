@@ -6,7 +6,7 @@
 import { onMounted, ref, computed } from "vue";
 
 import { versionApi, type BugVersionView } from "@/api/services/version";
-import { analyticsApi } from "@/api/services/analytics";
+import { defectAnalyticsApi } from "@/api/services/defectAnalytics";
 import { AppBadge, AppLoadingState, AppErrorState, AppEmptyState } from "@/components";
 
 const props = defineProps<{
@@ -77,7 +77,7 @@ const showExportDropdown = ref(false);
 function openExport(format: string) {
   if (!wsIdVal) return;
   window.open(
-    analyticsApi.exportUrl(wsIdVal, props.projectId, format, { version_id: props.versionId }),
+    defectAnalyticsApi.exportUrl(wsIdVal, props.projectId, format, { version_id: props.versionId }),
     "_blank",
   );
   showExportDropdown.value = false;

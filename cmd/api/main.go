@@ -318,12 +318,14 @@ func run() error {
 	defectAnalyticsSvc := issue.NewDefectAnalyticsService(pool.Pool)
 	defectAnalyticsHandler := issue.NewDefectAnalyticsHandler(defectAnalyticsSvc)
 
-	// ---------- Label / Module handlers ----------
+	// ---------- Label / Module / EstimatePoint handlers ----------
 	// P0-1 修复：标签与模块 Service + Handler 已就绪，实例化并挂载路由
 	labelSvc := issue.NewLabelService(pool.Pool)
 	labelHandler := issue.NewLabelHandler(labelSvc)
 	moduleSvc := issue.NewModuleService(pool.Pool)
 	moduleHandler := issue.NewModuleHandler(moduleSvc)
+	estimatePointSvc := issue.NewEstimatePointService(pool.Pool)
+	estimatePointHandler := issue.NewEstimatePointHandler(estimatePointSvc)
 
 	// ---------- Issue domain init (templates) ----------
 	projectInitSvc := issue.NewProjectInitService(pool.Pool)
@@ -436,8 +438,9 @@ func run() error {
 		ActivitySvc:  activitySvc,
 		TimeLogSvc:   timeLogSvc,
 		IssueHandler: issueHandler,
-		LabelHandler: labelHandler,
-		ModuleHandler: moduleHandler,
+		LabelHandler:         labelHandler,
+		ModuleHandler:        moduleHandler,
+		EstimatePointHandler: estimatePointHandler,
 		// Search domain
 		SearchHandler: searchHandler,
 		// Workbench domain

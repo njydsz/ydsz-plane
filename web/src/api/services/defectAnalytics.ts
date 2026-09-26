@@ -208,10 +208,17 @@ export const defectAnalyticsApi = {
     if (query.date_to) params.set('date_to', query.date_to);
     if (query.severity_from != null) params.set('severity_from', String(query.severity_from));
     if (query.severity_to != null) params.set('severity_to', String(query.severity_to));
+    if (query.module_id != null) params.set('module_id', String(query.module_id));
+    if (query.version_id != null) params.set('version_id', String(query.version_id));
     params.set('format', format);
 
     const { data } = await apiClient.get<Blob>(
       `/workspaces/${wsId}/projects/${projectId}/analytics/defects/export?${params.toString()}`,
+      { responseType: 'blob' },
+    );
+    return data;
+  },
+
   /**
    * 生成缺陷明细导出下载 URL（配合 <a download> 使用）。
    *

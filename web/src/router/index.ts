@@ -446,6 +446,12 @@ const router = createRouter({
             projectId: Number(route.params.projectId),
           }),
         },
+        // 估算点数配置（项目设置子页）
+        {
+          path: ":workspaceId(\\d+)/projects/:projectId/settings/estimate-points",
+          name: "project-estimate-points",
+          component: () => import("@/views/project/EstimatePointsView.vue"),
+        },
         // 成员管理（项目设置子页）
         {
           path: ":workspaceId(\\d+)/projects/:projectId/settings/members",
