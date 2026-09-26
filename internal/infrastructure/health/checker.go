@@ -371,6 +371,23 @@ func (h *ReadyzHandler) ResetCache() {
 	h.statusOK = false
 }
 
+// LiveResponse 是 /livez 端点的响应格式（极简，仅检查进程存活）。
+type LiveResponse struct {
+	Status    string `json:"status"`
+	Timestamp string `json:"timestamp"`
+	Uptime    string `json:"uptime"`
+}
+
+// HealthResponse 是 /healthz 端点的深度健康检测（含错误率 / 连接池 / Outbox 堆积）。
+type HealthResponse struct {
+	Status      string            `json:"status"`
+	Timestamp   string            `json:"timestamp"`
+	Uptime      string            `json:"uptime"`
+	ErrorRate   float64           `json:"error_rate_5m,omitempty"`
+	Checks      map[string]string `json:"checks,omitempty"`
+	PoolUtilization map[string]float64 `json:"pool_utilization,omitempty"`
+}
+
 // defaultTimeout 根据 checker 名称返回推荐超时。
 func defaultTimeout(c ConnectivityChecker) time.Duration {
 	switch c.Name() {

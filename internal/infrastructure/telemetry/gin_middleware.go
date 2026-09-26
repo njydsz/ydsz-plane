@@ -11,6 +11,7 @@
 package telemetry
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -41,7 +42,7 @@ func TracingMiddleware(serviceName string) gin.HandlerFunc {
 				semconv.ServiceName(serviceName),
 			),
 		),
-		otelgin.WithFilter(func(c *gin.Context) bool {
+		otelgin.WithGinFilter(func(c *gin.Context) bool {
 			// 排除健康检查端点（高频、无业务意义）
 			path := c.Request.URL.Path
 			switch path {
@@ -62,7 +63,7 @@ func RecordSpanError(c *gin.Context, err error) {
 	span := trace.SpanFromContext(c.Request.Context())
 	if span.IsRecording() {
 		span.RecordError(err)
-		span.SetAttributes(semconv.ExceptionType("%T", err))
+		span.SetAttributes(semconv.ExceptionType(fmt.Sprintf("%T", err)))
 	}
 }
 

@@ -111,7 +111,8 @@ var (
 			Name:        "es_reindex_progress_ratio",
 			Help:        "ES reindex progress (0.0 to 1.0) with total/processed labels.",
 		},
-	[]string{"doc_type"},
+		[]string{"doc_type"},
+	)
 )
 
 // Client ES 客户端封装。

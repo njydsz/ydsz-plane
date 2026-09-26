@@ -186,7 +186,7 @@ func run() error {
 		if selfTestErr := ssoCipher.SelfTest(); selfTestErr != nil {
 			log.Fatal("SSO secret cipher self-test failed (YDSZ_SSO_SECRET_KEY may be corrupted)",
 				zap.Error(selfTestErr))
-			return
+			return selfTestErr
 		}
 		log.Info("SSO secret cipher initialized and self-test passed",
 			zap.String("key_source", "YDSZ_SSO_SECRET_KEY"))
