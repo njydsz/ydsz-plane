@@ -6,6 +6,8 @@
 package automation
 
 import (
+	"context"
+	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -17,19 +19,23 @@ import (
 // mockActionExecutor 零实现。
 type mockActionExecutor struct{}
 
-func (m *mockActionExecutor) TransitionIssueStatus(_, _, _, _ int64, _ string) error { return nil }
-func (m *mockActionExecutor) AssignIssue(_, _, _, _, _ int64) error                   { return nil }
-func (m *mockActionExecutor) UpdateIssueField(_, _, _, _ int64, _ string, _ any) error { return nil }
-func (m *mockActionExecutor) SendNotification(_ interface{ Done() <-chan struct{} }, _ NotificationRequest) error {
+func (m *mockActionExecutor) TransitionIssueStatus(_ context.Context, _, _, _ int64, _ string) error {
 	return nil
 }
-func (m *mockActionExecutor) CreateIssue(_ interface{ Done() <-chan struct{} }, _ CreateIssueRequest) (int64, error) {
+func (m *mockActionExecutor) AssignIssue(_ context.Context, _, _, _, _ int64) error { return nil }
+func (m *mockActionExecutor) UpdateIssueField(_ context.Context, _, _, _ int64, _ string, _ any) error {
+	return nil
+}
+func (m *mockActionExecutor) SendNotification(_ context.Context, _ NotificationRequest) error {
+	return nil
+}
+func (m *mockActionExecutor) CreateIssue(_ context.Context, _ CreateIssueRequest) (int64, error) {
 	return 0, nil
 }
 
 type mockCtxProvider struct{}
 
-func (m *mockCtxProvider) BuildContext(_ interface{ Done() <-chan struct{} }, _ mq.EventEnvelope) (*ExecutionContext, error) {
+func (m *mockCtxProvider) BuildContext(_ context.Context, _ mq.EventEnvelope) (*ExecutionContext, error) {
 	return &ExecutionContext{}, nil
 }
 
@@ -60,9 +66,9 @@ func TestEngine_WithCircuitBreaker(t *testing.T) {
 func TestEngine_ExtractProjectID(t *testing.T) {
 	eng := NewEngine(&Service{}, &mockActionExecutor{}, &mockCtxProvider{}, zap.NewNop())
 
-	// Case 1: payload has project_id
+	// Case 1: payload has project_id (JSON numbers decode as float64)
 	event := mq.EventEnvelope{
-		Payload: map[string]any{"project_id": float64(42)},
+		Payload: json.RawMessage(`{"project_id": 42}`),
 	}
 	pid := eng.extractProjectID(event)
 	assert.NotNil(t, pid)
@@ -73,13 +79,13 @@ func TestEngine_ExtractProjectID(t *testing.T) {
 	pid2 := eng.extractProjectID(event2)
 	assert.Nil(t, pid2)
 
-	// Case 3: payload without project_id
-	event3 := mq.EventEnvelope{Payload: map[string]any{"other": "value"}}
+	// Case 3: payload without project_id key
+	event3 := mq.EventEnvelope{Payload: json.RawMessage(`{"other": "value"}`)}
 	pid3 := eng.extractProjectID(event3)
 	assert.Nil(t, pid3)
 }
 
-// TestEngine_ChainableConfig verifies full chain configuration.
+// TestEngine_ChainableConfig verifies full chain configuration preserves identity.
 func TestEngine_ChainableConfig(t *testing.T) {
 	eng := NewEngine(&Service{}, &mockActionExecutor{}, &mockCtxProvider{}, nil)
 	metrics := &Metrics{}
