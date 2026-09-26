@@ -93,6 +93,9 @@ CREATE SEQUENCE IF NOT EXISTS states_id_seq START 1 INCREMENT 1;
 CREATE SEQUENCE IF NOT EXISTS state_transitions_id_seq START 1 INCREMENT 1;
 CREATE SEQUENCE IF NOT EXISTS workspaces_id_seq START 1 INCREMENT 1;
 CREATE SEQUENCE IF NOT EXISTS workspace_members_id_seq START 1 INCREMENT 1;
+CREATE SEQUENCE IF NOT EXISTS projects_id_seq START 1 INCREMENT 1;
+CREATE SEQUENCE IF NOT EXISTS project_members_id_seq START 1 INCREMENT 1;
+CREATE SEQUENCE IF NOT EXISTS risk_rules_id_seq START 1 INCREMENT 1;
 
 -- ===========================================================================
 -- 建表 (110 张)
@@ -226,7 +229,7 @@ CREATE TABLE IF NOT EXISTS user_roles (
 
 --   8. projects — 项目
 CREATE TABLE IF NOT EXISTS projects (
-    id                       BIGINT PRIMARY KEY,
+    id                       BIGINT PRIMARY KEY DEFAULT nextval('projects_id_seq'),
     code                     VARCHAR(50),
     name                     VARCHAR(255) NOT NULL,
     tenant_id                BIGINT NOT NULL DEFAULT 1,
@@ -235,6 +238,7 @@ CREATE TABLE IF NOT EXISTS projects (
     slug                     VARCHAR(100),
     description              TEXT,
     icon                     VARCHAR(50),
+    color                    VARCHAR(20),
     cover_image_url          TEXT,
     network                  VARCHAR(20) DEFAULT 'private',
     template                 VARCHAR(20) DEFAULT 'generic',
@@ -254,7 +258,7 @@ CREATE TABLE IF NOT EXISTS projects (
 
 --   9. project_members — 项目成员
 CREATE TABLE IF NOT EXISTS project_members (
-    id                       BIGINT PRIMARY KEY,
+    id                       BIGINT PRIMARY KEY DEFAULT nextval('project_members_id_seq'),
     tenant_id                BIGINT NOT NULL DEFAULT 1,
     workspace_id             BIGINT NOT NULL DEFAULT 0,
     project_id               BIGINT NOT NULL DEFAULT 0,
@@ -1035,7 +1039,7 @@ CREATE TABLE IF NOT EXISTS search_bookmarks (
 
 --  45. risk_rules — 风险规则
 CREATE TABLE IF NOT EXISTS risk_rules (
-    id                       BIGINT PRIMARY KEY,
+    id                       BIGINT PRIMARY KEY DEFAULT nextval('risk_rules_id_seq'),
     code                     VARCHAR(50),
     name                     VARCHAR(255) NOT NULL,
     tenant_id                BIGINT NOT NULL DEFAULT 1,

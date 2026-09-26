@@ -94,6 +94,8 @@ type Deps struct {
 	ActivitySvc            *issue.ActivityService
 	TimeLogSvc             *issue.TimeLogService
 	IssueHandler           *issue.IssueHandler
+	LabelHandler           *issue.LabelHandler
+	ModuleHandler          *issue.ModuleHandler
 	PrefHandler            *preference.Handler
 	ViewHandler            *preference.ViewHandler
 	PagesHandler           *pages.Handler
@@ -152,6 +154,14 @@ func RegisterIssueRoutes(r *gin.Engine, d *Deps) {
 	read := projects.Group("")
 	read.Use(middleware.RequirePermissionFromDB(d.RBACStore, auth.PermWorkspaceRead))
 	d.IssueHandler.Register(read, nil, nil)
+
+	// 标签 / 模块路由（同样挂在项目子路由组下，复用 workspace:read 权限）
+	if d.LabelHandler != nil {
+		d.LabelHandler.Register(read)
+	}
+	if d.ModuleHandler != nil {
+		d.ModuleHandler.Register(read)
+	}
 }
 
 // RegisterKnowledgeRoutes 注册知识库路由（工作空间级 + 可选项目级过滤）。

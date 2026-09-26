@@ -59,7 +59,23 @@ BEGIN
 END$$;
 
 -- ═══════════════════════════════════════════════════════════════════════
--- 4. 确保序列归属正确（projects.id 为空时使用序列值回填）
+-- 4. risk_rules 表 — 创建序列并设 id 默认值（项目创建异步初始化用）
+-- ═══════════════════════════════════════════════════════════════════════
+CREATE SEQUENCE IF NOT EXISTS risk_rules_id_seq START 1 INCREMENT 1;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'risk_rules' AND column_name = 'id'
+          AND column_default IS NOT NULL
+    ) THEN
+        ALTER TABLE risk_rules ALTER COLUMN id SET DEFAULT nextval('risk_rules_id_seq');
+    END IF;
+END$$;
+
+-- ═══════════════════════════════════════════════════════════════════════
+-- 5. 校准序列值（避免与已有数据冲突）
 -- ═══════════════════════════════════════════════════════════════════════
 DO $$
 DECLARE
@@ -73,5 +89,10 @@ BEGIN
     SELECT COALESCE(MAX(id), 0) INTO max_id FROM project_members;
     IF max_id > 0 THEN
         PERFORM setval('project_members_id_seq', max_id);
+    END IF;
+
+    SELECT COALESCE(MAX(id), 0) INTO max_id FROM risk_rules;
+    IF max_id > 0 THEN
+        PERFORM setval('risk_rules_id_seq', max_id);
     END IF;
 END$$;
