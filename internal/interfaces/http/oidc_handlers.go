@@ -73,6 +73,14 @@ type ssoProviderItem struct {
 }
 
 // listSSOProviders 列出当前工作空间启用的 SSO Providers（不含 secret）。
+//
+// @Summary      列出 SSO 身份源
+// @Description  返回当前工作空间已配置的 OIDC/SAML 提供商列表（不含 client_secret）。
+// @Tags         sso
+// @Produce      json
+// @Param        workspace_id  path  int  true  "工作空间 ID"
+// @Success      200  {object}  map[string]any
+// @Router       /workspaces/{workspace_id}/sso/providers [get]
 func listSSOProviders(d *Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		wsID := c.GetInt64(middleware.CtxWorkspaceID)

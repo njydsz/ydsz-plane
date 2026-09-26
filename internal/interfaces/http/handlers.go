@@ -864,6 +864,17 @@ func listAuditLogs(d *Deps) gin.HandlerFunc {
 // ==================================================================
 
 // importMembers 从上传的 CSV 文件批量导入成员。
+//
+// @Summary      批量导入工作空间成员
+// @Description  上传 CSV 文件（含 email 和可选 name 列），逐行创建邀请或匹配现有用户。
+// @Tags         workspace-member
+// @Accept       multipart/form-data
+// @Produce      json
+// @Param        workspace_id  path  int    true  "工作空间 ID"
+// @Param        file          formData  file  true  "CSV 文件"
+// @Success      200  {object}  map[string]any
+// @Failure      422  {object}  errs.AppError
+// @Router       /workspaces/{workspace_id}/members/import [post]
 func importMembers(d *Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		wsID := c.GetInt64(middleware.CtxWorkspaceID)

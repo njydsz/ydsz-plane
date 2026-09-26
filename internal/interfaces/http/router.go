@@ -791,12 +791,29 @@ func userKey(c *gin.Context) string {
 
 // --- handlers (platform-level) ---
 
+// healthz 存活探针（不依赖外部依赖，快速返回 200）。
+//
+// @Summary      存活探针
+// @Description  返回服务存活状态（固定 {"status":"ok"}），用于 K8s liveness 与负载均衡健康检查。
+// @Tags         health
+// @Produce      json
+// @Success      200  {object}  map[string]any
+// @Router       /_public/healthz [get]
 func healthz() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 	}
 }
 
+// readyz 就绪探针（检查 DB/Redis/AMQP 连通性，缓存 30s）。
+//
+// @Summary      就绪探针
+// @Description  检查下游依赖（数据库 / Redis / RabbitMQ）状态。返回 {"status":"ok"} 或 {"status":"degraded","checks":{...}}。
+// @Tags         health
+// @Produce      json
+// @Success      200  {object}  map[string]any
+// @Success      503  {object}  map[string]any
+// @Router       /_public/readyz [get]
 func readyz(d *Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
