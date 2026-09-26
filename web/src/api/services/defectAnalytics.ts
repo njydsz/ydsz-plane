@@ -72,6 +72,7 @@ export interface AnalyticsQuery {
   severity_to?: number;
   phase?: string;
   module_id?: number;
+  version_id?: number;
 }
 
 /** 严重程度标签映射（对齐后端约定） */
@@ -157,6 +158,7 @@ export const defectAnalyticsApi = {
     if (query.severity_to != null) params.set('severity_to', String(query.severity_to));
     if (query.phase) params.set('phase', query.phase);
     if (query.module_id != null) params.set('module_id', String(query.module_id));
+    if (query.version_id != null) params.set('version_id', String(query.version_id));
 
     const qs = params.toString();
     const { data } = await apiClient.get<DefectAnalytics>(
@@ -210,8 +212,21 @@ export const defectAnalyticsApi = {
 
     const { data } = await apiClient.get<Blob>(
       `/workspaces/${wsId}/projects/${projectId}/analytics/defects/export?${params.toString()}`,
-      { responseType: 'blob' },
-    );
-    return data;
+  /**
+   * 生成缺陷明细导出下载 URL（配合 <a download> 使用）。
+   *
+   * @param format 导出格式：csv（默认）| xlsx
+   */
+  exportUrl: (wsId: number, projectId: number, format: string, query: AnalyticsQuery = {}) => {
+    const params = new URLSearchParams();
+    if (query.date_from) params.set('date_from', query.date_from);
+    if (query.date_to) params.set('date_to', query.date_to);
+    if (query.severity_from != null) params.set('severity_from', String(query.severity_from));
+    if (query.severity_to != null) params.set('severity_to', String(query.severity_to));
+    if (query.module_id != null) params.set('module_id', String(query.module_id));
+    if (query.version_id != null) params.set('version_id', String(query.version_id));
+    if (format) params.set('format', format);
+    const q = params.toString();
+    return `/api/v1/workspaces/${wsId}/projects/${projectId}/analytics/defects/export${q ? '?' + q : ''}`;
   },
 };
