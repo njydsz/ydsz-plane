@@ -1774,7 +1774,7 @@ type updateIssueRequest struct {
 	FixVersionID      *int64          `json:"fix_version_id"`
 	ReleaseVersionID  *int64          `json:"release_version_id"`
 	VerifierID        *int64          `json:"verifier_id,omitempty"`
-	ReproduceSteps    json.RawMessage `json:"reproduce_steps,omitempty"`
+	ReproduceSteps    map[string]any   `json:"reproduce_steps,omitempty"`
 }
 
 type reorderIssueRequest struct {

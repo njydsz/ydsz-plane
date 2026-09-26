@@ -7,7 +7,6 @@ package issue
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
@@ -100,7 +99,7 @@ type UpdateIssueInput struct {
 	FoundPhase        *string
 	RootCauseCategory *string
 	VerifierID        *int64
-	ReproduceSteps    json.RawMessage
+	ReproduceSteps    map[string]any
 	Category          *string
 	DelayReason       *string
 	Assignees         []int64
