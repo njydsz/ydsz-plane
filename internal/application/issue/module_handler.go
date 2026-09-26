@@ -98,7 +98,6 @@ func (h *ModuleHandler) listModules(c *gin.Context) {
 // @Tags			module
 // @Accept			json
 // @Produce		json
-// @Param			body		body		createModuleRequest	true	"模块信息"
 // @Success		201			{object}	Module
 // @Router			/modules [post]
 func (h *ModuleHandler) createModule(c *gin.Context) {
@@ -160,7 +159,6 @@ func (h *ModuleHandler) getModule(c *gin.Context) {
 // @Accept			json
 // @Produce		json
 // @Param			module_id	path		int					true	"模块 ID"
-// @Param			body		body		updateModuleRequest	true	"更新字段"
 // @Success		200			{object}	Module
 // @Router			/modules/{module_id} [patch]
 func (h *ModuleHandler) updateModule(c *gin.Context) {
@@ -238,7 +236,6 @@ func (h *ModuleHandler) listModuleIssues(c *gin.Context) {
 // @Tags			module
 // @Accept			json
 // @Param			module_id	path		int					true	"模块 ID"
-// @Param			body		body		assignIssuesRequest	true	"工作项 IDs"
 // @Success		204
 // @Router			/modules/{module_id}/issues [post]
 func (h *ModuleHandler) assignIssues(c *gin.Context) {

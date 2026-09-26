@@ -221,7 +221,6 @@ type updateStateRequest struct {
 //	@Accept			json
 //	@Produce		json
 //	@Param			state_id	path		int					true	"状态 ID"
-//	@Param			body		body		updateStateRequest	true	"更新字段"
 //	@Success		200			{object}	State
 //	@Router			/states/{state_id} [patch]
 func (h *IssueHandler) updateState(c *gin.Context) {
@@ -322,8 +321,6 @@ type addTransitionRequest struct {
 //	@Tags			issue
 //	@Accept			json
 //	@Produce		json
-//	@Param			body	body		addTransitionRequest	true	"流转规则"
-//	@Success		201		{object}	StateTransition
 //	@Router			/state-transitions [post]
 func (h *IssueHandler) addTransition(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
@@ -394,8 +391,7 @@ func (h *IssueHandler) listDependencies(c *gin.Context) {
 //	@Accept			json
 //	@Produce		json
 //	@Param			issue_id	path		int						true	"工作项 ID"
-//	@Param			body		body		createDependencyRequest	true	"依赖信息"
-//	@Success		201			{object}	Dependency
+//	@Success		201			{object}	IssueDependency
 //	@Router			/issues/{issue_id}/dependencies [post]
 func (h *IssueHandler) createDependency(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
@@ -533,7 +529,6 @@ func (h *IssueHandler) removeTransition(c *gin.Context) {
 //	@Tags			issue
 //	@Accept			json
 //	@Produce		json
-//	@Param			body	body		createIssueRequest	true	"工作项信息"
 //	@Success		201		{object}	Issue
 //	@Failure		422		{object}	errs.AppError
 //	@Router			/issues [post]
@@ -618,7 +613,6 @@ func (h *IssueHandler) createIssue(c *gin.Context) {
 //	@Accept			json
 //	@Produce		json
 //	@Param			X-Idempotency-Key	header		string	false	"幂等键（当前仅记录日志，不做强制校验）"
-//	@Param			body				body	batchIssuesRequest	true	"批量操作信息"
 //	@Success		200					{object}	dto.BatchResponse
 //	@Failure		422					{object}	errs.AppError
 //	@Router			/issues/batch [post]
@@ -947,7 +941,6 @@ func (h *IssueHandler) transition(c *gin.Context) {
 //	@Tags			issue
 //	@Accept			json
 //	@Produce		json
-//	@Param			body	body	reorderIssueRequest	true	"排序信息"
 //	@Success		200		{object}	Issue
 //	@Router			/issues/{issue_id}/reorder [patch]
 func (h *IssueHandler) reorderIssue(c *gin.Context) {
@@ -996,7 +989,7 @@ func (h *IssueHandler) reorderIssue(c *gin.Context) {
 //	@Param			sort			query		string	false	"排序字段 (-updated_at, priority, target_date, created_at)"
 //	@Param			limit			query		int		false	"每页数量 (default 50, max 100)"
 //	@Param			offset			query		int		false	"偏移量"
-//	@Success		200				{object}	issueListResponse
+//	@Success		200				{object}	map[string]any
 //	@Failure		400				{object}	errs.AppError	"时间参数格式错误"
 //	@Router			/issues [get]
 func (h *IssueHandler) listIssues(c *gin.Context) {
@@ -2008,7 +2001,7 @@ func (h *IssueHandler) listRelations(c *gin.Context) {
 //	@Accept			json
 //	@Produce		json
 //	@Param			issue_id	path	int	true	"工作项 ID"
-//	@Success		201			{object}	Relation
+//	@Success		201			{object}	IssueRelation
 //	@Router			/issues/{issue_id}/relations [post]
 func (h *IssueHandler) createRelation(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
@@ -2092,7 +2085,6 @@ func (h *IssueHandler) listComments(c *gin.Context) {
 //	@Accept			json
 //	@Produce		json
 //	@Param			issue_id	path	int						true	"工作项 ID"
-//	@Param			body		body		createCommentRequest	true	"评论内容"
 //	@Success		201			{object}	Comment
 //	@Router			/issues/{issue_id}/comments [post]
 func (h *IssueHandler) createComment(c *gin.Context) {

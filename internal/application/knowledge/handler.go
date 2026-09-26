@@ -136,7 +136,7 @@ func (h *Handler) listSpaces(c *gin.Context) {
 //	@Tags			knowledge
 //	@Produce		json
 //	@Param			sid	path		int	true	"空间 ID"
-//	@Success		200	{object}	Space
+//	@Success		200	{object}	KnowledgeSpace
 //	@Failure		404	{object}	errs.AppError
 //	@Router			/spaces/{sid} [get]
 func (h *Handler) getSpace(c *gin.Context) {
@@ -158,8 +158,7 @@ func (h *Handler) getSpace(c *gin.Context) {
 //	@Tags			knowledge
 //	@Accept			json
 //	@Produce		json
-//	@Param			body	body		createSpaceBody	true	"空间信息"
-//	@Success		201		{object}	Space
+//	@Success		201		{object}	KnowledgeSpace
 //	@Failure		422		{object}	errs.AppError
 //	@Router			/spaces [post]
 func (h *Handler) createSpace(c *gin.Context) {
@@ -217,8 +216,7 @@ func (h *Handler) createSpace(c *gin.Context) {
 //	@Accept			json
 //	@Produce		json
 //	@Param			sid	path		int						true	"空间 ID"
-//	@Param			body	body		updateSpaceRequest		true	"更新字段"
-//	@Success		200	{object}	Space
+//	@Success		200	{object}	KnowledgeSpace
 //	@Router			/spaces/{sid} [patch]
 func (h *Handler) updateSpace(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
@@ -333,7 +331,6 @@ func (h *Handler) getPage(c *gin.Context) {
 //	@Accept			json
 //	@Produce		json
 //	@Param			sid		path		int				true	"空间 ID"
-//	@Param			body	body		CreatePageInput	true	"文档信息"
 //	@Success		201		{object}	KnowledgePage
 //	@Router			/spaces/{sid}/pages [post]
 func (h *Handler) createPage(c *gin.Context) {
@@ -374,7 +371,6 @@ func (h *Handler) createPage(c *gin.Context) {
 //	@Produce		json
 //	@Param			sid		path		int					true	"空间 ID"
 //	@Param			pid		path		int					true	"文档 ID"
-//	@Param			body	body		updatePageRequest	true	"更新字段"
 //	@Success		200		{object}	KnowledgePage
 //	@Router			/spaces/{sid}/pages/{pid} [patch]
 func (h *Handler) updatePage(c *gin.Context) {
@@ -473,7 +469,6 @@ func (h *Handler) listVersions(c *gin.Context) {
 //	@Produce		json
 //	@Param			sid		path		int					true	"空间 ID"
 //	@Param			pid		path		int					true	"文档 ID"
-//	@Param			body	body		revertVersionRequest	true	"回滚参数"
 //	@Success		200		{object}	KnowledgePage
 //	@Router			/spaces/{sid}/pages/{pid}/revert [post]
 func (h *Handler) revertVersion(c *gin.Context) {
@@ -541,8 +536,7 @@ func (h *Handler) revertVersion(c *gin.Context) {
 //	@Produce		json
 //	@Param			sid		path		int					true	"空间 ID"
 //	@Param			pid		path		int					true	"文档 ID"
-//	@Param			body	body		addRelationRequest		true	"关联信息"
-//	@Success		201		{object}	PageRelation
+//	@Success		201		{object}	KnowledgePageRelation
 //	@Router			/spaces/{sid}/pages/{pid}/relations [post]
 func (h *Handler) addRelation(c *gin.Context) {
 	pageID := int64Param(c, "pid")

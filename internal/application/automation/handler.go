@@ -62,7 +62,7 @@ type listRulesQuery struct {
 //	@Param			limit			query		int				false	"每页数 (1-100)"	default(50)
 //	@Param			offset			query		int				false	"偏移"			default(0)
 //	@Param			status			query		string	false	"状态"
-//	@Success		200				{object}	ruleListResponse
+//	@Success		200				{object}	map[string]any
 //	@Security		Bearer
 //	@Router			/automation [get]
 func (h *Handler) List(c *gin.Context) {
@@ -101,7 +101,6 @@ func (h *Handler) List(c *gin.Context) {
 //	@Tags			automation
 //	@Accept			json
 //	@Produce		json
-//	@Param			body	body		createRuleRequest	true	"规则定义"
 //	@Success		201		{object}	Rule
 //	@Security		Bearer
 //	@Router			/automation [post]
@@ -144,7 +143,6 @@ func (h *Handler) Create(c *gin.Context) {
 //	@Tags			automation
 //	@Accept			json
 //	@Produce		json
-//	@Param			body	body		createFromTemplateRequest	true	"模板参数"
 //	@Success		201		{object}	Rule
 //	@Security		Bearer
 //	@Router			/automation/from-template [post]
@@ -210,7 +208,6 @@ func (h *Handler) Get(c *gin.Context) {
 //	@Accept			json
 //	@Produce		json
 //	@Param			rule_id		path		int					true	"规则ID"
-//	@Param			body		body		updateRuleRequest	true	"更新字段"
 //	@Success		200			{object}	Rule
 //	@Security		Bearer
 //	@Router			/automation/{rule_id} [patch]
@@ -284,7 +281,6 @@ func (h *Handler) Delete(c *gin.Context) {
 //	@Accept			json
 //	@Produce		json
 //	@Param			rule_id	path		int					true	"规则ID"
-//	@Param			body	body		toggleRuleRequest	true	"目标状态"
 //	@Success		200		{object}	Rule
 //	@Security		Bearer
 //	@Router			/automation/{rule_id}/toggle [post]
@@ -324,8 +320,7 @@ func (h *Handler) Toggle(c *gin.Context) {
 //	@Tags			automation
 //	@Accept			json
 //	@Produce		json
-//	@Param			body	body		dryRunRequest	true	"模拟运行参数"
-//	@Success		200		{object}	dryRunResponse
+//	@Success		200		{object}	map[string]any
 //	@Security		Bearer
 //	@Router			/automation/dry-run [post]
 func (h *Handler) DryRun(c *gin.Context) {

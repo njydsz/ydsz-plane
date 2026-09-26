@@ -2,7 +2,7 @@
  * 项目域 API — 对接后端 Project 域 REST 接口。
  */
 import { http } from "../client";
-import type { Project } from "./workspace";
+import type { Project, Member } from "./workspace";
 
 /* ------------------------------------------------------------------ */
 /* Types                                                              */
@@ -82,7 +82,7 @@ export const projectApi = {
 
   // --- 项目成员 ---
   listProjectMembers: (wsId: number, projectId: number) =>
-    wrap<Project[]>(http.get(`/workspaces/${wsId}/projects/${projectId}/members`)),
+    wrap<Member[]>(http.get(`/workspaces/${wsId}/projects/${projectId}/members`)),
 
   addProjectMember: (wsId: number, projectId: number, input: { user_id: number; role: string }) =>
     wrap<void>(http.post(`/workspaces/${wsId}/projects/${projectId}/members`, input)),

@@ -66,8 +66,7 @@ func (h *Handler) Register(r *gin.RouterGroup) {
 //	@Tags			webhook
 //	@Accept			json
 //	@Produce		json
-//	@Param			body	body		createRequest	true	"Webhook 配置"
-//	@Success		201		{object}	createResponse
+//	@Success		201		{object}	map[string]any
 //	@Failure		422		{object}	errs.AppError
 //	@Router			/webhooks [post]
 func (h *Handler) Create(c *gin.Context) {
@@ -184,7 +183,6 @@ func (h *Handler) Get(c *gin.Context) {
 //	@Accept			json
 //	@Produce		json
 //	@Param			webhook_id	path		int				true	"Webhook ID"
-//	@Param			body		body		updateRequest	true	"更新字段"
 //	@Success		200			{object}	Webhook
 //	@Failure		404			{object}	errs.AppError
 //	@Router			/webhooks/{webhook_id} [patch]

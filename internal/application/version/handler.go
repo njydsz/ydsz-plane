@@ -141,7 +141,6 @@ func (h *Handler) list(c *gin.Context) {
 //	@Tags			version
 //	@Accept			json
 //	@Produce		json
-//	@Param			body	body		createVersionRequest	true	"版本信息"
 //	@Success		201		{object}	Version
 //	@Failure		422		{object}	errs.AppError
 //	@Router			/versions [post]
@@ -206,7 +205,6 @@ func (h *Handler) get(c *gin.Context) {
 //	@Accept			json
 //	@Produce		json
 //	@Param			version_id	path		int						true	"版本 ID"
-//	@Param			body		body		updateVersionRequest	true	"更新字段"
 //	@Success		200			{object}	Version
 //	@Router			/versions/{version_id} [patch]
 func (h *Handler) update(c *gin.Context) {
@@ -279,7 +277,6 @@ func (h *Handler) activate(c *gin.Context) {
 //	@Accept			json
 //	@Produce		json
 //	@Param			version_id	path		int						true	"版本 ID"
-//	@Param			body		body		releaseVersionRequest	true	"发布参数"
 //	@Success		200			{object}	Version
 //	@Failure		422			{object}	errs.AppError
 //	@Router			/versions/{version_id}/release [post]
@@ -529,7 +526,6 @@ func (h *Handler) listSprints(c *gin.Context) {
 //	@Tags			version
 //	@Accept			json
 //	@Param			version_id	path		int				true	"版本 ID"
-//	@Param			body		body		addSprintRequest	true	"迭代信息"
 //	@Success		204
 //	@Router			/versions/{version_id}/sprints [post]
 func (h *Handler) addSprint(c *gin.Context) {

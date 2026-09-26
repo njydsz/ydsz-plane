@@ -1,5 +1,233 @@
+basePath: /api/v1
 definitions:
-  github_com_njydsz_ydsz-plane_internal_application_auth.TokenPair:
+  ai.AssignCandidate:
+    properties:
+      display_name:
+        type: string
+      reason:
+        type: string
+      score:
+        description: 0-100 综合评分
+        type: number
+      user_id:
+        type: integer
+    type: object
+  ai.ClassifyResult:
+    properties:
+      confidence:
+        description: 置信度 0-1
+        type: number
+      priority:
+        description: critical | high | medium | low
+        type: string
+      type_code:
+        description: requirement | task | defect
+        type: string
+    type: object
+  ai.DuplicateCandidate:
+    properties:
+      identifier:
+        type: string
+      issue_id:
+        type: integer
+      similarity:
+        description: 0-1 相似度
+        type: number
+      title:
+        type: string
+    type: object
+  ai.FixGrammarResult:
+    properties:
+      fixed_text:
+        description: 修正后全文
+        type: string
+      model:
+        description: rule-engine
+        type: string
+      w:
+        description: 发现的问题列表
+        items:
+          $ref: '#/definitions/ai.GrammarIssue'
+        type: array
+    type: object
+  ai.GrammarIssue:
+    properties:
+      length:
+        description: 问题长度
+        type: integer
+      offset:
+        description: 问题起始偏移
+        type: integer
+      original:
+        description: 原文
+        type: string
+      reason:
+        description: 错误说明
+        type: string
+      replacement:
+        description: 建议替换
+        type: string
+      severity:
+        description: error | warning | style
+        type: string
+    type: object
+  ai.RewriteResult:
+    properties:
+      changes:
+        description: 改动说明
+        items:
+          type: string
+        type: array
+      model:
+        description: rule-engine 或 LLM 名称
+        type: string
+      new_len:
+        type: integer
+      original_len:
+        type: integer
+      text:
+        description: 改写后文本
+        type: string
+    type: object
+  ai.SummarizeResult:
+    properties:
+      key_points:
+        description: 关键点
+        items:
+          type: string
+        type: array
+      summary:
+        description: 文字摘要
+        type: string
+      word_count:
+        description: 原文字数
+        type: integer
+    type: object
+  ai.WritingAssistResult:
+    properties:
+      confidence:
+        description: 规则引擎固定 0.6
+        type: number
+      model:
+        description: 使用的模型或 "rule-engine"
+        type: string
+      text:
+        description: 续写内容
+        type: string
+    type: object
+  apitoken.CreatedToken:
+    properties:
+      created_at:
+        type: string
+      expires_at:
+        type: string
+      id:
+        type: integer
+      last_used_at:
+        type: string
+      name:
+        type: string
+      scopes:
+        items:
+          type: string
+        type: array
+      token:
+        description: Token 原始值，仅在创建响应中出现一次，之后无法再获取。
+        type: string
+    type: object
+  apitoken.TokenVM:
+    properties:
+      created_at:
+        type: string
+      expires_at:
+        type: string
+      id:
+        type: integer
+      last_used_at:
+        type: string
+      name:
+        type: string
+      scopes:
+        items:
+          type: string
+        type: array
+    type: object
+  attachment.Attachment:
+    properties:
+      content_type:
+        type: string
+      created_at:
+        type: string
+      entity_id:
+        description: EntityID 为对应 per-type 表中具体 FK 的值（task_id / requirement_id / defect_id）。
+        type: integer
+      entity_type:
+        description: EntityType 由调用方上下文决定，JSON 序列化时回填。
+        type: string
+      file_name:
+        type: string
+      file_size:
+        type: integer
+      id:
+        type: integer
+      project_id:
+        type: integer
+      storage_key:
+        type: string
+      storage_url:
+        description: StorageURL 为按需生成的预签名下载 URL，不持久化。
+        type: string
+      thumb_key:
+        type: string
+      updated_at:
+        type: string
+      uploaded_by:
+        type: integer
+      workspace_id:
+        type: integer
+    type: object
+  attachment.ConfirmUploadResult:
+    properties:
+      attachment:
+        $ref: '#/definitions/attachment.Attachment'
+    type: object
+  auth.ProviderModifyInput:
+    properties:
+      attribute_mapping:
+        additionalProperties:
+          type: string
+        type: object
+      auth_url:
+        type: string
+      auto_create_user:
+        type: boolean
+      client_id:
+        type: string
+      client_secret:
+        type: string
+      default_role:
+        type: string
+      issuer_url:
+        type: string
+      jwks_url:
+        type: string
+      name:
+        type: string
+      protocol:
+        description: oidc | saml
+        type: string
+      redirect_uri:
+        type: string
+      scopes:
+        type: string
+      token_url:
+        type: string
+      userinfo_url:
+        type: string
+      workspace_id:
+        type: integer
+    type: object
+  auth.TokenPair:
     properties:
       access_token:
         type: string
@@ -11,9 +239,9 @@ definitions:
         description: Bearer
         type: string
       user:
-        $ref: '#/definitions/github_com_njydsz_ydsz-plane_internal_application_auth.UserBrief'
+        $ref: '#/definitions/auth.UserBrief'
     type: object
-  github_com_njydsz_ydsz-plane_internal_application_auth.UserBrief:
+  auth.UserBrief:
     properties:
       avatar_url:
         type: string
@@ -24,33 +252,633 @@ definitions:
       id:
         type: integer
     type: object
-  github_com_njydsz_ydsz-plane_pkg_errs.AppError:
+  automation.Action:
     properties:
-      code:
+      config:
+        additionalProperties: {}
+        description: 动作级配置：channel/template/target/strategy 等
+        type: object
+      field:
+        description: 目标字段（transition → state, assign → user_id）
         type: string
-      details:
-        items:
-          $ref: '#/definitions/github_com_njydsz_ydsz-plane_pkg_errs.FieldDetail'
-        type: array
-      message:
-        description: user-facing (zh)
+      type:
+        description: transition | assign | update_field | notify | create_issue |
+          copy_field | webhook_call | webhook_deliver
         type: string
+      value:
+        description: 目标值（支持 ${变量}
     type: object
-  github_com_njydsz_ydsz-plane_pkg_errs.FieldDetail:
+  automation.Condition:
     properties:
       field:
+        description: 'issues 字段路径: severity, state.group, estimate_points'
         type: string
-      reason:
+      op:
+        description: eq | ne | gt | gte | lt | lte | contains | in | is_empty | is_not_empty
+          | changed
+        type: string
+      value:
+        description: 比较值（op=in 时为数组）
+    type: object
+  automation.ConditionGroup:
+    properties:
+      all:
+        description: '默认: 所有条件均满足'
+        items:
+          $ref: '#/definitions/automation.ConditionGroup'
+        type: array
+      any:
+        description: 任一条件满足
+        items:
+          $ref: '#/definitions/automation.ConditionGroup'
+        type: array
+    type: object
+  automation.ExecutionStatus:
+    enum:
+    - matched
+    - skipped
+    - success
+    - failed
+    - dry_run
+    type: string
+    x-enum-varnames:
+    - ExecMatched
+    - ExecSkipped
+    - ExecSuccess
+    - ExecFailed
+    - ExecDryRun
+  automation.Rule:
+    properties:
+      action_count:
+        type: integer
+      consecutive_failures:
+        type: integer
+      created_at:
+        type: string
+      created_by:
+        type: integer
+      description:
+        type: string
+      dsl:
+        $ref: '#/definitions/automation.RuleDSL'
+      execution_count:
+        type: integer
+      id:
+        type: integer
+      last_error:
+        type: string
+      last_run_at:
+        type: string
+      name:
+        type: string
+      project_id:
+        type: integer
+      sort_order:
+        type: integer
+      status:
+        $ref: '#/definitions/automation.RuleStatus'
+      trigger_type:
+        type: string
+      updated_at:
+        type: string
+      workspace_id:
+        type: integer
+    type: object
+  automation.RuleDSL:
+    properties:
+      actions:
+        items:
+          $ref: '#/definitions/automation.Action'
+        type: array
+      condition_group:
+        allOf:
+        - $ref: '#/definitions/automation.ConditionGroup'
+        description: 高级条件组（conditions 为空时生效）
+      conditions:
+        description: 简单条件列表（all 语义）
+        items:
+          $ref: '#/definitions/automation.Condition'
+        type: array
+      trigger:
+        $ref: '#/definitions/automation.Trigger'
+    type: object
+  automation.RuleExecution:
+    properties:
+      context:
+        additionalProperties: {}
+        type: object
+      created_at:
+        type: string
+      duration_ms:
+        type: integer
+      error_message:
+        type: string
+      id:
+        type: integer
+      project_id:
+        type: integer
+      rule_id:
+        type: integer
+      status:
+        $ref: '#/definitions/automation.ExecutionStatus'
+      trigger_depth:
+        type: integer
+      trigger_event_id:
+        type: integer
+      via_automation:
+        type: boolean
+      workspace_id:
+        type: integer
+    type: object
+  automation.RuleStatus:
+    enum:
+    - draft
+    - active
+    - disabled
+    - error
+    type: string
+    x-enum-varnames:
+    - RuleStatusDraft
+    - RuleStatusActive
+    - RuleStatusDisabled
+    - RuleStatusError
+  automation.Template:
+    properties:
+      category:
+        type: string
+      description:
+        type: string
+      dsl_template:
+        $ref: '#/definitions/automation.RuleDSL'
+      icon:
+        type: string
+      id:
+        type: integer
+      is_recommended:
+        type: boolean
+      name:
+        type: string
+      slug:
+        type: string
+      sort_order:
+        type: integer
+    type: object
+  automation.Trigger:
+    properties:
+      cron:
+        description: 仅 type=scheduled 时有效
+        type: string
+      filter:
+        additionalProperties: {}
+        description: '事件级过滤: { "to_group": "started", "type_code": "defect" }'
+        type: object
+      type:
+        description: issue.created | issue.updated | issue.status_changed | issue.commented
+          | sprint.completed | version.released | scheduled
         type: string
     type: object
-  internal_interfaces_http.forgotPasswordRequest:
+  dashboard.DashboardData:
+    properties:
+      alerts:
+        description: 未解决风险告警
+        items:
+          $ref: '#/definitions/dashboard.RiskAlert'
+        type: array
+      snapshots:
+        additionalProperties: {}
+        description: key = widget_type, value = snapshot data
+        type: object
+      widgets:
+        items:
+          $ref: '#/definitions/dashboard.DashboardWidget'
+        type: array
+    type: object
+  dashboard.DashboardTemplate:
+    properties:
+      category:
+        type: string
+      description:
+        type: string
+      icon:
+        type: string
+      id:
+        type: integer
+      is_default:
+        type: boolean
+      layout:
+        additionalProperties: {}
+        type: object
+      name:
+        type: string
+      slug:
+        type: string
+      sort_order:
+        type: integer
+    type: object
+  dashboard.DashboardWidget:
+    properties:
+      config:
+        additionalProperties: {}
+        type: object
+      created_at:
+        type: string
+      grid_h:
+        type: integer
+      grid_w:
+        type: integer
+      grid_x:
+        type: integer
+      grid_y:
+        type: integer
+      id:
+        type: integer
+      is_visible:
+        type: boolean
+      project_id:
+        type: integer
+      sort_order:
+        type: integer
+      title:
+        type: string
+      updated_at:
+        type: string
+      user_id:
+        type: integer
+      widget_type:
+        $ref: '#/definitions/dashboard.WidgetType'
+    type: object
+  dashboard.ProjectCompareItem:
+    properties:
+      active_sprint_count:
+        type: integer
+      completion_rate:
+        type: number
+      defect_count:
+        type: integer
+      done_issues:
+        type: integer
+      identifier:
+        type: string
+      project_id:
+        type: integer
+      project_name:
+        type: string
+      total_issues:
+        type: integer
+    type: object
+  dashboard.RiskAlert:
+    properties:
+      created_at:
+        type: string
+      description:
+        type: string
+      id:
+        type: integer
+      is_resolved:
+        type: boolean
+      metadata:
+        additionalProperties: {}
+        type: object
+      project_id:
+        type: integer
+      rule_id:
+        type: integer
+      severity:
+        type: string
+      title:
+        type: string
+    type: object
+  dashboard.WidgetType:
+    enum:
+    - progress_overview
+    - burndown
+    - velocity
+    - priority_split
+    - state_distribution
+    - overdue_list
+    - blocked_list
+    - risk_alert
+    - recent_activity
+    - team_workload
+    - version_burndown
+    - module_distribution
+    - dora
+    - project_compare
+    type: string
+    x-enum-varnames:
+    - WidgetProgressOverview
+    - WidgetBurndown
+    - WidgetVelocity
+    - WidgetPrioritySplit
+    - WidgetStateDistribution
+    - WidgetOverdueList
+    - WidgetBlockedList
+    - WidgetRiskAlert
+    - WidgetRecentActivity
+    - WidgetTeamWorkload
+    - WidgetVersionBurndown
+    - WidgetModuleDistribution
+    - WidgetDORA
+    - WidgetProjectCompare
+  dto.AcceptInvitationRequest:
+    properties:
+      token:
+        description: Token 邀请 URL 中携带的随机 token（原始值，非 hash）。
+        type: string
+    required:
+    - token
+    type: object
+  dto.AddProjectMemberRequest:
+    properties:
+      role:
+        description: Role 在项目中的角色：admin / member。
+        enum:
+        - admin
+        - member
+        type: string
+      user_id:
+        description: UserID 被添加的用户 ID（必须是同 workspace 成员）。
+        minimum: 1
+        type: integer
+    required:
+    - role
+    - user_id
+    type: object
+  dto.BatchError:
+    properties:
+      code:
+        description: Code 错误码（eg. RESOURCE.NOT_FOUND / ISSUE.VERSION_CONFLICT）。
+        type: string
+      message:
+        description: Message 面向终端用户的中文提示（无敏感信息）。
+        type: string
+      resource_id:
+        description: ResourceID 失败的资源 ID（工作项 ID 等）。
+        type: integer
+    type: object
+  dto.BatchResponse:
+    properties:
+      errors:
+        description: Errors 失败条目明细；全部成功时返回空切片（保证前端 null-safety）。
+        items:
+          $ref: '#/definitions/dto.BatchError'
+        type: array
+      failed_count:
+        description: FailedCount 处理失败的条目数。
+        type: integer
+      success_count:
+        description: SuccessCount 成功处理的条目数。
+        type: integer
+    type: object
+  dto.ChangeRoleRequest:
+    properties:
+      role:
+        description: Role 目标角色（oneof 在后端按上下文校验，前端根据路由传入）。
+        type: string
+    required:
+    - role
+    type: object
+  dto.CreateApiTokenRequest:
+    properties:
+      expires_in_seconds:
+        description: ExpiresInSeconds 有效期（秒），60 ~ 31536000（365 天）；缺省表示永不过期。
+        maximum: 31536000
+        minimum: 60
+        type: integer
+      name:
+        description: Name 令牌名称（用途备注），1-80 字符。
+        maxLength: 80
+        minLength: 1
+        type: string
+      scopes:
+        description: |-
+          Scopes 权限范围白名单（至少 1 个，全部须命中 apitoken 白名单）。
+          可选值：read:workspace write:workspace read:issues write:issues
+          read:sprints write:sprints read:versions write:versions read:audit *
+        items:
+          type: string
+        maxItems: 20
+        minItems: 1
+        type: array
+    required:
+    - name
+    - scopes
+    type: object
+  dto.CreateProjectRequest:
+    properties:
+      color:
+        description: Color Hex 主题色（如 `#2563eb`），7 字符定长。
+        type: string
+      cover_image_url:
+        description: CoverImageUrl 封面图片 URL（可选）；传空字符串表示清除。
+        maxLength: 500
+        type: string
+      description:
+        description: Description 项目简介，最长 500 字符。
+        maxLength: 500
+        type: string
+      icon:
+        description: Icon Emoji 或图标标识，最长 32 字符。
+        maxLength: 32
+        type: string
+      identifier:
+        description: Identifier 项目前缀（2-6 位大写字母），用于工作项标识（如 `PROJ-12`），留空则自动生成。
+        maxLength: 6
+        type: string
+      modules:
+        description: Modules 功能模块开关；null 表示全部启用。
+        properties:
+          estimate:
+            type: boolean
+          sprint:
+            type: boolean
+          version:
+            type: boolean
+        type: object
+      name:
+        description: Name 项目名称，1-80 字符。
+        maxLength: 80
+        minLength: 1
+        type: string
+      network:
+        description: Network 可见性：public（空间内默认可见） / private（仅成员可见） / internal（仅项目成员可见）。默认
+          public。
+        enum:
+        - public
+        - private
+        - internal
+        type: string
+      slug:
+        description: Slug 友好 URL 片段，留空则由 Name 自动生成。
+        maxLength: 60
+        type: string
+      template:
+        description: Template 项目模板代码：agile（敏捷） / waterfall（瀑布） / generic（通用看板），默认
+          generic。
+        enum:
+        - agile
+        - waterfall
+        - generic
+        type: string
+    required:
+    - name
+    type: object
+  dto.CreateWorkspaceRequest:
+    properties:
+      language:
+        description: Language 界面语言代码，支持 zh-CN / en-US / en。
+        enum:
+        - zh-CN
+        - en-US
+        - en
+        type: string
+      name:
+        description: Name 工作空间显示名，1-80 字符。
+        maxLength: 80
+        minLength: 1
+        type: string
+      slug:
+        description: Slug 友好 URL 标识符，留空则由后端根据 Name 自动生成。格式：^[a-z0-9-]+$。
+        maxLength: 60
+        type: string
+      timezone:
+        description: Timezone IANA 时区名（如 Asia/Shanghai），默认 UTC。
+        type: string
+    required:
+    - name
+    type: object
+  dto.SendInvitationRequest:
+    properties:
+      email:
+        description: Email 被邀请人的邮箱（唯一标识，用于账户匹配）。
+        type: string
+      message:
+        description: Message 附赠的邀请说明，显示在邀请邮件中。
+        maxLength: 500
+        type: string
+      role:
+        description: Role 邀请时预设的角色；被邀请人接受后直接获得该角色。
+        enum:
+        - admin
+        - member
+        - guest
+        type: string
+    required:
+    - email
+    - role
+    type: object
+  dto.UpdateProjectRequest:
+    properties:
+      color:
+        description: Color 新主题色；nil 表示不更新。
+        type: string
+      cover_image_url:
+        description: CoverImageUrl 新封面图片 URL；nil 表示不更新；传空字符串表示清除。
+        maxLength: 500
+        type: string
+      description:
+        description: Description 新简介；nil 表示不更新。
+        type: string
+      icon:
+        description: Icon 新图标；nil 表示不更新。
+        type: string
+      modules:
+        description: Modules 功能模块开关；null 表示不更新（非 nil 则整体替换）。
+        properties:
+          estimate:
+            type: boolean
+          sprint:
+            type: boolean
+          version:
+            type: boolean
+        type: object
+      name:
+        description: Name 新名称；nil 表示不更新。
+        maxLength: 80
+        minLength: 1
+        type: string
+      network:
+        description: Network 新可见性；nil 表示不更新。
+        enum:
+        - public
+        - private
+        - internal
+        type: string
+      slug:
+        description: Slug 新 URL 片段；nil 表示不更新。
+        type: string
+    type: object
+  dto.UpdateWorkspaceRequest:
+    properties:
+      brand_color:
+        description: 'BrandColor 工作空间品牌主色（HEX 格式，如 #3B82F6）；nil 表示不更新。'
+        type: string
+      language:
+        description: Language 新的语言代码；nil 表示不更新。
+        enum:
+        - zh-CN
+        - en-US
+        - en
+        type: string
+      logo_url:
+        description: LogoURL 工作空间 Logo 的公开 URL；nil 表示不更新，传空字符串表示清除。
+        maxLength: 500
+        type: string
+      name:
+        description: Name 新的显示名；nil 表示不更新。
+        maxLength: 80
+        minLength: 1
+        type: string
+      timezone:
+        description: Timezone 新的时区；nil 表示不更新。
+        type: string
+    type: object
+  errs.AppError:
+    properties:
+      code:
+        description: |-
+          Code 为唯一错误码，由 "DOMAIN.SNAKE_CASE" 格式的 ASCII 字符串构成。
+          是前端做国际化映射（i18n key）和告警分组的依据。
+        type: string
+      details:
+        description: |-
+          Details 携带字段级校验错误明细，通常用于请求体（DTO）参数校验失败场景。
+          如果无字段级错误，该 slice 应为 nil（JSON 序列化时被 omitempty 省略）。
+        items:
+          $ref: '#/definitions/errs.FieldDetail'
+        type: array
+      message:
+        description: |-
+          Message 是面向终端用户的中文提示文案，可直接渲染到 UI。
+          要求：简洁、可理解、无敏感堆栈信息。前端根据此字段作为 fallback 文案展示。
+        type: string
+    type: object
+  errs.FieldDetail:
+    properties:
+      field:
+        description: |-
+          Field 为请求参数名或 JSON path（如 "title"、"assignee.id"），
+          前端可根据此字段将错误文案定位到对应表单控件。
+        type: string
+      reason:
+        description: |-
+          Reason 为该字段的具体错误原因（中文），如 "不能超过 255 个字符"、"格式不符合邮箱规范"。
+          要求：简洁、无敏感信息、可直接渲染。
+        type: string
+    type: object
+  httpapi.LogoUploadResult:
+    properties:
+      logo_url:
+        type: string
+    type: object
+  httpapi.forgotPasswordRequest:
     properties:
       email:
         type: string
     required:
     - email
     type: object
-  internal_interfaces_http.loginRequest:
+  httpapi.loginRequest:
     properties:
       email:
         example: alice@example.com
@@ -59,12 +887,12 @@ definitions:
         example: your-password
         type: string
     type: object
-  internal_interfaces_http.refreshRequest:
+  httpapi.refreshRequest:
     properties:
       refresh_token:
         type: string
     type: object
-  internal_interfaces_http.registerRequest:
+  httpapi.registerRequest:
     properties:
       display_name:
         example: Alice
@@ -76,7 +904,7 @@ definitions:
         example: new-password
         type: string
     type: object
-  internal_interfaces_http.resetPasswordRequest:
+  httpapi.resetPasswordRequest:
     properties:
       new_password:
         minLength: 8
@@ -87,43 +915,2329 @@ definitions:
     - new_password
     - token
     type: object
-  internal_interfaces_http.workspaceMemberResponse:
+  httpapi.ssoProviderDetail:
     properties:
+      attribute_mapping:
+        additionalProperties:
+          type: string
+        type: object
+      auth_url:
+        type: string
+      auto_create_user:
+        type: boolean
+      client_id:
+        type: string
+      default_role:
+        type: string
+      has_client_secret:
+        type: boolean
+      id:
+        type: integer
+      issuer_url:
+        type: string
+      jwks_url:
+        type: string
+      name:
+        type: string
+      protocol:
+        type: string
+      redirect_uri:
+        type: string
+      scopes:
+        type: string
+      token_url:
+        type: string
+      userinfo_url:
+        type: string
+    type: object
+  httpapi.userUpdateInput:
+    properties:
+      avatar_url:
+        type: string
       display_name:
         type: string
-      email:
+      timezone:
+        type: string
+    type: object
+  intake.IntakeChannel:
+    properties:
+      code:
+        type: string
+      config:
+        additionalProperties: {}
+        type: object
+      created_at:
+        type: string
+      created_by:
+        type: integer
+      description:
         type: string
       id:
         type: integer
-      joined_at:
+      is_active:
+        type: boolean
+      issue_count:
+        type: integer
+      name:
+        type: string
+      project_id:
+        type: integer
+      slug:
+        type: string
+      status:
+        type: string
+      updated_at:
+        type: string
+      workspace_id:
+        type: integer
+    type: object
+  intake.IntakeIssue:
+    properties:
+      channel_id:
+        type: integer
+      channel_name:
+        type: string
+      code:
+        type: string
+      created_at:
+        type: string
+      description:
+        type: string
+      id:
+        type: integer
+      linked_entity_id:
+        type: integer
+      linked_entity_identifier:
+        type: string
+      linked_entity_type:
+        type: string
+      name:
+        type: string
+      priority:
+        type: string
+      project_id:
+        type: integer
+      resolved_at:
+        type: string
+      resolved_by:
+        type: integer
+      status:
+        $ref: '#/definitions/intake.IssueStatus'
+      submitter_email:
+        type: string
+      submitter_name:
+        type: string
+      tracking_id:
+        type: string
+      updated_at:
+        type: string
+      workspace_id:
+        type: integer
+    type: object
+  intake.IssueStatus:
+    enum:
+    - open
+    - accepted
+    - rejected
+    - archived
+    type: string
+    x-enum-varnames:
+    - IssueOpen
+    - IssueAccepted
+    - IssueRejected
+    - IssueArchived
+  issue.AgeBucket:
+    properties:
+      count:
+        type: integer
+      max_days:
+        description: -1 表示无穷
+        type: integer
+      min_days:
+        type: integer
+      range:
+        description: e.g. "0-3d"
+        type: string
+    type: object
+  issue.Comment:
+    properties:
+      content_html:
+        type: string
+      content_json:
+        additionalProperties: {}
+        type: object
+      content_stripped:
+        type: string
+      created_at:
+        type: string
+      created_by:
+        type: integer
+      creator_avatar:
+        type: string
+      creator_name:
+        type: string
+      edited_at:
+        type: string
+      id:
+        type: integer
+      is_edited:
+        type: boolean
+      issue_id:
+        type: integer
+      mentions:
+        items:
+          type: integer
+        type: array
+      parent_id:
+        type: integer
+      project_id:
+        type: integer
+      updated_at:
+        type: string
+      workspace_id:
+        type: integer
+    type: object
+  issue.ContentTemplate:
+    properties:
+      content_html:
+        type: string
+      content_json:
+        additionalProperties: {}
+        type: object
+      created_at:
+        type: string
+      created_by:
+        type: integer
+      id:
+        type: integer
+      is_default:
+        type: boolean
+      name:
+        type: string
+      project_id:
+        type: integer
+      status:
+        type: string
+      template_type:
+        description: requirement | task | defect
+        type: string
+      tenant_id:
+        type: integer
+      updated_at:
+        type: string
+      workspace_id:
+        type: integer
+    type: object
+  issue.DefectAgeAnalysis:
+    properties:
+      overdue_count:
+        type: integer
+      overdue_items:
+        items:
+          $ref: '#/definitions/issue.DefectAgeItem'
+        type: array
+      state_stats:
+        items:
+          $ref: '#/definitions/issue.DefectAgeStat'
+        type: array
+    type: object
+  issue.DefectAgeItem:
+    properties:
+      age_days:
+        type: number
+      id:
+        type: integer
+      identifier:
+        type: string
+      name:
+        type: string
+      severity:
+        type: integer
+      severity_label:
+        type: string
+      state_name:
+        type: string
+    type: object
+  issue.DefectAgeStat:
+    properties:
+      avg_days:
+        type: number
+      count:
+        type: integer
+      max_days:
+        type: number
+      median_days:
+        type: number
+      min_days:
+        type: number
+      state_group:
+        type: string
+      state_name:
+        type: string
+    type: object
+  issue.DefectAnalytics:
+    properties:
+      age_buckets:
+        items:
+          $ref: '#/definitions/issue.AgeBucket'
+        type: array
+      avg_age_days:
+        type: number
+      module_dist:
+        items:
+          $ref: '#/definitions/issue.ModuleCount'
+        type: array
+      open_defects:
+        type: integer
+      phase_dist:
+        items:
+          $ref: '#/definitions/issue.PhaseCount'
+        type: array
+      resolved_defects:
+        type: integer
+      root_cause_dist:
+        items:
+          $ref: '#/definitions/issue.RootCauseCount'
+        type: array
+      severity_dist:
+        items:
+          $ref: '#/definitions/issue.SeverityCount'
+        type: array
+      total_defects:
+        type: integer
+      trend:
+        items:
+          $ref: '#/definitions/issue.TrendPoint'
+        type: array
+    type: object
+  issue.ImportError:
+    properties:
+      field:
+        description: 出错字段
+        type: string
+      message:
+        description: 错误描述
+        type: string
+      row:
+        description: 数据行号（从 2 开始，第 1 行为标题）
+        type: integer
+    type: object
+  issue.ImportResult:
+    properties:
+      created:
+        description: 新建数量
+        type: integer
+      errors:
+        description: 错误详情（最多 50 条）
+        items:
+          $ref: '#/definitions/issue.ImportError'
+        type: array
+      failed:
+        description: 失败数量
+        type: integer
+      skipped:
+        description: 跳过数量（去重/重复）
+        type: integer
+      succeeded:
+        description: created + updated（向后兼容）
+        type: integer
+      total:
+        description: 已处理行数（不含 header）
+        type: integer
+      updated:
+        description: 增量更新数量
+        type: integer
+    type: object
+  issue.Issue:
+    properties:
+      assignees:
+        items:
+          type: integer
+        type: array
+      category:
+        type: string
+      completed_at:
+        type: string
+      created_at:
+        type: string
+      created_by:
+        type: integer
+      depth:
+        type: integer
+      found_phase:
+        type: string
+      id:
+        type: integer
+      identifier:
+        type: string
+      is_draft:
+        type: boolean
+      labels:
+        items:
+          type: integer
+        type: array
+      modules:
+        items:
+          type: integer
+        type: array
+      name:
+        type: string
+      parent_id:
+        type: integer
+      point:
+        type: integer
+      priority:
+        $ref: '#/definitions/issue.IssuePriority'
+      progress:
+        type: integer
+      project_id:
+        type: integer
+      public_id:
+        type: string
+      sequence_id:
+        type: integer
+      severity:
+        description: 按类型的可选字段
+        type: integer
+      sort_order:
+        type: number
+      sprint_id:
+        type: integer
+      start_date:
+        type: string
+      state:
+        $ref: '#/definitions/issue.State'
+      state_id:
+        type: integer
+      target_date:
+        type: string
+      type_code:
+        $ref: '#/definitions/issue.IssueTypeCode'
+      updated_at:
+        type: string
+      version:
+        type: integer
+      version_id:
+        type: integer
+      workspace_id:
+        type: integer
+    type: object
+  issue.IssueDependency:
+    properties:
+      dependency_type:
+        type: string
+      depends_on_id:
+        type: integer
+      id:
+        type: integer
+      issue_id:
+        type: integer
+      lag_days:
+        type: integer
+    type: object
+  issue.IssuePriority:
+    enum:
+    - urgent
+    - high
+    - medium
+    - low
+    - none
+    type: string
+    x-enum-varnames:
+    - PriorityUrgent
+    - PriorityHigh
+    - PriorityMedium
+    - PriorityLow
+    - PriorityNone
+  issue.IssueRelation:
+    properties:
+      created_at:
+        type: string
+      created_by:
+        type: integer
+      id:
+        type: integer
+      project_id:
+        type: integer
+      relation_type:
+        type: string
+      source_issue_id:
+        type: integer
+      target_issue_id:
+        type: integer
+      workspace_id:
+        type: integer
+    type: object
+  issue.IssueTypeCode:
+    enum:
+    - epic
+    - requirement
+    - task
+    - defect
+    type: string
+    x-enum-varnames:
+    - TypeEpic
+    - TypeRequirement
+    - TypeTask
+    - TypeDefect
+  issue.Label:
+    properties:
+      code:
+        type: string
+      color:
+        type: string
+      created_at:
+        type: string
+      created_by:
+        type: integer
+      description:
+        type: string
+      id:
+        type: integer
+      issue_count:
+        type: integer
+      name:
+        type: string
+      project_id:
+        type: integer
+      status:
+        type: string
+      updated_at:
+        type: string
+      workspace_id:
+        type: integer
+    type: object
+  issue.Module:
+    properties:
+      created_at:
+        type: string
+      created_by:
+        type: integer
+      description:
+        type: string
+      id:
+        type: integer
+      lead_id:
+        type: integer
+      name:
+        type: string
+      project_id:
+        type: integer
+      public_id:
+        type: string
+      sort_order:
+        type: number
+      start_date:
+        type: string
+      status:
+        type: string
+      target_date:
+        type: string
+      updated_at:
+        type: string
+      workspace_id:
+        type: integer
+    type: object
+  issue.ModuleCount:
+    properties:
+      count:
+        type: integer
+      module_id:
+        type: integer
+      module_name:
+        type: string
+    type: object
+  issue.PhaseCount:
+    properties:
+      count:
+        type: integer
+      phase:
+        type: string
+    type: object
+  issue.Review:
+    properties:
+      completed_date:
+        type: string
+      created_at:
+        type: string
+      created_by:
+        type: integer
+      created_date:
+        type: string
+      description:
+        type: string
+      due_date:
+        type: string
+      entity_id:
+        type: integer
+      entity_type:
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
+      project_id:
+        type: integer
+      review_type:
+        type: string
+      reviewers:
+        items:
+          type: integer
+        type: array
+      status:
+        type: string
+      workspace_id:
+        type: integer
+    type: object
+  issue.RootCauseAnalysis:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/issue.RootCauseStat'
+        type: array
+      total_count:
+        type: integer
+    type: object
+  issue.RootCauseCount:
+    properties:
+      count:
+        type: integer
+      root_cause:
+        type: string
+    type: object
+  issue.RootCauseStat:
+    properties:
+      count:
+        type: integer
+      percentage:
+        type: number
+      root_cause:
+        type: string
+    type: object
+  issue.SeverityCount:
+    properties:
+      count:
+        type: integer
+      label:
+        type: string
+      severity:
+        type: integer
+    type: object
+  issue.State:
+    properties:
+      applicable_types:
+        description: 适用的工作项类型：all|epic|requirement|task|defect
+        items:
+          type: string
+        type: array
+      color:
+        type: string
+      created_at:
+        type: string
+      group:
+        $ref: '#/definitions/issue.StateGroup'
+      id:
+        type: integer
+      is_default:
+        type: boolean
+      name:
+        type: string
+      project_id:
+        type: integer
+      sequence:
+        type: number
+      updated_at:
+        type: string
+      workspace_id:
+        type: integer
+    type: object
+  issue.StateGroup:
+    enum:
+    - backlog
+    - started
+    - completed
+    - cancelled
+    type: string
+    x-enum-varnames:
+    - GroupBacklog
+    - GroupStarted
+    - GroupCompleted
+    - GroupCancelled
+  issue.TimeLog:
+    properties:
+      created_at:
+        type: string
+      description:
+        type: string
+      duration_minutes:
+        type: integer
+      id:
+        type: integer
+      issue_id:
+        type: integer
+      project_id:
+        type: integer
+      spent_date:
+        type: string
+      updated_at:
+        type: string
+      user_id:
+        type: integer
+      workspace_id:
+        type: integer
+    type: object
+  issue.TrendPoint:
+    properties:
+      created:
+        type: integer
+      resolved:
+        type: integer
+      week:
+        description: '"YYYY-Wxx"'
+        type: string
+    type: object
+  knowledge.KnowledgePage:
+    properties:
+      content_html:
+        type: string
+      content_md:
+        type: string
+      created_at:
+        type: string
+      created_by:
+        type: integer
+      deleted:
+        type: string
+      depth:
+        type: integer
+      id:
+        type: integer
+      is_featured:
+        type: boolean
+      is_pinned:
+        type: boolean
+      lft:
+        type: integer
+      parent_id:
+        type: integer
+      path:
+        type: string
+      rgt:
+        type: integer
+      sort_order:
+        type: integer
+      space_id:
+        type: integer
+      status:
+        $ref: '#/definitions/knowledge.PageStatus'
+      title:
+        type: string
+      updated_at:
+        type: string
+      updated_by:
+        type: integer
+      version:
+        type: integer
+      view_count:
+        type: integer
+      workspace_id:
+        type: integer
+    type: object
+  knowledge.KnowledgePageRelation:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: integer
+      issue_id:
+        type: integer
+      page_id:
+        type: integer
+      relation_type:
+        $ref: '#/definitions/knowledge.PageRelationType'
+    type: object
+  knowledge.KnowledgeSpace:
+    properties:
+      cover_image:
+        type: string
+      created_at:
+        type: string
+      default_permission:
+        $ref: '#/definitions/knowledge.SpacePermission'
+      deleted:
+        type: string
+      description:
+        type: string
+      id:
+        type: integer
+      is_private:
+        type: boolean
+      name:
+        type: string
+      owner_id:
+        type: integer
+      project_id:
+        type: integer
+      slug:
+        type: string
+      updated_at:
+        type: string
+      workspace_id:
+        type: integer
+    type: object
+  knowledge.PageRelationType:
+    enum:
+    - referenced
+    - referencing
+    type: string
+    x-enum-varnames:
+    - RelationReferenced
+    - RelationReferencing
+  knowledge.PageStatus:
+    enum:
+    - draft
+    - published
+    - archived
+    type: string
+    x-enum-varnames:
+    - PageStatusDraft
+    - PageStatusPublished
+    - PageStatusArchived
+  knowledge.SpacePermission:
+    enum:
+    - viewer
+    - editor
+    - admin
+    - owner
+    type: string
+    x-enum-varnames:
+    - PermissionViewer
+    - PermissionEditor
+    - PermissionAdmin
+    - PermissionOwner
+  metrics.CFDDataPoint:
+    properties:
+      backlog:
+        description: state_group=todo
+        type: integer
+      cancelled:
+        description: state_group=cancelled
+        type: integer
+      date:
+        description: YYYY-MM-DD
+        type: string
+      done:
+        description: state_group=completed
+        type: integer
+      in_progress:
+        description: state_group=started
+        type: integer
+      todo:
+        description: state_group=todo (排除 backlog)
+        type: integer
+      total_active:
+        description: 未归档的非 cancelled 总数
+        type: integer
+    type: object
+  metrics.ControlChartPoint:
+    properties:
+      date:
+        description: 完成日期
+        type: string
+      episode_id:
+        description: 工作项 identifier
+        type: string
+      lead_days:
+        description: 该工作项的前置时间
+        type: number
+    type: object
+  metrics.ControlChartResult:
+    properties:
+      moving_avg_7d:
+        description: 7 点移动均线
+        items:
+          $ref: '#/definitions/metrics.MovingAverage'
+        type: array
+      p50:
+        type: number
+      p85:
+        type: number
+      p95:
+        type: number
+      points:
+        items:
+          $ref: '#/definitions/metrics.ControlChartPoint'
+        type: array
+      upper_control_limit:
+        description: UCL = P85 * 1.5
+        type: number
+    type: object
+  metrics.DORAResult:
+    properties:
+      change_failure_rate:
+        description: 'CFR: 失败部署占比'
+        type: number
+      deployment_freq_per_day:
+        description: 'DF: 每日部署次数（30 天窗口）'
+        type: number
+      lead_time_for_changes_hours:
+        description: 'LTC: median commit→deploy'
+        type: number
+      mttr_hours:
+        description: 'MTTR: 故障恢复中位时长'
+        type: number
+      performance_level:
+        description: elite / high / medium / low
+        type: string
+      project_id:
+        type: integer
+    type: object
+  metrics.LeadTimeResult:
+    properties:
+      p50_days:
+        type: number
+      p85_days:
+        type: number
+      project_id:
+        type: integer
+      sample_size:
+        type: integer
+    type: object
+  metrics.MemberLoad:
+    properties:
+      active_issues:
+        type: integer
+      lead_time_avg_days:
+        type: number
+      total_points:
+        type: integer
+      user_id:
+        type: integer
+      user_name:
+        type: string
+    type: object
+  metrics.MovingAverage:
+    properties:
+      date:
+        type: string
+      value:
+        type: number
+    type: object
+  metrics.QualityMetrics:
+    properties:
+      avg_defect_age_days:
+        type: number
+      defect_density:
+        type: number
+      escape_rate:
+        type: number
+      escaped_defects:
+        type: integer
+      project_id:
+        type: integer
+      reopen_rate:
+        type: number
+      reopened_count:
+        type: integer
+      total_defects:
+        type: integer
+    type: object
+  metrics.ResourceLoadDetail:
+    properties:
+      avg_wip_per_member:
+        type: number
+      imbalance_ratio:
+        description: 最大 WIP / 平均 WIP（>2 告警）
+        type: number
+      max_wip:
+        type: integer
+      members:
+        items:
+          $ref: '#/definitions/metrics.MemberLoad'
+        type: array
+      project_id:
+        type: integer
+      total_wip:
+        type: integer
+    type: object
+  metrics.SprintVelocity:
+    properties:
+      issues_done:
+        type: integer
+      points_done:
+        type: number
+      sprint_id:
+        type: integer
+      sprint_name:
+        type: string
+    type: object
+  metrics.VelocityResult:
+    properties:
+      average_points:
+        type: number
+      last_points:
+        type: integer
+      last_sprint_id:
+        type: integer
+      project_id:
+        type: integer
+      sprint_count:
+        type: integer
+      trend:
+        items:
+          $ref: '#/definitions/metrics.SprintVelocity'
+        type: array
+    type: object
+  metrics.WeeklyThroughput:
+    properties:
+      completed:
+        description: 完成需求数
+        type: integer
+      points:
+        description: 完成故事点
+        type: integer
+      week_end:
+        description: YYYY-MM-DD (周日)
+        type: string
+      week_start:
+        description: YYYY-MM-DD (周一)
+        type: string
+    type: object
+  notification.Digest:
+    enum:
+    - realtime
+    - daily
+    - weekly
+    - "off"
+    type: string
+    x-enum-varnames:
+    - DigestRealtime
+    - DigestDaily
+    - DigestWeekly
+    - DigestOff
+  notification.NotificationPreference:
+    properties:
+      channels:
+        items:
+          type: string
+        type: array
+      created_at:
+        type: string
+      digest:
+        $ref: '#/definitions/notification.Digest'
+      dnd_enabled:
+        type: boolean
+      dnd_end:
+        type: string
+      dnd_start:
+        type: string
+      event_types:
+        items:
+          type: string
+        type: array
+      id:
+        type: integer
+      is_enabled:
+        type: boolean
+      updated_at:
+        type: string
+      user_id:
+        type: integer
+      workspace_id:
+        type: integer
+    type: object
+  pages.DocumentLink:
+    properties:
+      created_at:
+        type: string
+      created_by:
+        type: integer
+      id:
+        type: integer
+      linkable_id:
+        type: integer
+      linkable_type:
+        type: string
+      page_id:
+        type: integer
+    type: object
+  pages.DocumentVersion:
+    properties:
+      content_html:
+        type: string
+      content_md:
+        type: string
+      created_at:
+        type: string
+      created_by:
+        type: integer
+      id:
+        type: integer
+      page_id:
+        type: integer
+      version_number:
+        type: integer
+    type: object
+  pages.Page:
+    properties:
+      category:
+        type: string
+      created_at:
+        type: string
+      created_by:
+        type: integer
+      deleted:
+        type: string
+      description_html:
+        type: string
+      description_json:
+        additionalProperties: {}
+        type: object
+      description_stripped:
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
+      parent_id:
+        type: integer
+      project_id:
+        type: integer
+      public_id:
+        type: string
+      sort_order:
+        type: number
+      updated_at:
+        type: string
+      version:
+        type: integer
+      workspace_id:
+        type: integer
+    type: object
+  pages.PageShare:
+    properties:
+      created_at:
+        type: string
+      created_by:
+        type: integer
+      expires_at:
+        type: string
+      id:
+        type: integer
+      is_active:
+        type: boolean
+      page_id:
+        type: integer
+      project_id:
+        type: integer
+      token:
+        type: string
+      workspace_id:
+        type: integer
+    type: object
+  pages.PageTemplate:
+    properties:
+      category:
+        type: string
+      content_html:
+        type: string
+      created_at:
+        type: string
+      created_by:
+        type: integer
+      description:
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
+      project_id:
+        type: integer
+      updated_at:
+        type: string
+      workspace_id:
+        type: integer
+    type: object
+  preference.SavedView:
+    properties:
+      config:
+        additionalProperties: {}
+        type: object
+      created_at:
+        type: string
+      id:
+        type: integer
+      is_shared:
+        type: boolean
+      name:
+        type: string
+      owner_id:
+        type: integer
+      project_id:
+        type: integer
+      scope:
+        $ref: '#/definitions/preference.SavedViewScope'
+      type:
+        $ref: '#/definitions/preference.ViewType'
+      updated_at:
+        type: string
+      workspace_id:
+        type: integer
+    type: object
+  preference.SavedViewScope:
+    enum:
+    - personal
+    - team
+    - default
+    type: string
+    x-enum-varnames:
+    - ScopePersonal
+    - ScopeTeam
+    - ScopeDefault
+  preference.ViewPreference:
+    properties:
+      columns:
+        additionalProperties: {}
+        type: object
+      created_at:
+        type: string
+      extra:
+        additionalProperties: {}
+        type: object
+      filters:
+        additionalProperties: {}
+        type: object
+      id:
+        type: integer
+      layout:
+        type: string
+      project_id:
+        type: integer
+      sort:
+        additionalProperties: {}
+        type: object
+      updated_at:
+        type: string
+      user_id:
+        type: integer
+      view_type:
+        $ref: '#/definitions/preference.ViewType'
+      workspace_id:
+        type: integer
+    type: object
+  preference.ViewType:
+    enum:
+    - kanban
+    - list
+    - calendar
+    - gantt
+    type: string
+    x-enum-varnames:
+    - ViewKanban
+    - ViewList
+    - ViewCalendar
+    - ViewGantt
+  search.SearchBookmark:
+    properties:
+      created_at:
+        type: string
+      filters:
+        additionalProperties: {}
+        type: object
+      id:
+        type: integer
+      is_shared:
+        type: boolean
+      name:
+        type: string
+      project_id:
+        type: integer
+      query:
+        type: string
+      sort_order:
+        type: number
+      updated_at:
+        type: string
+      user_id:
+        type: integer
+      workspace_id:
+        type: integer
+    type: object
+  sprint.ReviewSnapshot:
+    properties:
+      committed_issues:
+        type: integer
+      committed_points:
+        description: 启动时承诺的故事点
+        type: number
+      completed_issues:
+        type: integer
+      completed_points:
+        description: 结束时完成的故事点
+        type: number
+      completion_rate:
+        description: 完成率
+        type: number
+      joined_issues:
+        description: 中途加入的工作项
+        type: integer
+      joined_points:
+        description: 中途加入的故事点
+        type: number
+      removed_issues:
+        description: 中途移除的工作项
+        type: integer
+      removed_points:
+        description: 中途移除的故事点
+        type: number
+    type: object
+  sprint.Sprint:
+    properties:
+      capacity:
+        description: 容量（故事点）
+        type: number
+      completed_at:
+        type: string
+      created_at:
+        type: string
+      created_by:
+        type: integer
+      description:
+        type: string
+      end_date:
+        type: string
+      goal:
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
+      owner_id:
+        type: integer
+      progress:
+        allOf:
+        - $ref: '#/definitions/sprint.SprintProgress'
+        description: 进度（实时计算，非持久化字段）
+      project_id:
+        type: integer
+      review_snapshot:
+        allOf:
+        - $ref: '#/definitions/sprint.ReviewSnapshot'
+        description: 复盘数据
+      start_date:
+        type: string
+      started_at:
+        type: string
+      status:
+        $ref: '#/definitions/sprint.SprintStatusCode'
+      updated_at:
+        type: string
+      version_id:
+        type: integer
+      viewport:
+        additionalProperties: {}
+        type: object
+      workspace_id:
+        type: integer
+    type: object
+  sprint.SprintProgress:
+    properties:
+      added_points:
+        description: 中途加入的故事点（added_midway = true）
+        type: number
+      by_state_group:
+        additionalProperties:
+          format: float64
+          type: number
+        type: object
+      done_issues:
+        type: integer
+      done_points:
+        type: number
+      removed_points:
+        description: 中途移除的故事点
+        type: number
+      saturation:
+        description: capacity > 0 时：total_points / capacity
+        type: number
+      total_issues:
+        type: integer
+      total_points:
+        type: number
+    type: object
+  sprint.SprintStatusCode:
+    enum:
+    - planned
+    - active
+    - completed
+    type: string
+    x-enum-varnames:
+    - SprintPlanned
+    - SprintActive
+    - SprintCompleted
+  sprint.SprintVelocity:
+    properties:
+      completed_issues:
+        type: integer
+      completed_points:
+        type: number
+      end_date:
+        type: string
+      sprint_id:
+        type: integer
+      sprint_name:
+        type: string
+    type: object
+  sprint.VelocityStats:
+    properties:
+      avg_issues:
+        type: number
+      avg_points:
+        type: number
+      count:
+        type: integer
+      p50:
+        type: number
+      recent_sprints:
+        items:
+          $ref: '#/definitions/sprint.SprintVelocity'
+        type: array
+    type: object
+  version.ChecklistItem:
+    properties:
+      checked:
+        type: boolean
+      id:
+        type: string
+      label:
+        type: string
+      required:
+        type: boolean
+    type: object
+  version.DeliveryReport:
+    properties:
+      bug_count:
+        type: integer
+      completed_issues:
+        type: integer
+      completed_points:
+        type: number
+      eligible_to_release:
+        type: boolean
+      fixed_bug_count:
+        type: integer
+      generated_at:
+        type: string
+      pass_rate:
+        type: number
+      sprint_count:
+        type: integer
+      total_issues:
+        type: integer
+      total_points:
+        type: number
+    type: object
+  version.QualityMetrics:
+    properties:
+      bug_by_severity:
+        additionalProperties:
+          type: integer
+        type: object
+      critical_bugs:
+        type: integer
+      fix_rate:
+        type: number
+      fixed_bug_count:
+        type: integer
+      found_bug_count:
+        type: integer
+      major_bugs:
+        type: integer
+      open_bugs:
+        type: integer
+      pass_quality_gate:
+        type: boolean
+      total_bugs:
+        type: integer
+    type: object
+  version.SprintProgressRef:
+    properties:
+      done_issues:
+        type: integer
+      done_points:
+        type: number
+      total_issues:
+        type: integer
+      total_points:
+        type: number
+    type: object
+  version.SprintRef:
+    properties:
+      completed_at:
+        type: string
+      end_date:
+        type: string
+      name:
+        type: string
+      progress:
+        $ref: '#/definitions/version.SprintProgressRef'
+      sprint_id:
+        type: integer
+      start_date:
+        type: string
+      status:
+        type: string
+    type: object
+  version.Version:
+    properties:
+      archived_at:
+        type: string
+      checklist:
+        items:
+          $ref: '#/definitions/version.ChecklistItem'
+        type: array
+      created_at:
+        type: string
+      created_by:
+        type: integer
+      delivered_at:
+        type: string
+      delivery_report:
+        $ref: '#/definitions/version.DeliveryReport'
+      description:
+        type: string
+      end_date:
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
+      progress:
+        $ref: '#/definitions/version.VersionProgress'
+      project_id:
+        type: integer
+      quality:
+        $ref: '#/definitions/version.QualityMetrics'
+      release_notes:
+        type: string
+      semver:
+        type: string
+      sprints:
+        description: 聚合 (按需填充)
+        items:
+          $ref: '#/definitions/version.SprintRef'
+        type: array
+      start_date:
+        type: string
+      status:
+        $ref: '#/definitions/version.VersionStatusCode'
+      target_date:
+        type: string
+      updated_at:
+        type: string
+      version:
+        type: integer
+      workspace_id:
+        type: integer
+    type: object
+  version.VersionProgress:
+    properties:
+      by_state_group:
+        additionalProperties:
+          format: float64
+          type: number
+        type: object
+      completion_rate:
+        type: number
+      done_issues:
+        type: integer
+      done_points:
+        type: number
+      issue_count:
+        type: integer
+      sprint_count:
+        type: integer
+      total_issues:
+        type: integer
+      total_points:
+        type: number
+    type: object
+  version.VersionStatusCode:
+    enum:
+    - planning
+    - active
+    - released
+    - archived
+    type: string
+    x-enum-varnames:
+    - VersionPlanning
+    - VersionActive
+    - VersionReleased
+    - VersionArchived
+  webhook.Webhook:
+    properties:
+      created_at:
+        type: string
+      created_by:
+        type: integer
+      events:
+        items:
+          type: string
+        type: array
+      id:
+        type: integer
+      is_active:
+        type: boolean
+      last_error:
+        type: string
+      last_status:
+        type: string
+      last_triggered:
+        type: string
+      name:
+        type: string
+      project_id:
+        type: integer
+      target_url:
+        type: string
+      unhealthy_at:
+        type: string
+      updated_at:
+        type: string
+      workspace_id:
+        type: integer
+    type: object
+  workbench.EfficiencyReport:
+    properties:
+      overdue_count:
+        type: integer
+      week_hours:
+        type: number
+      week_issues:
+        type: integer
+      week_points:
+        type: integer
+      weekly_trend:
+        items:
+          $ref: '#/definitions/workbench.WeeklyTrend'
+        type: array
+    type: object
+  workbench.FeedItem:
+    properties:
+      actor_name:
+        type: string
+      created_at:
+        type: string
+      field:
+        type: string
+      id:
+        type: integer
+      identifier:
+        type: string
+      issue_id:
+        type: integer
+      issue_name:
+        type: string
+      new_value:
+        type: string
+      type_code:
+        type: string
+      verb:
+        type: string
+    type: object
+  workbench.IssueDigest:
+    properties:
+      group_id:
+        type: integer
+      id:
+        type: integer
+      identifier:
+        type: string
+      is_blocked:
+        type: boolean
+      priority:
+        type: string
+      project_name:
+        type: string
+      sprint_id:
+        type: integer
+      sprint_name:
+        type: string
+      state_color:
+        type: string
+      state_id:
+        type: integer
+      state_name:
+        type: string
+      target_date:
+        type: string
+      title:
+        type: string
+      type_code:
+        type: string
+    type: object
+  workbench.LayoutConfig:
+    properties:
+      widgets:
+        items:
+          $ref: '#/definitions/workbench.LayoutWidget'
+        type: array
+    type: object
+  workbench.LayoutWidget:
+    properties:
+      h:
+        description: 行高
+        type: integer
+      type:
+        type: string
+      w:
+        description: 列宽
+        type: integer
+      x:
+        type: integer
+      "y":
+        type: integer
+    type: object
+  workbench.MyIssuesBucket:
+    properties:
+      backlog:
+        description: 待规划
+        items:
+          $ref: '#/definitions/workbench.IssueDigest'
+        type: array
+      in_progress:
+        description: 进行中
+        items:
+          $ref: '#/definitions/workbench.IssueDigest'
+        type: array
+      overdue:
+        description: 逾期（target_date < 今天 + 未完成）
+        items:
+          $ref: '#/definitions/workbench.IssueDigest'
+        type: array
+      today:
+        description: 今日任务（target_date = 今天）
+        items:
+          $ref: '#/definitions/workbench.IssueDigest'
+        type: array
+      total:
+        description: 总计（不含取消/已完成）
+        type: integer
+      upcoming:
+        description: 即将开始（未开始 + 7 天内）
+        items:
+          $ref: '#/definitions/workbench.IssueDigest'
+        type: array
+    type: object
+  workbench.QuickActionSet:
+    properties:
+      active_issue_count:
+        description: 进行中的数量（用于 Focus Mode Entry）
+        type: integer
+      can_create_issue:
+        type: boolean
+      can_start_sprint:
+        type: boolean
+    type: object
+  workbench.RecentItem:
+    properties:
+      accessed_at:
+        type: string
+      identifier:
+        type: string
+      item_id:
+        type: integer
+      item_type:
+        type: string
+      project_id:
+        type: integer
+      title:
+        type: string
+      url:
+        type: string
+    type: object
+  workbench.SprintOverview:
+    properties:
+      days_remaining:
+        description: 负数 = 已结束
+        type: integer
+      goal:
+        type: string
+      my_issue_count:
+        description: 该迭代中我的工作项数
+        type: integer
+      progress:
+        description: 0-1
+        type: number
+      project_id:
+        type: integer
+      project_name:
+        type: string
+      sprint_id:
+        type: integer
+      sprint_name:
+        type: string
+      status:
+        type: string
+    type: object
+  workbench.WeeklyTrend:
+    properties:
+      count:
+        type: integer
+      points:
+        type: integer
+      week:
+        type: string
+    type: object
+  workbench.WorkbenchConfig:
+    properties:
+      focus_enabled:
+        type: boolean
+      id:
+        type: integer
+      layout:
+        $ref: '#/definitions/workbench.LayoutConfig'
+      project_id:
+        type: integer
+      updated_at:
+        type: string
+      user_id:
+        type: integer
+      widget_states:
+        additionalProperties: {}
+        type: object
+      workspace_id:
+        type: integer
+    type: object
+  workbench.WorkbenchSummary:
+    properties:
+      blocked_count:
+        description: 阻塞总数
+        type: integer
+      my_issues:
+        allOf:
+        - $ref: '#/definitions/workbench.MyIssuesBucket'
+        description: 我的任务分桶
+      overdue_count:
+        description: 逾期总数
+        type: integer
+      quick_actions:
+        allOf:
+        - $ref: '#/definitions/workbench.QuickActionSet'
+        description: 快捷操作
+      recent_items:
+        description: 最近访问
+        items:
+          $ref: '#/definitions/workbench.RecentItem'
+        type: array
+      sprint_overviews:
+        description: 参与迭代概览
+        items:
+          $ref: '#/definitions/workbench.SprintOverview'
+        type: array
+    type: object
+  workbench.WorkbenchTemplate:
+    properties:
+      description:
+        type: string
+      icon:
+        type: string
+      id:
+        type: integer
+      is_default:
+        type: boolean
+      layout:
+        $ref: '#/definitions/workbench.LayoutConfig'
+      name:
+        type: string
+      slug:
+        type: string
+      sort_order:
+        type: integer
+    type: object
+  workspace.Invitation:
+    properties:
+      accepted_at:
+        type: string
+      created_at:
+        type: string
+      email:
+        type: string
+      expires_at:
+        type: string
+      id:
+        type: integer
+      inviter_id:
+        type: integer
+      inviter_name:
+        type: string
+      message:
         type: string
       role:
         type: string
+      status:
+        type: string
+      workspace_id:
+        type: integer
     type: object
+  workspace.Project:
+    properties:
+      color:
+        type: string
+      cover_image_url:
+        type: string
+      created_at:
+        type: string
+      created_by:
+        type: integer
+      description:
+        type: string
+      icon:
+        type: string
+      id:
+        type: integer
+      identifier:
+        type: string
+      modules:
+        $ref: '#/definitions/workspace.ProjectModuleToggles'
+      name:
+        type: string
+      network:
+        type: string
+      slug:
+        type: string
+      sort_order:
+        type: number
+      status:
+        type: string
+      template:
+        type: string
+      updated_at:
+        type: string
+      workspace_id:
+        type: integer
+    type: object
+  workspace.ProjectModuleToggles:
+    properties:
+      estimate:
+        type: boolean
+      sprint:
+        type: boolean
+      version:
+        type: boolean
+    type: object
+  workspace.Workspace:
+    properties:
+      brand_color:
+        type: string
+      created_at:
+        type: string
+      id:
+        type: integer
+      language:
+        type: string
+      logo_url:
+        type: string
+      member_count:
+        type: integer
+      name:
+        type: string
+      owner_id:
+        type: integer
+      role:
+        type: string
+      slug:
+        type: string
+      status:
+        type: string
+      timezone:
+        type: string
+      updated_at:
+        type: string
+    type: object
+host: localhost:8080
 info:
   contact: {}
+  description: 项目管理平台 Ydsz Plane 的 REST API（需求/任务/缺陷/迭代/版本/自动化/Webhook/知识库/仪表盘/全局搜索/通知等）。
+  title: Ydsz Plane API
+  version: 1.0.0
 paths:
+  /admin/dlq:
+    get:
+      description: 分页查询 DLQ 死信消息，支持按 unresolved_only 过滤
+      parameters:
+      - description: 每页数
+        in: query
+        name: limit
+        type: integer
+      - description: 偏移
+        in: query
+        name: offset
+        type: integer
+      - description: 仅未解决
+        in: query
+        name: unresolved_only
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 列出死信消息
+      tags:
+      - dlq
+  /admin/dlq/{id}:
+    delete:
+      description: 将指定死信消息标记为已解决（软删除）
+      parameters:
+      - description: 死信 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 移除死信消息
+      tags:
+      - dlq
+  /admin/dlq/{id}/retry:
+    post:
+      description: 将指定死信消息重新入队进行重放
+      parameters:
+      - description: 死信 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 重试死信消息
+      tags:
+      - dlq
+  /admin/dlq/cleanup:
+    post:
+      consumes:
+      - application/json
+      description: 按 event_ids 批量标记已解决，或按 resolved_all 清理全部已解决记录
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 批量清理死信
+      tags:
+      - dlq
+  /analytics/defect-age:
+    get:
+      consumes:
+      - application/json
+      description: 输出按状态分组的缺陷龄统计（min/max/avg/median），及超7天滞留的缺陷明细
+      parameters:
+      - description: 工作空间 ID
+        in: path
+        name: workspace_id
+        required: true
+        type: integer
+      - description: 项目 ID
+        in: path
+        name: project_id
+        required: true
+        type: integer
+      - description: 起始日期
+        in: query
+        name: date_from
+        type: string
+      - description: 结束日期
+        in: query
+        name: date_to
+        type: string
+      - description: 最低严重程度
+        in: query
+        name: severity_from
+        type: integer
+      - description: 最高严重程度
+        in: query
+        name: severity_to
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/issue.DefectAgeAnalysis'
+      summary: 缺陷龄分析
+      tags:
+      - analytics
+  /analytics/defects:
+    get:
+      consumes:
+      - application/json
+      description: 输出按模块/严重程度/发现阶段/根因分类/缺陷龄分布/周趋势聚合的缺陷统计数据
+      parameters:
+      - description: 工作空间 ID
+        in: path
+        name: workspace_id
+        required: true
+        type: integer
+      - description: 项目 ID
+        in: path
+        name: project_id
+        required: true
+        type: integer
+      - description: 起始日期（YYYY-MM-DD）
+        in: query
+        name: date_from
+        type: string
+      - description: 结束日期（YYYY-MM-DD）
+        in: query
+        name: date_to
+        type: string
+      - description: 最低严重程度（1-5）
+        in: query
+        name: severity_from
+        type: integer
+      - description: 最高严重程度（1-5）
+        in: query
+        name: severity_to
+        type: integer
+      - description: 按模块过滤
+        in: query
+        name: module_id
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/issue.DefectAnalytics'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errs.AppError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errs.AppError'
+      summary: 缺陷分析聚合
+      tags:
+      - analytics
+  /analytics/defects/export:
+    get:
+      consumes:
+      - application/json
+      description: 按与聚合分析相同的过滤条件导出缺陷明细列表（CSV / xlsx）
+      parameters:
+      - description: 工作空间 ID
+        in: path
+        name: workspace_id
+        required: true
+        type: integer
+      - description: 项目 ID
+        in: path
+        name: project_id
+        required: true
+        type: integer
+      - description: 导出格式：csv（默认）| xlsx
+        in: query
+        name: format
+        type: string
+      - description: 起始日期（YYYY-MM-DD）
+        in: query
+        name: date_from
+        type: string
+      - description: 结束日期（YYYY-MM-DD）
+        in: query
+        name: date_to
+        type: string
+      - description: 最低严重程度（1-5）
+        in: query
+        name: severity_from
+        type: integer
+      - description: 最高严重程度（1-5）
+        in: query
+        name: severity_to
+        type: integer
+      - description: 按模块过滤
+        in: query
+        name: module_id
+        type: integer
+      - description: 按版本过滤（发现或修复版本）
+        in: query
+        name: version_id
+        type: integer
+      produces:
+      - application/octet-stream
+      responses:
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errs.AppError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errs.AppError'
+      summary: 导出缺陷明细
+      tags:
+      - analytics
+  /analytics/root-cause:
+    get:
+      consumes:
+      - application/json
+      description: 输出按根因分类分组的缺陷数量、占比及总计
+      parameters:
+      - description: 工作空间 ID
+        in: path
+        name: workspace_id
+        required: true
+        type: integer
+      - description: 项目 ID
+        in: path
+        name: project_id
+        required: true
+        type: integer
+      - description: 起始日期
+        in: query
+        name: date_from
+        type: string
+      - description: 结束日期
+        in: query
+        name: date_to
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/issue.RootCauseAnalysis'
+      summary: 根因分布统计
+      tags:
+      - analytics
+  /attachments:
+    get:
+      description: 按工作项类型 + ID 查询关联的附件列表
+      parameters:
+      - description: 工作项类型 (task/requirement/defect/issue)
+        in: query
+        name: entity_type
+        required: true
+        type: string
+      - description: 工作项 ID
+        in: query
+        name: entity_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/errs.AppError'
+      summary: 列出附件
+      tags:
+      - attachment
+  /attachments/{id}:
+    delete:
+      description: 按附件 ID 删除附件记录及其底层存储对象
+      parameters:
+      - description: 附件 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 工作项类型 (task/requirement/defect)
+        in: query
+        name: entity_type
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+      summary: 删除附件
+      tags:
+      - attachment
+  /attachments/confirm:
+    post:
+      consumes:
+      - application/json
+      description: 客户端直传成功后提交元信息，写入附件 DB 记录
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/attachment.ConfirmUploadResult'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/errs.AppError'
+      summary: 确认附件上传
+      tags:
+      - attachment
+  /attachments/presigned-upload:
+    post:
+      consumes:
+      - application/json
+      description: 申请临时预签名 PUT URL 用于客户端直传对象存储
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/errs.AppError'
+      summary: 获取预签名上传 URL
+      tags:
+      - attachment
   /auth/forgot-password:
     post:
       consumes:
       - application/json
-      description: 根据邮箱发送一次性重置链接（15 分钟有效）。无论邮箱是否存在均返回 202，避免枚举。
+      description: 发起密码重置请求，向邮箱发送重置链接（无论邮箱是否存在都返回 202）
       parameters:
       - description: 邮箱
         in: body
         name: body
         required: true
         schema:
-          $ref: '#/definitions/internal_interfaces_http.forgotPasswordRequest'
+          $ref: '#/definitions/httpapi.forgotPasswordRequest'
       produces:
       - application/json
       responses:
         "202":
-          description: 已接受（不一定实际存在该邮箱）
-        "422":
-          description: Unprocessable Entity
+          description: Accepted
           schema:
-            $ref: '#/definitions/github_com_njydsz_ydsz-plane_pkg_errs.AppError'
+            additionalProperties:
+              type: string
+            type: object
       summary: 请求密码重置
       tags:
       - auth
@@ -138,22 +3252,22 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/internal_interfaces_http.loginRequest'
+          $ref: '#/definitions/httpapi.loginRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/github_com_njydsz_ydsz-plane_internal_application_auth.TokenPair'
+            $ref: '#/definitions/auth.TokenPair'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/github_com_njydsz_ydsz-plane_pkg_errs.AppError'
+            $ref: '#/definitions/errs.AppError'
         "422":
           description: Unprocessable Entity
           schema:
-            $ref: '#/definitions/github_com_njydsz_ydsz-plane_pkg_errs.AppError'
+            $ref: '#/definitions/errs.AppError'
       summary: 登录
       tags:
       - auth
@@ -168,18 +3282,18 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/internal_interfaces_http.refreshRequest'
+          $ref: '#/definitions/httpapi.refreshRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/github_com_njydsz_ydsz-plane_internal_application_auth.TokenPair'
+            $ref: '#/definitions/auth.TokenPair'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/github_com_njydsz_ydsz-plane_pkg_errs.AppError'
+            $ref: '#/definitions/errs.AppError'
       summary: 刷新访问令牌
       tags:
       - auth
@@ -194,22 +3308,22 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/internal_interfaces_http.registerRequest'
+          $ref: '#/definitions/httpapi.registerRequest'
       produces:
       - application/json
       responses:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/github_com_njydsz_ydsz-plane_internal_application_auth.TokenPair'
+            $ref: '#/definitions/auth.TokenPair'
         "409":
           description: 邮箱已被注册
           schema:
-            $ref: '#/definitions/github_com_njydsz_ydsz-plane_pkg_errs.AppError'
+            $ref: '#/definitions/errs.AppError'
         "422":
           description: Unprocessable Entity
           schema:
-            $ref: '#/definitions/github_com_njydsz_ydsz-plane_pkg_errs.AppError'
+            $ref: '#/definitions/errs.AppError'
       summary: 注册
       tags:
       - auth
@@ -217,30 +3331,1581 @@ paths:
     post:
       consumes:
       - application/json
-      description: 提交一次性 token + 新密码；成功后 token 标记为已使用。
+      description: 使用重置令牌设置新密码
       parameters:
-      - description: 重置请求
+      - description: 新密码
         in: body
         name: body
         required: true
         schema:
-          $ref: '#/definitions/internal_interfaces_http.resetPasswordRequest'
+          $ref: '#/definitions/httpapi.resetPasswordRequest'
       produces:
       - application/json
       responses:
         "204":
-          description: 重置成功
-        "400":
-          description: token 无效或已过期
-          schema:
-            $ref: '#/definitions/github_com_njydsz_ydsz-plane_pkg_errs.AppError'
+          description: No Content
         "422":
           description: Unprocessable Entity
           schema:
-            $ref: '#/definitions/github_com_njydsz_ydsz-plane_pkg_errs.AppError'
-      summary: 使用 token 重置密码
+            $ref: '#/definitions/errs.AppError'
+      summary: 重置密码
       tags:
       - auth
+  /automation:
+    get:
+      description: 查询项目级 + 工作空间级自动化规则
+      parameters:
+      - default: 50
+        description: 每页数 (1-100)
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: 偏移
+        in: query
+        name: offset
+        type: integer
+      - description: 状态
+        in: query
+        name: status
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - Bearer: []
+      summary: 列出自动化规则
+      tags:
+      - automation
+    post:
+      consumes:
+      - application/json
+      description: 创建一条新的自动化规则（含 DSL 校验）
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/automation.Rule'
+      security:
+      - Bearer: []
+      summary: 创建自动化规则
+      tags:
+      - automation
+  /automation/{rule_id}:
+    delete:
+      description: 删除一条自动化规则
+      parameters:
+      - description: 规则ID
+        in: path
+        name: rule_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+      security:
+      - Bearer: []
+      summary: 删除规则
+      tags:
+      - automation
+    get:
+      description: 通过 ID 查询单条规则
+      parameters:
+      - description: 规则ID
+        in: path
+        name: rule_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/automation.Rule'
+      security:
+      - Bearer: []
+      summary: 获取规则详情
+      tags:
+      - automation
+    patch:
+      consumes:
+      - application/json
+      description: 部分更新规则（含 DSL 校验）
+      parameters:
+      - description: 规则ID
+        in: path
+        name: rule_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/automation.Rule'
+      security:
+      - Bearer: []
+      summary: 更新规则
+      tags:
+      - automation
+  /automation/{rule_id}/toggle:
+    post:
+      consumes:
+      - application/json
+      description: 快速切换规则激活状态
+      parameters:
+      - description: 规则ID
+        in: path
+        name: rule_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/automation.Rule'
+      security:
+      - Bearer: []
+      summary: 启用/禁用规则
+      tags:
+      - automation
+  /automation/dry-run:
+    post:
+      consumes:
+      - application/json
+      description: 传入 DSL 模拟执行，返回"将执行"的动作列表（不实际操作）
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - Bearer: []
+      summary: 干跑测试规则
+      tags:
+      - automation
+  /automation/executions:
+    get:
+      description: 查询最近 N 条规则执行审计记录
+      parameters:
+      - default: 20
+        description: 返回数量（1-100）
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/automation.RuleExecution'
+            type: array
+      security:
+      - Bearer: []
+      summary: 列出执行历史
+      tags:
+      - automation
+  /automation/from-template:
+    post:
+      consumes:
+      - application/json
+      description: 选择内置模板克隆一条新规则
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/automation.Rule'
+      security:
+      - Bearer: []
+      summary: 从模板创建规则
+      tags:
+      - automation
+  /automation/templates:
+    get:
+      description: 返回 7 条预置模板（规则编辑器"添加模板"面板数据源）
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/automation.Template'
+            type: array
+      security:
+      - Bearer: []
+      summary: 列出内置模板
+      tags:
+      - automation
+  /content-templates:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 列出内容模板
+      tags:
+      - issue
+    post:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/issue.ContentTemplate'
+      summary: 创建内容模板
+      tags:
+      - issue
+  /content-templates/{template_id}:
+    delete:
+      parameters:
+      - description: 模板 ID
+        in: path
+        name: template_id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+      summary: 删除内容模板
+      tags:
+      - issue
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: 模板 ID
+        in: path
+        name: template_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/issue.ContentTemplate'
+      summary: 更新内容模板
+      tags:
+      - issue
+  /dashboard:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dashboard.DashboardData'
+      summary: 仪表盘数据
+      tags:
+      - dashboard
+  /dashboard/alerts:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/dashboard.RiskAlert'
+            type: array
+      summary: 列出风险告警
+      tags:
+      - dashboard
+  /dashboard/alerts/{alert_id}/resolve:
+    post:
+      parameters:
+      - description: 告警 ID
+        in: path
+        name: alert_id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+      summary: 解决告警
+      tags:
+      - dashboard
+  /dashboard/project-compare:
+    get:
+      description: 返回工作空间下所有项目的完成率 / 缺陷数对比数据
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/dashboard.ProjectCompareItem'
+            type: array
+      summary: 项目对比
+      tags:
+      - dashboard
+  /dashboard/templates:
+    get:
+      parameters:
+      - description: 模板分类
+        in: query
+        name: category
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/dashboard.DashboardTemplate'
+            type: array
+      summary: 列出仪表盘模板
+      tags:
+      - dashboard
+  /dashboard/widgets:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/dashboard.DashboardWidget'
+            type: array
+      summary: 列出仪表盘 Widget
+      tags:
+      - dashboard
+    post:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/dashboard.DashboardWidget'
+      summary: 创建 Widget
+      tags:
+      - dashboard
+  /dashboard/widgets/{widget_id}:
+    delete:
+      parameters:
+      - description: Widget ID
+        in: path
+        name: widget_id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+      summary: 删除 Widget
+      tags:
+      - dashboard
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: Widget ID
+        in: path
+        name: widget_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dashboard.DashboardWidget'
+      summary: 更新 Widget
+      tags:
+      - dashboard
+  /intake/channels:
+    get:
+      description: 按工作空间/项目/启用状态分页列出匿名提报渠道
+      parameters:
+      - description: 项目 ID
+        in: query
+        name: project_id
+        type: integer
+      - description: 仅启用
+        in: query
+        name: active
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 列出收件箱渠道
+      tags:
+      - intake
+    post:
+      consumes:
+      - application/json
+      description: 在工作空间下创建新的匿名提报渠道
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/intake.IntakeChannel'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/errs.AppError'
+      summary: 创建收件箱渠道
+      tags:
+      - intake
+  /intake/channels/{channel_id}:
+    delete:
+      parameters:
+      - description: 渠道 ID
+        in: path
+        name: channel_id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+      summary: 删除渠道
+      tags:
+      - intake
+    get:
+      parameters:
+      - description: 渠道 ID
+        in: path
+        name: channel_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/intake.IntakeChannel'
+      summary: 获取渠道详情
+      tags:
+      - intake
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: 渠道 ID
+        in: path
+        name: channel_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/intake.IntakeChannel'
+      summary: 更新渠道
+      tags:
+      - intake
+  /intake/issues:
+    get:
+      description: 按渠道/状态分页列出匿名提报工单
+      parameters:
+      - description: 工单状态
+        in: query
+        name: status
+        type: string
+      - description: 渠道 ID
+        in: query
+        name: channel_id
+        type: integer
+      - description: 项目 ID
+        in: query
+        name: project_id
+        type: integer
+      - default: 50
+        description: 每页数
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: 偏移
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 列出收件箱工单
+      tags:
+      - intake
+  /intake/issues/{issue_id}:
+    get:
+      parameters:
+      - description: 工单 ID
+        in: path
+        name: issue_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/intake.IntakeIssue'
+      summary: 获取工单详情
+      tags:
+      - intake
+  /intake/issues/{issue_id}/accept:
+    post:
+      description: 将匿名提报工单转正为项目内正式工作项
+      parameters:
+      - description: 工单 ID
+        in: path
+        name: issue_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/intake.IntakeIssue'
+      summary: 接受工单
+      tags:
+      - intake
+  /intake/issues/{issue_id}/archive:
+    post:
+      parameters:
+      - description: 工单 ID
+        in: path
+        name: issue_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/intake.IntakeIssue'
+      summary: 归档工单
+      tags:
+      - intake
+  /intake/issues/{issue_id}/flow:
+    post:
+      description: 匿名提报工单流转操作（接受/拒绝/归档）
+      parameters:
+      - description: 工单 ID
+        in: path
+        name: issue_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/intake.IntakeIssue'
+      summary: 工单流转
+      tags:
+      - intake
+  /intake/issues/{issue_id}/promote:
+    post:
+      consumes:
+      - application/json
+      description: 将匿名提报工单转为项目内需求/任务/缺陷
+      parameters:
+      - description: 工单 ID
+        in: path
+        name: issue_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/intake.IntakeIssue'
+      summary: 转正工单
+      tags:
+      - intake
+  /intake/issues/{issue_id}/reject:
+    post:
+      parameters:
+      - description: 工单 ID
+        in: path
+        name: issue_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/intake.IntakeIssue'
+      summary: 拒绝工单
+      tags:
+      - intake
+  /invitations/{token}:
+    get:
+      parameters:
+      - description: 邀请令牌
+        in: path
+        name: token
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema: {}
+      summary: 邀请预览
+      tags:
+      - auth
+  /invitations/accept:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 邀请令牌
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.AcceptInvitationRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/workspace.Invitation'
+      summary: 接受邀请
+      tags:
+      - auth
+  /issue-dependencies:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 项目依赖列表
+      tags:
+      - issue
+  /issues:
+    get:
+      description: 跨类型列表，支持稀疏字段集（fields）和 RFC3339 时间范围筛选。
+      parameters:
+      - description: 状态 ID
+        in: query
+        name: state_id
+        type: integer
+      - description: 状态分组 (backlog|started|completed|cancelled)
+        in: query
+        name: group
+        type: string
+      - description: 类型 (epic|requirement|task|defect)
+        in: query
+        name: type
+        type: string
+      - description: 优先级
+        in: query
+        name: priority
+        type: string
+      - description: 父级 ID
+        in: query
+        name: parent_id
+        type: integer
+      - description: 名称搜索
+        in: query
+        name: search
+        type: string
+      - description: 指派人 ID
+        in: query
+        name: assignee_id
+        type: integer
+      - description: 标签 ID
+        in: query
+        name: label_id
+        type: integer
+      - description: 模块 ID
+        in: query
+        name: module_id
+        type: integer
+      - description: 迭代 ID
+        in: query
+        name: sprint_id
+        type: integer
+      - description: 开始日期起 (ISO date)
+        in: query
+        name: start_date_from
+        type: string
+      - description: 截止日期止 (ISO date)
+        in: query
+        name: target_date_to
+        type: string
+      - description: 最低严重级别
+        in: query
+        name: severity_from
+        type: integer
+      - description: 创建时间下限 (RFC3339, e.g. 2025-01-01T00:00:00Z)
+        in: query
+        name: created_after
+        type: string
+      - description: 更新时间上限 (RFC3339, e.g. 2025-06-30T23:59:59Z)
+        in: query
+        name: updated_before
+        type: string
+      - description: 稀疏字段集，逗号分隔 (e.g. id,name,state,priority)。不传返回完整字段。
+        in: query
+        name: fields
+        type: string
+      - description: 排序字段 (-updated_at, priority, target_date, created_at)
+        in: query
+        name: sort
+        type: string
+      - description: 每页数量 (default 50, max 100)
+        in: query
+        name: limit
+        type: integer
+      - description: 偏移量
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 时间参数格式错误
+          schema:
+            $ref: '#/definitions/errs.AppError'
+      summary: 列出工作项
+      tags:
+      - issue
+    post:
+      consumes:
+      - application/json
+      description: 在工作空间中创建需求/任务/缺陷
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/issue.Issue'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/errs.AppError'
+      summary: 创建工作项
+      tags:
+      - issue
+  /issues/{issue_id}:
+    delete:
+      responses:
+        "204":
+          description: No Content
+      summary: 删除工作项（归档）
+      tags:
+      - issue
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/issue.Issue'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errs.AppError'
+      summary: 获取工作项详情
+      tags:
+      - issue
+    patch:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/issue.Issue'
+        "409":
+          description: 版本冲突
+          schema:
+            $ref: '#/definitions/errs.AppError'
+      summary: 更新工作项
+      tags:
+      - issue
+  /issues/{issue_id}/activities:
+    get:
+      parameters:
+      - description: 工作项 ID
+        in: path
+        name: issue_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 活动记录
+      tags:
+      - issue
+  /issues/{issue_id}/attachments:
+    get:
+      description: 指定工作项 ID，自动解析具体类型后返回附件列表
+      parameters:
+      - description: 工作项 ID
+        in: path
+        name: issue_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errs.AppError'
+      summary: 列出工作项附件
+      tags:
+      - attachment
+  /issues/{issue_id}/comments:
+    get:
+      parameters:
+      - description: 工作项 ID
+        in: path
+        name: issue_id
+        required: true
+        type: integer
+      - description: 每页数
+        in: query
+        name: limit
+        type: integer
+      - description: 偏移
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 列出评论
+      tags:
+      - issue
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 工作项 ID
+        in: path
+        name: issue_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/issue.Comment'
+      summary: 添加评论
+      tags:
+      - issue
+  /issues/{issue_id}/comments/{comment_id}:
+    delete:
+      parameters:
+      - description: 工作项 ID
+        in: path
+        name: issue_id
+        required: true
+        type: integer
+      - description: 评论 ID
+        in: path
+        name: comment_id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+      summary: 删除评论
+      tags:
+      - issue
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: 工作项 ID
+        in: path
+        name: issue_id
+        required: true
+        type: integer
+      - description: 评论 ID
+        in: path
+        name: comment_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/issue.Comment'
+      summary: 更新评论
+      tags:
+      - issue
+  /issues/{issue_id}/dependencies:
+    get:
+      parameters:
+      - description: 工作项 ID
+        in: path
+        name: issue_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 列出工作项依赖
+      tags:
+      - issue
+    post:
+      consumes:
+      - application/json
+      description: 在工作项之间创建 FS/SS/FF/SF 依赖关系
+      parameters:
+      - description: 工作项 ID
+        in: path
+        name: issue_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/issue.IssueDependency'
+      summary: 创建任务依赖
+      tags:
+      - issue
+  /issues/{issue_id}/dependencies/{dep_id}:
+    delete:
+      parameters:
+      - description: 依赖 ID
+        in: path
+        name: dep_id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+      summary: 删除任务依赖
+      tags:
+      - issue
+  /issues/{issue_id}/permanent:
+    delete:
+      responses:
+        "204":
+          description: No Content
+      summary: 彻底删除工作项
+      tags:
+      - issue
+  /issues/{issue_id}/relations:
+    get:
+      parameters:
+      - description: 工作项 ID
+        in: path
+        name: issue_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 列出关联关系
+      tags:
+      - issue
+    post:
+      consumes:
+      - application/json
+      description: 在工作项之间创建关联关系（blocks/duplicates/relates_to）
+      parameters:
+      - description: 工作项 ID
+        in: path
+        name: issue_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/issue.IssueRelation'
+      summary: 创建关联
+      tags:
+      - issue
+  /issues/{issue_id}/relations/{relation_id}:
+    delete:
+      parameters:
+      - description: 工作项 ID
+        in: path
+        name: issue_id
+        required: true
+        type: integer
+      - description: 关联 ID
+        in: path
+        name: relation_id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+      summary: 删除关联
+      tags:
+      - issue
+  /issues/{issue_id}/reorder:
+    patch:
+      consumes:
+      - application/json
+      description: 在看板视图拖拽工作项到新位置
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/issue.Issue'
+      summary: 看板排序
+      tags:
+      - issue
+  /issues/{issue_id}/restore:
+    post:
+      responses:
+        "204":
+          description: No Content
+      summary: 恢复工作项
+      tags:
+      - issue
+  /issues/{issue_id}/review:
+    post:
+      consumes:
+      - application/json
+      description: 提交需求评审并指定评审人
+      parameters:
+      - description: 工作项 ID
+        in: path
+        name: issue_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/issue.Review'
+      summary: 提交评审
+      tags:
+      - issue-review
+  /issues/{issue_id}/review/decision:
+    post:
+      consumes:
+      - application/json
+      description: 评审人对需求评审做出通过或驳回决定
+      parameters:
+      - description: 工作项 ID
+        in: path
+        name: issue_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: interface
+      summary: 评审决定
+      tags:
+      - issue-review
+  /issues/{issue_id}/reviews:
+    get:
+      parameters:
+      - description: 工作项 ID
+        in: path
+        name: issue_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 评审记录列表
+      tags:
+      - issue-review
+  /issues/{issue_id}/time-logs:
+    get:
+      parameters:
+      - description: 工作项 ID
+        in: path
+        name: issue_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 工时记录列表
+      tags:
+      - issue
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 工作项 ID
+        in: path
+        name: issue_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/issue.TimeLog'
+      summary: 记录工时
+      tags:
+      - issue
+  /issues/{issue_id}/time-logs/{log_id}:
+    delete:
+      parameters:
+      - description: 工作项 ID
+        in: path
+        name: issue_id
+        required: true
+        type: integer
+      - description: 工时记录 ID
+        in: path
+        name: log_id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+      summary: 删除工时记录
+      tags:
+      - issue
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: 工作项 ID
+        in: path
+        name: issue_id
+        required: true
+        type: integer
+      - description: 工时记录 ID
+        in: path
+        name: log_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/issue.TimeLog'
+      summary: 更新工时记录
+      tags:
+      - issue
+  /issues/{issue_id}/transition:
+    post:
+      consumes:
+      - application/json
+      description: 将工作项流转到目标状态
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/issue.Issue'
+        "422":
+          description: 非法流转
+          schema:
+            $ref: '#/definitions/errs.AppError'
+      summary: 流转状态
+      tags:
+      - issue
+  /issues/{issue_id}/watch:
+    delete:
+      parameters:
+      - description: 工作项 ID
+        in: path
+        name: issue_id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+      summary: 取消关注
+      tags:
+      - issue
+    post:
+      parameters:
+      - description: 工作项 ID
+        in: path
+        name: issue_id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+      summary: 关注工作项
+      tags:
+      - issue
+  /issues/batch:
+    post:
+      consumes:
+      - application/json
+      description: 支持批量流转、指派、变更优先级、删除。返回统一 BatchResponse 结构。
+      parameters:
+      - description: 幂等键（当前仅记录日志，不做强制校验）
+        in: header
+        name: X-Idempotency-Key
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.BatchResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/errs.AppError'
+      summary: 批量操作工作项
+      tags:
+      - issue
+  /issues/export:
+    get:
+      description: 导出工作项列表为 CSV 格式
+      parameters:
+      - description: 状态 ID
+        in: query
+        name: state_id
+        type: integer
+      - description: 类型
+        in: query
+        name: type
+        type: string
+      - description: 优先级
+        in: query
+        name: priority
+        type: string
+      - description: 指派人 ID
+        in: query
+        name: assignee_id
+        type: integer
+      produces:
+      - text/csv
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+      summary: 导出工作项
+      tags:
+      - issue
+  /issues/import:
+    post:
+      consumes:
+      - multipart/form-data
+      - multipart/form-data
+      description: |-
+        上传 CSV/XLSX 文件批量创建或增量更新工作项（支持列映射）
+        上传 CSV/xlsx 文件批量导入工作项
+      parameters:
+      - description: CSV 或 XLSX 文件
+        in: formData
+        name: file
+        required: true
+        type: file
+      - description: 字段映射 JSON（可选）
+        in: formData
+        name: mappings
+        type: string
+      - description: 增量导入 (true/false)
+        in: formData
+        name: incremental
+        type: string
+      - description: CSV 或 xlsx 文件
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/errs.AppError'
+      summary: 导入工作项
+      tags:
+      - issue
+      - issue
+  /issues/import/preview:
+    post:
+      consumes:
+      - multipart/form-data
+      - multipart/form-data
+      description: |-
+        上传 CSV/XLSX 文件，返回表头与前 3 行预览
+        上传 CSV/xlsx 文件预览导入结果（不实际写入）
+      parameters:
+      - description: CSV 或 XLSX 文件
+        in: formData
+        name: file
+        required: true
+        type: file
+      - description: CSV 或 xlsx 文件
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 预览导入
+      tags:
+      - issue
+      - issue
+  /issues/trash:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/issue.Issue'
+            type: array
+      summary: 回收站列表
+      tags:
+      - issue
+  /knowledge/search:
+    get:
+      description: 跨知识库空间全文检索（PostgreSQL tsvector）
+      parameters:
+      - description: 关键词
+        in: query
+        name: q
+        required: true
+        type: string
+      - description: 空间 ID（可选）
+        in: query
+        name: space_id
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 知识库检索
+      tags:
+      - knowledge
+  /labels:
+    get:
+      parameters:
+      - description: 状态过滤
+        in: query
+        name: status
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 列出标签
+      tags:
+      - label
+    post:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/issue.Label'
+      summary: 创建标签
+      tags:
+      - label
+  /labels/{label_id}:
+    delete:
+      parameters:
+      - description: 标签 ID
+        in: path
+        name: label_id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+      summary: 删除标签
+      tags:
+      - label
+    get:
+      parameters:
+      - description: 标签 ID
+        in: path
+        name: label_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/issue.Label'
+      summary: 获取标签详情
+      tags:
+      - label
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: 标签 ID
+        in: path
+        name: label_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/issue.Label'
+      summary: 更新标签
+      tags:
+      - label
   /me:
     get:
       description: 返回调用者的用户简介
@@ -250,24 +4915,128 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/github_com_njydsz_ydsz-plane_internal_application_auth.UserBrief'
+            $ref: '#/definitions/auth.UserBrief'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/github_com_njydsz_ydsz-plane_pkg_errs.AppError'
+            $ref: '#/definitions/errs.AppError'
       security:
       - Bearer: []
       summary: 获取当前用户
       tags:
       - user
-  /workspaces/{workspace_id}/members:
-    get:
-      description: 返回当前用户在 :workspace_id 工作空间里的成员列表
+    patch:
+      consumes:
+      - application/json
       parameters:
-      - description: 工作空间 ID
-        in: path
-        name: workspace_id
+      - description: 可编辑字段
+        in: body
+        name: input
         required: true
+        schema:
+          $ref: '#/definitions/httpapi.userUpdateInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/auth.UserBrief'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errs.AppError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errs.AppError'
+      security:
+      - BearerAuth: []
+      summary: 更新当前用户资料
+      tags:
+      - Auth
+  /me/api-tokens:
+    get:
+      description: 列出当前用户全部未吊销的个人访问令牌（不含明文）
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/apitoken.TokenVM'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errs.AppError'
+      summary: 我的 API 令牌列表
+      tags:
+      - api-tokens
+    post:
+      consumes:
+      - application/json
+      description: 创建个人访问令牌，原始值仅在本次响应中返回一次
+      parameters:
+      - description: 令牌参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CreateApiTokenRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/apitoken.CreatedToken'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errs.AppError'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/errs.AppError'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/errs.AppError'
+      summary: 创建 API 令牌
+      tags:
+      - api-tokens
+  /me/api-tokens/{token_id}:
+    delete:
+      description: 吊销令牌后该令牌立即失效；只能操作本人令牌
+      parameters:
+      - description: 令牌 ID
+        in: path
+        name: token_id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errs.AppError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errs.AppError'
+      summary: 吊销 API 令牌
+      tags:
+      - api-tokens
+  /metrics/cfd:
+    get:
+      description: 按日期分桶统计各状态组工作项数量，用于绘制堆叠面积图
+      parameters:
+      - description: 天数（默认 30，最大 365）
+        in: query
+        name: days
         type: integer
       produces:
       - application/json
@@ -276,15 +5045,3103 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/internal_interfaces_http.workspaceMemberResponse'
+              $ref: '#/definitions/metrics.CFDDataPoint'
             type: array
-        "403":
-          description: Forbidden
+      summary: 累积流图（CFD）
+      tags:
+      - metrics
+  /metrics/control-chart:
+    get:
+      description: 按完成日期排序的前置时间散点图 + P50/P85/P95 控制线
+      parameters:
+      - description: 天数（默认 90）
+        in: query
+        name: days
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
           schema:
-            $ref: '#/definitions/github_com_njydsz_ydsz-plane_pkg_errs.AppError'
-      security:
-      - Bearer: []
-      summary: 列出工作空间成员
+            $ref: '#/definitions/metrics.ControlChartResult'
+      summary: 前置时间控制图
+      tags:
+      - metrics
+  /metrics/deployments:
+    post:
+      consumes:
+      - application/json
+      description: CI/CD 系统在部署完成后调用此接口记录事件（DORA 数据源）
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties:
+              format: int64
+              type: integer
+            type: object
+      summary: 记录部署事件
+      tags:
+      - metrics
+  /metrics/dora:
+    get:
+      description: 返回部署频率（DF）、变更前置时间（LTC）、变更失败率（CFR）、平均恢复时间（MTTR）
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/metrics.DORAResult'
+      summary: DORA 效能指标
+      tags:
+      - metrics
+  /metrics/lead-time:
+    get:
+      parameters:
+      - description: 窗口天数（默认 90）
+        in: query
+        name: days
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/metrics.LeadTimeResult'
+      summary: 前置时间
+      tags:
+      - metrics
+  /metrics/quality:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/metrics.QualityMetrics'
+      summary: 质量指标
+      tags:
+      - metrics
+  /metrics/resource-load:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 资源负载
+      tags:
+      - metrics
+  /metrics/resource-load/detail:
+    get:
+      description: 每位成员当前 WIP 数量与故事点负载
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/metrics.ResourceLoadDetail'
+      summary: 资源负载明细
+      tags:
+      - metrics
+  /metrics/snapshots:
+    get:
+      parameters:
+      - description: 指标名
+        in: query
+        name: metric
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              additionalProperties: true
+              type: object
+            type: array
+      summary: 指标快照列表
+      tags:
+      - metrics
+  /metrics/throughput:
+    get:
+      description: 近 N 周每周完成的需求数与故事点数
+      parameters:
+      - description: 周数（默认 12）
+        in: query
+        name: weeks
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/metrics.WeeklyThroughput'
+            type: array
+      summary: 周吞吐量
+      tags:
+      - metrics
+  /metrics/velocity:
+    get:
+      description: 返回最近 N 个迭代完成的平均故事点数与趋势
+      parameters:
+      - description: 迭代数（默认 6，最大 20）
+        in: query
+        name: last_n
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/metrics.VelocityResult'
+      summary: 迭代速率
+      tags:
+      - metrics
+  /metrics/velocity/trend:
+    get:
+      parameters:
+      - description: 迭代数（默认 6，最大 20）
+        in: query
+        name: last_n
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/metrics.VelocityResult'
+      summary: 迭代速率趋势
+      tags:
+      - metrics
+  /modules:
+    get:
+      parameters:
+      - description: 状态筛选 (active|completed|archived)
+        in: query
+        name: status
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/issue.Module'
+            type: array
+      summary: 列出项目模块
+      tags:
+      - module
+    post:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/issue.Module'
+      summary: 创建模块
+      tags:
+      - module
+  /modules/{module_id}:
+    delete:
+      parameters:
+      - description: 模块 ID
+        in: path
+        name: module_id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+      summary: 删除模块
+      tags:
+      - module
+    get:
+      parameters:
+      - description: 模块 ID
+        in: path
+        name: module_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/issue.Module'
+      summary: 获取模块详情
+      tags:
+      - module
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: 模块 ID
+        in: path
+        name: module_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/issue.Module'
+      summary: 更新模块
+      tags:
+      - module
+  /modules/{module_id}/issues:
+    get:
+      parameters:
+      - description: 模块 ID
+        in: path
+        name: module_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 列出模块工作项
+      tags:
+      - module
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 模块 ID
+        in: path
+        name: module_id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+      summary: 分配工作项到模块
+      tags:
+      - module
+  /modules/{module_id}/issues/{issue_id}:
+    delete:
+      parameters:
+      - description: 模块 ID
+        in: path
+        name: module_id
+        required: true
+        type: integer
+      - description: 工作项 ID
+        in: path
+        name: issue_id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+      summary: 从模块移除工作项
+      tags:
+      - module
+  /notification-preferences:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/notification.NotificationPreference'
+      summary: 获取通知偏好
+      tags:
+      - notification
+    put:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/notification.NotificationPreference'
+      summary: 更新通知偏好
+      tags:
+      - notification
+  /notifications:
+    get:
+      description: 分页获取当前工作空间内当前用户的通知，支持已读过滤与事件类型过滤
+      parameters:
+      - default: 20
+        description: 每页数
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: 偏移
+        in: query
+        name: offset
+        type: integer
+      - description: 已读过滤
+        in: query
+        name: is_read
+        type: boolean
+      - description: 事件类型
+        in: query
+        name: event_type
+        type: string
+      - description: 起始时间戳 (毫秒)
+        in: query
+        name: since
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 通知列表
+      tags:
+      - notification
+  /notifications/{id}/archive:
+    put:
+      parameters:
+      - description: 通知 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: boolean
+            type: object
+      summary: 归档通知
+      tags:
+      - notification
+  /notifications/{id}/read:
+    put:
+      parameters:
+      - description: 通知 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: boolean
+            type: object
+      summary: 标记已读
+      tags:
+      - notification
+  /notifications/read-all:
+    put:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 全部已读
+      tags:
+      - notification
+  /notifications/unread-count:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: integer
+            type: object
+      summary: 未读通知数
+      tags:
+      - notification
+  /pages:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/pages.Page'
+            type: array
+      summary: 列出页面
+      tags:
+      - pages
+    post:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/pages.Page'
+      summary: 创建页面
+      tags:
+      - pages
+  /pages/{page_id}:
+    delete:
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: boolean
+            type: object
+      summary: 删除页面
+      tags:
+      - pages
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/pages.Page'
+      summary: 获取页面
+      tags:
+      - pages
+    patch:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/pages.Page'
+      summary: 更新页面
+      tags:
+      - pages
+  /pages/{page_id}/links:
+    get:
+      parameters:
+      - description: 页面 ID
+        in: path
+        name: page_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 列出文档关联
+      tags:
+      - pages
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 页面 ID
+        in: path
+        name: page_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/pages.DocumentLink'
+      summary: 创建文档关联
+      tags:
+      - pages
+  /pages/{page_id}/links/{link_id}:
+    delete:
+      parameters:
+      - description: 页面 ID
+        in: path
+        name: page_id
+        required: true
+        type: integer
+      - description: 关联 ID
+        in: path
+        name: link_id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: boolean
+            type: object
+      summary: 删除文档关联
+      tags:
+      - pages
+  /pages/{page_id}/shares:
+    get:
+      parameters:
+      - description: 页面 ID
+        in: path
+        name: page_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 列出分享链接
+      tags:
+      - pages
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 页面 ID
+        in: path
+        name: page_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/pages.PageShare'
+      summary: 创建分享链接
+      tags:
+      - pages
+  /pages/{page_id}/shares/{share_id}:
+    delete:
+      parameters:
+      - description: 分享 ID
+        in: path
+        name: share_id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: boolean
+            type: object
+      summary: 吊销分享链接
+      tags:
+      - pages
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: 分享 ID
+        in: path
+        name: share_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/pages.PageShare'
+      summary: 更新分享链接
+      tags:
+      - pages
+  /pages/{page_id}/versions:
+    get:
+      parameters:
+      - description: 页面 ID
+        in: path
+        name: page_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 页面版本列表
+      tags:
+      - pages
+  /pages/{page_id}/versions/{version_id}:
+    get:
+      parameters:
+      - description: 页面 ID
+        in: path
+        name: page_id
+        required: true
+        type: integer
+      - description: 版本号
+        in: path
+        name: version_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/pages.DocumentVersion'
+      summary: 获取版本快照
+      tags:
+      - pages
+  /pages/{page_id}/versions/{version_id}/rollback:
+    post:
+      parameters:
+      - description: 页面 ID
+        in: path
+        name: page_id
+        required: true
+        type: integer
+      - description: 版本号
+        in: path
+        name: version_id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/pages.Page'
+      summary: 回滚页面版本
+      tags:
+      - pages
+  /preferences:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/preference.ViewPreference'
+            type: array
+      summary: 列出全部视图偏好
+      tags:
+      - preference
+  /preferences/{view_type}:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/preference.ViewPreference'
+      summary: 获取视图偏好
+      tags:
+      - preference
+    put:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/preference.ViewPreference'
+      summary: 保存视图偏好
+      tags:
+      - preference
+  /projects/{project_id}/ai/assist:
+    post:
+      consumes:
+      - application/json
+      description: 根据上下文智能续写文本（规则引擎兜底，LLM 需配置）
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/ai.WritingAssistResult'
+      summary: AI 续写
+      tags:
+      - ai
+  /projects/{project_id}/ai/classify:
+    post:
+      consumes:
+      - application/json
+      description: 自动推荐需求/任务/缺陷类型和优先级
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/ai.ClassifyResult'
+      summary: 智能分类推荐
+      tags:
+      - ai
+  /projects/{project_id}/ai/detect-duplicates:
+    post:
+      consumes:
+      - application/json
+      description: 检测项目内与输入标题/描述相似的需求/任务/缺陷
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/ai.DuplicateCandidate'
+            type: array
+      summary: 重复需求/任务/缺陷检测
+      tags:
+      - ai
+  /projects/{project_id}/ai/fix-grammar:
+    post:
+      consumes:
+      - application/json
+      description: 检测并修正语法、拼写、标点问题
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/ai.FixGrammarResult'
+      summary: 语法纠错
+      tags:
+      - ai
+  /projects/{project_id}/ai/rewrite:
+    post:
+      consumes:
+      - application/json
+      description: 对选中文本进行风格改写（formal / concise / fluent / expand）
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/ai.RewriteResult'
+      summary: 文本改写
+      tags:
+      - ai
+  /projects/{project_id}/ai/smart-assign:
+    post:
+      consumes:
+      - application/json
+      description: 根据需求/任务/缺陷内容与成员负载推荐指派人
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/ai.AssignCandidate'
+            type: array
+      summary: 智能指派推荐
+      tags:
+      - ai
+  /projects/{project_id}/ai/status:
+    get:
+      description: 返回 AI 功能的启用状态和当前 Provider
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: AI 功能状态
+      tags:
+      - ai
+  /projects/{project_id}/ai/summarize:
+    post:
+      consumes:
+      - application/json
+      description: 为需求/任务/缺陷/迭代/版本内容生成文字摘要
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/ai.SummarizeResult'
+      summary: 生成文字摘要
+      tags:
+      - ai
+  /public/intake/channels/{slug}:
+    get:
+      description: 通过 slug 查询匿名提报渠道公开信息（免登录）
+      parameters:
+      - description: 渠道 Slug
+        in: path
+        name: slug
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/intake.IntakeChannel'
+      summary: 公开渠道查询
+      tags:
+      - intake-public
+  /public/intake/issues:
+    post:
+      consumes:
+      - application/json
+      description: 免登录提交匿名提报工单（无需 Authorization）
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/intake.IntakeIssue'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/errs.AppError'
+      summary: 公开提交匿名工单
+      tags:
+      - intake-public
+  /public/intake/track:
+    post:
+      consumes:
+      - application/json
+      description: 通过 tracking_id + 提交者邮箱查询工单状态（免登录）
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/intake.IntakeIssue'
+      summary: 公开跟踪工单
+      tags:
+      - intake-public
+  /public/pages/{token}:
+    get:
+      description: 通过 token 获取公开分享页面内容（免登录）
+      parameters:
+      - description: 分享 Token
+        in: path
+        name: token
+        required: true
+        type: string
+      - description: 分享密码
+        in: query
+        name: password
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errs.AppError'
+      summary: 获取分享页面
+      tags:
+      - pages-public
+  /search:
+    get:
+      description: |-
+        跨对象（issues/sprints/versions）全文检索 + 高亮 + JQL 结构化过滤
+        JQL 示例: project:YD type:defect priority:high assignee:me()
+      parameters:
+      - description: 搜索词（支持类 JQL 语法）
+        in: query
+        name: q
+        required: true
+        type: string
+      - description: 过滤类型 (issue|sprint|version)
+        in: query
+        name: doc_type
+        type: string
+      - description: 工作项类型 (epic|requirement|task|defect)
+        in: query
+        name: type
+        type: string
+      - description: 优先级
+        in: query
+        name: priority
+        type: string
+      - description: 状态 ID
+        in: query
+        name: state_id
+        type: integer
+      - description: 每页数量 (default 20, max 50)
+        in: query
+        name: limit
+        type: integer
+      - description: 偏移量
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 全文搜索（支持类 JQL 语法）
+      tags:
+      - search
+  /search/bookmarks:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 搜索收藏
+      tags:
+      - search
+    post:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/search.SearchBookmark'
+      summary: 创建搜索收藏
+      tags:
+      - search
+  /search/bookmarks/{bookmark_id}:
+    delete:
+      responses:
+        "204":
+          description: No Content
+      summary: 删除搜索收藏
+      tags:
+      - search
+    patch:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/search.SearchBookmark'
+      summary: 更新搜索收藏
+      tags:
+      - search
+  /search/history:
+    delete:
+      responses:
+        "204":
+          description: No Content
+      summary: 清空搜索历史
+      tags:
+      - search
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 搜索历史
+      tags:
+      - search
+  /search/history/{history_id}:
+    delete:
+      responses:
+        "204":
+          description: No Content
+      summary: 删除搜索历史
+      tags:
+      - search
+  /search/reindex:
+    post:
+      description: 对本工作空间全量重建 search_documents（owner/admin 生效），幂等分批回填
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 重建搜索索引
+      tags:
+      - search
+  /spaces:
+    get:
+      description: 按工作空间 + 可选项目过滤，支持关键词搜索和分页
+      parameters:
+      - default: 50
+        description: 每页数 (1-100)
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: 偏移
+        in: query
+        name: offset
+        type: integer
+      - description: 关键词
+        in: query
+        name: keyword
+        type: string
+      - description: 项目 ID
+        in: query
+        name: project_id
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errs.AppError'
+      summary: 列出知识库空间
+      tags:
+      - knowledge
+    post:
+      consumes:
+      - application/json
+      description: 在工作空间下新建一个知识库空间
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/knowledge.KnowledgeSpace'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/errs.AppError'
+      summary: 创建知识库空间
+      tags:
+      - knowledge
+  /spaces/{sid}:
+    delete:
+      description: 软删除指定的知识库空间
+      parameters:
+      - description: 空间 ID
+        in: path
+        name: sid
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+      summary: 删除知识库空间
+      tags:
+      - knowledge
+    get:
+      description: 返回指定知识库空间的完整信息
+      parameters:
+      - description: 空间 ID
+        in: path
+        name: sid
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/knowledge.KnowledgeSpace'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errs.AppError'
+      summary: 获取知识库空间详情
+      tags:
+      - knowledge
+    patch:
+      consumes:
+      - application/json
+      description: 部分更新知识库空间信息
+      parameters:
+      - description: 空间 ID
+        in: path
+        name: sid
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/knowledge.KnowledgeSpace'
+      summary: 更新知识库空间
+      tags:
+      - knowledge
+  /spaces/{sid}/pages:
+    get:
+      description: 获取知识库空间下全部文档的树形结构
+      parameters:
+      - description: 空间 ID
+        in: path
+        name: sid
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 文档树
+      tags:
+      - knowledge
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 空间 ID
+        in: path
+        name: sid
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/knowledge.KnowledgePage'
+      summary: 创建文档
+      tags:
+      - knowledge
+  /spaces/{sid}/pages/{pid}:
+    delete:
+      description: 软删除指定的知识库文档
+      parameters:
+      - description: 空间 ID
+        in: path
+        name: sid
+        required: true
+        type: integer
+      - description: 文档 ID
+        in: path
+        name: pid
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+      summary: 删除文档
+      tags:
+      - knowledge
+    get:
+      parameters:
+      - description: 空间 ID
+        in: path
+        name: sid
+        required: true
+        type: integer
+      - description: 文档 ID
+        in: path
+        name: pid
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/knowledge.KnowledgePage'
+      summary: 获取文档
+      tags:
+      - knowledge
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: 空间 ID
+        in: path
+        name: sid
+        required: true
+        type: integer
+      - description: 文档 ID
+        in: path
+        name: pid
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/knowledge.KnowledgePage'
+      summary: 更新文档
+      tags:
+      - knowledge
+  /spaces/{sid}/pages/{pid}/relations:
+    get:
+      parameters:
+      - description: 空间 ID
+        in: path
+        name: sid
+        required: true
+        type: integer
+      - description: 文档 ID
+        in: path
+        name: pid
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 列出文档关联
+      tags:
+      - knowledge
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 空间 ID
+        in: path
+        name: sid
+        required: true
+        type: integer
+      - description: 文档 ID
+        in: path
+        name: pid
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/knowledge.KnowledgePageRelation'
+      summary: 添加文档关联
+      tags:
+      - knowledge
+  /spaces/{sid}/pages/{pid}/relations/{rid}:
+    delete:
+      parameters:
+      - description: 空间 ID
+        in: path
+        name: sid
+        required: true
+        type: integer
+      - description: 文档 ID
+        in: path
+        name: pid
+        required: true
+        type: integer
+      - description: 关联 ID
+        in: path
+        name: rid
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+      summary: 移除文档关联
+      tags:
+      - knowledge
+  /spaces/{sid}/pages/{pid}/revert:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 空间 ID
+        in: path
+        name: sid
+        required: true
+        type: integer
+      - description: 文档 ID
+        in: path
+        name: pid
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/knowledge.KnowledgePage'
+      summary: 回滚版本
+      tags:
+      - knowledge
+  /spaces/{sid}/pages/{pid}/versions:
+    get:
+      parameters:
+      - description: 空间 ID
+        in: path
+        name: sid
+        required: true
+        type: integer
+      - description: 文档 ID
+        in: path
+        name: pid
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 版本快照列表
+      tags:
+      - knowledge
+  /sprints:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 列出迭代
+      tags:
+      - sprint
+    post:
+      consumes:
+      - application/json
+      description: 在项目下创建 planned 迭代
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/sprint.Sprint'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/errs.AppError'
+      summary: 创建迭代
+      tags:
+      - sprint
+  /sprints/{sprint_id}:
+    delete:
+      responses:
+        "204":
+          description: No Content
+      summary: 归档迭代（仅 planned / completed 可删除）
+      tags:
+      - sprint
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/sprint.Sprint'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errs.AppError'
+      summary: 获取迭代详情
+      tags:
+      - sprint
+    patch:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/sprint.Sprint'
+      summary: 更新迭代字段（仅 planned 状态可编辑）
+      tags:
+      - sprint
+  /sprints/{sprint_id}/burndown:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 获取迭代燃尽图数据
+      tags:
+      - sprint
+  /sprints/{sprint_id}/complete:
+    post:
+      consumes:
+      - application/json
+      description: 将迭代从 active 切换到 completed；处理未完成任务
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/sprint.Sprint'
+      summary: 结束迭代
+      tags:
+      - sprint
+  /sprints/{sprint_id}/issues:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 列出迭代内工作项
+      tags:
+      - sprint
+    post:
+      consumes:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+      summary: 将工作项加入迭代（拖拽规划 / 中途加项）
+      tags:
+      - sprint
+  /sprints/{sprint_id}/issues/{issue_id}:
+    delete:
+      responses:
+        "204":
+          description: No Content
+      summary: 从迭代移除工作项
+      tags:
+      - sprint
+  /sprints/{sprint_id}/progress:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/sprint.SprintProgress'
+      summary: 获取迭代实时进度
+      tags:
+      - sprint
+  /sprints/{sprint_id}/review:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/sprint.ReviewSnapshot'
+      summary: 获取迭代复盘数据
+      tags:
+      - sprint
+  /sprints/{sprint_id}/start:
+    post:
+      description: 将迭代从 planned 切换到 active；校验唯一 active 约束
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/sprint.Sprint'
+        "409":
+          description: 项目已有 active 迭代
+          schema:
+            $ref: '#/definitions/errs.AppError'
+      summary: 启动迭代
+      tags:
+      - sprint
+  /sprints/backlog:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 获取 Backlog 工作项列表（未规划进 active 迭代的未完成工作项）
+      tags:
+      - sprint
+  /sprints/suggest-capacity:
+    get:
+      description: 基于近 N 期 completed 迭代的完成故事点统计
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/sprint.VelocityStats'
+      summary: 速率建议（推荐容量）
+      tags:
+      - sprint
+  /sso/providers:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 列出 SSO Provider
+      tags:
+      - sso
+    post:
+      consumes:
+      - application/json
+      description: 创建新的 SSO 集成（OIDC/SAML），需 workspace:update 权限
+      parameters:
+      - description: Provider 配置
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/auth.ProviderModifyInput'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/httpapi.ssoProviderDetail'
+      summary: 创建 SSO Provider
+      tags:
+      - sso
+  /sso/providers/{id}:
+    delete:
+      parameters:
+      - description: Provider ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+      summary: 删除 SSO Provider
+      tags:
+      - sso
+    get:
+      parameters:
+      - description: Provider ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httpapi.ssoProviderDetail'
+      summary: 获取 SSO Provider
+      tags:
+      - sso
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: Provider ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 更新字段
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/auth.ProviderModifyInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httpapi.ssoProviderDetail'
+      summary: 更新 SSO Provider
+      tags:
+      - sso
+  /state-transitions:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 列出流转规则
+      tags:
+      - issue
+    post:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses: {}
+      summary: 添加流转规则
+      tags:
+      - issue
+  /state-transitions/{transition_id}:
+    delete:
+      parameters:
+      - description: 流转规则 ID
+        in: path
+        name: transition_id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+      summary: 删除流转规则
+      tags:
+      - issue
+  /states:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 列出状态
+      tags:
+      - issue
+  /states/{state_id}:
+    delete:
+      parameters:
+      - description: 状态 ID
+        in: path
+        name: state_id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+      summary: 删除状态
+      tags:
+      - issue
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: 状态 ID
+        in: path
+        name: state_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/issue.State'
+      summary: 更新状态
+      tags:
+      - issue
+  /templates:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 列出文档模板
+      tags:
+      - pages
+    post:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/pages.PageTemplate'
+      summary: 创建文档模板
+      tags:
+      - pages
+  /templates/{template_id}:
+    delete:
+      parameters:
+      - description: 模板 ID
+        in: path
+        name: template_id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: boolean
+            type: object
+      summary: 删除文档模板
+      tags:
+      - pages
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: 模板 ID
+        in: path
+        name: template_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/pages.PageTemplate'
+      summary: 更新文档模板
+      tags:
+      - pages
+  /versions:
+    get:
+      description: 按工作空间 + 项目列出版本，支持状态过滤和分页
+      parameters:
+      - default: 50
+        description: 每页数
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: 偏移
+        in: query
+        name: offset
+        type: integer
+      - description: 状态码 (planning/active/released/archived)
+        in: query
+        name: status
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 列出版本
+      tags:
+      - version
+    post:
+      consumes:
+      - application/json
+      description: 在工作空间 + 项目下新建版本，需提供名称和语义版本号
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/version.Version'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/errs.AppError'
+      summary: 创建版本
+      tags:
+      - version
+  /versions/{version_id}:
+    delete:
+      description: 软删除（归档）指定版本
+      parameters:
+      - description: 版本 ID
+        in: path
+        name: version_id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+      summary: 归档版本
+      tags:
+      - version
+    get:
+      parameters:
+      - description: 版本 ID
+        in: path
+        name: version_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/version.Version'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errs.AppError'
+      summary: 获取版本详情
+      tags:
+      - version
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: 版本 ID
+        in: path
+        name: version_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/version.Version'
+      summary: 更新版本
+      tags:
+      - version
+  /versions/{version_id}/activate:
+    post:
+      description: 将版本从 planning 切换到 active
+      parameters:
+      - description: 版本 ID
+        in: path
+        name: version_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/version.Version'
+      summary: 激活版本
+      tags:
+      - version
+  /versions/{version_id}/archive:
+    post:
+      description: 将版本从 active/released 切换到 archived
+      parameters:
+      - description: 版本 ID
+        in: path
+        name: version_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/version.Version'
+      summary: 归档版本
+      tags:
+      - version
+  /versions/{version_id}/defects:
+    get:
+      parameters:
+      - description: 版本 ID
+        in: path
+        name: version_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 版本缺陷面板
+      tags:
+      - version
+  /versions/{version_id}/delivery-report:
+    get:
+      parameters:
+      - description: 版本 ID
+        in: path
+        name: version_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema: {}
+      summary: 交付报告
+      tags:
+      - version
+  /versions/{version_id}/progress:
+    get:
+      parameters:
+      - description: 版本 ID
+        in: path
+        name: version_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema: {}
+      summary: 版本进度
+      tags:
+      - version
+  /versions/{version_id}/quality:
+    get:
+      parameters:
+      - description: 版本 ID
+        in: path
+        name: version_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema: {}
+      summary: 版本质量指标
+      tags:
+      - version
+  /versions/{version_id}/release:
+    post:
+      consumes:
+      - application/json
+      description: 执行版本发布流程（质量门禁 → 清单校验 → 发布），返回更新后的版本
+      parameters:
+      - description: 版本 ID
+        in: path
+        name: version_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/version.Version'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/errs.AppError'
+      summary: 发布版本
+      tags:
+      - version
+  /versions/{version_id}/release-notes:
+    get:
+      parameters:
+      - description: 版本 ID
+        in: path
+        name: version_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 发布说明
+      tags:
+      - version
+  /versions/{version_id}/release-notes/regenerate:
+    post:
+      parameters:
+      - description: 版本 ID
+        in: path
+        name: version_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 重新生成发布说明
+      tags:
+      - version
+  /versions/{version_id}/sprints:
+    get:
+      parameters:
+      - description: 版本 ID
+        in: path
+        name: version_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 版本关联迭代
+      tags:
+      - version
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 版本 ID
+        in: path
+        name: version_id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+      summary: 关联迭代
+      tags:
+      - version
+  /versions/{version_id}/sprints/{sprint_id}:
+    delete:
+      parameters:
+      - description: 版本 ID
+        in: path
+        name: version_id
+        required: true
+        type: integer
+      - description: 迭代 ID
+        in: path
+        name: sprint_id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+      summary: 移除迭代关联
+      tags:
+      - version
+  /versions/defects:
+    get:
+      parameters:
+      - description: 发现版本 ID
+        in: query
+        name: found_version_id
+        type: integer
+      - description: 修复版本 ID
+        in: query
+        name: fix_version_id
+        type: integer
+      - description: 状态分组
+        in: query
+        name: state_group
+        type: string
+      - description: 严重级别
+        in: query
+        name: severity
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 跨版本缺陷过滤
+      tags:
+      - version
+  /views:
+    get:
+      description: 按作用域（personal/team/default）列出项目下的命名视图
+      parameters:
+      - default: team
+        description: 视图作用域 (personal|team|default)
+        in: query
+        name: scope
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/preference.SavedView'
+            type: array
+      summary: 列出视图
+      tags:
+      - preference
+    post:
+      consumes:
+      - application/json
+      description: 在当前项目下创建新的命名视图
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/preference.SavedView'
+      summary: 创建视图
+      tags:
+      - preference
+  /views/{view_id}:
+    delete:
+      description: 删除指定视图（仅 owner 可操作）
+      parameters:
+      - description: 视图 ID
+        in: path
+        name: view_id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+      summary: 删除视图
+      tags:
+      - preference
+    get:
+      parameters:
+      - description: 视图 ID
+        in: path
+        name: view_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/preference.SavedView'
+      summary: 获取视图详情
+      tags:
+      - preference
+    patch:
+      consumes:
+      - application/json
+      description: 部分更新视图字段（仅 owner 可操作）
+      parameters:
+      - description: 视图 ID
+        in: path
+        name: view_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/preference.SavedView'
+      summary: 更新视图
+      tags:
+      - preference
+  /views/{view_id}/default:
+    post:
+      description: 将指定视图设为项目团队默认视图（管理员操作）
+      parameters:
+      - description: 视图 ID
+        in: path
+        name: view_id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+      summary: 设置默认视图
+      tags:
+      - preference
+  /webhooks:
+    get:
+      description: 列出工作空间下的全部 Webhook 订阅，支持分页与项目过滤
+      parameters:
+      - description: 项目 ID
+        in: query
+        name: project_id
+        type: integer
+      - description: 每页数 (1-100)
+        in: query
+        name: limit
+        type: integer
+      - description: 偏移
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 列出 Webhook
+      tags:
+      - webhook
+    post:
+      consumes:
+      - application/json
+      description: 在工作空间下新建一个 Webhook 订阅，创建时返回 secret（后续不再返回）
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/errs.AppError'
+      summary: 创建 Webhook
+      tags:
+      - webhook
+  /webhooks/{webhook_id}:
+    delete:
+      description: 删除指定 Webhook 订阅
+      parameters:
+      - description: Webhook ID
+        in: path
+        name: webhook_id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+      summary: 删除 Webhook
+      tags:
+      - webhook
+    get:
+      description: 返回单个 Webhook 的完整配置（不含 secret）
+      parameters:
+      - description: Webhook ID
+        in: path
+        name: webhook_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/webhook.Webhook'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errs.AppError'
+      summary: 获取 Webhook 详情
+      tags:
+      - webhook
+    patch:
+      consumes:
+      - application/json
+      description: PATCH 更新 Webhook 的 URL / 事件 / 名称 / 启用状态
+      parameters:
+      - description: Webhook ID
+        in: path
+        name: webhook_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/webhook.Webhook'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errs.AppError'
+      summary: 更新 Webhook
+      tags:
+      - webhook
+  /webhooks/{webhook_id}/logs:
+    get:
+      description: 分页查询指定 Webhook 的投递日志，支持状态/事件类型过滤
+      parameters:
+      - description: Webhook ID
+        in: path
+        name: webhook_id
+        required: true
+        type: integer
+      - description: 投递状态
+        in: query
+        name: status
+        type: string
+      - description: 事件类型
+        in: query
+        name: event_type
+        type: string
+      - description: 每页数
+        in: query
+        name: limit
+        type: integer
+      - description: 偏移
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 列出投递日志
+      tags:
+      - webhook
+  /webhooks/{webhook_id}/logs/{log_id}/retry:
+    post:
+      description: 手动重投指定投递日志（回查 domain_events 重建原始事件并同步重投）
+      parameters:
+      - description: Webhook ID
+        in: path
+        name: webhook_id
+        required: true
+        type: integer
+      - description: 日志 ID
+        in: path
+        name: log_id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 重投日志
+      tags:
+      - webhook
+  /webhooks/{webhook_id}/pause:
+    post:
+      description: '暂停 Webhook 投递（等价于 PATCH { is_active: false }）'
+      parameters:
+      - description: Webhook ID
+        in: path
+        name: webhook_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/webhook.Webhook'
+      summary: 暂停投递
+      tags:
+      - webhook
+  /webhooks/{webhook_id}/resume:
+    post:
+      description: '恢复 Webhook 投递（等价于 PATCH { is_active: true }）'
+      parameters:
+      - description: Webhook ID
+        in: path
+        name: webhook_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/webhook.Webhook'
+      summary: 恢复投递
+      tags:
+      - webhook
+  /webhooks/{webhook_id}/test:
+    post:
+      description: 向 Webhook 目标 URL 发送一条测试事件（ping）
+      parameters:
+      - description: Webhook ID
+        in: path
+        name: webhook_id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 测试投递
+      tags:
+      - webhook
+  /workbench:
+    get:
+      description: 一次调用获取我的任务分桶、迭代概览、最近访问、快捷操作
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/workbench.WorkbenchSummary'
+      summary: 工作台首屏聚合
+      tags:
+      - workbench
+  /workbench/config:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/workbench.WorkbenchConfig'
+      summary: 获取工作台布局配置
+      tags:
+      - workbench
+    put:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/workbench.WorkbenchConfig'
+      summary: 保存工作台布局配置
+      tags:
+      - workbench
+  /workbench/efficiency:
+    get:
+      description: 返回当前用户本周效率统计 + 近 4 周完成趋势
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/workbench.EfficiencyReport'
+      summary: 获取个人效率报告
+      tags:
+      - workbench
+  /workbench/feed:
+    get:
+      description: 返回当前用户关注的（watched + 评论过的 + 被@提及的）工作项最新活动
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/workbench.FeedItem'
+            type: array
+      summary: 获取关注动态流
+      tags:
+      - workbench
+  /workbench/recent:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/workbench.RecentItem'
+            type: array
+      summary: 最近访问列表
+      tags:
+      - workbench
+    post:
+      consumes:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+      summary: 记录最近访问
+      tags:
+      - workbench
+  /workbench/templates:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/workbench.WorkbenchTemplate'
+            type: array
+      summary: 工作台模板列表
+      tags:
+      - workbench
+  /workbench/templates/apply:
+    post:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/workbench.WorkbenchConfig'
+      summary: 应用模板到工作台
+      tags:
+      - workbench
+  /workload-heatmap:
+    get:
+      description: 获取项目工时热力图数据（成员 × 日期）
+      parameters:
+      - description: 起始日期 (YYYY-MM-DD)
+        in: query
+        name: date_from
+        type: string
+      - description: 结束日期 (YYYY-MM-DD)
+        in: query
+        name: date_to
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema: {}
+      summary: 工时热力图
+      tags:
+      - issue
+  /workspaces:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/workspace.Workspace'
+            type: array
+      summary: 列出工作空间
       tags:
       - workspace
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 工作空间信息
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CreateWorkspaceRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/workspace.Workspace'
+      summary: 创建工作空间
+      tags:
+      - workspace
+  /workspaces/{workspace_id}:
+    delete:
+      responses:
+        "204":
+          description: No Content
+      summary: 归档工作空间
+      tags:
+      - workspace
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/workspace.Workspace'
+      summary: 获取工作空间详情
+      tags:
+      - workspace
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: 更新字段
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.UpdateWorkspaceRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/workspace.Workspace'
+      summary: 更新工作空间
+      tags:
+      - workspace
+  /workspaces/{workspace_id}/audit-logs:
+    get:
+      parameters:
+      - description: 每页数 (默认 50, 最大 200)
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items: {}
+            type: array
+      summary: 审计日志
+      tags:
+      - workspace
+  /workspaces/{workspace_id}/invitations:
+    get:
+      parameters:
+      - description: 状态过滤
+        in: query
+        name: status
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items: {}
+            type: array
+      summary: 邀请列表
+      tags:
+      - workspace
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 邀请信息
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.SendInvitationRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/workspace.Invitation'
+      summary: 发送邀请
+      tags:
+      - workspace
+  /workspaces/{workspace_id}/invitations/{invitation_id}:
+    delete:
+      parameters:
+      - description: 邀请 ID
+        in: path
+        name: invitation_id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+      summary: 撤销邀请
+      tags:
+      - workspace
+  /workspaces/{workspace_id}/logo:
+    delete:
+      responses:
+        "204":
+          description: No Content
+      summary: 移除工作空间 Logo
+      tags:
+      - workspace
+    post:
+      consumes:
+      - multipart/form-data
+      description: 上传工作空间 Logo（multipart/form-data，字段名 "file"）
+      parameters:
+      - description: Logo 文件
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httpapi.LogoUploadResult'
+      summary: 上传工作空间 Logo
+      tags:
+      - workspace
+  /workspaces/{workspace_id}/members:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items: {}
+            type: array
+      summary: 列出成员
+      tags:
+      - workspace
+  /workspaces/{workspace_id}/members/{user_id}:
+    delete:
+      parameters:
+      - description: 用户 ID
+        in: path
+        name: user_id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+      summary: 移除成员
+      tags:
+      - workspace
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: 用户 ID
+        in: path
+        name: user_id
+        required: true
+        type: integer
+      - description: 角色信息
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.ChangeRoleRequest'
+      responses:
+        "204":
+          description: No Content
+      summary: 修改成员角色
+      tags:
+      - workspace
+  /workspaces/{workspace_id}/projects:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items: {}
+            type: array
+      summary: 列出项目
+      tags:
+      - workspace
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 项目信息
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CreateProjectRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/workspace.Project'
+      summary: 创建项目
+      tags:
+      - workspace
+  /workspaces/{workspace_id}/projects/{project_id}:
+    delete:
+      parameters:
+      - description: 项目 ID
+        in: path
+        name: project_id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+      summary: 归档项目
+      tags:
+      - workspace
+    get:
+      parameters:
+      - description: 项目 ID
+        in: path
+        name: project_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/workspace.Project'
+      summary: 获取项目详情
+      tags:
+      - workspace
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: 项目 ID
+        in: path
+        name: project_id
+        required: true
+        type: integer
+      - description: 更新字段
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.UpdateProjectRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/workspace.Project'
+      summary: 更新项目
+      tags:
+      - workspace
+  /workspaces/{workspace_id}/projects/{project_id}/members:
+    get:
+      parameters:
+      - description: 项目 ID
+        in: path
+        name: project_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items: {}
+            type: array
+      summary: 列出项目成员
+      tags:
+      - workspace
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 项目 ID
+        in: path
+        name: project_id
+        required: true
+        type: integer
+      - description: 成员信息
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.AddProjectMemberRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+      summary: 添加项目成员
+      tags:
+      - workspace
+  /workspaces/{workspace_id}/projects/{project_id}/members/{user_id}:
+    delete:
+      parameters:
+      - description: 项目 ID
+        in: path
+        name: project_id
+        required: true
+        type: integer
+      - description: 用户 ID
+        in: path
+        name: user_id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+      summary: 移除项目成员
+      tags:
+      - workspace
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: 项目 ID
+        in: path
+        name: project_id
+        required: true
+        type: integer
+      - description: 用户 ID
+        in: path
+        name: user_id
+        required: true
+        type: integer
+      - description: 角色信息
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.ChangeRoleRequest'
+      responses:
+        "204":
+          description: No Content
+      summary: 修改项目成员角色
+      tags:
+      - workspace
+  /workspaces/{workspace_id}/templates:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items: {}
+            type: array
+      summary: 项目模板列表
+      tags:
+      - workspace
+  /workspaces/slug/{slug}:
+    get:
+      parameters:
+      - description: 工作空间 Slug
+        in: path
+        name: slug
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/workspace.Workspace'
+      summary: 按 Slug 查找工作空间
+      tags:
+      - workspace
+securityDefinitions:
+  Bearer:
+    description: '"格式: Bearer {access_token}。登录/注册接口返回 access_token 后填入。"'
+    in: header
+    name: Authorization
+    type: apiKey
 swagger: "2.0"

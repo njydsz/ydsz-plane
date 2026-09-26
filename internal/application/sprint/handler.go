@@ -141,7 +141,7 @@ func (h *Handler) createSprint(c *gin.Context) {
 //	@Summary		列出迭代
 //	@Tags			sprint
 //	@Produce		json
-//	@Success		200		{object}	sprintListResponse
+//	@Success		200		{object}	map[string]any
 //	@Router			/sprints [get]
 func (h *Handler) listSprints(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
@@ -360,7 +360,7 @@ func (h *Handler) getSprintProgress(c *gin.Context) {
 //	@Summary		列出迭代内工作项
 //	@Tags			sprint
 //	@Produce		json
-//	@Success		200		{object}	sprintListIssuesResponse
+//	@Success		200		{object}	map[string]any
 //	@Router			/sprints/{sprint_id}/issues [get]
 func (h *Handler) listSprintIssues(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
@@ -436,7 +436,7 @@ func (h *Handler) removeIssue(c *gin.Context) {
 //	@Summary		获取 Backlog 工作项列表（未规划进 active 迭代的未完成工作项）
 //	@Tags			sprint
 //	@Produce		json
-//	@Success		200		{object}	sprintListResponse
+//	@Success		200		{object}	map[string]any
 //	@Router			/sprints/backlog [get]
 func (h *Handler) getBacklog(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
@@ -460,7 +460,7 @@ func (h *Handler) getBacklog(c *gin.Context) {
 //	@Summary		获取迭代燃尽图数据
 //	@Tags			sprint
 //	@Produce		json
-//	@Success		200		{object}	sprintBurndownResponse
+//	@Success		200		{object}	map[string]any
 //	@Router			/sprints/{sprint_id}/burndown [get]
 func (h *Handler) burndown(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)

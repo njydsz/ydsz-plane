@@ -130,7 +130,7 @@ func (h *Handler) UnreadCount(c *gin.Context) {
 //	@Summary		标记已读
 //	@Tags			notification
 //	@Param			id	path	int	true	"通知 ID"
-//	@Success		200	{object]	map[string]bool
+//	@Success		200	{object}	map[string]bool
 //	@Router			/notifications/{id}/read [put]
 func (h *Handler) MarkRead(c *gin.Context) {
 	userID := c.GetInt64("user_id")

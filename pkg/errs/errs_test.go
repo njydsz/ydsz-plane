@@ -16,7 +16,7 @@ func TestWrapAndAs(t *testing.T) {
 	if !errors.As(err, &appErr) {
 		t.Fatal("errors.As must resolve *AppError")
 	}
-	if appErr.Code != "INTERNAL.ERROR" {
+	if appErr.Code != "INTERNAL_ERROR" {
 		t.Fatalf("code = %s", appErr.Code)
 	}
 	if !errors.Is(err, cause) {

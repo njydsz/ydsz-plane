@@ -36,7 +36,7 @@ export interface Issue {
   sequence_id: number;
   identifier: string;
   type_code: IssueType;
-  parent_id?: number;
+  parent_id?: number | null;
   depth: number;
   name: string;
   description_json?: Record<string, unknown>;

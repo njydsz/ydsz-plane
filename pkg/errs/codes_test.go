@@ -120,7 +120,7 @@ func TestCodeNonEmpty(t *testing.T) {
 // TestWithCodeSetsCode 验证 WithCode 正确设置错误码且不污染原错误。
 func TestWithCodeSetsCode(t *testing.T) {
 	original := ErrValidation.From()
-	if original.Code != "VALIDATION.FAILED" {
+	if original.Code != "VALIDATION_ERROR" {
 		t.Fatalf("setup: original code = %s", original.Code)
 	}
 
@@ -129,7 +129,7 @@ func TestWithCodeSetsCode(t *testing.T) {
 		t.Errorf("WithCode: derived code = %s, want VALIDATION_ERROR", derived.Code)
 	}
 	// 原始实例未改变
-	if original.Code != "VALIDATION.FAILED" {
+	if original.Code != "VALIDATION_ERROR" {
 		t.Errorf("WithCode: original mutated to %s", original.Code)
 	}
 }

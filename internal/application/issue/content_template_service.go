@@ -36,7 +36,7 @@ type ContentTemplate struct {
 	ProjectID    *int64          `json:"project_id,omitempty"`
 	Name         string          `json:"name"`
 	TemplateType string          `json:"template_type"` // requirement | task | defect
-	ContentJSON  json.RawMessage `json:"content_json"`
+	ContentJSON  map[string]any `json:"content_json"`
 	ContentHTML  string          `json:"content_html,omitempty"`
 	IsDefault    bool            `json:"is_default"`
 	Status       string          `json:"status"`

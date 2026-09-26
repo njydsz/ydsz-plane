@@ -84,7 +84,7 @@ func (h *SearchHandler) Reindex(c *gin.Context) {
 //	@Param			state_id	query		int		false	"状态 ID"
 //	@Param			limit		query		int		false	"每页数量 (default 20, max 50)"
 //	@Param			offset		query		int		false	"偏移量"
-//	@Success		200			{object}	SearchResponse
+//	@Success		200			{object}	map[string]any
 //	@Router			/search [get]
 func (h *SearchHandler) Search(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
@@ -173,7 +173,7 @@ func (h *SearchHandler) Search(c *gin.Context) {
 //	@Summary		搜索历史
 //	@Tags			search
 //	@Produce		json
-//	@Success		200	{object}	searchHistoryListResponse
+//	@Success		200	{object}	map[string]any
 //	@Router			/search/history [get]
 func (h *SearchHandler) ListHistory(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
@@ -232,7 +232,7 @@ func (h *SearchHandler) ClearHistory(c *gin.Context) {
 //	@Summary		搜索收藏
 //	@Tags			search
 //	@Produce		json
-//	@Success		200	{object}	searchBookmarkListResponse
+//	@Success		200	{object}	map[string]any
 //	@Router			/search/bookmarks [get]
 func (h *SearchHandler) ListBookmarks(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
@@ -261,7 +261,6 @@ func (h *SearchHandler) ListBookmarks(c *gin.Context) {
 //	@Tags			search
 //	@Accept			json
 //	@Produce		json
-//	@Param			body	body		createBookmarkRequest	true	"收藏信息"
 //	@Success		201		{object}	SearchBookmark
 //	@Router			/search/bookmarks [post]
 func (h *SearchHandler) CreateBookmark(c *gin.Context) {

@@ -90,7 +90,6 @@ func (h *Handler) listPages(c *gin.Context) {
 //	@Tags			pages
 //	@Accept			json
 //	@Produce		json
-//	@Param			body	body	CreatePageInput	true	"页面内容"
 //	@Success		200		{object}	Page
 //	@Router			/pages [post]
 func (h *Handler) createPage(c *gin.Context) {
@@ -143,7 +142,6 @@ func (h *Handler) getPage(c *gin.Context) {
 //	@Tags			pages
 //	@Accept			json
 //	@Produce		json
-//	@Param			body	body	UpdatePageInput	true	"页面内容"
 //	@Success		200		{object}	Page
 //	@Router			/pages/{page_id} [patch]
 func (h *Handler) updatePage(c *gin.Context) {
@@ -320,7 +318,6 @@ func (h *Handler) rollbackToVersion(c *gin.Context) {
 //	@Accept			json
 //	@Produce		json
 //	@Param			page_id	path		int					true	"页面 ID"
-//	@Param			body	body		createLinkRequest	true	"关联信息"
 //	@Success		200		{object}	DocumentLink
 //	@Router			/pages/{page_id}/links [post]
 func (h *Handler) createLink(c *gin.Context) {
@@ -440,7 +437,6 @@ func (h *Handler) listTemplates(c *gin.Context) {
 //	@Tags			pages
 //	@Accept			json
 //	@Produce		json
-//	@Param			body	body		CreateTemplateInput	true	"模板信息"
 //	@Success		200		{object}	PageTemplate
 //	@Router			/templates [post]
 func (h *Handler) createTemplate(c *gin.Context) {
@@ -469,7 +465,6 @@ func (h *Handler) createTemplate(c *gin.Context) {
 //	@Accept			json
 //	@Produce		json
 //	@Param			template_id	path		int					true	"模板 ID"
-//	@Param			body		body		UpdateTemplateInput	true	"更新字段"
 //	@Success		200			{object}	PageTemplate
 //	@Router			/templates/{template_id} [patch]
 func (h *Handler) updateTemplate(c *gin.Context) {
@@ -527,7 +522,6 @@ func (h *Handler) deleteTemplate(c *gin.Context) {
 //	@Accept			json
 //	@Produce		json
 //	@Param			page_id	path		int					true	"页面 ID"
-//	@Param			body	body		CreateShareInput	true	"分享配置"
 //	@Success		200		{object}	PageShare
 //	@Router			/pages/{page_id}/shares [post]
 func (h *Handler) createShare(c *gin.Context) {
@@ -590,7 +584,6 @@ func (h *Handler) listShares(c *gin.Context) {
 //	@Accept			json
 //	@Produce		json
 //	@Param			share_id	path		int					true	"分享 ID"
-//	@Param			body		body		UpdateShareInput	true	"更新字段"
 //	@Success		200			{object}	PageShare
 //	@Router			/pages/{page_id}/shares/{share_id} [patch]
 func (h *Handler) updateShare(c *gin.Context) {

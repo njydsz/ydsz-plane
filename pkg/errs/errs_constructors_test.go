@@ -41,7 +41,7 @@ func TestErrorStringWithAndWithoutCause(t *testing.T) {
 	}
 
 	withCause := noCause.Wrap(ErrInternal)
-	if withCause.Error() != "A.B: 提示 (INTERNAL.ERROR: 服务内部错误)" {
+	if withCause.Error() != "A.B: 提示 (INTERNAL_ERROR: 服务内部错误)" {
 		t.Errorf("with-cause format = %q", withCause.Error())
 	}
 }
@@ -73,7 +73,7 @@ func TestJSONSerializationExcludesHTTP(t *testing.T) {
 func TestWithCodeMessage(t *testing.T) {
 	base := ErrValidation
 	derived := base.WithCodeMessage("VALIDATION.SPECIAL", "特殊校验")
-	if base.Code != "VALIDATION.FAILED" {
+	if base.Code != "VALIDATION_ERROR" {
 		t.Error("base error must stay pristine")
 	}
 	if derived.Code != "VALIDATION.SPECIAL" || derived.Message != "特殊校验" {

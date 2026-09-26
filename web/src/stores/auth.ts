@@ -8,7 +8,7 @@ import type { TokenPair } from "@/api/services/auth";
 
 /** 用户简要信息（列表/头像场景使用，不含敏感字段） */
 export interface UserBrief {
-  id: number;
+  id: string;
   email: string;
   display_name: string;
   avatar_url: string;

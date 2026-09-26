@@ -125,8 +125,7 @@ type createChannelRequest struct {
 //	@Tags			intake
 //	@Accept			json
 //	@Produce		json
-//	@Param			body	body		createChannelRequest	true	"渠道配置"
-//	@Success		201		{object}	Channel
+//	@Success		201		{object}	IntakeChannel
 //	@Failure		422		{object}	errs.AppError
 //	@Router			/intake/channels [post]
 func (h *Handler) createChannel(c *gin.Context) {
@@ -157,7 +156,7 @@ func (h *Handler) createChannel(c *gin.Context) {
 //	@Tags			intake
 //	@Produce		json
 //	@Param			channel_id	path	int	true	"渠道 ID"
-//	@Success		200			{object}	Channel
+//	@Success		200			{object}	IntakeChannel
 //	@Router			/intake/channels/{channel_id} [get]
 func (h *Handler) getChannel(c *gin.Context) {
 	id, err := idParam(c, "channel_id")
@@ -189,8 +188,7 @@ type updateChannelRequest struct {
 //	@Accept			json
 //	@Produce		json
 //	@Param			channel_id	path		int					true	"渠道 ID"
-//	@Param			body		body		updateChannelRequest	true	"更新字段"
-//	@Success		200			{object}	Channel
+//	@Success		200			{object}	IntakeChannel
 //	@Router			/intake/channels/{channel_id} [patch]
 func (h *Handler) updateChannel(c *gin.Context) {
 	id, err := idParam(c, "channel_id")
@@ -382,7 +380,6 @@ type promoteIssueRequest struct {
 //	@Accept			json
 //	@Produce		json
 //	@Param			issue_id	path		int					true	"工单 ID"
-//	@Param			body		body		promoteIssueRequest	true	"转正参数"
 //	@Success		200			{object}	IntakeIssue
 //	@Router			/intake/issues/{issue_id}/promote [post]
 func (h *Handler) promoteIssue(c *gin.Context) {
@@ -421,7 +418,7 @@ func (h *Handler) promoteIssue(c *gin.Context) {
 //	@Tags			intake-public
 //	@Produce		json
 //	@Param			slug	path	string	true	"渠道 Slug"
-//	@Success		200		{object}	Channel
+//	@Success		200		{object}	IntakeChannel
 //	@Router			/public/intake/channels/{slug} [get]
 func (h *PublicHandler) publicGetChannel(c *gin.Context) {
 	ch, err := h.d.Svc.GetChannelBySlug(c.Request.Context(), c.Param("slug"))
@@ -439,7 +436,6 @@ func (h *PublicHandler) publicGetChannel(c *gin.Context) {
 //	@Tags			intake-public
 //	@Accept			json
 //	@Produce		json
-//	@Param			body	body		SubmitIssueInput	true	"工单内容"
 //	@Success		201		{object}	IntakeIssue
 //	@Failure		422		{object}	errs.AppError
 //	@Router			/public/intake/issues [post]
@@ -472,7 +468,6 @@ type trackIssueRequest struct {
 //	@Tags			intake-public
 //	@Accept			json
 //	@Produce		json
-//	@Param			body	body		trackIssueRequest	true	"跟踪参数"
 //	@Success		200		{object}	IntakeIssue
 //	@Router			/public/intake/track [post]
 func (h *PublicHandler) publicTrackIssue(c *gin.Context) {

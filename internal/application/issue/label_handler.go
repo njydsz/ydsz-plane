@@ -83,7 +83,6 @@ func (h *LabelHandler) listLabels(c *gin.Context) {
 //	@Tags			label
 //	@Accept			json
 //	@Produce		json
-//	@Param			body	body		createLabelRequest	true	"标签信息"
 //	@Success		201		{object}	Label
 //	@Router			/labels [post]
 func (h *LabelHandler) createLabel(c *gin.Context) {
@@ -136,7 +135,6 @@ func (h *LabelHandler) getLabel(c *gin.Context) {
 //	@Accept			json
 //	@Produce		json
 //	@Param			label_id	path		int					true	"标签 ID"
-//	@Param			body		body		updateLabelRequest	true	"更新字段"
 //	@Success		200			{object}	Label
 //	@Router			/labels/{label_id} [patch]
 func (h *LabelHandler) updateLabel(c *gin.Context) {

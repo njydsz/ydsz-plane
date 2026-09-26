@@ -118,7 +118,6 @@ func (h *Handler) Remove(c *gin.Context) {
 //	@Tags			dlq
 //	@Accept			json
 //	@Produce		json
-//	@Param			body	body		cleanupBody	true	"清理参数"
 //	@Success		200		{object}	map[string]any
 //	@Router			/admin/dlq/cleanup [post]
 func (h *Handler) Cleanup(c *gin.Context) {

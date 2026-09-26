@@ -145,7 +145,7 @@ func (h *Handler) validateUploadInput(fileName, contentType string, fileSize int
 //	@Produce		json
 //	@Param			entity_type	query		string	true	"工作项类型 (task/requirement/defect/issue)"
 //	@Param			entity_id	query		int		true	"工作项 ID"
-//	@Success		200			{object}	ListResponse
+//	@Success		200			{object}	map[string]any
 //	@Failure		422			{object}	errs.AppError
 //	@Router			/attachments [get]
 func (h *Handler) listAttachments(c *gin.Context) {
@@ -187,7 +187,6 @@ func (h *Handler) listAttachments(c *gin.Context) {
 //	@Tags			attachment
 //	@Accept			json
 //	@Produce		json
-//	@Param			body	body		presignedUploadBody	true	"上传元信息"
 //	@Success		200		{object}	map[string]any
 //	@Failure		422		{object}	errs.AppError
 //	@Router			/attachments/presigned-upload [post]
@@ -248,7 +247,7 @@ func (h *Handler) getPresignedUploadURL(c *gin.Context) {
 //	@Tags			attachment
 //	@Produce		json
 //	@Param			issue_id	path		int	true	"工作项 ID"
-//	@Success		200			{object}	ListResponse
+//	@Success		200			{object}	map[string]any
 //	@Failure		404			{object}	errs.AppError
 //	@Router			/issues/{issue_id}/attachments [get]
 func (h *Handler) listIssueAttachments(c *gin.Context) {
@@ -282,7 +281,6 @@ func (h *Handler) listIssueAttachments(c *gin.Context) {
 //	@Tags			attachment
 //	@Accept			json
 //	@Produce		json
-//	@Param			body	body		confirmUploadBody	true	"附件信息"
 //	@Success		201		{object}	ConfirmUploadResult
 //	@Failure		422		{object}	errs.AppError
 //	@Router			/attachments/confirm [post]
