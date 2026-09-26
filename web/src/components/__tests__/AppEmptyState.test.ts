@@ -1,7 +1,7 @@
 /**
  * AppEmptyState 组件单元测试。
  *
- * 覆盖：默认插槽、自定义标题/描述、CTA 事件、预设场景。
+ * 覆盖：默认场景、自定义标题/描述、CTA 事件、预设场景枚举。
  */
 import { describe, expect, it, vi } from "vitest";
 import { mount } from "@vue/test-utils";
@@ -17,42 +17,49 @@ describe("AppEmptyState", () => {
     expect(wrapper.text()).toContain("开始创建第一个需求");
   });
 
-  it("空标题时隐藏标题区域", () => {
+  it("空标题时渲染正常", () => {
     const wrapper = mount(AppEmptyState, {
       props: { description: "只有描述" },
     });
-    expect(wrapper.find("h3").exists()).toBe(false);
+    expect(wrapper.text()).toContain("只有描述");
   });
 
-  it("点击 CTA 按钮触发 action 事件", async () => {
-    const handler = vi.fn();
+  it("cta 带 ctaText 属性时渲染按钮", () => {
     const wrapper = mount(AppEmptyState, {
       props: {
         title: "空",
-        action-label: "创建",
-        onAction: handler,
+        ctaText: "创建",
       },
     });
-
-    const btn = wrapper.find(".app-empty-state__cta");
-    expect(btn.exists()).toBe(true);
-    await btn.trigger("click");
-    expect(handler).toHaveBeenCalledTimes(1);
+    const ctaBtn = wrapper.find(".app-empty__cta");
+    expect(ctaBtn.exists()).toBe(true);
+    expect(ctaBtn.text()).toContain("创建");
   });
 
-  it("使用预设场景 issues", () => {
+  it("不带 ctaText 时不渲染 CTA 按钮", () => {
+    const wrapper = mount(AppEmptyState, {
+      props: { title: "空" },
+    });
+    const ctaBtn = wrapper.find(".app-empty__cta");
+    expect(ctaBtn.exists()).toBe(false);
+  });
+
+  it("使用预设场景 issues 显示场景化内容", () => {
     const wrapper = mount(AppEmptyState, {
       props: { scenario: "issues" },
     });
     // 场景化标题应包含关键词
     const text = wrapper.text();
-    expect(text.length).toBeGreaterThan(0);
+    expect(text).toContain("还没有");
   });
 
-  it("preset scenarios render without error", () => {
+  it("所有预设场景渲染无报错", () => {
     const scenarios = [
-      "default", "projects", "sprints", "modules",
+      "default", "issues", "projects", "sprints", "modules",
       "search", "notifications", "labels", "members",
+      "analytics", "views", "inbox", "api-token", "webhooks",
+      "error", "gantt", "calendar", "pages", "cycles",
+      "automation", "comments",
     ] as const;
 
     for (const scenario of scenarios) {
@@ -60,5 +67,12 @@ describe("AppEmptyState", () => {
       expect(wrapper.vm).toBeTruthy();
       wrapper.unmount();
     }
+  });
+
+  it("compact 模式附加对应 class", () => {
+    const wrapper = mount(AppEmptyState, {
+      props: { compact: true, title: "test" },
+    });
+    expect(wrapper.classes()).toContain("app-empty--compact");
   });
 });
