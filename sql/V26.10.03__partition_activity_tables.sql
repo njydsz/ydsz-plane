@@ -203,14 +203,24 @@ CREATE TABLE IF NOT EXISTS webhook_logs (
     tenant_id                BIGINT NOT NULL DEFAULT 1,
     workspace_id             BIGINT NOT NULL DEFAULT 0,
     webhook_id               BIGINT NOT NULL,
-    url                      TEXT NOT NULL,
-    method                   VARCHAR(10) NOT NULL,
-    status_code              SMALLINT,
+    delivery_id              VARCHAR(64) NOT NULL,
+    event_type               VARCHAR(80) NOT NULL,
+    event_id                 BIGINT,
+    request_url              TEXT NOT NULL,
+    request_method           VARCHAR(10) DEFAULT 'POST',
+    request_headers          JSONB,
+    request_body             TEXT,
+    response_status          INTEGER,
     response_body            TEXT,
-    payload                  JSONB,
-    error_message            TEXT,
-    status                   VARCHAR(20) NOT NULL DEFAULT 'pending',
+    response_headers         JSONB,
+    attempt                  SMALLINT DEFAULT 1,
+    duration_ms              INTEGER,
+    error                    TEXT,
+    status                   VARCHAR(20) NOT NULL,
+    deleted                  BOOLEAN DEFAULT false,
+    created_by               BIGINT NOT NULL DEFAULT 0,
     created_at               TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_by               BIGINT NOT NULL DEFAULT 0,
     updated_at               TIMESTAMPTZ DEFAULT now(),
     PRIMARY KEY (id, created_at)
 ) PARTITION BY RANGE (created_at);
@@ -236,6 +246,8 @@ INSERT INTO webhook_logs SELECT * FROM webhook_logs_old ON CONFLICT DO NOTHING;
 CREATE INDEX IF NOT EXISTS idx_webhook_logs_tenant_id ON webhook_logs (tenant_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_webhook_logs_webhook_id ON webhook_logs (webhook_id, created_at DESC);
 
+DROP INDEX IF EXISTS idx_webhooklogs_webhook_id;
+DROP INDEX IF EXISTS idx_webhooklogs_tenant_id;
 DROP TABLE IF EXISTS webhook_logs_old;
 
 -- ═══════════════════════════════════════════════════════════════════════
