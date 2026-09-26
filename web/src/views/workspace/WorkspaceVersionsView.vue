@@ -11,7 +11,8 @@ import { useRoute, useRouter } from "vue-router";
 
 import { workspaceApi, type Project } from "@/api/services/workspace";
 import { dashboardApi, type ProjectCompareItem } from "@/api/services/dashboard";
-import { AppEmptyState, AppErrorState, AppSkeleton } from "@/components";
+import { versionApi, type CreateVersionInput } from "@/api/services/version";
+import { AppButton, AppEmptyState, AppErrorState, AppModal, AppSkeleton } from "@/components";
 
 interface ProjectCard extends Project {
   compare?: ProjectCompareItem;
@@ -60,10 +61,71 @@ function percent(n: number | undefined): number {
   return Math.round(Math.max(0, Math.min(1, n)) * 100);
 }
 
-function goCreateVersion() {
-  const enabled = projects.value.filter(versionEnabled);
-  if (enabled.length === 0) return;
-  router.push(`/${workspaceId.value}/projects/${enabled[0].id}/versions`);
+/* ---------- create version modal ---------- */
+
+const showCreate = ref(false);
+const creating = ref(false);
+const createError = ref("");
+const targetProjectId = ref<number | null>(null);
+const form = ref<CreateVersionInput>({
+  name: "",
+  semver: "",
+  description: "",
+  start_date: "",
+  end_date: "",
+  target_date: "",
+});
+
+const enabledProjects = computed(() => projects.value.filter(versionEnabled));
+
+function openCreateModal() {
+  createError.value = "";
+  if (enabledProjects.value.length === 1) {
+    targetProjectId.value = enabledProjects.value[0].id;
+  } else {
+    targetProjectId.value = null;
+  }
+  form.value = { name: "", semver: "", description: "", start_date: "", end_date: "", target_date: "" };
+  showCreate.value = true;
+}
+
+function closeCreateModal() {
+  showCreate.value = false;
+  targetProjectId.value = null;
+  createError.value = "";
+}
+
+async function submitCreate() {
+  if (!form.value.name.trim() || !form.value.semver.trim()) {
+    createError.value = "版本名称和语义版本号不能为空";
+    return;
+  }
+  const pid = targetProjectId.value;
+  if (!pid) {
+    createError.value = "请选择目标项目";
+    return;
+  }
+  creating.value = true;
+  createError.value = "";
+  try {
+    await versionApi.createVersion(workspaceId.value, pid, {
+      name: form.value.name.trim(),
+      semver: form.value.semver.trim(),
+      description: form.value.description || undefined,
+      start_date: form.value.start_date || undefined,
+      end_date: form.value.end_date || undefined,
+      target_date: form.value.target_date || undefined,
+    });
+    showCreate.value = false;
+    // 刷新工作空间版本聚合数据
+    await load();
+    // 创建成功后跳转到该项目版本列表
+    router.push(`/${workspaceId.value}/projects/${pid}/versions`);
+  } catch (e: unknown) {
+    createError.value = e instanceof Error ? e.message : "创建失败";
+  } finally {
+    creating.value = false;
+  }
 }
 
 onMounted(load);
@@ -81,7 +143,7 @@ onMounted(load);
       <button
         class="text-sm font-medium text-[var(--bg-accent-primary)] hover:underline disabled:opacity-40 disabled:no-underline"
         :disabled="!projects.some(versionEnabled)"
-        @click="goCreateVersion"
+        @click="openCreateModal"
       >
         新建版本
       </button>
@@ -160,5 +222,128 @@ onMounted(load);
         </div>
       </section>
     </template>
+
+    <!-- 新建版本 Modal -->
+    <AppModal :visible="showCreate" title="新建版本" width="560px" @close="closeCreateModal">
+      <form @submit.prevent="submitCreate">
+        <!-- 多项目时选择目标项目 -->
+        <label v-if="enabledProjects.length > 1" class="create-form__field">
+          <span class="create-form__label">
+            目标项目 <span class="create-form__required">*</span>
+          </span>
+          <select v-model="targetProjectId" class="create-form__input">
+            <option :value="null" disabled>请选择项目</option>
+            <option v-for="p in enabledProjects" :key="p.id" :value="p.id">
+              {{ p.name }} ({{ p.identifier }})
+            </option>
+          </select>
+        </label>
+
+        <div class="create-form__row">
+          <label class="create-form__field">
+            <span class="create-form__label">
+              版本名称 <span class="create-form__required">*</span>
+            </span>
+            <input
+              v-model="form.name"
+              placeholder="例如：v1.0 正式版"
+              maxlength="120"
+              class="create-form__input"
+              autofocus
+            />
+          </label>
+          <label class="create-form__field">
+            <span class="create-form__label">
+              语义版本号 <span class="create-form__required">*</span>
+            </span>
+            <input
+              v-model="form.semver"
+              placeholder="例如：1.0.0"
+              maxlength="50"
+              class="create-form__input create-form__input--mono"
+            />
+          </label>
+        </div>
+
+        <label class="create-form__field">
+          <span class="create-form__label">目标日期</span>
+          <input v-model="form.target_date" type="date" class="create-form__input" />
+        </label>
+
+        <div class="create-form__row">
+          <label class="create-form__field">
+            <span class="create-form__label">开始时间</span>
+            <input v-model="form.start_date" type="date" class="create-form__input" />
+          </label>
+          <label class="create-form__field">
+            <span class="create-form__label">结束时间</span>
+            <input v-model="form.end_date" type="date" class="create-form__input" />
+          </label>
+        </div>
+
+        <label class="create-form__field">
+          <span class="create-form__label">描述（可选）</span>
+          <textarea
+            v-model="form.description"
+            placeholder="版本目标与范围简述"
+            maxlength="2000"
+            rows="2"
+            class="create-form__input"
+          ></textarea>
+        </label>
+
+        <div v-if="createError" class="create-form__error">{{ createError }}</div>
+      </form>
+
+      <template #footer>
+        <AppButton variant="secondary" size="sm" @click="closeCreateModal">取消</AppButton>
+        <AppButton variant="primary" size="sm" :loading="creating" @click="submitCreate">创建</AppButton>
+      </template>
+    </AppModal>
   </div>
 </template>
+
+<style scoped>
+/* 复用 VersionListView 中 create-form 的样式 */
+.create-form__field {
+  display: block;
+  margin-bottom: 14px;
+}
+.create-form__label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 4px;
+  color: var(--text-secondary);
+}
+.create-form__required { color: var(--danger-500); }
+.create-form__input {
+  width: 100%;
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--surface-1);
+  color: var(--text-primary);
+  font-size: 13px;
+  transition: border-color 0.15s;
+}
+textarea.create-form__input {
+  height: auto;
+  padding: 8px 12px;
+  resize: vertical;
+  font-family: inherit;
+}
+.create-form__input--mono { font-family: var(--font-mono); }
+.create-form__input:focus {
+  outline: none;
+  border-color: var(--brand-500);
+}
+.create-form__input::placeholder { color: var(--text-tertiary); }
+.create-form__row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.create-form__error {
+  color: var(--danger-500);
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+</style>

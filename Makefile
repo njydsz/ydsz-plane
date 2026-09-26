@@ -129,6 +129,34 @@ else
 	@xdg-open coverage.html 2>/dev/null || open coverage.html 2>/dev/null || echo "coverage.html ready"
 endif
 
+# --- Coverage Gate CI ---
+## coverage-gate: 全量测试 + 覆盖率门禁（当前目标 ≥ 30%，第一阶段的最低阈值）
+COVERAGE_THRESHOLD := 30
+coverage-gate:
+	@echo "→ 运行全量测试并检查覆盖率阈值 $(COVERAGE_THRESHOLD)%"
+	go test $(GOPKGS) -count=1 -coverprofile=coverage.out 2>&1
+	@COVER=$$(go tool cover -func=coverage.out | grep '^total:' | awk '{print $$3}' | sed 's/%//'); \
+	echo "  综合覆盖率: $$COVER%"; \
+	PASS=$$(echo "$$COVER >= $(COVERAGE_THRESHOLD)" | bc -l); \
+	if [ "$$PASS" != "1" ]; then \
+		echo "❌ 覆盖率 $$COVER% < 阈值 $(COVERAGE_THRESHOLD)%"; \
+		echo "   goto coverage-html 查看详情"; \
+		exit 1; \
+	fi; \
+	echo "✅ 覆盖率通过（$$COVER% ≥ $(COVERAGE_THRESHOLD)%）"
+
+# --- Mock Gen ---
+## mockgen: 为自动化引擎的 SPI 接口生成 Mock（依赖 go.uber.org/mock/mockgen）
+## 用法: 先 go install go.uber.org/mock/mockgen@latest
+MOCKGEN_BIN := $(shell go env GOPATH)/bin/mockgen
+mockgen: | $(MOCKGEN_BIN)
+	@echo "→ 生成自动化引擎 SPI Mock..."
+	$(MOCKGEN_BIN) -package=automation -destination=internal/application/automation/mock_ctx_provider_test.go -source=internal/application/automation/engine.go -write_package_comment=false ExecutionContextProvider
+	@echo "✅ Mock 已生成"
+
+$(MOCKGEN_BIN):
+	go install go.uber.org/mock/mockgen@latest
+
 # --- OpenAPI & type generation S16 P0-1 ---
 ## openapi: 生成 Swagger 文档（swag init）
 openapi:
