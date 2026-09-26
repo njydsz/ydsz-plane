@@ -136,11 +136,12 @@ openapi:
 	@echo "→ Swagger UI: http://localhost:8080/swagger/index.html"
 
 ## gen-types: 从已生成的 swagger.yaml 生成前端 TS 类型
-## 注意：orval 安装需在 web/ 下运行 pnpm add -D orval
+## 使用 orval 全量Generate（2026-09-26：swagger 注解 ≥60% 激活）
+## 安装: cd web && pnpm add -D orval
 gen-types:
-	cd web && npx orval --config orval.config.ts 2>/dev/null \
-		|| npx openapi-typescript ../docs/swagger/swagger.yaml -o src/types/api.generated.ts --path-params-as-hash-map false
-	@echo "Generated web/src/types/api.generated.ts"
+	cd web && (npx orval --config orval.config.ts \
+		|| npx openapi-typescript ../docs/swagger/swagger.yaml -o src/types/api.generated.ts --path-params-as-hash-map false)
+	@echo "Generated web/src/api/generated/api.ts (or fallback)"
 
 ## gen: 同步生成 swagger + 前端类型（保持前后端一致）
 gen: openapi gen-types
@@ -176,6 +177,63 @@ reindex:
 fmt:
 	gofmt -w .
 	cd web && pnpm format
+
+# --- Security (P0-安全加固：SQL 注入防护) ---
+## security-scan: SQL 注入风险扫描（CI 门禁：fmt.Sprintf 拼接 SQL 即阻断）
+## 检测范围：internal/ 下所有非测试的 .go 文件
+security-scan:
+	@echo "→ SQL 注入风险扫描（OWASP A03:2021）"
+	@FAILED=0; \
+	FILES=$$(find internal -name '*.go' -not -name '*_test.go'); \
+	for f in $$FILES; do \
+		if grep -nE 'fmt\.Sprintf\(\s*`[^`]*(SELECT|INSERT|UPDATE|DELETE|DROP|CREATE|ALTER)[^`]*%[svdw]' $$f 2>/dev/null; then \
+			echo "  ❌ 发现 SQL 拼接: $$f"; \
+			FAILED=1; \
+		fi; \
+	done; \
+	if [ "$$FAILED" = "1" ]; then \
+		echo ""; echo "P0 安全问题：发现 fmt.Sprintf 拼接 SQL，必须使用参数化查询或 persistence.SafeTableName 白名单"; \
+		exit 1; \
+	fi; \
+	@echo "SQL 注入扫描通过（无 fmt.Sprintf 拼接 SQL）"
+
+## security: 全量安全检查
+security: security-scan
+	@echo "→ 依赖漏洞扫描提示:"
+	@echo "  运行: govulncheck ./...  或  npm audit --prefix web"
+
+## swagger-check: 检查 Swagger 注解覆盖率（P0-6）
+swagger-check:
+	@bash scripts/check-swagger-coverage.sh
+
+## swagger-gen: 重新生成 swagger.yaml/json/docs.go（需安装 swag）
+swagger-gen:
+	@if ! command -v swag >/dev/null 2>&1; then \
+		echo "swag 未安装。运行: go install github.com/swaggo/swag/cmd/swag@latest"; \
+		exit 1; \
+	fi; \
+	swag init -g cmd/api/main.go -o docs/swagger/ --parseInternal --parseDepth 2
+	@echo "Swagger 文档已生成: docs/swagger/"
+
+## gen-types: 从 swagger.yaml 生成前端 TS 类型（orval + openapi-typescript fallback）
+gen-types:
+	cd web && pnpm gen:types || pnpm gen:types:fallback
+
+## gen: 完整生成流水线（swagger → types → format）
+gen: swagger-gen gen-types
+	cd web && pnpm format
+	@echo "✅ 生成流水线完成。确认无 drift 后提交：git add docs/swagger/ web/src/types/ web/src/api/generated/"
+
+## gen-verify: 验证当前生成的类型与已提交的一致（CI 用）
+gen-verify:
+	$(MAKE) swagger-gen
+	$(MAKE) gen-types
+	@if [ -n "$(git diff --stat docs/swagger/ web/src/types/ web/src/api/generated/)" ]; then \
+		echo "::error::API contract drift detected. Run 'make gen' and commit."; \
+		git diff --stat docs/swagger/ web/src/types/ web/src/api/generated/; \
+		exit 1; \
+	fi; \
+	@echo "✅ API contract in sync"
 
 # --- Build ---
 ## build: 构建后端（全包）+ 前端

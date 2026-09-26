@@ -219,14 +219,19 @@ jobs:
           swag init -g cmd/api/main.go -o docs/swagger --parseDependency --parseInternal 2>&1 || echo "SWAG_GEN_WARN=1"
           cd web && npx openapi-typescript ../docs/swagger/swagger.yaml -o src/types/api.generated.ts --path-params-as-hash-map false
 
-      - name: Check diff (warning mode until coverage ≥80%)
+      - name: Check diff (block on drift since coverage ≥80%)
         run: |
           DIFF=$(git diff --stat web/src/types/api.generated.ts docs/swagger/swagger.yaml 2>/dev/null || true)
           if [ -n "$DIFF" ]; then
-            echo "::warning::API contract drift detected. Run 'make gen' locally and commit changes."
+            echo "::error::API contract drift detected. Run 'make swagger && pnpm gen:types' locally and commit changes."
             echo "$DIFF"
-            # TODO: 注解覆盖率 ≥80% 后将 warning 升级为 error（阻断合并）
-            # exit 1
+            echo ""
+            echo "修复步骤："
+            echo "  1. make swagger          # 重新生成 swagger.yaml"
+            echo "  2. cd web && pnpm gen:types  # 重新生成 TS 类型"
+            echo "  3. git add docs/swagger/ web/src/types/"
+            echo "  4. git commit -m 'chore: sync API types'"
+            exit 1
           else
             echo "✅ API contract in sync"
           fi
@@ -464,6 +469,141 @@ jobs:
             exit 1
           fi
           echo "✅ /readyz → 200 OK, body: $BODY"
+
+      - name: stop API server
+        if: always()
+        run: |
+          if [ -n "$API_PID" ]; then kill $API_PID 2>/dev/null || true; fi
+
+  # ------------------------------------------------------------------
+  # Job 5: Playwright E2E 端到端测试（P0-7）
+  # 覆盖：state-machine / webhook / security / search / notification 等核心路径
+  # 条件运行：main 分支推送 OR PR 含 label "e2e-required"
+  # ------------------------------------------------------------------
+  e2e:
+    name: Playwright E2E Tests
+    runs-on: ubuntu-latest
+    needs: [smoke]
+    if: github.ref == 'refs/heads/main' || contains(github.event.pull_request.labels.*.name, 'e2e-required')
+
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: ydsz_app
+          POSTGRES_PASSWORD: ydsz_test
+          POSTGRES_DB: ydsz_plane_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:8-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      minio:
+        image: minio/minio:latest
+        env:
+          MINIO_ROOT_USER: minioadmin
+          MINIO_ROOT_PASSWORD: minioadmin
+        ports:
+          - 9000:9000
+        options: >-
+          /usr/bin/docker-entrypoint.sh server /data
+          --health-cmd "curl -sf http://localhost:9000/minio/health/live"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      YDSZ_DATABASE_URL: "postgres://ydsz_app:ydsz_test@localhost:5432/ydsz_plane_test?sslmode=disable"
+      YDSZ_REDIS_ADDR: "localhost:6379"
+      YDSZ_REDIS_PASSWORD: ""
+      YDSZ_SERVER_ENV: "development"
+      YDSZ_AUTH_JWT_SECRET: "ci-test-secret-key-at-least-32-bytes-long!!"
+      YDSZ_STORAGE_SECRET_KEY: "ci-test-storage-secret-key-at-least-32-bytes!"
+      YDSZ_STORAGE_ENDPOINT: "localhost:9000"
+      YDSZ_STORAGE_ACCESS_KEY: "minioadmin"
+      YDSZ_STORAGE_SECRET: "minioadmin"
+      YDSZ_STORAGE_BUCKET: "ydsz-plane"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - uses: pnpm/action-setup@v3
+        with:
+          version: latest
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "pnpm"
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      - name: init database schema
+        run: |
+          PGPASSWORD=ydsz_test psql -h localhost -U ydsz_app -d ydsz_plane_test \
+            -v ON_ERROR_STOP=1 \
+            -f sql/ydsz-plane-init.sql
+
+      - name: build API binary
+        run: go build -o /tmp/ydsz-api ./cmd/api
+
+      - name: start API server (background)
+        run: |
+          /tmp/ydsz-api > /tmp/api.log 2>&1 &
+          echo "API_PID=$!" >> $GITHUB_ENV
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8080/healthz > /dev/null 2>&1; then
+              echo "API started after ${i}s"
+              break
+            fi
+            sleep 1
+          done
+
+      - name: Install Playwright browsers
+        run: |
+          cd web
+          pnpm exec playwright install --with-deps chromium
+
+      - name: Run Playwright E2E tests
+        run: |
+          cd web
+          pnpm exec playwright test --reporter=line,html --workers=2
+        env:
+          E2E_BASE_URL: "http://localhost:8080"
+          E2E_API_URL: "http://localhost:8080/api/v1"
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ github.run_number }}
+          path: web/test-results/
+          retention-days: 14
+
+      - name: Upload Playwright trace
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces-${{ github.run_number }}
+          path: web/test-results/
+          retention-days: 7
 
       - name: stop API server
         if: always()

@@ -225,6 +225,13 @@ func linkIDParam(c *gin.Context) (int64, error) {
 // --- 版本历史 handlers ---
 
 // listVersions 获取页面所有版本历史。
+//
+//	@Summary		页面版本列表
+//	@Tags			pages
+//	@Produce		json
+//	@Param			page_id	path	int	true	"页面 ID"
+//	@Success		200		{object}	map[string]any
+//	@Router			/pages/{page_id}/versions [get]
 func (h *Handler) listVersions(c *gin.Context) {
 	pageID, err := pageIDParam(c)
 	if err != nil {
@@ -244,6 +251,14 @@ func (h *Handler) listVersions(c *gin.Context) {
 }
 
 // getVersion 获取指定版本快照。
+//
+//	@Summary		获取版本快照
+//	@Tags			pages
+//	@Produce		json
+//	@Param			page_id		path	int	true	"页面 ID"
+//	@Param			version_id	path	int	true	"版本号"
+//	@Success		200			{object}	DocumentVersion
+//	@Router			/pages/{page_id}/versions/{version_id} [get]
 func (h *Handler) getVersion(c *gin.Context) {
 	pageID, err := pageIDParam(c)
 	if err != nil {
@@ -265,6 +280,13 @@ func (h *Handler) getVersion(c *gin.Context) {
 }
 
 // rollbackToVersion 回滚页面到指定版本。
+//
+//	@Summary		回滚页面版本
+//	@Tags			pages
+//	@Param			page_id		path	int	true	"页面 ID"
+//	@Param			version_id	path	int	true	"版本号"
+//	@Success		200			{object}	Page
+//	@Router			/pages/{page_id}/versions/{version_id}/rollback [post]
 func (h *Handler) rollbackToVersion(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	projectID := c.GetInt64(middleware.CtxProjectID)
@@ -292,6 +314,15 @@ func (h *Handler) rollbackToVersion(c *gin.Context) {
 // --- 文档关联 handlers ---
 
 // createLink 创建文档与外部实体的关联。
+//
+//	@Summary		创建文档关联
+//	@Tags			pages
+//	@Accept			json
+//	@Produce		json
+//	@Param			page_id	path		int					true	"页面 ID"
+//	@Param			body	body		createLinkRequest	true	"关联信息"
+//	@Success		200		{object}	DocumentLink
+//	@Router			/pages/{page_id}/links [post]
 func (h *Handler) createLink(c *gin.Context) {
 	userID := c.GetInt64(middleware.CtxUserID)
 
@@ -327,6 +358,13 @@ func (h *Handler) createLink(c *gin.Context) {
 }
 
 // listLinks 获取页面所有关联。
+//
+//	@Summary		列出文档关联
+//	@Tags			pages
+//	@Produce		json
+//	@Param			page_id	path	int	true	"页面 ID"
+//	@Success		200		{object}	map[string]any
+//	@Router			/pages/{page_id}/links [get]
 func (h *Handler) listLinks(c *gin.Context) {
 	pageID, err := pageIDParam(c)
 	if err != nil {
@@ -346,6 +384,13 @@ func (h *Handler) listLinks(c *gin.Context) {
 }
 
 // deleteLink 删除文档关联。
+//
+//	@Summary		删除文档关联
+//	@Tags			pages
+//	@Param			page_id	path	int	true	"页面 ID"
+//	@Param			link_id	path	int	true	"关联 ID"
+//	@Success		200		{object}	map[string]bool
+//	@Router			/pages/{page_id}/links/{link_id} [delete]
 func (h *Handler) deleteLink(c *gin.Context) {
 	pageID, err := pageIDParam(c)
 	if err != nil {
@@ -368,6 +413,12 @@ func (h *Handler) deleteLink(c *gin.Context) {
 // --- 文档模板 handlers ---
 
 // listTemplates 列出项目可用模板（工作空间级 + 项目级 + 全局内置）。
+//
+//	@Summary		列出文档模板
+//	@Tags			pages
+//	@Produce		json
+//	@Success		200	{object}	map[string]any
+//	@Router			/templates [get]
 func (h *Handler) listTemplates(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	projectID := c.GetInt64(middleware.CtxProjectID)
@@ -384,6 +435,14 @@ func (h *Handler) listTemplates(c *gin.Context) {
 }
 
 // createTemplate 创建文档模板。
+//
+//	@Summary		创建文档模板
+//	@Tags			pages
+//	@Accept			json
+//	@Produce		json
+//	@Param			body	body		CreateTemplateInput	true	"模板信息"
+//	@Success		200		{object}	PageTemplate
+//	@Router			/templates [post]
 func (h *Handler) createTemplate(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	projectID := c.GetInt64(middleware.CtxProjectID)
@@ -404,6 +463,15 @@ func (h *Handler) createTemplate(c *gin.Context) {
 }
 
 // updateTemplate 更新文档模板。
+//
+//	@Summary		更新文档模板
+//	@Tags			pages
+//	@Accept			json
+//	@Produce		json
+//	@Param			template_id	path		int					true	"模板 ID"
+//	@Param			body		body		UpdateTemplateInput	true	"更新字段"
+//	@Success		200			{object}	PageTemplate
+//	@Router			/templates/{template_id} [patch]
 func (h *Handler) updateTemplate(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 
@@ -428,6 +496,12 @@ func (h *Handler) updateTemplate(c *gin.Context) {
 }
 
 // deleteTemplate 删除文档模板。
+//
+//	@Summary		删除文档模板
+//	@Tags			pages
+//	@Param			template_id	path	int	true	"模板 ID"
+//	@Success		200				{object}	map[string]bool
+//	@Router			/templates/{template_id} [delete]
 func (h *Handler) deleteTemplate(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 
@@ -447,6 +521,15 @@ func (h *Handler) deleteTemplate(c *gin.Context) {
 // --- 文档公开分享 handlers ---
 
 // createShare 为文档创建公开分享链接。
+//
+//	@Summary		创建分享链接
+//	@Tags			pages
+//	@Accept			json
+//	@Produce		json
+//	@Param			page_id	path		int					true	"页面 ID"
+//	@Param			body	body		CreateShareInput	true	"分享配置"
+//	@Success		200		{object}	PageShare
+//	@Router			/pages/{page_id}/shares [post]
 func (h *Handler) createShare(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	projectID := c.GetInt64(middleware.CtxProjectID)
@@ -473,6 +556,13 @@ func (h *Handler) createShare(c *gin.Context) {
 }
 
 // listShares 列出文档所有分享链接。
+//
+//	@Summary		列出分享链接
+//	@Tags			pages
+//	@Produce		json
+//	@Param			page_id	path	int	true	"页面 ID"
+//	@Success		200		{object}	map[string]any
+//	@Router			/pages/{page_id}/shares [get]
 func (h *Handler) listShares(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 
@@ -494,6 +584,15 @@ func (h *Handler) listShares(c *gin.Context) {
 }
 
 // updateShare 更新分享链接（状态 / 密码 / 过期时间）。
+//
+//	@Summary		更新分享链接
+//	@Tags			pages
+//	@Accept			json
+//	@Produce		json
+//	@Param			share_id	path		int					true	"分享 ID"
+//	@Param			body		body		UpdateShareInput	true	"更新字段"
+//	@Success		200			{object}	PageShare
+//	@Router			/pages/{page_id}/shares/{share_id} [patch]
 func (h *Handler) updateShare(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 
@@ -518,6 +617,12 @@ func (h *Handler) updateShare(c *gin.Context) {
 }
 
 // revokeShare 吊销分享链接。
+//
+//	@Summary		吊销分享链接
+//	@Tags			pages
+//	@Param			share_id	path	int	true	"分享 ID"
+//	@Success		200			{object}	map[string]bool
+//	@Router			/pages/{page_id}/shares/{share_id} [delete]
 func (h *Handler) revokeShare(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 
@@ -547,7 +652,16 @@ func NewPublicShareHandler(svc *Service) *PublicShareHandler {
 }
 
 // GetSharedPage 获取公开分享页面内容。
-// 查询参数：?password=xxx （可选，当分享设置了密码时需提供）。
+//
+//	@Summary		获取分享页面
+//	@Description	通过 token 获取公开分享页面内容（免登录）
+//	@Tags			pages-public
+//	@Produce		json
+//	@Param			token	path		string	true	"分享 Token"
+//	@Param			password	query		string	false	"分享密码"
+//	@Success		200			{object}	map[string]any
+//	@Failure		401			{object}	errs.AppError
+//	@Router			/public/pages/{token} [get]
 func (h *PublicShareHandler) GetSharedPage(c *gin.Context) {
 	token := c.Param("token")
 	password := c.Query("password")

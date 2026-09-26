@@ -144,6 +144,13 @@ func (h *IssueHandler) Register(r *gin.RouterGroup, wsMiddleware []gin.HandlerFu
 
 // --- State handlers ---
 
+// listStates 列出项目状态。
+//
+//	@Summary		列出状态
+//	@Tags			issue
+//	@Produce		json
+//	@Success		200	{object}	map[string]any
+//	@Router			/states [get]
 func (h *IssueHandler) listStates(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	projectID := c.GetInt64(middleware.CtxProjectID)
@@ -207,6 +214,16 @@ type updateStateRequest struct {
 	ApplicableTypes []string `json:"applicable_types,omitempty"`
 }
 
+// updateState 更新状态。
+//
+//	@Summary		更新状态
+//	@Tags			issue
+//	@Accept			json
+//	@Produce		json
+//	@Param			state_id	path		int					true	"状态 ID"
+//	@Param			body		body		updateStateRequest	true	"更新字段"
+//	@Success		200			{object}	State
+//	@Router			/states/{state_id} [patch]
 func (h *IssueHandler) updateState(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	userID := c.GetInt64(middleware.CtxUserID)
@@ -247,6 +264,13 @@ func (h *IssueHandler) updateState(c *gin.Context) {
 	c.JSON(http.StatusOK, st)
 }
 
+// deleteState 删除状态。
+//
+//	@Summary		删除状态
+//	@Tags			issue
+//	@Param			state_id	path	int	true	"状态 ID"
+//	@Success		204
+//	@Router			/states/{state_id} [delete]
 func (h *IssueHandler) deleteState(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 
@@ -265,6 +289,13 @@ func (h *IssueHandler) deleteState(c *gin.Context) {
 
 // --- Transition CRUD handlers ---
 
+// listTransitions 列出状态流转规则。
+//
+//	@Summary		列出流转规则
+//	@Tags			issue
+//	@Produce		json
+//	@Success		200	{object}	map[string]any
+//	@Router			/state-transitions [get]
 func (h *IssueHandler) listTransitions(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	projectID := c.GetInt64(middleware.CtxProjectID)
@@ -285,6 +316,15 @@ type addTransitionRequest struct {
 	RequiredFields []string `json:"required_fields"`
 }
 
+// addTransition 添加状态流转规则。
+//
+//	@Summary		添加流转规则
+//	@Tags			issue
+//	@Accept			json
+//	@Produce		json
+//	@Param			body	body		addTransitionRequest	true	"流转规则"
+//	@Success		201		{object}	StateTransition
+//	@Router			/state-transitions [post]
 func (h *IssueHandler) addTransition(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	projectID := c.GetInt64(middleware.CtxProjectID)
@@ -321,6 +361,14 @@ type createDependencyRequest struct {
 	LagDays        int    `json:"lag_days"`
 }
 
+// listDependencies 列出工作项依赖。
+//
+//	@Summary		列出工作项依赖
+//	@Tags			issue
+//	@Produce		json
+//	@Param			issue_id	path	int	true	"工作项 ID"
+//	@Success		200			{object}	map[string]any
+//	@Router			/issues/{issue_id}/dependencies [get]
 func (h *IssueHandler) listDependencies(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	projectID := c.GetInt64(middleware.CtxProjectID)
@@ -338,6 +386,17 @@ func (h *IssueHandler) listDependencies(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"results": deps})
 }
 
+// createDependency 创建任务依赖。
+//
+//	@Summary		创建任务依赖
+//	@Description	在工作项之间创建 FS/SS/FF/SF 依赖关系
+//	@Tags			issue
+//	@Accept			json
+//	@Produce		json
+//	@Param			issue_id	path		int						true	"工作项 ID"
+//	@Param			body		body		createDependencyRequest	true	"依赖信息"
+//	@Success		201			{object}	Dependency
+//	@Router			/issues/{issue_id}/dependencies [post]
 func (h *IssueHandler) createDependency(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	projectID := c.GetInt64(middleware.CtxProjectID)
@@ -370,6 +429,13 @@ func (h *IssueHandler) createDependency(c *gin.Context) {
 	c.JSON(http.StatusCreated, dep)
 }
 
+// deleteDependency 删除任务依赖。
+//
+//	@Summary		删除任务依赖
+//	@Tags			issue
+//	@Param			dep_id	path	int	true	"依赖 ID"
+//	@Success		204
+//	@Router			/issues/{issue_id}/dependencies/{dep_id} [delete]
 func (h *IssueHandler) deleteDependency(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	depID, err := strconv.ParseInt(c.Param("dep_id"), 10, 64)
@@ -385,6 +451,13 @@ func (h *IssueHandler) deleteDependency(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
+// listProjectDependencies 列出项目级依赖列表（甘特图渲染用）。
+//
+//	@Summary		项目依赖列表
+//	@Tags			issue
+//	@Produce		json
+//	@Success		200	{object}	map[string]any
+//	@Router			/issue-dependencies [get]
 func (h *IssueHandler) listProjectDependencies(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	projectID := c.GetInt64(middleware.CtxProjectID)
@@ -398,6 +471,15 @@ func (h *IssueHandler) listProjectDependencies(c *gin.Context) {
 }
 
 // getWorkloadHeatmap 获取项目工时热力图数据（成员 × 日期）。
+//
+//	@Summary		工时热力图
+//	@Description	获取项目工时热力图数据（成员 × 日期）
+//	@Tags			issue
+//	@Produce		json
+//	@Param			date_from	query	string	false	"起始日期 (YYYY-MM-DD)"
+//	@Param			date_to		query	string	false	"结束日期 (YYYY-MM-DD)"
+//	@Success		200			{object}	interface{}
+//	@Router			/workload-heatmap [get]
 func (h *IssueHandler) getWorkloadHeatmap(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	projectID := c.GetInt64(middleware.CtxProjectID)
@@ -419,6 +501,13 @@ func (h *IssueHandler) getWorkloadHeatmap(c *gin.Context) {
 	c.JSON(http.StatusOK, data)
 }
 
+// removeTransition 删除状态流转规则。
+//
+//	@Summary		删除流转规则
+//	@Tags			issue
+//	@Param			transition_id	path	int	true	"流转规则 ID"
+//	@Success		204
+//	@Router			/state-transitions/{transition_id} [delete]
 func (h *IssueHandler) removeTransition(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 
@@ -1089,6 +1178,18 @@ func filterIssueFields(issues []Issue, fields []string) []any {
 // 查询参数：
 //   - format: csv（默认）| xlsx — 导出格式
 //   - type / state_id / search: 过滤条件（同列表接口）
+// exportIssues 导出工作项列表。
+//
+//	@Summary		导出工作项
+//	@Description	导出工作项列表为 CSV 格式
+//	@Tags			issue
+//	@Produce		text/csv
+//	@Param			state_id		query	int		false	"状态 ID"
+//	@Param			type			query	string	false	"类型"
+//	@Param			priority		query	string	false	"优先级"
+//	@Param			assignee_id		query	int		false	"指派人 ID"
+//	@Success		200				{string}	string
+//	@Router			/issues/export [get]
 func (h *IssueHandler) exportIssues(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	projectID := c.GetInt64(middleware.CtxProjectID)
@@ -1189,6 +1290,16 @@ func (h *IssueHandler) exportIssues(c *gin.Context) {
 //	@Success		200				{object}	ImportResult
 //	@Failure		422				{object}	errs.AppError
 //	@Router			/issues/import [post]
+// importIssues 批量导入工作项。
+//
+//	@Summary		导入工作项
+//	@Description	上传 CSV/xlsx 文件批量导入工作项
+//	@Tags			issue
+//	@Accept			multipart/form-data
+//	@Produce		json
+//	@Param			file	formData	file	true	"CSV 或 xlsx 文件"
+//	@Success		200		{object}	map[string]any
+//	@Router			/issues/import [post]
 func (h *IssueHandler) importIssues(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	projectID := c.GetInt64(middleware.CtxProjectID)
@@ -1266,6 +1377,16 @@ func (h *IssueHandler) importIssues(c *gin.Context) {
 //	@Accept			multipart/form-data
 //	@Produce		json
 //	@Param			file	formData	file	true	"CSV 或 XLSX 文件"
+//	@Success		200		{object}	map[string]any
+//	@Router			/issues/import/preview [post]
+// previewImport 预览工作项导入（不实际写入）。
+//
+//	@Summary		预览导入
+//	@Description	上传 CSV/xlsx 文件预览导入结果（不实际写入）
+//	@Tags			issue
+//	@Accept			multipart/form-data
+//	@Produce		json
+//	@Param			file	formData	file	true	"CSV 或 xlsx 文件"
 //	@Success		200		{object}	map[string]any
 //	@Router			/issues/import/preview [post]
 func (h *IssueHandler) previewImport(c *gin.Context) {
@@ -1470,6 +1591,14 @@ func xmlEscape(s string) string {
 
 // --- Activity handlers ---
 
+// listActivities 列出工作项活动记录。
+//
+//	@Summary		活动记录
+//	@Tags			issue
+//	@Produce		json
+//	@Param			issue_id	path	int	true	"工作项 ID"
+//	@Success		200			{object}	map[string]any
+//	@Router			/issues/{issue_id}/activities [get]
 func (h *IssueHandler) listActivities(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	issueID := int64Param(c, "issue_id")
@@ -1486,6 +1615,14 @@ func (h *IssueHandler) listActivities(c *gin.Context) {
 
 // --- Time log handlers ---
 
+// listTimeLogs 列出工时记录。
+//
+//	@Summary		工时记录列表
+//	@Tags			issue
+//	@Produce		json
+//	@Param			issue_id	path	int	true	"工作项 ID"
+//	@Success		200			{object}	map[string]any
+//	@Router			/issues/{issue_id}/time-logs [get]
 func (h *IssueHandler) listTimeLogs(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	issueID := int64Param(c, "issue_id")
@@ -1500,6 +1637,15 @@ func (h *IssueHandler) listTimeLogs(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"results": logs, "total": total})
 }
 
+// createTimeLog 创建工时记录。
+//
+//	@Summary		记录工时
+//	@Tags			issue
+//	@Accept			json
+//	@Produce		json
+//	@Param			issue_id	path	int	true	"工作项 ID"
+//	@Success		201		{object}	TimeLog
+//	@Router			/issues/{issue_id}/time-logs [post]
 func (h *IssueHandler) createTimeLog(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	projectID := c.GetInt64(middleware.CtxProjectID)
@@ -1532,6 +1678,16 @@ func (h *IssueHandler) createTimeLog(c *gin.Context) {
 	c.JSON(http.StatusCreated, tl)
 }
 
+// updateTimeLog 更新工时记录。
+//
+//	@Summary		更新工时记录
+//	@Tags			issue
+//	@Accept			json
+//	@Produce		json
+//	@Param			issue_id	path	int	true	"工作项 ID"
+//	@Param			log_id		path	int	true	"工时记录 ID"
+//	@Success		200			{object}	TimeLog
+//	@Router			/issues/{issue_id}/time-logs/{log_id} [patch]
 func (h *IssueHandler) updateTimeLog(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	logID := int64Param(c, "log_id")
@@ -1555,6 +1711,14 @@ func (h *IssueHandler) updateTimeLog(c *gin.Context) {
 	c.JSON(http.StatusOK, tl)
 }
 
+// deleteTimeLog 删除工时记录。
+//
+//	@Summary		删除工时记录
+//	@Tags			issue
+//	@Param			issue_id	path	int	true	"工作项 ID"
+//	@Param			log_id		path	int	true	"工时记录 ID"
+//	@Success		204
+//	@Router			/issues/{issue_id}/time-logs/{log_id} [delete]
 func (h *IssueHandler) deleteTimeLog(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	logID := int64Param(c, "log_id")
@@ -1630,6 +1794,13 @@ type batchIssuesRequest struct {
 // --- Content Template handlers ---
 
 // listContentTemplates 列出内容模板（按类型筛选）。
+// listContentTemplates 列出内容模板。
+//
+//	@Summary		列出内容模板
+//	@Tags			issue
+//	@Produce		json
+//	@Success		200	{object}	map[string]any
+//	@Router			/content-templates [get]
 func (h *IssueHandler) listContentTemplates(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 
@@ -1656,6 +1827,14 @@ type createContentTemplateRequest struct {
 	IsDefault    bool           `json:"is_default"`
 }
 
+// createContentTemplate 创建内容模板。
+//
+//	@Summary		创建内容模板
+//	@Tags			issue
+//	@Accept			json
+//	@Produce		json
+//	@Success		201	{object}	ContentTemplate
+//	@Router			/content-templates [post]
 func (h *IssueHandler) createContentTemplate(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	userID := c.GetInt64(middleware.CtxUserID)
@@ -1690,6 +1869,15 @@ type updateContentTemplateRequest struct {
 	IsDefault   *bool          `json:"is_default,omitempty"`
 }
 
+// updateContentTemplate 更新内容模板。
+//
+//	@Summary		更新内容模板
+//	@Tags			issue
+//	@Accept			json
+//	@Produce		json
+//	@Param			template_id	path		int		true	"模板 ID"
+//	@Success		200			{object}	ContentTemplate
+//	@Router			/content-templates/{template_id} [patch]
 func (h *IssueHandler) updateContentTemplate(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	templateID := int64Param(c, "template_id")
@@ -1715,6 +1903,13 @@ func (h *IssueHandler) updateContentTemplate(c *gin.Context) {
 	c.JSON(http.StatusOK, tpl)
 }
 
+// deleteContentTemplate 删除内容模板。
+//
+//	@Summary		删除内容模板
+//	@Tags			issue
+//	@Param			template_id	path	int	true	"模板 ID"
+//	@Success		204
+//	@Router			/content-templates/{template_id} [delete]
 func (h *IssueHandler) deleteContentTemplate(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	templateID := int64Param(c, "template_id")
@@ -1782,6 +1977,14 @@ func writeErr(c *gin.Context, err error) {
 
 // --- Relation handlers ---
 
+// listRelations 列出工作项关联关系。
+//
+//	@Summary		列出关联关系
+//	@Tags			issue
+//	@Produce		json
+//	@Param			issue_id	path	int	true	"工作项 ID"
+//	@Success		200			{object}	map[string]any
+//	@Router			/issues/{issue_id}/relations [get]
 func (h *IssueHandler) listRelations(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	issueID := int64Param(c, "issue_id")
@@ -1797,6 +2000,16 @@ func (h *IssueHandler) listRelations(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"results": rels})
 }
 
+// createRelation 创建关联关系。
+//
+//	@Summary		创建关联
+//	@Description	在工作项之间创建关联关系（blocks/duplicates/relates_to）
+//	@Tags			issue
+//	@Accept			json
+//	@Produce		json
+//	@Param			issue_id	path	int	true	"工作项 ID"
+//	@Success		201			{object}	Relation
+//	@Router			/issues/{issue_id}/relations [post]
 func (h *IssueHandler) createRelation(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	projectID := c.GetInt64(middleware.CtxProjectID)
@@ -1827,6 +2040,14 @@ func (h *IssueHandler) createRelation(c *gin.Context) {
 	c.JSON(http.StatusCreated, rel)
 }
 
+// deleteRelation 删除关联关系。
+//
+//	@Summary		删除关联
+//	@Tags			issue
+//	@Param			issue_id	path	int	true	"工作项 ID"
+//	@Param			relation_id	path	int	true	"关联 ID"
+//	@Success		204
+//	@Router			/issues/{issue_id}/relations/{relation_id} [delete]
 func (h *IssueHandler) deleteRelation(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	relationID := int64Param(c, "relation_id")
@@ -1840,6 +2061,16 @@ func (h *IssueHandler) deleteRelation(c *gin.Context) {
 
 // --- Comment handlers ---
 
+// listComments 列出工作项评论。
+//
+//	@Summary		列出评论
+//	@Tags			issue
+//	@Produce		json
+//	@Param			issue_id	path	int		true	"工作项 ID"
+//	@Param			limit		query	int		false	"每页数"
+//	@Param			offset		query	int		false	"偏移"
+//	@Success		200			{object}	map[string]any
+//	@Router			/issues/{issue_id}/comments [get]
 func (h *IssueHandler) listComments(c *gin.Context) {
 	issueID := int64Param(c, "issue_id")
 
@@ -1854,6 +2085,16 @@ func (h *IssueHandler) listComments(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"results": comments})
 }
 
+// createComment 创建评论。
+//
+//	@Summary		添加评论
+//	@Tags			issue
+//	@Accept			json
+//	@Produce		json
+//	@Param			issue_id	path	int						true	"工作项 ID"
+//	@Param			body		body		createCommentRequest	true	"评论内容"
+//	@Success		201			{object}	Comment
+//	@Router			/issues/{issue_id}/comments [post]
 func (h *IssueHandler) createComment(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	projectID := c.GetInt64(middleware.CtxProjectID)
@@ -1903,6 +2144,16 @@ func (h *IssueHandler) createComment(c *gin.Context) {
 	c.JSON(http.StatusCreated, comment)
 }
 
+// updateComment 更新评论。
+//
+//	@Summary		更新评论
+//	@Tags			issue
+//	@Accept			json
+//	@Produce		json
+//	@Param			issue_id	path	int	true	"工作项 ID"
+//	@Param			comment_id	path	int	true	"评论 ID"
+//	@Success		200			{object}	Comment
+//	@Router			/issues/{issue_id}/comments/{comment_id} [patch]
 func (h *IssueHandler) updateComment(c *gin.Context) {
 	commentID := int64Param(c, "comment_id")
 	userID := c.GetInt64(middleware.CtxUserID)
@@ -1935,6 +2186,14 @@ func (h *IssueHandler) updateComment(c *gin.Context) {
 	c.JSON(http.StatusOK, comment)
 }
 
+// deleteComment 删除评论。
+//
+//	@Summary		删除评论
+//	@Tags			issue
+//	@Param			issue_id	path	int	true	"工作项 ID"
+//	@Param			comment_id	path	int	true	"评论 ID"
+//	@Success		204
+//	@Router			/issues/{issue_id}/comments/{comment_id} [delete]
 func (h *IssueHandler) deleteComment(c *gin.Context) {
 	commentID := int64Param(c, "comment_id")
 	userID := c.GetInt64(middleware.CtxUserID)
@@ -2262,6 +2521,13 @@ func colIndex(ref string) int {
 	return n
 }
 
+// watchIssue 关注工作项（订阅通知）。
+//
+//	@Summary		关注工作项
+//	@Tags			issue
+//	@Param			issue_id	path	int	true	"工作项 ID"
+//	@Success		204
+//	@Router			/issues/{issue_id}/watch [post]
 func (h *IssueHandler) watchIssue(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	issueID := int64Param(c, "issue_id")
@@ -2274,6 +2540,13 @@ func (h *IssueHandler) watchIssue(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
+// unwatchIssue 取消关注工作项。
+//
+//	@Summary		取消关注
+//	@Tags			issue
+//	@Param			issue_id	path	int	true	"工作项 ID"
+//	@Success		204
+//	@Router			/issues/{issue_id}/watch [delete]
 func (h *IssueHandler) unwatchIssue(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	issueID := int64Param(c, "issue_id")

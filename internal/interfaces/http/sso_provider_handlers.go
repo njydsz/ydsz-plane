@@ -41,6 +41,12 @@ type ssoProviderListItem struct {
 }
 
 // listSSOProvidersMgmt 列出当前工作空间的 SSO Providers（含 secret 占位提示）。
+//
+//	@Summary		列出 SSO Provider
+//	@Tags			sso
+//	@Produce		json
+//	@Success		200	{object}	map[string]any
+//	@Router			/sso/providers [get]
 func listSSOProvidersMgmt(d *Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if d.OIDCService == nil {
@@ -66,6 +72,15 @@ func listSSOProvidersMgmt(d *Deps) gin.HandlerFunc {
 }
 
 // createSSOProvider 创建 SSO Provider。
+//
+//	@Summary		创建 SSO Provider
+//	@Description	创建新的 SSO 集成（OIDC/SAML），需 workspace:update 权限
+//	@Tags			sso
+//	@Accept			json
+//	@Produce		json
+//	@Param			body	body		auth.ProviderModifyInput	true	"Provider 配置"
+//	@Success		201		{object}	ssoProviderDetail
+//	@Router			/sso/providers [post]
 func createSSOProvider(d *Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if d.OIDCService == nil {
@@ -90,6 +105,13 @@ func createSSOProvider(d *Deps) gin.HandlerFunc {
 }
 
 // getSSOProvider 获取单个 SSO Provider 详情。
+//
+//	@Summary		获取 SSO Provider
+//	@Tags			sso
+//	@Produce		json
+//	@Param			id	path	int	true	"Provider ID"
+//	@Success		200	{object}	ssoProviderDetail
+//	@Router			/sso/providers/{id} [get]
 func getSSOProvider(d *Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if d.OIDCService == nil {
@@ -113,6 +135,15 @@ func getSSOProvider(d *Deps) gin.HandlerFunc {
 }
 
 // updateSSOProvider 更新 SSO Provider。
+//
+//	@Summary		更新 SSO Provider
+//	@Tags			sso
+//	@Accept			json
+//	@Produce		json
+//	@Param			id		path	int						true	"Provider ID"
+//	@Param			body	body	auth.ProviderModifyInput	true	"更新字段"
+//	@Success		200		{object}	ssoProviderDetail
+//	@Router			/sso/providers/{id} [patch]
 func updateSSOProvider(d *Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if d.OIDCService == nil {
@@ -143,6 +174,12 @@ func updateSSOProvider(d *Deps) gin.HandlerFunc {
 }
 
 // deleteSSOProvider 删除 SSO Provider。
+//
+//	@Summary		删除 SSO Provider
+//	@Tags			sso
+//	@Param			id	path	int	true	"Provider ID"
+//	@Success		204
+//	@Router			/sso/providers/{id} [delete]
 func deleteSSOProvider(d *Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if d.OIDCService == nil {

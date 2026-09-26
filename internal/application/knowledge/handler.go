@@ -210,6 +210,16 @@ func (h *Handler) createSpace(c *gin.Context) {
 }
 
 // updateSpace 更新知识库空间。
+//
+//	@Summary		更新知识库空间
+//	@Description	部分更新知识库空间信息
+//	@Tags			knowledge
+//	@Accept			json
+//	@Produce		json
+//	@Param			sid	path		int						true	"空间 ID"
+//	@Param			body	body		updateSpaceRequest		true	"更新字段"
+//	@Success		200	{object}	Space
+//	@Router			/spaces/{sid} [patch]
 func (h *Handler) updateSpace(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	sid := int64Param(c, "sid")
@@ -246,6 +256,13 @@ func (h *Handler) updateSpace(c *gin.Context) {
 }
 
 // deleteSpace 软删除空间。
+//
+//	@Summary		删除知识库空间
+//	@Description	软删除指定的知识库空间
+//	@Tags			knowledge
+//	@Param			sid	path	int	true	"空间 ID"
+//	@Success		204
+//	@Router			/spaces/{sid} [delete]
 func (h *Handler) deleteSpace(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	sid := int64Param(c, "sid")
@@ -260,6 +277,14 @@ func (h *Handler) deleteSpace(c *gin.Context) {
 // --- 文档 handlers ---
 
 // getPageTree 获取 space 下全部文档的树形结构。
+//
+//	@Summary		文档树
+//	@Description	获取知识库空间下全部文档的树形结构
+//	@Tags			knowledge
+//	@Produce		json
+//	@Param			sid	path	int	true	"空间 ID"
+//	@Success		200	{object}	map[string]any
+//	@Router			/spaces/{sid}/pages [get]
 func (h *Handler) getPageTree(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	spaceID := int64Param(c, "sid")
@@ -281,6 +306,14 @@ func (h *Handler) getPageTree(c *gin.Context) {
 }
 
 // getPage 获取单个文档详情。
+//
+//	@Summary		获取文档
+//	@Tags			knowledge
+//	@Produce		json
+//	@Param			sid	path	int	true	"空间 ID"
+//	@Param			pid	path	int	true	"文档 ID"
+//	@Success		200	{object}	KnowledgePage
+//	@Router			/spaces/{sid}/pages/{pid} [get]
 func (h *Handler) getPage(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	pageID := int64Param(c, "pid")
@@ -294,6 +327,15 @@ func (h *Handler) getPage(c *gin.Context) {
 }
 
 // createPage 创建文档。
+//
+//	@Summary		创建文档
+//	@Tags			knowledge
+//	@Accept			json
+//	@Produce		json
+//	@Param			sid		path		int				true	"空间 ID"
+//	@Param			body	body		CreatePageInput	true	"文档信息"
+//	@Success		201		{object}	KnowledgePage
+//	@Router			/spaces/{sid}/pages [post]
 func (h *Handler) createPage(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	spaceID := int64Param(c, "sid")
@@ -325,6 +367,16 @@ func (h *Handler) createPage(c *gin.Context) {
 }
 
 // updatePage 更新文档（乐观锁）。
+//
+//	@Summary		更新文档
+//	@Tags			knowledge
+//	@Accept			json
+//	@Produce		json
+//	@Param			sid		path		int					true	"空间 ID"
+//	@Param			pid		path		int					true	"文档 ID"
+//	@Param			body	body		updatePageRequest	true	"更新字段"
+//	@Success		200		{object}	KnowledgePage
+//	@Router			/spaces/{sid}/pages/{pid} [patch]
 func (h *Handler) updatePage(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	pageID := int64Param(c, "pid")
@@ -371,6 +423,14 @@ func (h *Handler) updatePage(c *gin.Context) {
 }
 
 // deletePage 软删除文档。
+//
+//	@Summary		删除文档
+//	@Description	软删除指定的知识库文档
+//	@Tags			knowledge
+//	@Param			sid	path	int	true	"空间 ID"
+//	@Param			pid	path	int	true	"文档 ID"
+//	@Success		204
+//	@Router			/spaces/{sid}/pages/{pid} [delete]
 func (h *Handler) deletePage(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	pageID := int64Param(c, "pid")
@@ -385,6 +445,14 @@ func (h *Handler) deletePage(c *gin.Context) {
 // --- 版本 handlers ---
 
 // listVersions 获取文档的版本快照列表。
+//
+//	@Summary		版本快照列表
+//	@Tags			knowledge
+//	@Produce		json
+//	@Param			sid	path	int	true	"空间 ID"
+//	@Param			pid	path	int	true	"文档 ID"
+//	@Success		200	{object}	map[string]any
+//	@Router			/spaces/{sid}/pages/{pid}/versions [get]
 func (h *Handler) listVersions(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	pageID := int64Param(c, "pid")
@@ -398,6 +466,16 @@ func (h *Handler) listVersions(c *gin.Context) {
 }
 
 // revertVersion 回滚到指定版本（复制版本快照内容为最新版本）。
+//
+//	@Summary		回滚版本
+//	@Tags			knowledge
+//	@Accept			json
+//	@Produce		json
+//	@Param			sid		path		int					true	"空间 ID"
+//	@Param			pid		path		int					true	"文档 ID"
+//	@Param			body	body		revertVersionRequest	true	"回滚参数"
+//	@Success		200		{object}	KnowledgePage
+//	@Router			/spaces/{sid}/pages/{pid}/revert [post]
 func (h *Handler) revertVersion(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	pageID := int64Param(c, "pid")
@@ -456,6 +534,16 @@ func (h *Handler) revertVersion(c *gin.Context) {
 // --- 关联 handlers ---
 
 // addRelation 添加文档与工作项的关联。
+//
+//	@Summary		添加文档关联
+//	@Tags			knowledge
+//	@Accept			json
+//	@Produce		json
+//	@Param			sid		path		int					true	"空间 ID"
+//	@Param			pid		path		int					true	"文档 ID"
+//	@Param			body	body		addRelationRequest		true	"关联信息"
+//	@Success		201		{object}	PageRelation
+//	@Router			/spaces/{sid}/pages/{pid}/relations [post]
 func (h *Handler) addRelation(c *gin.Context) {
 	pageID := int64Param(c, "pid")
 
@@ -486,6 +574,14 @@ func (h *Handler) addRelation(c *gin.Context) {
 }
 
 // listRelations 列出文档的关联工作项。
+//
+//	@Summary		列出文档关联
+//	@Tags			knowledge
+//	@Produce		json
+//	@Param			sid	path	int	true	"空间 ID"
+//	@Param			pid	path	int	true	"文档 ID"
+//	@Success		200	{object}	map[string]any
+//	@Router			/spaces/{sid}/pages/{pid}/relations [get]
 func (h *Handler) listRelations(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	pageID := int64Param(c, "pid")
@@ -499,6 +595,14 @@ func (h *Handler) listRelations(c *gin.Context) {
 }
 
 // removeRelation 移除文档与工作项的关联。
+//
+//	@Summary		移除文档关联
+//	@Tags			knowledge
+//	@Param			sid	path	int	true	"空间 ID"
+//	@Param			pid	path	int	true	"文档 ID"
+//	@Param			rid	path	int	true	"关联 ID"
+//	@Success		204
+//	@Router			/spaces/{sid}/pages/{pid}/relations/{rid} [delete]
 func (h *Handler) removeRelation(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	pageID := int64Param(c, "pid")
@@ -542,9 +646,16 @@ func strPtr(s string) *string {
 	return &s
 }
 
-// search 全文检索（PostgreSQL tsvector）。
-// GET /api/v1/workspaces/:workspace_id/knowledge/search?q=keyword&space_id=optional
-// workspace_id 由 RequireWorkspaceParam 中间件注入。
+// search 知识库全文检索（PostgreSQL tsvector）。
+//
+//	@Summary		知识库检索
+//	@Description	跨知识库空间全文检索（PostgreSQL tsvector）
+//	@Tags			knowledge
+//	@Produce		json
+//	@Param			q			query	string	true	"关键词"
+//	@Param			space_id	query	int		false	"空间 ID（可选）"
+//	@Success		200			{object}	map[string]any
+//	@Router			/knowledge/search [get]
 func (h *Handler) search(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	keyword := c.Query("q")

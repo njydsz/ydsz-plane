@@ -96,6 +96,12 @@ func (h *Handler) getPreference(c *gin.Context) {
 }
 
 // listPreferences 列出全部视图偏好。
+//
+//	@Summary		列出全部视图偏好
+//	@Tags			preference
+//	@Produce		json
+//	@Success		200	{array}		ViewPreference
+//	@Router			/preferences [get]
 func (h *Handler) listPreferences(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	projectID := c.GetInt64(middleware.CtxProjectID)

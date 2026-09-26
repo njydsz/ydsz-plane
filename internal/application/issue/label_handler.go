@@ -56,7 +56,14 @@ type updateLabelRequest struct {
 
 // ---- handlers ----
 
-// listLabels GET /labels?status=
+// listLabels 列出标签。
+//
+//	@Summary		列出标签
+//	@Tags			label
+//	@Produce		json
+//	@Param			status	query	string	false	"状态过滤"
+//	@Success		200		{object}	map[string]any
+//	@Router			/labels [get]
 func (h *LabelHandler) listLabels(c *gin.Context) {
 	labels, err := h.svc.ListLabels(c.Request.Context(), ListLabelsFilter{
 		WorkspaceID: extractWsID(c),
@@ -70,7 +77,15 @@ func (h *LabelHandler) listLabels(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"results": labels})
 }
 
-// createLabel POST /labels
+// createLabel 创建标签。
+//
+//	@Summary		创建标签
+//	@Tags			label
+//	@Accept			json
+//	@Produce		json
+//	@Param			body	body		createLabelRequest	true	"标签信息"
+//	@Success		201		{object}	Label
+//	@Router			/labels [post]
 func (h *LabelHandler) createLabel(c *gin.Context) {
 	var req createLabelRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -92,7 +107,14 @@ func (h *LabelHandler) createLabel(c *gin.Context) {
 	c.JSON(http.StatusCreated, l)
 }
 
-// getLabel GET /labels/:label_id
+// getLabel 获取标签详情。
+//
+//	@Summary		获取标签详情
+//	@Tags			label
+//	@Produce		json
+//	@Param			label_id	path	int	true	"标签 ID"
+//	@Success		200			{object}	Label
+//	@Router			/labels/{label_id} [get]
 func (h *LabelHandler) getLabel(c *gin.Context) {
 	id, err := labelIDParam(c)
 	if err != nil {
@@ -107,7 +129,16 @@ func (h *LabelHandler) getLabel(c *gin.Context) {
 	c.JSON(http.StatusOK, l)
 }
 
-// updateLabel PATCH /labels/:label_id
+// updateLabel 更新标签。
+//
+//	@Summary		更新标签
+//	@Tags			label
+//	@Accept			json
+//	@Produce		json
+//	@Param			label_id	path		int					true	"标签 ID"
+//	@Param			body		body		updateLabelRequest	true	"更新字段"
+//	@Success		200			{object}	Label
+//	@Router			/labels/{label_id} [patch]
 func (h *LabelHandler) updateLabel(c *gin.Context) {
 	id, err := labelIDParam(c)
 	if err != nil {
@@ -134,7 +165,13 @@ func (h *LabelHandler) updateLabel(c *gin.Context) {
 	c.JSON(http.StatusOK, l)
 }
 
-// deleteLabel DELETE /labels/:label_id
+// deleteLabel 删除标签。
+//
+//	@Summary		删除标签
+//	@Tags			label
+//	@Param			label_id	path	int	true	"标签 ID"
+//	@Success		204
+//	@Router			/labels/{label_id} [delete]
 func (h *LabelHandler) deleteLabel(c *gin.Context) {
 	id, err := labelIDParam(c)
 	if err != nil {

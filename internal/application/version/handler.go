@@ -178,6 +178,15 @@ func (h *Handler) create(c *gin.Context) {
 
 // --- 单资源 ---
 
+// get 获取版本详情。
+//
+//	@Summary		获取版本详情
+//	@Tags			version
+//	@Produce		json
+//	@Param			version_id	path		int	true	"版本 ID"
+//	@Success		200			{object}	Version
+//	@Failure		404			{object}	errs.AppError
+//	@Router			/versions/{version_id} [get]
 func (h *Handler) get(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	versionID := int64Param(c, "version_id")
@@ -190,6 +199,16 @@ func (h *Handler) get(c *gin.Context) {
 	c.JSON(http.StatusOK, v)
 }
 
+// update 更新版本字段。
+//
+//	@Summary		更新版本
+//	@Tags			version
+//	@Accept			json
+//	@Produce		json
+//	@Param			version_id	path		int						true	"版本 ID"
+//	@Param			body		body		updateVersionRequest	true	"更新字段"
+//	@Success		200			{object}	Version
+//	@Router			/versions/{version_id} [patch]
 func (h *Handler) update(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	versionID := int64Param(c, "version_id")
@@ -208,6 +227,14 @@ func (h *Handler) update(c *gin.Context) {
 	c.JSON(http.StatusOK, v)
 }
 
+// delete 归档版本（软删除）。
+//
+//	@Summary		归档版本
+//	@Description	软删除（归档）指定版本
+//	@Tags			version
+//	@Param			version_id	path	int	true	"版本 ID"
+//	@Success		204
+//	@Router			/versions/{version_id} [delete]
 func (h *Handler) delete(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	versionID := int64Param(c, "version_id")
@@ -222,6 +249,15 @@ func (h *Handler) delete(c *gin.Context) {
 
 // --- 状态机 ---
 
+// activate 激活版本。
+//
+//	@Summary		激活版本
+//	@Description	将版本从 planning 切换到 active
+//	@Tags			version
+//	@Produce		json
+//	@Param			version_id	path		int	true	"版本 ID"
+//	@Success		200			{object}	Version
+//	@Router			/versions/{version_id}/activate [post]
 func (h *Handler) activate(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	versionID := int64Param(c, "version_id")
@@ -267,6 +303,15 @@ func (h *Handler) release(c *gin.Context) {
 	c.JSON(http.StatusOK, v)
 }
 
+// archive 归档版本。
+//
+//	@Summary		归档版本
+//	@Description	将版本从 active/released 切换到 archived
+//	@Tags			version
+//	@Produce		json
+//	@Param			version_id	path		int	true	"版本 ID"
+//	@Success		200			{object}	Version
+//	@Router			/versions/{version_id}/archive [post]
 func (h *Handler) archive(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	versionID := int64Param(c, "version_id")
@@ -282,6 +327,14 @@ func (h *Handler) archive(c *gin.Context) {
 
 // --- 进度 / 质量 / 报告 ---
 
+// progress 获取版本进度。
+//
+//	@Summary		版本进度
+//	@Tags			version
+//	@Produce		json
+//	@Param			version_id	path	int	true	"版本 ID"
+//	@Success		200			{object}	interface{}
+//	@Router			/versions/{version_id}/progress [get]
 func (h *Handler) progress(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	versionID := int64Param(c, "version_id")
@@ -294,6 +347,14 @@ func (h *Handler) progress(c *gin.Context) {
 	c.JSON(http.StatusOK, p)
 }
 
+// quality 获取版本质量指标。
+//
+//	@Summary		版本质量指标
+//	@Tags			version
+//	@Produce		json
+//	@Param			version_id	path	int	true	"版本 ID"
+//	@Success		200			{object}	interface{}
+//	@Router			/versions/{version_id}/quality [get]
 func (h *Handler) quality(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	versionID := int64Param(c, "version_id")
@@ -305,6 +366,14 @@ func (h *Handler) quality(c *gin.Context) {
 	c.JSON(http.StatusOK, v.Quality)
 }
 
+// deliveryReport 获取版本交付报告。
+//
+//	@Summary		交付报告
+//	@Tags			version
+//	@Produce		json
+//	@Param			version_id	path	int	true	"版本 ID"
+//	@Success		200			{object}	interface{}
+//	@Router			/versions/{version_id}/delivery-report [get]
 func (h *Handler) deliveryReport(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	versionID := int64Param(c, "version_id")
@@ -316,6 +385,14 @@ func (h *Handler) deliveryReport(c *gin.Context) {
 	c.JSON(http.StatusOK, v.DeliveryReport)
 }
 
+// releaseNotes 获取版本发布说明。
+//
+//	@Summary		发布说明
+//	@Tags			version
+//	@Produce		json
+//	@Param			version_id	path	int	true	"版本 ID"
+//	@Success		200			{object}	map[string]any
+//	@Router			/versions/{version_id}/release-notes [get]
 func (h *Handler) releaseNotes(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	versionID := int64Param(c, "version_id")
@@ -327,6 +404,14 @@ func (h *Handler) releaseNotes(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"version_id": v.ID, "release_notes": v.ReleaseNotes})
 }
 
+// regenerateNotes 重新生成版本发布说明。
+//
+//	@Summary		重新生成发布说明
+//	@Tags			version
+//	@Produce		json
+//	@Param			version_id	path	int	true	"版本 ID"
+//	@Success		200			{object}	map[string]any
+//	@Router			/versions/{version_id}/release-notes/regenerate [post]
 func (h *Handler) regenerateNotes(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	versionID := int64Param(c, "version_id")
@@ -348,6 +433,14 @@ func (h *Handler) regenerateNotes(c *gin.Context) {
 
 // --- 缺陷面板 / 跨版本过滤 ---
 
+// defectPanel 获取版本缺陷面板。
+//
+//	@Summary		版本缺陷面板
+//	@Tags			version
+//	@Produce		json
+//	@Param			version_id	path	int	true	"版本 ID"
+//	@Success		200			{object}	map[string]any
+//	@Router			/versions/{version_id}/defects [get]
 func (h *Handler) defectPanel(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	versionID := int64Param(c, "version_id")
@@ -360,6 +453,17 @@ func (h *Handler) defectPanel(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"results": views, "total": total})
 }
 
+// filterDefects 跨版本缺陷过滤。
+//
+//	@Summary		跨版本缺陷过滤
+//	@Tags			version
+//	@Produce		json
+//	@Param			found_version_id	query	int		false	"发现版本 ID"
+//	@Param			fix_version_id		query	int		false	"修复版本 ID"
+//	@Param			state_group			query	string	false	"状态分组"
+//	@Param			severity			query	int		false	"严重级别"
+//	@Success		200					{object}	map[string]any
+//	@Router			/versions/defects [get]
 func (h *Handler) filterDefects(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	projectID := c.GetInt64(middleware.CtxProjectID)
@@ -399,6 +503,14 @@ func (h *Handler) filterDefects(c *gin.Context) {
 
 // --- 迭代聚合 ---
 
+// listSprints 获取版本关联的迭代列表。
+//
+//	@Summary		版本关联迭代
+//	@Tags			version
+//	@Produce		json
+//	@Param			version_id	path	int	true	"版本 ID"
+//	@Success		200			{object}	map[string]any
+//	@Router			/versions/{version_id}/sprints [get]
 func (h *Handler) listSprints(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	versionID := int64Param(c, "version_id")
@@ -411,6 +523,15 @@ func (h *Handler) listSprints(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"results": v.Sprints})
 }
 
+// addSprint 将迭代加入版本。
+//
+//	@Summary		关联迭代
+//	@Tags			version
+//	@Accept			json
+//	@Param			version_id	path		int				true	"版本 ID"
+//	@Param			body		body		addSprintRequest	true	"迭代信息"
+//	@Success		204
+//	@Router			/versions/{version_id}/sprints [post]
 func (h *Handler) addSprint(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	versionID := int64Param(c, "version_id")
@@ -433,6 +554,14 @@ func (h *Handler) addSprint(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
+// removeSprint 从版本移除迭代。
+//
+//	@Summary		移除迭代关联
+//	@Tags			version
+//	@Param			version_id	path	int	true	"版本 ID"
+//	@Param			sprint_id	path	int	true	"迭代 ID"
+//	@Success		204
+//	@Router			/versions/{version_id}/sprints/{sprint_id} [delete]
 func (h *Handler) removeSprint(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	versionID := int64Param(c, "version_id")

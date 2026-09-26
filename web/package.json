@@ -17,7 +17,11 @@
     "e2e": "playwright test",
     "e2e:headed": "playwright test --headed",
     "storybook": "storybook dev -p 6006",
-    "build-storybook": "storybook build"
+    "build-storybook": "storybook build",
+    "gen:types": "orval --config orval.config.ts",
+    "gen:types:fallback": "openapi-typescript ../docs/swagger/swagger.yaml -o src/types/api.generated.ts --path-params-as-hash-map false",
+    "gen": "pnpm gen:types && pnpm format",
+    "swagger:coverage": "echo 'Paths:' && grep -c '^  /api/' ../docs/swagger/swagger.yaml 2>/dev/null || echo 'regenerate swagger.yaml first'"
   },
   "dependencies": {
     "@lucide/vue": "^1.48.0",
@@ -65,6 +69,7 @@
     "eslint": "^9.13.0",
     "eslint-plugin-vue": "^9.29.0",
     "happy-dom": "^15.11.0",
+    "orval": "^7.8.0",
     "prettier": "^3.3.3",
     "tailwindcss": "^4.3.3",
     "typescript": "~5.6.3",

@@ -208,8 +208,14 @@ func (h *Handler) Update(c *gin.Context) {
 	c.JSON(http.StatusOK, w)
 }
 
-// Delete godoc
-//   - DELETE .../webhooks/:webhook_id
+// Delete 删除 Webhook 订阅。
+//
+//	@Summary		删除 Webhook
+//	@Description	删除指定 Webhook 订阅
+//	@Tags			webhook
+//	@Param			webhook_id	path	int	true	"Webhook ID"
+//	@Success		200
+//	@Router			/webhooks/{webhook_id} [delete]
 func (h *Handler) Delete(c *gin.Context) {
 	wsID := c.GetInt64("workspace_id")
 	webhookID := c.GetInt64("webhook_id")
@@ -221,8 +227,19 @@ func (h *Handler) Delete(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
-// ListLogs godoc
-//   - GET .../webhooks/:webhook_id/logs?status=&event_type=&limit=&offset=
+// ListLogs 列出 Webhook 投递日志。
+//
+//	@Summary		列出投递日志
+//	@Description	分页查询指定 Webhook 的投递日志，支持状态/事件类型过滤
+//	@Tags			webhook
+//	@Produce		json
+//	@Param			webhook_id	path		int		true	"Webhook ID"
+//	@Param			status			query		string	false	"投递状态"
+//	@Param			event_type		query		string	false	"事件类型"
+//	@Param			limit			query		int		false	"每页数"
+//	@Param			offset			query		int		false	"偏移"
+//	@Success		200				{object}	map[string]any
+//	@Router			/webhooks/{webhook_id}/logs [get]
 func (h *Handler) ListLogs(c *gin.Context) {
 	wsID := c.GetInt64("workspace_id")
 	webhookID := c.GetInt64("webhook_id")
@@ -255,8 +272,14 @@ func (h *Handler) ListLogs(c *gin.Context) {
 	})
 }
 
-// TestPing godoc
-//   - POST .../webhooks/:webhook_id/test
+// TestPing 发送测试事件到 Webhook。
+//
+//	@Summary		测试投递
+//	@Description	向 Webhook 目标 URL 发送一条测试事件（ping）
+//	@Tags			webhook
+//	@Param			webhook_id	path	int	true	"Webhook ID"
+//	@Success		200			{object}	map[string]any
+//	@Router			/webhooks/{webhook_id}/test [post]
 func (h *Handler) TestPing(c *gin.Context) {
 	wsID := c.GetInt64("workspace_id")
 	webhookID := c.GetInt64("webhook_id")
@@ -280,11 +303,15 @@ func (h *Handler) TestPing(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"ok": true, "message": "测试事件已投递"})
 }
 
-// Retry godoc
-//   - POST .../webhooks/:webhook_id/logs/:log_id/retry
+// Retry 手动重投指定投递日志。
 //
-// 手动重投指定投递日志：回查 domain_events 重建原始事件并同步重投
-// （签名 / SSRF / 日志全套复用初始投递链路）。
+//	@Summary		重投日志
+//	@Description	手动重投指定投递日志（回查 domain_events 重建原始事件并同步重投）
+//	@Tags			webhook
+//	@Param			webhook_id	path	int	true	"Webhook ID"
+//	@Param			log_id		path	int	true	"日志 ID"
+//	@Success		200			{object}	map[string]any
+//	@Router			/webhooks/{webhook_id}/logs/{log_id}/retry [post]
 func (h *Handler) Retry(c *gin.Context) {
 	wsID := c.GetInt64("workspace_id")
 	webhookID := c.GetInt64("webhook_id")
@@ -302,10 +329,15 @@ func (h *Handler) Retry(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"ok": true, "message": "重投成功"})
 }
 
-// Pause godoc
-//   - POST .../webhooks/:webhook_id/pause
+// Pause 暂停 Webhook 投递。
 //
-// 暂停投递：等价于 PATCH { is_active: false }。返回更新后的 Webhook。
+//	@Summary		暂停投递
+//	@Description	暂停 Webhook 投递（等价于 PATCH { is_active: false }）
+//	@Tags			webhook
+//	@Produce		json
+//	@Param			webhook_id	path		int	true	"Webhook ID"
+//	@Success		200			{object}	Webhook
+//	@Router			/webhooks/{webhook_id}/pause [post]
 func (h *Handler) Pause(c *gin.Context) {
 	wsID := c.GetInt64("workspace_id")
 	webhookID := c.GetInt64("webhook_id")
@@ -319,10 +351,15 @@ func (h *Handler) Pause(c *gin.Context) {
 	c.JSON(http.StatusOK, w)
 }
 
-// Resume godoc
-//   - POST .../webhooks/:webhook_id/resume
+// Resume 恢复 Webhook 投递。
 //
-// 恢复投递：等价于 PATCH { is_active: true }。返回更新后的 Webhook。
+//	@Summary		恢复投递
+//	@Description	恢复 Webhook 投递（等价于 PATCH { is_active: true }）
+//	@Tags			webhook
+//	@Produce		json
+//	@Param			webhook_id	path		int	true	"Webhook ID"
+//	@Success		200			{object}	Webhook
+//	@Router			/webhooks/{webhook_id}/resume [post]
 func (h *Handler) Resume(c *gin.Context) {
 	wsID := c.GetInt64("workspace_id")
 	webhookID := c.GetInt64("webhook_id")

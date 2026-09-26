@@ -276,6 +276,16 @@ func (h *Handler) listIssueAttachments(c *gin.Context) {
 }
 
 // confirmUpload POST /attachments/confirm — 客户端 PUT 成功后提交，写入 DB 记录。
+//
+//	@Summary		确认附件上传
+//	@Description	客户端直传成功后提交元信息，写入附件 DB 记录
+//	@Tags			attachment
+//	@Accept			json
+//	@Produce		json
+//	@Param			body	body		confirmUploadBody	true	"附件信息"
+//	@Success		201		{object}	ConfirmUploadResult
+//	@Failure		422		{object}	errs.AppError
+//	@Router			/attachments/confirm [post]
 func (h *Handler) confirmUpload(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	projectID := c.GetInt64(middleware.CtxProjectID)
@@ -347,6 +357,14 @@ func (h *Handler) confirmUpload(c *gin.Context) {
 }
 
 // deleteAttachment DELETE /attachments/:id?entity_type=task
+//
+//	@Summary		删除附件
+//	@Description	按附件 ID 删除附件记录及其底层存储对象
+//	@Tags			attachment
+//	@Param			id			path	int		true	"附件 ID"
+//	@Param			entity_type	query	string	true	"工作项类型 (task/requirement/defect)"
+//	@Success		204
+//	@Router			/attachments/{id} [delete]
 func (h *Handler) deleteAttachment(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	projectID := c.GetInt64(middleware.CtxProjectID)

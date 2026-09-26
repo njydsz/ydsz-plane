@@ -157,7 +157,7 @@ func (p *Pool) WithTenant(ctx context.Context, tenantID int64, fn func(conn *pgx
 	if _, err := conn.Exec(ctx, "SELECT set_config('app.workspace_id', $1, true)", tenantID); err != nil {
 		return fmt.Errorf("persistence: set workspace: %w", err)
 	}
-	return fn(conn)
+	return fn(conn.Conn())
 }
 
 // Ping 委托给底层连接池（供 /readyz 探活使用）。

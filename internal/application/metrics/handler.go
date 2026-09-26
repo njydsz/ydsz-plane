@@ -75,6 +75,13 @@ func (h *MetricsHandler) GetVelocity(c *gin.Context) {
 }
 
 // GetVelocityTrend 查询迭代速率趋势（与 GetVelocity 相同渲染，仅作为独立 API 端点便于前端卡片绑定）。
+//
+//	@Summary		迭代速率趋势
+//	@Tags			metrics
+//	@Produce		json
+//	@Param			last_n	query	int	false	"迭代数（默认 6，最大 20）"
+//	@Success		200		{object}	VelocityResult
+//	@Router			/metrics/velocity/trend [get]
 func (h *MetricsHandler) GetVelocityTrend(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	projectID := c.GetInt64(middleware.CtxProjectID)

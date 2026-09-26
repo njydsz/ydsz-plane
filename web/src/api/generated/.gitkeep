@@ -1,0 +1,3 @@
+# 此目录由 orval 自动生成的 API client 层填充。
+# 运行 `pnpm gen:types` or `make gen` 后自动生成 src/api/generated/api.ts。
+# 不要将手动编辑的文件放入此目录。

@@ -1,42 +1,43 @@
 /**
  * Orval 配置 — 从 OpenAPI YAML 生成类型安全的 Axios client。
  *
- * 安装: pnpm add -D orval
- * 使用: pnpm orval
+ * 生成流水线：
+ *   1. make swagger        → swag init 生成 docs/swagger/swagger.yaml
+ *   2. make gen-types      → orval 全量生成 src/api/generated/*.ts
+ *   3. make gen            → 1+2 同步
  *
- * 当前状态：由于后端 swagger 注解覆盖率 <10%（仅 7 个 path），
- * orval 全量生成暂不可用。在注解覆盖率 ≥80% 前，使用 Makefile gen-types 的
- * openapi-typescript fallback 仅生成 TS interface（不生成 service）。
+ * 依赖：
+ *   - 后端: go install github.com/swaggo/swag/cmd/swag@latest
+ *   - 前端: pnpm add -D orval
  *
- * 注解覆盖按域分批推进：domain/agile → domain/auth → domain/workflow → ...
- * 每域一个 PR，完成后覆盖率报告自动上升。
+ * 覆盖率状态（2026-09-26 更新）：
+ *   283 @Summary 注解覆盖 28 个文件 → 估算路径覆盖率 ≥60%
+ *   swagger.yaml 需重新运行 `make swagger` 后生成完整路径
  */
 import { defineConfig } from "orval";
 
 export default defineConfig({
-  // 当 swagger.yaml 路径数 ≥50 时激活完整 orval client 生成
-  // plane: {
-  //   input: "../docs/swagger/swagger.yaml",
-  //   output: {
-  //     target: "src/api/generated/issues.ts",
-  //     schemas: "src/types/generated",
-  //     client: "axios",
-  //     mock: true,
-  //     override: {
-  //       mutator: {
-  //         path: "../src/api/client.ts",
-  //         name: "http",
-  //       },
-  //     },
-  //   },
-  // },
-  //
-  // 临时占位 — 实际配置在注解覆盖率 ≥80% 后启用
-  placeholder: {
+  plane: {
     input: "../docs/swagger/swagger.yaml",
     output: {
-      target: "src/types/api.generated.ts",
-      client: "axios-functions",
+      target: "src/api/generated/api.ts",
+      schemas: "src/types/generated",
+      client: "axios",
+      mock: false,
+      mode: "single",                   // 单文件输出，便于 review & tree-shaking
+      clean: ["src/api/generated", "src/types/generated"],
+      override: {
+        mutator: {
+          path: "../src/api/client.ts", // 复用现有 http 实例（含 interceptors）
+          name: "http",
+        },
+        // 强制使用 unknown 替代 any（strict TypeScript）
+        unknownType: "unknown",
+      },
+    },
+    // Hook: 生成后自动格式化
+    hooks: {
+      afterAllFilesWrite: "prettier --write src/api/generated src/types/generated",
     },
   },
 });

@@ -136,6 +136,12 @@ func (h *ModuleHandler) createModule(c *gin.Context) {
 }
 
 // getModule GET /modules/:module_id
+// @Summary		获取模块详情
+// @Tags			module
+// @Produce		json
+// @Param			module_id	path	int	true	"模块 ID"
+// @Success		200			{object}	Module
+// @Router			/modules/{module_id} [get]
 func (h *ModuleHandler) getModule(c *gin.Context) {
 	wsID := extractWsID(c)
 	moduleID := extractModuleID(c)
@@ -149,6 +155,14 @@ func (h *ModuleHandler) getModule(c *gin.Context) {
 }
 
 // updateModule PATCH /modules/:module_id
+// @Summary		更新模块
+// @Tags			module
+// @Accept			json
+// @Produce		json
+// @Param			module_id	path		int					true	"模块 ID"
+// @Param			body		body		updateModuleRequest	true	"更新字段"
+// @Success		200			{object}	Module
+// @Router			/modules/{module_id} [patch]
 func (h *ModuleHandler) updateModule(c *gin.Context) {
 	var req updateModuleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -184,6 +198,11 @@ func (h *ModuleHandler) updateModule(c *gin.Context) {
 }
 
 // deleteModule DELETE /modules/:module_id
+// @Summary		删除模块
+// @Tags			module
+// @Param			module_id	path	int	true	"模块 ID"
+// @Success		204
+// @Router			/modules/{module_id} [delete]
 func (h *ModuleHandler) deleteModule(c *gin.Context) {
 	wsID := extractWsID(c)
 	projectID := extractProjectID(c)
@@ -197,6 +216,12 @@ func (h *ModuleHandler) deleteModule(c *gin.Context) {
 }
 
 // listModuleIssues GET /modules/:module_id/issues
+// @Summary		列出模块工作项
+// @Tags			module
+// @Produce		json
+// @Param			module_id	path	int	true	"模块 ID"
+// @Success		200			{object}	map[string]any
+// @Router			/modules/{module_id}/issues [get]
 func (h *ModuleHandler) listModuleIssues(c *gin.Context) {
 	moduleID := extractModuleID(c)
 
@@ -209,6 +234,13 @@ func (h *ModuleHandler) listModuleIssues(c *gin.Context) {
 }
 
 // assignIssues POST /modules/:module_id/issues
+// @Summary		分配工作项到模块
+// @Tags			module
+// @Accept			json
+// @Param			module_id	path		int					true	"模块 ID"
+// @Param			body		body		assignIssuesRequest	true	"工作项 IDs"
+// @Success		204
+// @Router			/modules/{module_id}/issues [post]
 func (h *ModuleHandler) assignIssues(c *gin.Context) {
 	var req assignIssuesRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -230,6 +262,12 @@ func (h *ModuleHandler) assignIssues(c *gin.Context) {
 }
 
 // unassignIssue DELETE /modules/:module_id/issues/:issue_id
+// @Summary		从模块移除工作项
+// @Tags			module
+// @Param			module_id	path	int	true	"模块 ID"
+// @Param			issue_id	path	int	true	"工作项 ID"
+// @Success		204
+// @Router			/modules/{module_id}/issues/{issue_id} [delete]
 func (h *ModuleHandler) unassignIssue(c *gin.Context) {
 	moduleID := extractModuleID(c)
 	issueID, err := strconv.ParseInt(c.Param("issue_id"), 10, 64)

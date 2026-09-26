@@ -1128,6 +1128,15 @@ func patchMe(d *Deps) gin.HandlerFunc {
 
 // forgotPassword 发起密码重置请求：校验通过后向邮箱发送重置链接，
 // 无论邮箱是否存在都返回 202 以避免用户枚举。
+//
+//	@Summary		请求密码重置
+//	@Description	发起密码重置请求，向邮箱发送重置链接（无论邮箱是否存在都返回 202）
+//	@Tags			auth
+//	@Accept			json
+//	@Produce		json
+//	@Param			body	body		forgotPasswordRequest	true	"邮箱"
+//	@Success		202		{object}	map[string]string
+//	@Router			/auth/forgot-password [post]
 func forgotPassword(d *Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req forgotPasswordRequest
@@ -1142,6 +1151,16 @@ func forgotPassword(d *Deps) gin.HandlerFunc {
 }
 
 // resetPassword 使用重置令牌设置新密码，成功后返回 204。
+//
+//	@Summary		重置密码
+//	@Description	使用重置令牌设置新密码
+//	@Tags			auth
+//	@Accept			json
+//	@Produce		json
+//	@Param			body	body		resetPasswordRequest	true	"新密码"
+//	@Success		204
+//	@Failure		422	{object}	errs.AppError
+//	@Router			/auth/reset-password [post]
 func resetPassword(d *Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req resetPasswordRequest

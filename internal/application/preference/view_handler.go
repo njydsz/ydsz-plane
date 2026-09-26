@@ -39,7 +39,13 @@ func (h *ViewHandler) Register(r *gin.RouterGroup) {
 
 // listViews 列出当前项目下的视图。
 //
-// Query: scope=personal|team|default（默认 team，列出所有可用视图）。
+//	@Summary		列出视图
+//	@Description	按作用域（personal/team/default）列出项目下的命名视图
+//	@Tags			preference
+//	@Produce		json
+//	@Param			scope	query	string	false	"视图作用域 (personal|team|default)"	default(team)
+//	@Success		200		{array}		SavedView
+//	@Router			/views [get]
 func (h *ViewHandler) listViews(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	projectID := c.GetInt64(middleware.CtxProjectID)
@@ -58,6 +64,15 @@ func (h *ViewHandler) listViews(c *gin.Context) {
 }
 
 // createView 创建新视图。
+//
+//	@Summary		创建视图
+//	@Description	在当前项目下创建新的命名视图
+//	@Tags			preference
+//	@Accept			json
+//	@Produce		json
+//	@Param			body	body		CreateViewInput	true	"视图信息"
+//	@Success		201		{object}	SavedView
+//	@Router			/views [post]
 func (h *ViewHandler) createView(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	projectID := c.GetInt64(middleware.CtxProjectID)
@@ -78,6 +93,13 @@ func (h *ViewHandler) createView(c *gin.Context) {
 }
 
 // getView 获取视图详情。
+//
+//	@Summary		获取视图详情
+//	@Tags			preference
+//	@Produce		json
+//	@Param			view_id	path	int	true	"视图 ID"
+//	@Success		200		{object}	SavedView
+//	@Router			/views/{view_id} [get]
 func (h *ViewHandler) getView(c *gin.Context) {
 	viewID, err := parseViewID(c)
 	if err != nil {
@@ -93,6 +115,15 @@ func (h *ViewHandler) getView(c *gin.Context) {
 }
 
 // updateView 更新视图（仅 owner）。
+//
+//	@Summary		更新视图
+//	@Description	部分更新视图字段（仅 owner 可操作）
+//	@Tags			preference
+//	@Accept			json
+//	@Produce		json
+//	@Param			view_id	path	int	true	"视图 ID"
+//	@Success		200		{object}	SavedView
+//	@Router			/views/{view_id} [patch]
 func (h *ViewHandler) updateView(c *gin.Context) {
 	viewID, err := parseViewID(c)
 	if err != nil {
@@ -145,6 +176,13 @@ func (h *ViewHandler) updateView(c *gin.Context) {
 }
 
 // deleteView 删除视图（仅 owner）。
+//
+//	@Summary		删除视图
+//	@Description	删除指定视图（仅 owner 可操作）
+//	@Tags			preference
+//	@Param			view_id	path	int	true	"视图 ID"
+//	@Success		204
+//	@Router			/views/{view_id} [delete]
 func (h *ViewHandler) deleteView(c *gin.Context) {
 	viewID, err := parseViewID(c)
 	if err != nil {
@@ -160,6 +198,13 @@ func (h *ViewHandler) deleteView(c *gin.Context) {
 }
 
 // setDefaultView 设置团队默认视图（管理员操作）。
+//
+//	@Summary		设置默认视图
+//	@Description	将指定视图设为项目团队默认视图（管理员操作）
+//	@Tags			preference
+//	@Param			view_id	path	int	true	"视图 ID"
+//	@Success		200
+//	@Router			/views/{view_id}/default [post]
 func (h *ViewHandler) setDefaultView(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	projectID := c.GetInt64(middleware.CtxProjectID)

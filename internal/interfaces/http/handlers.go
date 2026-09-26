@@ -25,6 +25,13 @@ import (
 // ==================================================================
 
 // getWorkspaceBySlug 根据 URL 中的 slug 查询工作空间，并附带当前用户的角色。
+//
+//	@Summary		按 Slug 查找工作空间
+//	@Tags			workspace
+//	@Produce		json
+//	@Param			slug	path	string	true	"工作空间 Slug"
+//	@Success		200		{object}	workspace.Workspace
+//	@Router			/workspaces/slug/{slug} [get]
 func getWorkspaceBySlug(d *Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		slug := c.Param("slug")
@@ -42,6 +49,12 @@ func getWorkspaceBySlug(d *Deps) gin.HandlerFunc {
 }
 
 // listWorkspaces 返回当前用户参与的所有工作空间。
+//
+//	@Summary		列出工作空间
+//	@Tags			workspace
+//	@Produce		json
+//	@Success		200	{object}	[]workspace.Workspace
+//	@Router			/workspaces [get]
 func listWorkspaces(d *Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		uid := c.GetInt64(middleware.CtxUserID)
@@ -55,6 +68,14 @@ func listWorkspaces(d *Deps) gin.HandlerFunc {
 }
 
 // createWorkspace 创建新工作空间，并将当前用户设为 owner，记录审计日志。
+//
+//	@Summary		创建工作空间
+//	@Tags			workspace
+//	@Accept			json
+//	@Produce		json
+//	@Param			body	body		dto.CreateWorkspaceRequest	true	"工作空间信息"
+//	@Success		201		{object}	workspace.Workspace
+//	@Router			/workspaces [post]
 func createWorkspace(d *Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req dto.CreateWorkspaceRequest
@@ -82,6 +103,12 @@ func createWorkspace(d *Deps) gin.HandlerFunc {
 // ==================================================================
 
 // getWorkspace 返回指定工作空间的详情（含当前用户角色）。
+//
+//	@Summary		获取工作空间详情
+//	@Tags			workspace
+//	@Produce		json
+//	@Success		200	{object}	workspace.Workspace
+//	@Router			/workspaces/{workspace_id} [get]
 func getWorkspace(d *Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		wsID := c.GetInt64(middleware.CtxWorkspaceID)
@@ -99,6 +126,14 @@ func getWorkspace(d *Deps) gin.HandlerFunc {
 }
 
 // updateWorkspace 更新工作空间的名称/时区/语言/Logo，并记录审计日志。
+//
+//	@Summary		更新工作空间
+//	@Tags			workspace
+//	@Accept			json
+//	@Produce		json
+//	@Param			body	body		dto.UpdateWorkspaceRequest	true	"更新字段"
+//	@Success		200		{object}	workspace.Workspace
+//	@Router			/workspaces/{workspace_id} [patch]
 func updateWorkspace(d *Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		wsID := c.GetInt64(middleware.CtxWorkspaceID)
@@ -130,10 +165,16 @@ type LogoUploadResult struct {
 	LogoURL string `json:"logo_url"`
 }
 
-// uploadLogo 处理工作空间 Logo 上传：
-// POST /api/v1/workspaces/:workspace_id/logo
-// Content-Type: multipart/form-data，字段名 "file"
-// 需要 workspace:update 权限。
+// uploadLogo 处理工作空间 Logo 上传。
+//
+//	@Summary		上传工作空间 Logo
+//	@Description	上传工作空间 Logo（multipart/form-data，字段名 "file"）
+//	@Tags			workspace
+//	@Accept			multipart/form-data
+//	@Produce		json
+//	@Param			file	formData	file	true	"Logo 文件"
+//	@Success		200		{object}	LogoUploadResult
+//	@Router			/workspaces/{workspace_id}/logo [post]
 func uploadLogo(d *Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if d.Storage == nil {
@@ -171,9 +212,12 @@ func uploadLogo(d *Deps) gin.HandlerFunc {
 	}
 }
 
-// removeLogo 清除工作空间 Logo：
-// DELETE /api/v1/workspaces/:workspace_id/logo
-// 需要 workspace:update 权限。
+// removeLogo 清除工作空间 Logo。
+//
+//	@Summary		移除工作空间 Logo
+//	@Tags			workspace
+//	@Success		204
+//	@Router			/workspaces/{workspace_id}/logo [delete]
 func removeLogo(d *Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		wsID := c.GetInt64(middleware.CtxWorkspaceID)
@@ -188,6 +232,11 @@ func removeLogo(d *Deps) gin.HandlerFunc {
 }
 
 // archiveWorkspace 归档指定工作空间（软删除），返回 204。
+//
+//	@Summary		归档工作空间
+//	@Tags			workspace
+//	@Success		204
+//	@Router			/workspaces/{workspace_id} [delete]
 func archiveWorkspace(d *Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		wsID := c.GetInt64(middleware.CtxWorkspaceID)
@@ -205,6 +254,12 @@ func archiveWorkspace(d *Deps) gin.HandlerFunc {
 // ==================================================================
 
 // listMembers 返回工作空间的所有成员列表。
+//
+//	@Summary		列出成员
+//	@Tags			workspace
+//	@Produce		json
+//	@Success		200	{object}	[]interface{}
+//	@Router			/workspaces/{workspace_id}/members [get]
 func listMembers(d *Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		wsID := c.GetInt64(middleware.CtxWorkspaceID)
@@ -218,6 +273,14 @@ func listMembers(d *Deps) gin.HandlerFunc {
 }
 
 // changeMemberRole 调整指定成员角色；禁止修改自己的角色。
+//
+//	@Summary		修改成员角色
+//	@Tags			workspace
+//	@Accept			json
+//	@Param			user_id	path		int						true	"用户 ID"
+//	@Param			body	body		dto.ChangeRoleRequest	true	"角色信息"
+//	@Success		204
+//	@Router			/workspaces/{workspace_id}/members/{user_id} [patch]
 func changeMemberRole(d *Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		wsID := c.GetInt64(middleware.CtxWorkspaceID)
@@ -245,6 +308,12 @@ func changeMemberRole(d *Deps) gin.HandlerFunc {
 }
 
 // removeMember 从工作空间移除指定成员；禁止移除自己。
+//
+//	@Summary		移除成员
+//	@Tags			workspace
+//	@Param			user_id	path	int	true	"用户 ID"
+//	@Success		204
+//	@Router			/workspaces/{workspace_id}/members/{user_id} [delete]
 func removeMember(d *Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		wsID := c.GetInt64(middleware.CtxWorkspaceID)
@@ -269,6 +338,14 @@ func removeMember(d *Deps) gin.HandlerFunc {
 // ==================================================================
 
 // sendInvitation 向指定邮箱发送工作空间邀请，并记录审计日志。
+//
+//	@Summary		发送邀请
+//	@Tags			workspace
+//	@Accept			json
+//	@Produce		json
+//	@Param			body	body		dto.SendInvitationRequest	true	"邀请信息"
+//	@Success		201		{object}	workspace.Invitation
+//	@Router			/workspaces/{workspace_id}/invitations [post]
 func sendInvitation(d *Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		wsID := c.GetInt64(middleware.CtxWorkspaceID)
@@ -296,6 +373,13 @@ func sendInvitation(d *Deps) gin.HandlerFunc {
 }
 
 // listInvitations 按可选状态过滤返回工作空间的邀请列表。
+//
+//	@Summary		邀请列表
+//	@Tags			workspace
+//	@Produce		json
+//	@Param			status	query	string	false	"状态过滤"
+//	@Success		200		{object}	[]interface{}
+//	@Router			/workspaces/{workspace_id}/invitations [get]
 func listInvitations(d *Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		wsID := c.GetInt64(middleware.CtxWorkspaceID)
@@ -310,6 +394,12 @@ func listInvitations(d *Deps) gin.HandlerFunc {
 }
 
 // revokeInvitation 撤销一条未使用的邀请，返回 204。
+//
+//	@Summary		撤销邀请
+//	@Tags			workspace
+//	@Param			invitation_id	path	int	true	"邀请 ID"
+//	@Success		204
+//	@Router			/workspaces/{workspace_id}/invitations/{invitation_id} [delete]
 func revokeInvitation(d *Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		wsID := c.GetInt64(middleware.CtxWorkspaceID)
@@ -324,6 +414,14 @@ func revokeInvitation(d *Deps) gin.HandlerFunc {
 }
 
 // acceptInvitation 使用邀请令牌接受工作空间邀请，加入对应工作空间。
+//
+//	@Summary		接受邀请
+//	@Tags			auth
+//	@Accept			json
+//	@Produce		json
+//	@Param			body	body		dto.AcceptInvitationRequest	true	"邀请令牌"
+//	@Success		200		{object}	workspace.Invitation
+//	@Router			/invitations/accept [post]
 func acceptInvitation(d *Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req dto.AcceptInvitationRequest
@@ -341,6 +439,13 @@ func acceptInvitation(d *Deps) gin.HandlerFunc {
 }
 
 // getInvitationPreview 根据邀请令牌返回邀请预览信息（不校验登录）。
+//
+//	@Summary		邀请预览
+//	@Tags			auth
+//	@Produce		json
+//	@Param			token	path	string	true	"邀请令牌"
+//	@Success		200		{object}	interface{}
+//	@Router			/invitations/{token} [get]
 func getInvitationPreview(d *Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		token := c.Param("token")
@@ -358,6 +463,12 @@ func getInvitationPreview(d *Deps) gin.HandlerFunc {
 // ==================================================================
 
 // listProjects 返回指定工作空间下的所有项目列表。
+//
+//	@Summary		列出项目
+//	@Tags			workspace
+//	@Produce		json
+//	@Success		200	{object}	[]interface{}
+//	@Router			/workspaces/{workspace_id}/projects [get]
 func listProjects(d *Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		wsID := c.GetInt64(middleware.CtxWorkspaceID)
@@ -419,6 +530,14 @@ func modulesDTOToUpdateDomain(m *struct {
 }
 
 // createProject 在工作空间下创建项目并初始化状态模板，记录审计日志。
+//
+//	@Summary		创建项目
+//	@Tags			workspace
+//	@Accept			json
+//	@Produce		json
+//	@Param			body	body		dto.CreateProjectRequest	true	"项目信息"
+//	@Success		201		{object}	workspace.Project
+//	@Router			/workspaces/{workspace_id}/projects [post]
 func createProject(d *Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		wsID := c.GetInt64(middleware.CtxWorkspaceID)
@@ -478,6 +597,12 @@ func createProject(d *Deps) gin.HandlerFunc {
 }
 
 // listProjectTemplates 返回预置项目模板列表（供前端模板选择器）。
+//
+//	@Summary		项目模板列表
+//	@Tags			workspace
+//	@Produce		json
+//	@Success		200	{object}	[]interface{}
+//	@Router			/workspaces/{workspace_id}/templates [get]
 func listProjectTemplates(d *Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		tpls := d.TemplateSvc.ListTemplates()
@@ -486,6 +611,13 @@ func listProjectTemplates(d *Deps) gin.HandlerFunc {
 }
 
 // getProject 返回指定项目的详情。
+//
+//	@Summary		获取项目详情
+//	@Tags			workspace
+//	@Produce		json
+//	@Param			project_id	path	int	true	"项目 ID"
+//	@Success		200			{object}	workspace.Project
+//	@Router			/workspaces/{workspace_id}/projects/{project_id} [get]
 func getProject(d *Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		wsID := c.GetInt64(middleware.CtxWorkspaceID)
@@ -500,6 +632,15 @@ func getProject(d *Deps) gin.HandlerFunc {
 }
 
 // updateProject 更新项目名称/描述/网络/图标/颜色/模块开关等信息。
+//
+//	@Summary		更新项目
+//	@Tags			workspace
+//	@Accept			json
+//	@Produce		json
+//	@Param			project_id	path		int						true	"项目 ID"
+//	@Param			body		body		dto.UpdateProjectRequest	true	"更新字段"
+//	@Success		200			{object}	workspace.Project
+//	@Router			/workspaces/{workspace_id}/projects/{project_id} [patch]
 func updateProject(d *Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		wsID := c.GetInt64(middleware.CtxWorkspaceID)
@@ -532,6 +673,13 @@ func updateProject(d *Deps) gin.HandlerFunc {
 // ==================================================================
 
 // listProjectMembers 返回指定项目内的所有成员列表。
+//
+//	@Summary		列出项目成员
+//	@Tags			workspace
+//	@Produce		json
+//	@Param			project_id	path	int	true	"项目 ID"
+//	@Success		200			{object}	[]interface{}
+//	@Router			/workspaces/{workspace_id}/projects/{project_id}/members [get]
 func listProjectMembers(d *Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		wsID := c.GetInt64(middleware.CtxWorkspaceID)
@@ -552,6 +700,15 @@ func listProjectMembers(d *Deps) gin.HandlerFunc {
 }
 
 // addProjectMember 将工作空间成员加入项目。
+//
+//	@Summary		添加项目成员
+//	@Tags			workspace
+//	@Accept			json
+//	@Produce		json
+//	@Param			project_id	path		int							true	"项目 ID"
+//	@Param			body		body		dto.AddProjectMemberRequest	true	"成员信息"
+//	@Success		201
+//	@Router			/workspaces/{workspace_id}/projects/{project_id}/members [post]
 func addProjectMember(d *Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		wsID := c.GetInt64(middleware.CtxWorkspaceID)
@@ -580,6 +737,15 @@ func addProjectMember(d *Deps) gin.HandlerFunc {
 }
 
 // changeProjectMemberRole 修改项目成员角色。
+//
+//	@Summary		修改项目成员角色
+//	@Tags			workspace
+//	@Accept			json
+//	@Param			project_id	path		int						true	"项目 ID"
+//	@Param			user_id		path		int						true	"用户 ID"
+//	@Param			body		body		dto.ChangeRoleRequest	true	"角色信息"
+//	@Success		204
+//	@Router			/workspaces/{workspace_id}/projects/{project_id}/members/{user_id} [patch]
 func changeProjectMemberRole(d *Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		wsID := c.GetInt64(middleware.CtxWorkspaceID)
@@ -615,6 +781,13 @@ func changeProjectMemberRole(d *Deps) gin.HandlerFunc {
 }
 
 // removeProjectMember 从项目中移除成员。
+//
+//	@Summary		移除项目成员
+//	@Tags			workspace
+//	@Param			project_id	path	int	true	"项目 ID"
+//	@Param			user_id		path	int	true	"用户 ID"
+//	@Success		204
+//	@Router			/workspaces/{workspace_id}/projects/{project_id}/members/{user_id} [delete]
 func removeProjectMember(d *Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		wsID := c.GetInt64(middleware.CtxWorkspaceID)
@@ -638,6 +811,12 @@ func removeProjectMember(d *Deps) gin.HandlerFunc {
 }
 
 // archiveProject 归档指定项目，返回 204 并记录审计日志。
+//
+//	@Summary		归档项目
+//	@Tags			workspace
+//	@Param			project_id	path	int	true	"项目 ID"
+//	@Success		204
+//	@Router			/workspaces/{workspace_id}/projects/{project_id} [delete]
 func archiveProject(d *Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		wsID := c.GetInt64(middleware.CtxWorkspaceID)
@@ -657,6 +836,13 @@ func archiveProject(d *Deps) gin.HandlerFunc {
 
 // listAuditLogs 返回工作空间的审计日志（默认 50 条，最多 200 条），
 // 仅 owner/admin 可访问。
+//
+//	@Summary		审计日志
+//	@Tags			workspace
+//	@Produce		json
+//	@Param			limit	query	int	false	"每页数 (默认 50, 最大 200)"
+//	@Success		200		{object}	[]interface{}
+//	@Router			/workspaces/{workspace_id}/audit-logs [get]
 func listAuditLogs(d *Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		wsID := c.GetInt64(middleware.CtxWorkspaceID)

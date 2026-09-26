@@ -56,7 +56,19 @@ func (h *Handler) RegisterRoutes(r *gin.RouterGroup) {
 	}
 }
 
-// List GET /api/v1/notifications
+// List 获取当前用户的通知列表。
+//
+//	@Summary		通知列表
+//	@Description	分页获取当前工作空间内当前用户的通知，支持已读过滤与事件类型过滤
+//	@Tags			notification
+//	@Produce		json
+//	@Param			limit		query	int		false	"每页数"	default(20)
+//	@Param			offset		query	int		false	"偏移"	default(0)
+//	@Param			is_read		query	boolean	false	"已读过滤"
+//	@Param			event_type	query	string	false	"事件类型"
+//	@Param			since		query	int		false	"起始时间戳 (毫秒)"
+//	@Success		200			{object}	map[string]any
+//	@Router			/notifications [get]
 func (h *Handler) List(c *gin.Context) {
 	wsID := c.GetInt64("workspace_id")
 	userID := c.GetInt64("user_id")
@@ -94,7 +106,13 @@ func (h *Handler) List(c *gin.Context) {
 	})
 }
 
-// UnreadCount GET /api/v1/notifications/unread-count
+// UnreadCount 获取未读通知数量。
+//
+//	@Summary		未读通知数
+//	@Tags			notification
+//	@Produce		json
+//	@Success		200	{object}	map[string]int
+//	@Router			/notifications/unread-count [get]
 func (h *Handler) UnreadCount(c *gin.Context) {
 	wsID := c.GetInt64("workspace_id")
 	userID := c.GetInt64("user_id")
@@ -107,7 +125,13 @@ func (h *Handler) UnreadCount(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"count": count})
 }
 
-// MarkRead PUT /api/v1/notifications/:id/read
+// MarkRead 标记单条通知为已读。
+//
+//	@Summary		标记已读
+//	@Tags			notification
+//	@Param			id	path	int	true	"通知 ID"
+//	@Success		200	{object]	map[string]bool
+//	@Router			/notifications/{id}/read [put]
 func (h *Handler) MarkRead(c *gin.Context) {
 	userID := c.GetInt64("user_id")
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
@@ -122,7 +146,13 @@ func (h *Handler) MarkRead(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
-// MarkAllRead PUT /api/v1/notifications/read-all
+// MarkAllRead 标记当前用户全部通知为已读。
+//
+//	@Summary		全部已读
+//	@Tags			notification
+//	@Produce		json
+//	@Success		200	{object}	map[string]any
+//	@Router			/notifications/read-all [put]
 func (h *Handler) MarkAllRead(c *gin.Context) {
 	wsID := c.GetInt64("workspace_id")
 	userID := c.GetInt64("user_id")
@@ -135,7 +165,13 @@ func (h *Handler) MarkAllRead(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"ok": true, "count": count})
 }
 
-// Archive PUT /api/v1/notifications/:id/archive
+// Archive 归档单条通知。
+//
+//	@Summary		归档通知
+//	@Tags			notification
+//	@Param			id	path	int	true	"通知 ID"
+//	@Success		200	{object}	map[string]bool
+//	@Router			/notifications/{id}/archive [put]
 func (h *Handler) Archive(c *gin.Context) {
 	userID := c.GetInt64("user_id")
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)

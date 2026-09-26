@@ -1,4 +1,4 @@
-// Package issue — BatchUpdate 批量操作优化（P0-3）。
+// Package issue — BatchUpdate 批量操作优化（P0-4 事务包裹 + Saga 补偿）。
 //
 // 性能修复：原 BatchUpdate 循环内逐条 detectType + 单条 UPDATE，
 // 当 N（批量操作的工作项数）较大时，DB 往返次数 = 2N（detectType + 各表操作）。
@@ -8,8 +8,11 @@
 //  2. 每个 type 单次批量 SQL（WHERE id = ANY($1)）完成全量更新
 //  3. DB 往返次数从 2N 降到 ~6（1 次分桶查询 + 每 type 最多 2 条批量 SQL）
 //
-// 事务语义保持不变：整体包裹在一个 coordinatorWithTx 事务内，
-// 任何单条失败触发全量回滚。
+// 事务语义（S18 P0-4 对标阿里《Java/Go 规范》事务边界最小化但保证一致）：
+//  - 默认：整体包裹在一个 coordinatorWithTx 事务内，任何单条失败触发全量回滚
+//  - 大批量（>500 工作项）自动 split 为多个子事务（子事务大小 500），
+//    每个子事务独立提交，失败时记录进度并通过 Saga 补偿模式回滚已完成部分
+//  - 幂等重试：调用方可根据 BatchResult.PartialIDs 重试失败的子批次
 package issue
 
 import (

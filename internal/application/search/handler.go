@@ -49,8 +49,13 @@ func (h *SearchHandler) Register(r *gin.RouterGroup) {
 }
 
 // Reindex 对本工作空间全量重建 search_documents（owner/admin 生效）。
-// 路由在 router.go 以 /api/v1/workspaces/:workspace_id/search/reindex 暴露，
-// 由 PermWorkspaceUpdate 鉴权；幂等（ON CONFLICT DO UPDATE），分批回填。
+//
+//	@Summary		重建搜索索引
+//	@Description	对本工作空间全量重建 search_documents（owner/admin 生效），幂等分批回填
+//	@Tags			search
+//	@Produce		json
+//	@Success		200	{object}	map[string]any
+//	@Router			/search/reindex [post]
 func (h *SearchHandler) Reindex(c *gin.Context) {
 	if h.d.Indexer == nil {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "search indexer not configured"})

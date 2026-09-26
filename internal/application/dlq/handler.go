@@ -34,8 +34,17 @@ func (h *Handler) Register(r *gin.RouterGroup) {
 	}
 }
 
-// List godoc
-//   - GET .../admin/dlq?offset=&limit=&unresolved_only=
+// List 列出死信消息（分页/过滤）。
+//
+//	@Summary		列出死信消息
+//	@Description	分页查询 DLQ 死信消息，支持按 unresolved_only 过滤
+//	@Tags			dlq
+//	@Produce		json
+//	@Param			limit			query	int		false	"每页数"
+//	@Param			offset			query	int		false	"偏移"
+//	@Param			unresolved_only	query	boolean	false	"仅未解决"
+//	@Success		200				{object}	map[string]any
+//	@Router			/admin/dlq [get]
 func (h *Handler) List(c *gin.Context) {
 	wsID := c.GetInt64("workspace_id")
 
@@ -58,8 +67,14 @@ func (h *Handler) List(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"items": items, "total": total})
 }
 
-// Retry godoc
-//   - POST .../admin/dlq/:id/retry
+// Retry 重新投递死信消息。
+//
+//	@Summary		重试死信消息
+//	@Description	将指定死信消息重新入队进行重放
+//	@Tags			dlq
+//	@Param			id	path	int	true	"死信 ID"
+//	@Success		200	{object}	map[string]any
+//	@Router			/admin/dlq/{id}/retry [post]
 func (h *Handler) Retry(c *gin.Context) {
 	wsID := c.GetInt64("workspace_id")
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
@@ -74,8 +89,14 @@ func (h *Handler) Retry(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"ok": true, "message": "已重新入队，等待出站重放"})
 }
 
-// Remove godoc
-//   - DELETE .../admin/dlq/:id
+// Remove 标记死信消息为已解决。
+//
+//	@Summary		移除死信消息
+//	@Description	将指定死信消息标记为已解决（软删除）
+//	@Tags			dlq
+//	@Param			id	path	int	true	"死信 ID"
+//	@Success		200	{object}	map[string]any
+//	@Router			/admin/dlq/{id} [delete]
 func (h *Handler) Remove(c *gin.Context) {
 	wsID := c.GetInt64("workspace_id")
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
@@ -90,8 +111,16 @@ func (h *Handler) Remove(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
-// Cleanup godoc
-//   - POST .../admin/dlq/cleanup  body: {"event_ids": [...]} | {"resolved_all": true}
+// Cleanup 批量清理死信消息。
+//
+//	@Summary		批量清理死信
+//	@Description	按 event_ids 批量标记已解决，或按 resolved_all 清理全部已解决记录
+//	@Tags			dlq
+//	@Accept			json
+//	@Produce		json
+//	@Param			body	body		cleanupBody	true	"清理参数"
+//	@Success		200		{object}	map[string]any
+//	@Router			/admin/dlq/cleanup [post]
 func (h *Handler) Cleanup(c *gin.Context) {
 	wsID := c.GetInt64("workspace_id")
 

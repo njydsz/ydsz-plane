@@ -181,6 +181,15 @@ func run() error {
 			zap.String("hint", "set YDSZ_SSO_SECRET_KEY env (32 bytes) to enable encryption"))
 		oidcService = auth.NewOIDCService(pool.Pool, authSvc, cfg.Email.AppBaseURL)
 	} else {
+		// P0-2 安全加固：启动时密钥连通性自检（encrypt → decrypt round-trip）
+		// 密钥错误时 fail-fast 阻断启动，避免运行时加解密失败导致 SSO 异常
+		if selfTestErr := ssoCipher.SelfTest(); selfTestErr != nil {
+			log.Fatal("SSO secret cipher self-test failed (YDSZ_SSO_SECRET_KEY may be corrupted)",
+				zap.Error(selfTestErr))
+			return
+		}
+		log.Info("SSO secret cipher initialized and self-test passed",
+			zap.String("key_source", "YDSZ_SSO_SECRET_KEY"))
 		oidcService = auth.NewOIDCServiceWithCipher(pool.Pool, authSvc, cfg.Email.AppBaseURL, ssoCipher)
 	}
 

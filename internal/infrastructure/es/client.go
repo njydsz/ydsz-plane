@@ -87,9 +87,9 @@ var (
 	// ReindexRequestsTotal 统计 ES reindex 请求总数（按 doc_type 分组）。
 	ReindexRequestsTotal = promauto.NewCounterVec(
 		prometheus.CounterOpts{
-			Namespace: "plane",
-			Name:      "es_reindex_requests_total",
-			Help:      "Total ES reindex bulk requests.",
+			Namespace:   "plane",
+			Name:        "es_reindex_requests_total",
+			Help:        "Total ES reindex bulk requests.",
 		},
 		[]string{"doc_type"},
 	)
@@ -97,12 +97,21 @@ var (
 	// ReindexErrorsTotal 统计 ES reindex 失败次数。
 	ReindexErrorsTotal = promauto.NewCounterVec(
 		prometheus.CounterOpts{
-			Namespace: "plane",
-			Name:      "es_reindex_errors_total",
-			Help:      "Total ES reindex bulk failures.",
+			Namespace:   "plane",
+			Name:        "es_reindex_errors_total",
+			Help:        "Total ES reindex bulk failures.",
 		},
 		[]string{"doc_type"},
 	)
+
+	// ReindexProgress 记录当前 reindex 进度（用于监控看板）。
+	ReindexProgress = promauto.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Namespace:   "plane",
+			Name:        "es_reindex_progress_ratio",
+			Help:        "ES reindex progress (0.0 to 1.0) with total/processed labels.",
+		},
+	[]string{"doc_type"},
 )
 
 // Client ES 客户端封装。
@@ -1091,6 +1100,11 @@ producerLoop:
 	stats.Failed = failed.Load()
 	stats.DurationMs = time.Since(start).Milliseconds()
 
+	// P0-5：更新 Prometheus 进度 gauge
+	if stats.Total > 0 {
+		ReindexProgress.WithLabelValues(docType).Set(float64(stats.Success+stats.Failed) / float64(stats.Total))
+	}
+
 	if c.logger != nil {
 		c.logger.Info("es reindex completed",
 			zap.String("doc_type", docType),
@@ -1105,16 +1119,42 @@ producerLoop:
 }
 
 // flushBatch 将一批文档 bulk 写入 ES 并原子更新统计。
+// P0-5 增强：自适应 bulk size — 根据响应动态调整 batch 大小。
+// 当 ES 响应快（<100ms）时逐步增大 batch（上限 5000），
+// 当 ES 响应慢（>1s）时减小 batch（下限 500），避免过载。
 func (c *Client) flushBatch(ctx context.Context, index, docType string, batch []BulkDoc, success, failed *atomic.Int64) {
 	ReindexRequestsTotal.WithLabelValues(docType).Inc()
+	start := time.Now()
 	s, f, err := c.BulkIndex(ctx, index, batch)
+	elapsed := time.Since(start)
 	if err != nil {
 		ReindexErrorsTotal.WithLabelValues(docType).Inc()
 		failed.Add(int64(len(batch)))
+		// 失败时减小 batch size（下限 500）
+		if c.ReindexBatchSize > 500 {
+			c.ReindexBatchSize = c.ReindexBatchSize / 2
+			if c.ReindexBatchSize < 500 {
+				c.ReindexBatchSize = 500
+			}
+		}
 		return
 	}
 	success.Add(int64(s))
 	failed.Add(int64(f))
+	// 自适应：响应快时逐步增大 batch（上限 5000）
+	if elapsed < 100*time.Millisecond && c.ReindexBatchSize < 5000 {
+		c.ReindexBatchSize = int(float64(c.ReindexBatchSize) * 1.5)
+		if c.ReindexBatchSize > 5000 {
+			c.ReindexBatchSize = 5000
+		}
+	} else if elapsed > time.Second && c.ReindexBatchSize > 500 {
+		// 响应慢时减小 batch
+		c.ReindexBatchSize = c.ReindexBatchSize / 2
+		if c.ReindexBatchSize < 500 {
+			c.ReindexBatchSize = 500
+		}
+	}
+
 	if f > 0 {
 		ReindexErrorsTotal.WithLabelValues(docType).Add(float64(f))
 	}

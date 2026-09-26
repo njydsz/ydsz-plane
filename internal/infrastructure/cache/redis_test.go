@@ -100,6 +100,8 @@ func TestRateLimiter_AllowWithinLimit(t *testing.T) {
 		if remaining != 2-i {
 			t.Fatalf("request #%d: expected remaining=%d, got %d", i+1, 2-i, remaining)
 		}
+		// 确保每次请求在 Redis 中使用不同的 member（避免微秒级碰撞）
+		time.Sleep(time.Microsecond)
 	}
 
 	// 第 4 次请求应被拒绝（超出 limit=3）

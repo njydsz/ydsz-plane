@@ -176,6 +176,35 @@ func (e *AppError) WithDetails(details ...FieldDetail) *AppError {
 	return &clone
 }
 
+// WithCode 附加标准化的业务错误码，返回新的 AppError 实例（不变性）。
+//
+// 适用场景：service/handler 层需要为哨兵错误赋予更细粒度的、可被前端
+// i18n 匹配的错误码，而不修改原始错误码单例。
+//
+// 示例：
+//
+//	return errs.ErrNotFound.From().WithCode(errs.CodeIssueNotFound)
+//
+// 注意：WithCode 底层仅将 Code 转为 string 写入 AppError.Code 字段，
+// 不影响 JSON 序列化输出与存量基于 string 类型的调用方。
+func (e *AppError) WithCode(c Code) *AppError {
+	clone := *e
+	clone.Code = codeToString(c)
+	return &clone
+}
+
+// SetCode 在当前实例上直接覆盖标准化的业务错误码（可变版本）。
+//
+// 与 WithCode 不同，SetCode 修改当前实例并返回同一指针，
+// 适用于已经持有独占所有权（如刚从 New 构造）的场景。
+//
+// 注意：切勿在全局错误码单例（如 ErrValidation）上直接调用 SetCode，
+// 否则会污染所有引用该单例的错误。单例只读。
+func (e *AppError) SetCode(c Code) *AppError {
+	e.Code = codeToString(c)
+	return e
+}
+
 // ---------------------------------------------------------------------------
 // 全局错误码注册表
 //

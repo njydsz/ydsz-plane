@@ -12,7 +12,14 @@ import (
 	"github.com/njydsz/ydsz-plane/pkg/errs"
 )
 
-// listReviews GET /issues/:issue_id/reviews — 查询评审记录。
+// listReviews 查询评审记录。
+//
+//	@Summary		评审记录列表
+//	@Tags			issue-review
+//	@Produce		json
+//	@Param			issue_id	path	int	true	"工作项 ID"
+//	@Success		200			{object}	map[string]any
+//	@Router			/issues/{issue_id}/reviews [get]
 func (h *IssueHandler) listReviews(c *gin.Context) {
 	issueID := int64Param(c, "issue_id")
 	reviews, err := NewReviewService(h.d.IssueSvc.db).ListReviews(c.Request.Context(), issueID)
@@ -23,7 +30,16 @@ func (h *IssueHandler) listReviews(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"results": reviews, "total": len(reviews)})
 }
 
-// submitReview POST /issues/:issue_id/review — 提交评审。
+// submitReview 提交评审。
+//
+//	@Summary		提交评审
+//	@Description	提交需求评审并指定评审人
+//	@Tags			issue-review
+//	@Accept			json
+//	@Produce		json
+//	@Param			issue_id	path	int	true	"工作项 ID"
+//	@Success		201			{object}	Review
+//	@Router			/issues/{issue_id}/review [post]
 func (h *IssueHandler) submitReview(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	projectID := c.GetInt64(middleware.CtxProjectID)
@@ -50,7 +66,16 @@ func (h *IssueHandler) submitReview(c *gin.Context) {
 	c.JSON(http.StatusCreated, review)
 }
 
-// decideReview POST /issues/:issue_id/review/decision — 评审决定（approved/rejected）。
+// decideReview 评审决定（approved/rejected）。
+//
+//	@Summary		评审决定
+//	@Description	评审人对需求评审做出通过或驳回决定
+//	@Tags			issue-review
+//	@Accept			json
+//	@Produce		json
+//	@Param			issue_id	path	int	true	"工作项 ID"
+//	@Success		200			{interface}	interface{}
+//	@Router			/issues/{issue_id}/review/decision [post]
 func (h *IssueHandler) decideReview(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	userID := c.GetInt64(middleware.CtxUserID)

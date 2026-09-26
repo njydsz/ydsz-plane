@@ -61,6 +61,12 @@ func (h *DashboardHandler) GetDashboard(c *gin.Context) {
 }
 
 // ListWidgets 列出项目 widgets。
+//
+//	@Summary		列出仪表盘 Widget
+//	@Tags			dashboard
+//	@Produce		json
+//	@Success		200	{array}		DashboardWidget
+//	@Router			/dashboard/widgets [get]
 func (h *DashboardHandler) ListWidgets(c *gin.Context) {
 	projectID := c.GetInt64(middleware.CtxProjectID)
 	widgets, err := h.d.DashboardSvc.getWidgets(c.Request.Context(), projectID)
@@ -75,6 +81,13 @@ func (h *DashboardHandler) ListWidgets(c *gin.Context) {
 }
 
 // CreateWidget 创建 widget。
+//
+//	@Summary		创建 Widget
+//	@Tags			dashboard
+//	@Accept			json
+//	@Produce		json
+//	@Success		201	{object}	DashboardWidget
+//	@Router			/dashboard/widgets [post]
 func (h *DashboardHandler) CreateWidget(c *gin.Context) {
 	projectID := c.GetInt64(middleware.CtxProjectID)
 	userID := c.GetInt64(middleware.CtxUserID)
@@ -112,6 +125,14 @@ func (h *DashboardHandler) CreateWidget(c *gin.Context) {
 }
 
 // UpdateWidget 更新 widget 的网格位置 / 尺寸 / 配置 / 标题。
+//
+//	@Summary		更新 Widget
+//	@Tags			dashboard
+//	@Accept			json
+//	@Produce		json
+//	@Param			widget_id	path	int	true	"Widget ID"
+//	@Success		200			{object}	DashboardWidget
+//	@Router			/dashboard/widgets/{widget_id} [patch]
 func (h *DashboardHandler) UpdateWidget(c *gin.Context) {
 	projectID := c.GetInt64(middleware.CtxProjectID)
 	widgetID := int64Param(c, "widget_id")
@@ -154,6 +175,12 @@ func (h *DashboardHandler) UpdateWidget(c *gin.Context) {
 }
 
 // DeleteWidget 删除 widget。
+//
+//	@Summary		删除 Widget
+//	@Tags			dashboard
+//	@Param			widget_id	path	int	true	"Widget ID"
+//	@Success		204
+//	@Router			/dashboard/widgets/{widget_id} [delete]
 func (h *DashboardHandler) DeleteWidget(c *gin.Context) {
 	projectID := c.GetInt64(middleware.CtxProjectID)
 	widgetID := int64Param(c, "widget_id")
@@ -166,6 +193,12 @@ func (h *DashboardHandler) DeleteWidget(c *gin.Context) {
 }
 
 // ListAlerts 列出未解决风险告警。
+//
+//	@Summary		列出风险告警
+//	@Tags			dashboard
+//	@Produce		json
+//	@Success		200	{array}		RiskAlert
+//	@Router			/dashboard/alerts [get]
 func (h *DashboardHandler) ListAlerts(c *gin.Context) {
 	projectID := c.GetInt64(middleware.CtxProjectID)
 	alerts, err := h.d.DashboardSvc.getActiveAlerts(c.Request.Context(), projectID)
@@ -182,6 +215,12 @@ func (h *DashboardHandler) ListAlerts(c *gin.Context) {
 }
 
 // ResolveAlert 解决告警。
+//
+//	@Summary		解决告警
+//	@Tags			dashboard
+//	@Param			alert_id	path	int	true	"告警 ID"
+//	@Success		204
+//	@Router			/dashboard/alerts/{alert_id}/resolve [post]
 func (h *DashboardHandler) ResolveAlert(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	userID := c.GetInt64(middleware.CtxUserID)
@@ -195,6 +234,13 @@ func (h *DashboardHandler) ResolveAlert(c *gin.Context) {
 }
 
 // ListTemplates 列出仪表盘模板。
+//
+//	@Summary		列出仪表盘模板
+//	@Tags			dashboard
+//	@Produce		json
+//	@Param			category	query	string	false	"模板分类"
+//	@Success		200			{array}		DashboardTemplate
+//	@Router			/dashboard/templates [get]
 func (h *DashboardHandler) ListTemplates(c *gin.Context) {
 	category := c.Query("category")
 	templates, err := h.d.DashboardSvc.ListTemplates(c.Request.Context(), category)
@@ -209,6 +255,13 @@ func (h *DashboardHandler) ListTemplates(c *gin.Context) {
 }
 
 // GetProjectCompare 返回工作空间下所有项目的完成率 / 缺陷数对比数据。
+//
+//	@Summary		项目对比
+//	@Description	返回工作空间下所有项目的完成率 / 缺陷数对比数据
+//	@Tags			dashboard
+//	@Produce		json
+//	@Success		200	{array}		ProjectCompareItem
+//	@Router			/dashboard/project-compare [get]
 func (h *DashboardHandler) GetProjectCompare(c *gin.Context) {
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	items, err := h.d.DashboardSvc.GetProjectCompare(c.Request.Context(), wsID)

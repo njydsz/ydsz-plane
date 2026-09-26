@@ -85,7 +85,16 @@ func (h *PublicHandler) RegisterPublic(r *gin.RouterGroup) {
 
 // ---- 渠道（认证） ----
 
-// listChannels GET /intake/channels?project_id=&active=
+// listChannels 列出收件箱渠道。
+//
+//	@Summary		列出收件箱渠道
+//	@Description	按工作空间/项目/启用状态分页列出匿名提报渠道
+//	@Tags			intake
+//	@Produce		json
+//	@Param			project_id	query	int		false	"项目 ID"
+//	@Param			active		query	boolean	false	"仅启用"
+//	@Success		200			{object}	map[string]any
+//	@Router			/intake/channels [get]
 func (h *Handler) listChannels(c *gin.Context) {
 	wsID := wsID(c)
 	var projectID *int64
@@ -142,7 +151,14 @@ func (h *Handler) createChannel(c *gin.Context) {
 	c.JSON(http.StatusCreated, ch)
 }
 
-// getChannel GET /intake/channels/:channel_id
+// getChannel 获取收件箱渠道详情。
+//
+//	@Summary		获取渠道详情
+//	@Tags			intake
+//	@Produce		json
+//	@Param			channel_id	path	int	true	"渠道 ID"
+//	@Success		200			{object}	Channel
+//	@Router			/intake/channels/{channel_id} [get]
 func (h *Handler) getChannel(c *gin.Context) {
 	id, err := idParam(c, "channel_id")
 	if err != nil {
@@ -166,6 +182,16 @@ type updateChannelRequest struct {
 	ProjectID   *int64  `json:"project_id"`
 }
 
+// updateChannel 更新收件箱渠道。
+//
+//	@Summary		更新渠道
+//	@Tags			intake
+//	@Accept			json
+//	@Produce		json
+//	@Param			channel_id	path		int					true	"渠道 ID"
+//	@Param			body		body		updateChannelRequest	true	"更新字段"
+//	@Success		200			{object}	Channel
+//	@Router			/intake/channels/{channel_id} [patch]
 func (h *Handler) updateChannel(c *gin.Context) {
 	id, err := idParam(c, "channel_id")
 	if err != nil {
@@ -193,7 +219,13 @@ func (h *Handler) updateChannel(c *gin.Context) {
 	c.JSON(http.StatusOK, ch)
 }
 
-// deleteChannel DELETE /intake/channels/:channel_id
+// deleteChannel 删除收件箱渠道。
+//
+//	@Summary		删除渠道
+//	@Tags			intake
+//	@Param			channel_id	path	int	true	"渠道 ID"
+//	@Success		204
+//	@Router			/intake/channels/{channel_id} [delete]
 func (h *Handler) deleteChannel(c *gin.Context) {
 	id, err := idParam(c, "channel_id")
 	if err != nil {
@@ -244,7 +276,14 @@ func (h *Handler) listIssues(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"results": issues, "total": total})
 }
 
-// getIssue GET /intake/issues/:issue_id
+// getIssue 获取收件箱工单详情。
+//
+//	@Summary		获取工单详情
+//	@Tags			intake
+//	@Produce		json
+//	@Param			issue_id	path	int	true	"工单 ID"
+//	@Success		200			{object}	IntakeIssue
+//	@Router			/intake/issues/{issue_id} [get]
 func (h *Handler) getIssue(c *gin.Context) {
 	id, err := idParam(c, "issue_id")
 	if err != nil {
@@ -259,21 +298,52 @@ func (h *Handler) getIssue(c *gin.Context) {
 	c.JSON(http.StatusOK, it)
 }
 
-// acceptIssue POST /intake/issues/:issue_id/accept
+// acceptIssue 接受工单（转正）。
+//
+//	@Summary		接受工单
+//	@Description	将匿名提报工单转正为项目内正式工作项
+//	@Tags			intake
+//	@Produce		json
+//	@Param			issue_id	path	int	true	"工单 ID"
+//	@Success		200			{object}	IntakeIssue
+//	@Router			/intake/issues/{issue_id}/accept [post]
 func (h *Handler) acceptIssue(c *gin.Context) {
 	h.flowIssue(c, "accept")
 }
 
-// rejectIssue POST /intake/issues/:issue_id/reject
+// rejectIssue 拒绝工单。
+//
+//	@Summary		拒绝工单
+//	@Tags			intake
+//	@Produce		json
+//	@Param			issue_id	path	int	true	"工单 ID"
+//	@Success		200			{object}	IntakeIssue
+//	@Router			/intake/issues/{issue_id}/reject [post]
 func (h *Handler) rejectIssue(c *gin.Context) {
 	h.flowIssue(c, "reject")
 }
 
-// archiveIssue POST /intake/issues/:issue_id/archive
+// archiveIssue 归档工单。
+//
+//	@Summary		归档工单
+//	@Tags			intake
+//	@Produce		json
+//	@Param			issue_id	path	int	true	"工单 ID"
+//	@Success		200			{object}	IntakeIssue
+//	@Router			/intake/issues/{issue_id}/archive [post]
 func (h *Handler) archiveIssue(c *gin.Context) {
 	h.flowIssue(c, "archive")
 }
 
+// flowIssue 工单流转通用入口（accept/reject/archive）。
+//
+//	@Summary		工单流转
+//	@Description	匿名提报工单流转操作（接受/拒绝/归档）
+//	@Tags			intake
+//	@Produce		json
+//	@Param			issue_id	path	int	true	"工单 ID"
+//	@Success		200			{object}	IntakeIssue
+//	@Router			/intake/issues/{issue_id}/flow [post]
 func (h *Handler) flowIssue(c *gin.Context, action string) {
 	id, err := idParam(c, "issue_id")
 	if err != nil {
@@ -304,6 +374,17 @@ type promoteIssueRequest struct {
 	ProjectID  *int64  `json:"project_id"`
 }
 
+// promoteIssue 将工单提升为正式工作项。
+//
+//	@Summary		转正工单
+//	@Description	将匿名提报工单转为项目内需求/任务/缺陷
+//	@Tags			intake
+//	@Accept			json
+//	@Produce		json
+//	@Param			issue_id	path		int					true	"工单 ID"
+//	@Param			body		body		promoteIssueRequest	true	"转正参数"
+//	@Success		200			{object}	IntakeIssue
+//	@Router			/intake/issues/{issue_id}/promote [post]
 func (h *Handler) promoteIssue(c *gin.Context) {
 	id, err := idParam(c, "issue_id")
 	if err != nil {
@@ -333,7 +414,15 @@ func (h *Handler) promoteIssue(c *gin.Context) {
 
 // ---- 公开（免登） ----
 
-// publicGetChannel GET /public/intake/channels/:slug
+// publicGetChannel 按 slug 获取公开渠道信息。
+//
+//	@Summary		公开渠道查询
+//	@Description	通过 slug 查询匿名提报渠道公开信息（免登录）
+//	@Tags			intake-public
+//	@Produce		json
+//	@Param			slug	path	string	true	"渠道 Slug"
+//	@Success		200		{object}	Channel
+//	@Router			/public/intake/channels/{slug} [get]
 func (h *PublicHandler) publicGetChannel(c *gin.Context) {
 	ch, err := h.d.Svc.GetChannelBySlug(c.Request.Context(), c.Param("slug"))
 	if err != nil {
@@ -376,6 +465,16 @@ type trackIssueRequest struct {
 	SubmitterEmail string `json:"submitter_email" binding:"required"`
 }
 
+// publicTrackIssue 公开跟踪工单状态。
+//
+//	@Summary		公开跟踪工单
+//	@Description	通过 tracking_id + 提交者邮箱查询工单状态（免登录）
+//	@Tags			intake-public
+//	@Accept			json
+//	@Produce		json
+//	@Param			body	body		trackIssueRequest	true	"跟踪参数"
+//	@Success		200		{object}	IntakeIssue
+//	@Router			/public/intake/track [post]
 func (h *PublicHandler) publicTrackIssue(c *gin.Context) {
 	var req trackIssueRequest
 	if err := c.ShouldBindJSON(&req); err != nil {

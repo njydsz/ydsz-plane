@@ -15,6 +15,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/events"
+	"github.com/njydsz/ydsz-plane/internal/infrastructure/persistence"
 	"github.com/njydsz/ydsz-plane/pkg/errs"
 )
 
@@ -148,9 +149,10 @@ func getUserNameTx(ctx context.Context, tx pgx.Tx, userID int64) string {
 func workitemM2MPrefix(t IssueTypeCode) string {
 	switch t {
 	case TypeTask, TypeRequirement, TypeDefect:
-		return string(t)
+		// P0-安全修复：白名单校验，防御性兜底防止非法前缀注入
+		return persistence.SafeTablePrefix(string(t))
 	default:
-		return string(TypeTask)
+		return persistence.SafeTablePrefix(string(TypeTask))
 	}
 }
 
@@ -177,8 +179,12 @@ func subresourceTable(t IssueTypeCode, suffix string) string {
 // locateSubresourceTable 在三个分表（task/requirement/defect）中定位子资源记录所属表。
 // 用于 Update/Delete 这类仅凭子资源 id 无法直接推断类型的场景。
 func locateSubresourceTable(ctx context.Context, db *pgxpool.Pool, suffix string, id int64) (string, error) {
+	// P0-安全修复：suffix 白名单校验，防止动态表名拼接注入
+	if !persistence.IsValidIdentifier(suffix) {
+		return "", fmt.Errorf("invalid suffix: %q", suffix)
+	}
 	for _, p := range []string{"task", "requirement", "defect"} {
-		tbl := p + suffix
+		tbl := persistence.SafeTableName(p + suffix)
 		var found int64
 		if err := db.QueryRow(ctx, fmt.Sprintf(`SELECT id FROM %s WHERE id = $1`, tbl), id).Scan(&found); err == nil {
 			return tbl, nil
