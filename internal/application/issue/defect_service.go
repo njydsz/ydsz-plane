@@ -78,8 +78,9 @@ func (s *DefectService) Create(ctx context.Context, in CreateDefectInput) (*Defe
 func (s *DefectService) GetByID(ctx context.Context, wsID, defectID int64) (*Defect, error) {
 	var d Defect
 	var parentID sql.NullInt64
-	var foundVerID, fixVerID sql.NullInt64
+	var foundVerID, fixVerID, verifierID sql.NullInt64
 	var point sql.NullInt64
+	var rootCause sql.NullString
 	var startDate, targetDate, completedAt sql.NullTime
 	var stateName, stateColor, identifier string
 	var stateGroup StateGroup
@@ -96,7 +97,8 @@ func (s *DefectService) GetByID(ctx context.Context, wsID, defectID int64) (*Def
 		       d.is_draft, d.version, d.created_by, d.created_at, d.updated_at,
 		       p.identifier,
 		       d.sprint_id, d.version_id,
-		       d.found_version_id, d.fix_version_id
+		       d.found_version_id, d.fix_version_id,
+		       d.root_cause_category, d.verifier_id, d.environment, d.reproduce_steps
 		FROM defect d
 		JOIN states s ON s.id = d.state_id
 		JOIN projects p ON p.id = d.project_id
@@ -110,7 +112,8 @@ func (s *DefectService) GetByID(ctx context.Context, wsID, defectID int64) (*Def
 		&d.StartDate, &targetDate, &completedAt, &d.Progress,
 		&d.IsDraft, &d.Version, &d.CreatedBy, &d.CreatedAt, &d.UpdatedAt,
 		&identifier, &sprintID, &versionID,
-		&foundVerID, &fixVerID)
+		&foundVerID, &fixVerID,
+		&rootCause, &verifierID, &d.Environment, &d.ReproduceSteps)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, errs.ErrNotFound
@@ -152,6 +155,14 @@ func (s *DefectService) GetByID(ctx context.Context, wsID, defectID int64) (*Def
 	if fixVerID.Valid {
 		v := fixVerID.Int64
 		d.FixVersionID = &v
+	}
+	if rootCause.Valid {
+		v := rootCause.String
+		d.RootCauseCategory = &v
+	}
+	if verifierID.Valid {
+		v := verifierID.Int64
+		d.VerifierID = &v
 	}
 	d.Assignees, _ = loadIntArray(ctx, s.db, `SELECT user_id FROM defect_assignees WHERE defect_id = $1`, defectID)
 	d.Labels, _ = loadIntArray(ctx, s.db, `SELECT label_id FROM defect_labels WHERE defect_id = $1`, defectID)

@@ -62,6 +62,8 @@ export interface Issue {
   completed_at?: string;
   is_draft: boolean;
   version: number;
+  /** 关联的版本 ID（工作项所属发布版本） */
+  version_id?: number;
   sort_order?: number;
   sprint_id?: number;
   found_version_id?: number;

@@ -25,11 +25,15 @@ export default defineConfig({
       client: "axios",
       mock: false,
       mode: "single",                   // 单文件输出，便于 review & tree-shaking
-      clean: ["src/api/generated", "src/types/generated"],
+      // 注：不使用 clean 选项。orval 的 mutator 需读取 src/api/client.ts，
+      // clean 会在生成前清空输出目录，导致 mutator 文件解析失败。
+      // 生成产物通过 git 管理，陈旧文件的清理交由人工 review。
       override: {
         mutator: {
-          path: "../src/api/client.ts", // 复用现有 http 实例（含 interceptors）
-          name: "http",
+          // 专用 mutator：导出函数声明形式，运行时委托 client.ts 的 http 实例，
+          // 保留 interceptors（token / 错误处理 / 限流）。
+          path: "src/api/orval-mutator.ts",
+          name: "customInstance",
         },
         // 强制使用 unknown 替代 any（strict TypeScript）
         unknownType: "unknown",

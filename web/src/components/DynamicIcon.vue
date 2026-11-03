@@ -29,6 +29,7 @@ import {
   LineChart,
   GanttChart,
   History,
+  Target,
 } from "@lucide/vue";
 import { computed } from "vue";
 
@@ -67,6 +68,7 @@ const iconMap: Record<string, (typeof LayoutDashboard)> = {
   LineChart,
   GanttChart,
   History,
+  Target,
 };
 
 const IconComponent = computed(() => iconMap[props.name] ?? Settings);

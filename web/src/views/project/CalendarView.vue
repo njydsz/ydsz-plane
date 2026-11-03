@@ -2,19 +2,22 @@
 /**
  * CalendarView — 项目日历视图。
  *
- * 展示需求/任务/缺陷在日历网格上的分布（按 target_date 排布）。
- * 支持月/周/日视图切换。
- * 纯前端渲染，数据由项目列表接口聚合。
+ * 展示两类数据：
+ *   1. 需求/任务/缺陷在日历网格上的分布（按 target_date 排布）；
+ *   2. 独立日历事件（calendar_events 表：会议/里程碑/发布日/截止日）。
+ * 支持月/周/日视图切换，独立事件可通过顶部按钮创建。
  */
 import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import dayjs from "dayjs";
 
+import { calendarApi, type CalendarEvent, type CalendarEventType } from "@/api/services/calendar";
 import { issueApi } from "@/api/services/issue";
 import { useWorkspaceStore } from "@/stores/workspace";
 import { AppErrorState, AppEmptyState, AppSkeleton } from "@/components";
+import { toast } from "@/lib/toast";
 
-interface CalendarEvent {
+interface IssueCalendarEvent {
   id: number;
   identifier: string;
   name: string;
@@ -35,8 +38,24 @@ const wsId = computed(() => wsStore.current?.id ?? 0);
 
 const loading = ref(true);
 const error = ref('');
-const events = ref<CalendarEvent[]>([]); // 当前视图范围内的事件
+const events = ref<IssueCalendarEvent[]>([]); // 当前视图范围内的需求/任务/缺陷
+/** 独立日历事件（calendar_events 表）。 */
+const calendarEvents = ref<CalendarEvent[]>([]);
 const currentDate = ref(dayjs());
+
+/** 新建事件弹窗状态。 */
+const showCreateModal = ref(false);
+const createForm = ref({
+  title: '',
+  description: '',
+  date: '',
+  startTime: '09:00',
+  endTime: '10:00',
+  location: '',
+  eventType: 'meeting' as CalendarEventType,
+  isAllDay: false,
+});
+const saving = ref(false);
 
 type ViewMode = 'month' | 'week' | 'day';
 const VIEW_MODES: { value: ViewMode; label: string }[] = [
@@ -61,16 +80,24 @@ const viewRange = computed(() => {
   }
 });
 
+/** 合并后的日事件列表：工作项 + 独立日历事件。 */
+interface DayEvent {
+  id: string;
+  kind: 'issue' | 'calendar';
+  name: string;
+  meta: string;
+  color: string;
+  issueId?: number;
+  calendarId?: number;
+}
+
 /** 日历网格（月视图） */
 const calendarGrid = computed(() => {
   const { start, end } = viewRange.value;
-  const days: { date: dayjs.Dayjs; isCurrentMonth: boolean; events: CalendarEvent[] }[] = [];
+  const days: { date: dayjs.Dayjs; isCurrentMonth: boolean; events: DayEvent[] }[] = [];
   let cursor = start;
   while (cursor.isBefore(end) || cursor.isSame(end, 'day')) {
-    const dayEvents = events.value.filter((e) => {
-      if (!e.target_date) return false;
-      return dayjs(e.target_date).isSame(cursor, 'day');
-    });
+    const dayEvents = dayEventsFor(cursor);
     days.push({
       date: cursor,
       isCurrentMonth: cursor.month() === currentDate.value.month(),
@@ -81,36 +108,54 @@ const calendarGrid = computed(() => {
   return days;
 });
 
+/** 计算某一天的合并事件列表。 */
+function dayEventsFor(day: dayjs.Dayjs): DayEvent[] {
+  const out: DayEvent[] = [];
+  for (const e of events.value) {
+    if (!e.target_date) continue;
+    if (dayjs(e.target_date).isSame(day, 'day')) {
+      out.push({
+        id: `issue-${e.id}`,
+        kind: 'issue',
+        name: e.name,
+        meta: e.identifier,
+        color: typeColor(e.type_code),
+        issueId: e.id,
+      });
+    }
+  }
+  for (const e of calendarEvents.value) {
+    const start = dayjs(e.start_time);
+    const end = dayjs(e.end_time);
+    // 事件与当天有交集即展示。
+    if (start.isSame(day, 'day') || end.isSame(day, 'day') ||
+        (start.isBefore(day, 'day') && end.isAfter(day, 'day'))) {
+      out.push({
+        id: `cal-${e.id}`,
+        kind: 'calendar',
+        name: e.title,
+        meta: e.event_type,
+        color: calendarColor(e.event_type),
+        calendarId: e.id,
+      });
+    }
+  }
+  return out;
+}
+
 /** 周视图行 */
 const weekDays = computed(() => {
   const { start } = viewRange.value;
-  const days: { date: dayjs.Dayjs; events: CalendarEvent[] }[] = [];
+  const days: { date: dayjs.Dayjs; events: DayEvent[] }[] = [];
   for (let i = 0; i < 7; i++) {
     const d = start.add(i, 'day');
-    days.push({
-      date: d,
-      events: events.value.filter((e) => e.target_date && dayjs(e.target_date).isSame(d, 'day')),
-    });
+    days.push({ date: d, events: dayEventsFor(d) });
   }
   return days;
 });
 
-/** 日视图小时行 */
-const dayHours = computed(() => {
-  const hours: { hour: number; events: CalendarEvent[] }[] = [];
-  for (let h = 0; h < 24; h++) {
-    hours.push({
-      hour: h,
-      events: [], // 需求/任务/缺陷不具备小时级精度，日视图按全天展示
-    });
-  }
-  // 日视图下所有当天事件都放入第一格
-  if (viewMode.value === 'day' && events.value.length > 0) {
-    const dayEvents = events.value.filter((e) => e.target_date && dayjs(e.target_date).isSame(currentDate.value, 'day'));
-    hours[0].events = dayEvents;
-  }
-  return hours;
-});
+/** 日视图事件列表（工作项 + 独立日历事件）。 */
+const dayViewEvents = computed(() => dayEventsFor(currentDate.value));
 
 async function load() {
   if (!wsId.value) return;
@@ -121,12 +166,20 @@ async function load() {
     const start = currentDate.value.subtract(2, 'month').format('YYYY-MM-DD');
     const end = currentDate.value.add(2, 'month').format('YYYY-MM-DD');
 
-    // 使用 start_date_from / target_date_to 复合过滤获取时间窗口内的需求/任务/缺陷
-    const result = await issueApi.listIssues(wsId.value, projectId.value, {
-      start_date_from: start,
-      target_date_to: end,
-      limit: 500,
-    });
+    // 并行拉取工作项 + 独立日历事件。
+    const [result, calEvents] = await Promise.all([
+      issueApi.listIssues(wsId.value, projectId.value, {
+        start_date_from: start,
+        target_date_to: end,
+        limit: 500,
+      }),
+      calendarApi.list(wsId.value, {
+        start: `${start}T00:00:00Z`,
+        end: `${end}T23:59:59Z`,
+        limit: 200,
+      }).catch(() => [] as CalendarEvent[]),
+    ]);
+
     events.value = result.results
       .filter((item) => item.target_date) // 日历视图仅展示有目标日期的需求/任务/缺陷
       .map((item) => ({
@@ -139,10 +192,90 @@ async function load() {
         target_date: item.target_date,
         start_date: item.start_date,
       }));
+    calendarEvents.value = calEvents;
   } catch (e: unknown) {
     error.value = e instanceof Error ? e.message : '加载失败';
   } finally {
     loading.value = false;
+  }
+}
+
+/** 打开新建事件弹窗，默认填充当前视图日期。 */
+function openCreateModal() {
+  createForm.value.date = currentDate.value.format('YYYY-MM-DD');
+  showCreateModal.value = true;
+}
+
+/** 提交新建事件。 */
+async function submitCreate() {
+  const f = createForm.value;
+  if (!f.title.trim()) {
+    toast.error('请填写事件标题');
+    return;
+  }
+  if (!f.date) {
+    toast.error('请选择日期');
+    return;
+  }
+
+  const start = f.isAllDay
+    ? dayjs(`${f.date}T00:00:00`).toISOString()
+    : dayjs(`${f.date}T${f.startTime}:00`).toISOString();
+  const end = f.isAllDay
+    ? dayjs(`${f.date}T23:59:59`).toISOString()
+    : dayjs(`${f.date}T${f.endTime}:00`).toISOString();
+
+  saving.value = true;
+  try {
+    await calendarApi.create(wsId.value, {
+      title: f.title,
+      description: f.description || undefined,
+      start_time: start,
+      end_time: end,
+      is_all_day: f.isAllDay,
+      location: f.location || undefined,
+      event_type: f.eventType,
+    });
+    showCreateModal.value = false;
+    createForm.value = {
+      title: '',
+      description: '',
+      date: '',
+      startTime: '09:00',
+      endTime: '10:00',
+      location: '',
+      eventType: 'meeting',
+      isAllDay: false,
+    };
+    toast.success('事件已创建');
+    await load();
+  } catch (e: unknown) {
+    toast.error(e instanceof Error ? e.message : '创建失败');
+  } finally {
+    saving.value = false;
+  }
+}
+
+/** 归档独立日历事件。 */
+async function archiveEvent(eventId: number) {
+  if (!confirm('确定归档该事件？')) return;
+  try {
+    await calendarApi.archive(wsId.value, eventId);
+    calendarEvents.value = calendarEvents.value.filter((e) => e.id !== eventId);
+    toast.success('事件已归档');
+  } catch (e: unknown) {
+    toast.error(e instanceof Error ? e.message : '归档失败');
+  }
+}
+
+/** 点击事件：工作项跳转详情；独立事件弹出归档确认。 */
+function handleEventClick(ev: DayEvent) {
+  if (ev.kind === 'issue' && ev.issueId) {
+    goToIssue(ev.issueId);
+    return;
+  }
+  if (ev.kind === 'calendar' && ev.calendarId) {
+    void archiveEvent(ev.calendarId);
   }
 }
 
@@ -187,13 +320,10 @@ const viewTitle = computed(() => {
   }
 });
 
-function typeIcon(type: string): string {
-  switch (type) {
-    case 'requirement': return 'RQ';
-    case 'task': return 'TK';
-    case 'defect': return 'BG';
-    default: return '--';
-  }
+function typeIconFromMeta(meta: string): string {
+  // meta 为工作项 identifier（如 REQ-123 / TSK-456 / BUG-789）。
+  const prefix = meta.split('-')[0] ?? '';
+  return prefix || '--';
 }
 
 function typeColor(type: string): string {
@@ -204,6 +334,27 @@ function typeColor(type: string): string {
     default: return '#6b7280';
   }
 }
+
+/** 独立日历事件的颜色映射。 */
+function calendarColor(type: CalendarEventType): string {
+  switch (type) {
+    case 'meeting': return '#7c3aed';
+    case 'milestone': return '#0891b2';
+    case 'release': return '#16a34a';
+    case 'deadline': return '#ea580c';
+    case 'other': return '#64748b';
+    default: return '#64748b';
+  }
+}
+
+/** 事件类型中文标签。 */
+const EVENT_TYPE_LABELS: Record<CalendarEventType, string> = {
+  meeting: '会议',
+  milestone: '里程碑',
+  release: '发布',
+  deadline: '截止',
+  other: '其他',
+};
 </script>
 
 <template>
@@ -220,6 +371,7 @@ function typeColor(type: string): string {
         </div>
       </div>
       <div class="header-actions">
+        <button class="btn-primary" @click="openCreateModal">+ 新建事件</button>
         <div class="view-tabs">
           <button
             v-for="v in VIEW_MODES"
@@ -257,10 +409,10 @@ function typeColor(type: string): string {
               v-for="ev in day.events.slice(0, 3)"
               :key="ev.id"
               class="cal-event"
-              :style="{ borderLeftColor: typeColor(ev.type_code) }"
-              @click.stop="goToIssue(ev.id)"
+              :style="{ borderLeftColor: ev.color }"
+              @click.stop="handleEventClick(ev)"
             >
-              <span class="event-type">{{ typeIcon(ev.type_code) }}</span>
+              <span class="event-type">{{ ev.kind === 'calendar' ? 'CAL' : typeIconFromMeta(ev.meta) }}</span>
               <span class="event-name">{{ ev.name }}</span>
             </div>
             <span v-if="day.events.length > 3" class="more-events">+{{ day.events.length - 3 }}</span>
@@ -291,10 +443,10 @@ function typeColor(type: string): string {
             v-for="ev in day.events"
             :key="ev.id"
             class="cal-event cal-event--block"
-            :style="{ borderLeftColor: typeColor(ev.type_code) }"
-            @click="goToIssue(ev.id)"
+            :style="{ borderLeftColor: ev.color }"
+            @click="handleEventClick(ev)"
           >
-            <span class="event-identifier">{{ ev.identifier }}</span>
+            <span class="event-identifier">{{ ev.meta }}</span>
             <span class="event-name">{{ ev.name }}</span>
           </div>
         </div>
@@ -303,18 +455,64 @@ function typeColor(type: string): string {
 
     <!-- 日视图 -->
     <div v-else class="calendar-day">
-      <AppEmptyState v-if="dayHours[0]?.events.length === 0" description="当日无需求/任务/缺陷" />
+      <AppEmptyState v-if="dayViewEvents.length === 0" description="当日无需求/任务/缺陷或日历事件" />
       <div v-else class="day-events">
         <div
-          v-for="ev in dayHours[0].events"
+          v-for="ev in dayViewEvents"
           :key="ev.id"
           class="cal-event cal-event--block"
-          :style="{ borderLeftColor: typeColor(ev.type_code) }"
-          @click="goToIssue(ev.id)"
+          :style="{ borderLeftColor: ev.color }"
+          @click="handleEventClick(ev)"
         >
-          <span class="event-identifier">{{ ev.identifier }}</span>
+          <span class="event-identifier">{{ ev.meta }}</span>
           <span class="event-name">{{ ev.name }}</span>
-          <span class="event-state" :style="{ backgroundColor: ev.state.color }">{{ ev.state.name }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 新建事件弹窗 -->
+    <div v-if="showCreateModal" class="modal-overlay" @click.self="showCreateModal = false">
+      <div class="modal-card">
+        <h2 class="modal-title">新建日历事件</h2>
+        <div class="modal-body">
+          <label class="form-field">
+            <span>标题 *</span>
+            <input v-model="createForm.title" type="text" placeholder="如：需求评审会" />
+          </label>
+          <label class="form-field">
+            <span>类型</span>
+            <select v-model="createForm.eventType">
+              <option v-for="(label, key) in EVENT_TYPE_LABELS" :key="key" :value="key">{{ label }}</option>
+            </select>
+          </label>
+          <label class="form-field">
+            <span>日期 *</span>
+            <input v-model="createForm.date" type="date" />
+          </label>
+          <label v-if="!createForm.isAllDay" class="form-field form-field--inline">
+            <span>开始时间</span>
+            <input v-model="createForm.startTime" type="time" />
+            <span>结束时间</span>
+            <input v-model="createForm.endTime" type="time" />
+          </label>
+          <label class="form-field form-field--checkbox">
+            <input v-model="createForm.isAllDay" type="checkbox" />
+            <span>全天事件</span>
+          </label>
+          <label class="form-field">
+            <span>地点</span>
+            <input v-model="createForm.location" type="text" placeholder="可选" />
+          </label>
+          <label class="form-field">
+            <span>描述</span>
+            <textarea v-model="createForm.description" rows="2" placeholder="可选"></textarea>
+          </label>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-today" @click="showCreateModal = false">取消</button>
+          <button class="btn-primary" :disabled="saving" @click="submitCreate">
+            {{ saving ? '创建中…' : '创建' }}
+          </button>
         </div>
       </div>
     </div>
@@ -621,5 +819,116 @@ function typeColor(type: string): string {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+/* --- 新建事件按钮 --- */
+.btn-primary {
+  padding: 6px 14px;
+  font-size: 13px;
+  border: none;
+  background: var(--brand-500);
+  color: var(--text-on-brand);
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.btn-primary:hover {
+  opacity: 0.9;
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* --- 弹窗 --- */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 24px;
+}
+
+.modal-card {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  width: 100%;
+  max-width: 440px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+}
+
+.modal-title {
+  margin: 0;
+  padding: 16px 20px;
+  font-size: 16px;
+  font-weight: 600;
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+}
+
+.modal-body {
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.form-field input,
+.form-field select,
+.form-field textarea {
+  padding: 6px 10px;
+  font-size: 13px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface-1);
+  color: var(--text-primary);
+  font-family: inherit;
+}
+
+.form-field--inline {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.form-field--inline input {
+  flex: 1;
+  min-width: 100px;
+}
+
+.form-field--checkbox {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+}
+
+.form-field--checkbox input {
+  width: 14px;
+  height: 14px;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 20px;
+  border-top: 1px solid var(--border-subtle);
 }
 </style>

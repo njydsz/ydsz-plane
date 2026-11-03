@@ -154,6 +154,18 @@ const router = createRouter({
           name: "intake-settings",
           component: () => import("@/views/workspace/IntakeSettingsView.vue"),
         },
+        // 数据任务监控（异步作业：导入/导出/同步/报表）
+        {
+          path: ":workspaceId(\\d+)/settings/data-jobs",
+          name: "data-jobs",
+          component: () => import("@/views/settings/DataJobsView.vue"),
+        },
+        // SSO 单点登录配置（OIDC / SAML Provider 管理）
+        {
+          path: ":workspaceId(\\d+)/settings/sso",
+          name: "sso-settings",
+          component: () => import("@/views/workspace/SSOSettingsView.vue"),
+        },
         {
           path: ":workspaceId(\\d+)/settings/notifications",
           name: "notification-preferences",
@@ -206,6 +218,23 @@ const router = createRouter({
           name: "workspace-sprints",
           component: () => import("@/views/workspace/WorkspaceSprintsView.vue"),
           props: (route) => ({ workspaceId: Number(route.params.workspaceId) }),
+        },
+        // 工作空间级倡议列表
+        {
+          path: ":workspaceId(\\d+)/initiatives",
+          name: "workspace-initiatives",
+          component: () => import("@/views/workspace/InitiativesView.vue"),
+          props: (route) => ({ workspaceId: Number(route.params.workspaceId) }),
+        },
+        // 工作空间级倡议详情
+        {
+          path: ":workspaceId(\\d+)/initiatives/:id",
+          name: "workspace-initiative-detail",
+          component: () => import("@/views/workspace/InitiativeDetailView.vue"),
+          props: (route) => ({
+            workspaceId: Number(route.params.workspaceId),
+            id: Number(route.params.id),
+          }),
         },
         // 工作空间级报表跳板页（跨项目完成率/缺陷/迭代对比）
         {

@@ -31,6 +31,23 @@ export interface Member {
   joined_at: string;
 }
 
+/** 批量导入成员的单行结果。 */
+export interface ImportMemberRow {
+  email: string;
+  name?: string;
+  /** ok=邀请成功 / exists=已是成员 / fail=失败 */
+  status: "ok" | "exists" | "fail";
+  reason?: string;
+}
+
+/** 批量导入成员的整体结果。 */
+export interface ImportMembersResult {
+  results: ImportMemberRow[];
+  total: number;
+  success: number;
+  failed: number;
+}
+
 /** 角色定义 */
 export interface RoleDefinition {
   slug: string;
@@ -131,6 +148,14 @@ export const workspaceApi = {
     wrap<void>(http.put(`/workspaces/${wsId}/members/${userId}/role`, { role })),
   removeMember: (wsId: number, userId: number) =>
     wrap<void>(http.delete(`/workspaces/${wsId}/members/${userId}`)),
+  /** 批量导入成员（CSV 上传：含 email + 可选 name 列） */
+  importMembers: (wsId: number, file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    return wrap<ImportMembersResult>(http.post(`/workspaces/${wsId}/members/import`, form, {
+      headers: { "Content-Type": "multipart/form-data" },
+    }));
+  },
 
   // --- RBAC ---
   /** 获取当前用户在该工作空间的角色 + 权限列表 */

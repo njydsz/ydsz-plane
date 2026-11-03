@@ -10,10 +10,14 @@ import { tableExtensions } from "./table"
 import { mediaExtensions } from "./media"
 import Callout from "./callout"
 import SlashCommand, { slashItems } from "./slash-command"
+import { columnsExtensions } from "./columns"
+import { tabsExtensions } from "./tabs"
+import { embedExtensions } from "./embed"
+import DragHandle from "./drag-handle"
 
 /**
  * 完整编辑器扩展集 — 用于 Issue 描述、文档编辑等富文本场景
- * 包含格式、块级、表格、任务列表、文本对齐、颜色、高亮等全套能力
+ * 包含格式、块级、表格、任务列表、文本对齐、颜色、高亮、多列布局、标签页、嵌入块、拖放等全套能力
  */
 export function completeExtensions(placeholder = "输入内容...") {
   return [
@@ -24,6 +28,10 @@ export function completeExtensions(placeholder = "输入内容...") {
     ...tableExtensions,
     ...mediaExtensions,
     Callout,
+    ...columnsExtensions,
+    ...tabsExtensions,
+    ...embedExtensions,
+    DragHandle,
     SlashCommand,
   ]
 }
@@ -62,5 +70,11 @@ export function readonlyExtensions() {
     ...formattingExtensions,
     ...blockExtensions,
     ...inlineExtensions,
+    ...tableExtensions,
+    ...mediaExtensions,
+    Callout,
+    ...columnsExtensions,
+    ...tabsExtensions,
+    ...embedExtensions,
   ]
 }

@@ -71,7 +71,7 @@ func (s *RequirementService) Create(ctx context.Context, in CreateRequirementInp
 func (s *RequirementService) GetByID(ctx context.Context, wsID, reqID int64) (*Requirement, error) {
 	var r Requirement
 	var parentID sql.NullInt64
-	var source sql.NullString
+	var source, reviewStatus sql.NullString
 	var point sql.NullInt64
 	var startDate, targetDate, completedAt sql.NullTime
 	var stateName, stateColor, identifier string
@@ -88,7 +88,8 @@ func (s *RequirementService) GetByID(ctx context.Context, wsID, reqID int64) (*R
 		       r.start_date, r.target_date, r.completed_at, r.progress,
 		       r.is_draft, r.version, r.created_by, r.created_at, r.updated_at,
 		       p.identifier,
-		       r.sprint_id, r.version_id
+		       r.sprint_id, r.version_id,
+		       r.acceptance_criteria, r.business_value, r.review_status
 		FROM requirement r
 		JOIN states s ON s.id = r.state_id
 		JOIN projects p ON p.id = r.project_id
@@ -101,7 +102,8 @@ func (s *RequirementService) GetByID(ctx context.Context, wsID, reqID int64) (*R
 		&r.Priority, &source, &point,
 		&r.StartDate, &targetDate, &completedAt, &r.Progress,
 		&r.IsDraft, &r.Version, &r.CreatedBy, &r.CreatedAt, &r.UpdatedAt,
-		&identifier, &sprintID, &versionID)
+		&identifier, &sprintID, &versionID,
+		&r.AcceptanceCriteria, &r.BusinessValue, &reviewStatus)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, errs.ErrNotFound
@@ -118,6 +120,10 @@ func (s *RequirementService) GetByID(ctx context.Context, wsID, reqID int64) (*R
 	if source.Valid {
 		v := source.String
 		r.Source = &v
+	}
+	if reviewStatus.Valid {
+		v := reviewStatus.String
+		r.ReviewStatus = &v
 	}
 	if point.Valid {
 		v := int(point.Int64)

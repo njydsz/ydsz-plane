@@ -78,6 +78,9 @@ import (
 	"github.com/njydsz/ydsz-plane/internal/application/automation"
 	"github.com/njydsz/ydsz-plane/internal/application/dashboard"
 	"github.com/njydsz/ydsz-plane/internal/application/dlq"
+	"github.com/njydsz/ydsz-plane/internal/application/calendar"
+	"github.com/njydsz/ydsz-plane/internal/application/datajob"
+	"github.com/njydsz/ydsz-plane/internal/application/initiative"
 	"github.com/njydsz/ydsz-plane/internal/application/intake"
 	"github.com/njydsz/ydsz-plane/internal/application/issue"
 	"github.com/njydsz/ydsz-plane/internal/application/knowledge"
@@ -411,6 +414,18 @@ func run() error {
 	intakeHandler := intake.NewHandler(&intake.HandlerDeps{Svc: intakeSvc})
 	intakePublicHandler := intake.NewPublicHandler(&intake.HandlerDeps{Svc: intakeSvc})
 
+	// ---------- Calendar 日历事件（独立事件：会议/里程碑/发布日） ----------
+	calendarSvc := calendar.NewService(pool.Pool)
+	calendarHandler := calendar.NewHandler(&calendar.HandlerDeps{Svc: calendarSvc})
+
+	// ---------- DataJob 异步数据任务（导入/导出/同步/报表） ----------
+	dataJobSvc := datajob.NewService(pool.Pool)
+	dataJobHandler := datajob.NewHandler(&datajob.HandlerDeps{Svc: dataJobSvc})
+
+	// ---------- Initiative 倡议（跨项目战略目标的进度聚合） ----------
+	initiativeSvc := initiative.NewService(pool.Pool)
+	initiativeHandler := initiative.NewHandler(&initiative.HandlerDeps{Svc: initiativeSvc})
+
 	// ---------- HTTP Engine ----------
 	engine := httpapi.NewEngine(&httpapi.Deps{
 		Cfg:              cfg,
@@ -476,6 +491,8 @@ func run() error {
 		// Intake 收件箱域（匿名提报）
 		IntakeHandler:       intakeHandler,
 		IntakePublicHandler: intakePublicHandler,
+		// 倡议域（跨项目战略目标的进度聚合）
+		InitiativeHandler: initiativeHandler,
 		// S13 OIDC / SSO 域（单点登录）
 		OIDCService: oidcService,
 		// Storage 客户端（Logo 上传等）
@@ -691,6 +708,33 @@ func run() error {
 	// 注册收件箱公开路由（免登录：匿名提报 + 提交跟踪）
 	httpapi.RegisterIntakePublicRoutes(engine, &httpapi.Deps{
 		IntakePublicHandler: intakePublicHandler,
+	})
+
+	// 注册日历事件路由（工作空间级：读 workspace:read / 写 project:update）
+	httpapi.RegisterCalendarRoutes(engine, &httpapi.Deps{
+		Auth:            authSvc,
+		PrincipalParser: parsePrincipal,
+		WorkspaceStore:  wsStore,
+		RBACStore:       rbacStore,
+		CalendarHandler: calendarHandler,
+	})
+
+	// 注册数据任务路由（工作空间级：异步作业监控）
+	httpapi.RegisterDataJobRoutes(engine, &httpapi.Deps{
+		Auth:            authSvc,
+		PrincipalParser: parsePrincipal,
+		WorkspaceStore:  wsStore,
+		RBACStore:       rbacStore,
+		DataJobHandler:  dataJobHandler,
+	})
+
+	// 注册倡议路由（工作空间级：读 workspace:read / 写 project:update）
+	httpapi.RegisterInitiativeRoutes(engine, &httpapi.Deps{
+		Auth:             authSvc,
+		PrincipalParser:  parsePrincipal,
+		WorkspaceStore:   wsStore,
+		RBACStore:        rbacStore,
+		InitiativeHandler: initiativeHandler,
 	})
 
 	errCh := make(chan error, 1)

@@ -1,10 +1,14 @@
 // Command migrate 执行数据库初始化/迁移。
 // 用法: go run ./cmd/migrate [up|down N|version]
 //
-// 双模式（自动探测 sql/ 目录）:
-//  1. 增量迁移模式：sql/ 下存在 NNNN_*.up.sql 时，使用 golang-migrate（历史兼容，
-//     保留增量演进与回滚能力）。
-//  2. 全量 dump 模式：sql/ 下仅有 ydsz-plane-init.sql 时，执行全量初始化脚本。
+// 三模式（自动探测 sql/ 目录）:
+//  1. golang-migrate 增量模式：sql/ 下存在 NNNN_*.up.sql 时，使用 golang-migrate
+//     （历史兼容，保留增量演进与回滚能力）。
+//  2. 版本化增量模式：sql/ 下存在 V<ver>__<desc>.sql（如 V26.11.03__xxx.sql）时，
+//     按版本号顺序执行；通过 ydsz_schema_version 表记录已执行版本，重复执行幂等跳过。
+//     该模式是本仓库的实际约定（历史迁移均为此命名），修复了此前「文件存在但从未执行」
+//     的断链问题。
+//  3. 全量 dump 模式：sql/ 下仅有 ydsz-plane-init.sql 时，执行全量初始化脚本。
 //     dump 模式通过 ydsz_dump_state 表记录初始化状态，重复执行幂等跳过；
 //     整个 dump 在单事务内执行，失败全量回滚，不产生半初始化状态。
 //
@@ -17,6 +21,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -26,6 +31,7 @@ import (
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/njydsz/ydsz-plane/internal/config"
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/persistence"
@@ -36,6 +42,9 @@ const dumpVersion = "0000_ydsz_plane_init"
 
 // dumpFile 是全量初始化脚本文件名。
 const dumpFile = "ydsz-plane-init.sql"
+
+// sqlDir 是迁移脚本所在目录（相对当前工作目录）。
+const sqlDir = "sql"
 
 func main() {
 	if err := run(); err != nil {
@@ -56,9 +65,12 @@ func run() error {
 		cmd = os.Args[1]
 	}
 
-	// 自动探测：存在增量迁移文件则走 golang-migrate，否则走全量 dump。
+	// 自动探测：优先 golang-migrate 命名，其次版本化命名，最后全量 dump。
 	if hasIncrementalMigrations() {
 		return runIncremental(cmd, cfg.Database.URL)
+	}
+	if hasVersionedMigrations() {
+		return runVersioned(cmd, cfg.Database.URL)
 	}
 	return runDump(cmd, cfg.Database.URL)
 }
@@ -66,6 +78,18 @@ func run() error {
 // hasIncrementalMigrations 检查 sql/ 目录是否存在 NNNN_*.up.sql 增量迁移。
 func hasIncrementalMigrations() bool {
 	matches, err := filepath.Glob("sql/*.up.sql")
+	if err != nil {
+		return false
+	}
+	return len(matches) > 0
+}
+
+// hasVersionedMigrations 检查 sql/ 目录是否存在 V<ver>__<desc>.sql 版本化迁移。
+//
+// 命名示例：V26.11.03__drop_unused_tables.sql
+// 该命名是本仓库的历史约定，此前未被任何执行路径识别（导致迁移从未生效）。
+func hasVersionedMigrations() bool {
+	matches, err := filepath.Glob("sql/V*__*.sql")
 	if err != nil {
 		return false
 	}
@@ -111,6 +135,194 @@ func runIncremental(cmd, dbURL string) error {
 	v, dirty, _ := m.Version()
 	fmt.Printf("migrated: version=%d dirty=%v\n", v, dirty)
 	return nil
+}
+
+// --- 版本化增量迁移模式（V<ver>__<desc>.sql） ---
+
+// versionStateTable 记录已执行的版本化迁移（幂等去重的依据）。
+const versionStateTable = "ydsz_schema_version"
+
+// versionedFile 描述一个版本化迁移文件。
+type versionedFile struct {
+	Path    string // 文件完整路径
+	Version string // 版本号，如 "V26.11.03"
+	Desc    string // 描述，如 "drop_unused_tables"
+}
+
+// runVersioned 执行 V<ver>__<desc>.sql 命名的版本化迁移。
+func runVersioned(cmd, dbURL string) error {
+	switch cmd {
+	case "up":
+		return versionedUp(dbURL)
+	case "down":
+		return fmt.Errorf("版本化迁移模式不支持自动回滚：请手工执行对应的逆向 DDL。已执行版本可用 `migrate version` 查看")
+	case "version":
+		return showVersionedVersion(dbURL)
+	default:
+		return fmt.Errorf("unknown command %q (up|down|version)", cmd)
+	}
+}
+
+// versionedUp 按版本号顺序执行所有未应用的迁移。
+//
+// 幂等语义：每个版本在 ydsz_schema_version 表中有且仅有一条记录，
+// 重复执行自动跳过；同一事务内完成 DDL + 版本记录，保证原子性。
+func versionedUp(dbURL string) error {
+	ctx := context.Background()
+	pool, err := persistence.NewPool(ctx, dbURL, 4)
+	if err != nil {
+		return fmt.Errorf("connect: %w", err)
+	}
+	defer pool.Close()
+
+	files, err := listVersionedFiles(sqlDir)
+	if err != nil {
+		return err
+	}
+	if len(files) == 0 {
+		fmt.Println("no versioned migrations found")
+		return nil
+	}
+
+	applied, err := loadAppliedVersions(ctx, pool.Pool)
+	if err != nil {
+		return err
+	}
+
+	pending := make([]versionedFile, 0, len(files))
+	for _, f := range files {
+		if _, done := applied[f.Version]; !done {
+			pending = append(pending, f)
+		}
+	}
+	if len(pending) == 0 {
+		fmt.Printf("all %d versioned migrations already applied\n", len(files))
+		return nil
+	}
+
+	fmt.Printf("applying %d/%d pending migration(s)\n", len(pending), len(files))
+	for i, f := range pending {
+		fmt.Printf("  [%d/%d] %s (%s)\n", i+1, len(pending), f.Version, f.Desc)
+
+		sqlBytes, err := os.ReadFile(f.Path)
+		if err != nil {
+			return fmt.Errorf("read %s: %w", f.Path, err)
+		}
+		stmts := splitSQLStatements(string(sqlBytes))
+		if len(stmts) == 0 {
+			// 空文件也记录版本，避免重复扫描。
+			stmts = nil
+		}
+
+		tx, err := pool.Begin(ctx)
+		if err != nil {
+			return fmt.Errorf("begin tx for %s: %w", f.Version, err)
+		}
+
+		for _, stmt := range stmts {
+			if _, err := tx.Exec(ctx, stmt); err != nil {
+				_ = tx.Rollback(ctx)
+				return fmt.Errorf("apply %s: %w", f.Version, err)
+			}
+		}
+		if _, err := tx.Exec(ctx,
+			"INSERT INTO "+versionStateTable+" (version, description, applied_at) VALUES ($1, $2, now())",
+			f.Version, f.Desc); err != nil {
+			_ = tx.Rollback(ctx)
+			return fmt.Errorf("record %s: %w", f.Version, err)
+		}
+		if err := tx.Commit(ctx); err != nil {
+			return fmt.Errorf("commit %s: %w", f.Version, err)
+		}
+	}
+
+	fmt.Printf("migrated: applied=%d\n", len(pending))
+	return nil
+}
+
+// showVersionedVersion 输出已执行的版本化迁移。
+func showVersionedVersion(dbURL string) error {
+	ctx := context.Background()
+	pool, err := persistence.NewPool(ctx, dbURL, 4)
+	if err != nil {
+		return fmt.Errorf("connect: %w", err)
+	}
+	defer pool.Close()
+
+	applied, err := loadAppliedVersions(ctx, pool.Pool)
+	if err != nil {
+		return err
+	}
+	if len(applied) == 0 {
+		fmt.Println("version=none (no versioned migrations applied)")
+		return nil
+	}
+	versions := make([]string, 0, len(applied))
+	for v := range applied {
+		versions = append(versions, v)
+	}
+	sort.Strings(versions)
+	fmt.Printf("version=%s applied=%d\n", versions[len(versions)-1], len(versions))
+	return nil
+}
+
+// loadAppliedVersions 读取已执行的版本集合。
+// 若状态表不存在则自动创建（幂等），返回空集合。
+func loadAppliedVersions(ctx context.Context, db *pgxpool.Pool) (map[string]string, error) {
+	_, err := db.Exec(ctx, `CREATE TABLE IF NOT EXISTS `+versionStateTable+` (
+		version     VARCHAR(64) PRIMARY KEY,
+		description VARCHAR(255),
+		applied_at  TIMESTAMPTZ DEFAULT now()
+	)`)
+	if err != nil {
+		return nil, fmt.Errorf("create %s: %w", versionStateTable, err)
+	}
+
+	rows, err := db.Query(ctx, `SELECT version, COALESCE(description, '') FROM `+versionStateTable)
+	if err != nil {
+		return nil, fmt.Errorf("query %s: %w", versionStateTable, err)
+	}
+	defer rows.Close()
+
+	out := make(map[string]string)
+	for rows.Next() {
+		var v, d string
+		if err := rows.Scan(&v, &d); err != nil {
+			return nil, fmt.Errorf("scan %s: %w", versionStateTable, err)
+		}
+		out[v] = d
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate %s: %w", versionStateTable, err)
+	}
+	return out, nil
+}
+
+// listVersionedFiles 扫描 dir 目录下并按版本号排序 V<ver>__<desc>.sql 文件。
+//
+// dir 作为参数传入（而非固定 "sql/"），使单元测试可在临时目录验证，
+// 避免 os.Chdir 带来的进程级副作用（go test 并行执行时会互相干扰）。
+func listVersionedFiles(dir string) ([]versionedFile, error) {
+	pattern := filepath.Join(dir, "V*__*.sql")
+	matches, err := filepath.Glob(pattern)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]versionedFile, 0, len(matches))
+	for _, m := range matches {
+		base := filepath.Base(m)
+		name := strings.TrimSuffix(base, ".sql")
+		parts := strings.SplitN(name, "__", 2)
+		version := parts[0]
+		desc := ""
+		if len(parts) == 2 {
+			desc = parts[1]
+		}
+		out = append(out, versionedFile{Path: m, Version: version, Desc: desc})
+	}
+	// 版本号格式统一（V26.11.03），字符串排序即等价于时间排序。
+	sort.Slice(out, func(i, j int) bool { return out[i].Version < out[j].Version })
+	return out, nil
 }
 
 // --- 全量 dump 模式 ---
@@ -342,7 +554,7 @@ func splitSQLStatements(sql string) []string {
 		// 顶层语句分隔符
 		if ch == ';' && !inDollar && !inSingle && !inDouble {
 			stmt := strings.TrimSpace(b.String())
-			if stmt != "" {
+			if stmt != "" && !isCommentOnlyStatement(stmt) {
 				stmts = append(stmts, stmt)
 			}
 			b.Reset()
@@ -353,10 +565,27 @@ func splitSQLStatements(sql string) []string {
 	}
 
 	// 末尾可能还有一条未以 ';' 结尾的语句
-	if tail := strings.TrimSpace(b.String()); tail != "" {
+	if tail := strings.TrimSpace(b.String()); tail != "" && !isCommentOnlyStatement(tail) {
 		stmts = append(stmts, tail)
 	}
 	return stmts
+}
+
+// isCommentOnlyStatement 判断语句是否为纯注释（无实际 SQL 内容）。
+//
+// 纯注释语句提交给 PostgreSQL 会报错（"cannot insert multiple commands into a prepared statement"
+// 或空语句错误），需在切分时过滤。
+// 判定：剥除所有 -- 注释行与空白后无剩余内容。
+func isCommentOnlyStatement(stmt string) bool {
+	lines := strings.Split(stmt, "\n")
+	for _, ln := range lines {
+		s := strings.TrimSpace(ln)
+		if s == "" || strings.HasPrefix(s, "--") {
+			continue
+		}
+		return false
+	}
+	return true
 }
 
 // isDollarTagChar 判断美元引用标签中的字符（字母、数字、下划线）。

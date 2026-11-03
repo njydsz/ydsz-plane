@@ -39,6 +39,10 @@ DO $$ BEGIN
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 DO $$ BEGIN
+    CREATE TYPE data_job_status AS ENUM ('pending', 'running', 'success', 'failed', 'cancelled');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
     CREATE TYPE sprint_status AS ENUM ('planned', 'active', 'completed');
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
@@ -96,6 +100,11 @@ CREATE SEQUENCE IF NOT EXISTS workspace_members_id_seq START 1 INCREMENT 1;
 CREATE SEQUENCE IF NOT EXISTS projects_id_seq START 1 INCREMENT 1;
 CREATE SEQUENCE IF NOT EXISTS project_members_id_seq START 1 INCREMENT 1;
 CREATE SEQUENCE IF NOT EXISTS risk_rules_id_seq START 1 INCREMENT 1;
+CREATE SEQUENCE IF NOT EXISTS role_permissions_id_seq START 1 INCREMENT 1;
+CREATE SEQUENCE IF NOT EXISTS data_jobs_id_seq START 1 INCREMENT 1;
+CREATE SEQUENCE IF NOT EXISTS version_sprint_relations_id_seq START 1 INCREMENT 1;
+CREATE SEQUENCE IF NOT EXISTS metric_adjustments_id_seq START 1 INCREMENT 1;
+CREATE SEQUENCE IF NOT EXISTS project_configs_id_seq START 1 INCREMENT 1;
 
 -- ===========================================================================
 -- 建表 (110 张)
@@ -195,39 +204,7 @@ CREATE TABLE IF NOT EXISTS roles (
     updated_at               TIMESTAMPTZ DEFAULT now()
 );
 
---   6. menus — 菜单 / 权限资源
-CREATE TABLE IF NOT EXISTS menus (
-    id                       BIGINT PRIMARY KEY,
-    code                     VARCHAR(100) NOT NULL UNIQUE,
-    name                     VARCHAR(255) NOT NULL,
-    menu_type                VARCHAR(20) NOT NULL CHECK (menu_type IN ('menu', 'button', 'api')),
-    parent_id                BIGINT,
-    path                     VARCHAR(255),
-    icon                     VARCHAR(100),
-    sort_order               INTEGER DEFAULT 0,
-    status                   entity_status DEFAULT 'active',
-    deleted                  BOOLEAN DEFAULT false,
-    created_by               BIGINT NOT NULL DEFAULT 0,
-    created_at               TIMESTAMPTZ DEFAULT now(),
-    updated_by               BIGINT NOT NULL DEFAULT 0,
-    updated_at               TIMESTAMPTZ DEFAULT now()
-);
-
---   7. user_roles — 用户角色关联
-CREATE TABLE IF NOT EXISTS user_roles (
-    id                       BIGINT PRIMARY KEY,
-    tenant_id                BIGINT NOT NULL DEFAULT 1,
-    user_id                  BIGINT NOT NULL,
-    role_id                  BIGINT NOT NULL,
-    status                   entity_status NOT NULL DEFAULT 'active',
-    deleted                  BOOLEAN DEFAULT false,
-    created_by               BIGINT NOT NULL DEFAULT 0,
-    created_at               TIMESTAMPTZ DEFAULT now(),
-    updated_by               BIGINT NOT NULL DEFAULT 0,
-    updated_at               TIMESTAMPTZ DEFAULT now()
-);
-
---   8. projects — 项目
+--   6. projects — 项目
 CREATE TABLE IF NOT EXISTS projects (
     id                       BIGINT PRIMARY KEY DEFAULT nextval('projects_id_seq'),
     code                     VARCHAR(50),
@@ -244,6 +221,8 @@ CREATE TABLE IF NOT EXISTS projects (
     template                 VARCHAR(20) DEFAULT 'generic',
     status                   project_status NOT NULL DEFAULT 'active',
     modules                  JSONB,
+    -- modules_enabled：modules JSONB 的冗余布尔缓存，避免高频查询解析 JSONB
+    modules_enabled          BOOLEAN DEFAULT true,
     start_date               DATE,
     target_date              DATE,
     owner_id                 BIGINT NOT NULL DEFAULT 0,
@@ -394,6 +373,8 @@ CREATE TABLE IF NOT EXISTS defect (
     root_cause_category      VARCHAR(50),
     verifier_id              BIGINT,
     environment              JSONB,
+    -- environment_text：environment JSONB 的冗余文本缓存，加速按环境过滤
+    environment_text         VARCHAR(50),
     reproduce_steps          JSONB,
     fix_steps                JSONB,
     regression_risk          VARCHAR(20),
@@ -1101,8 +1082,9 @@ CREATE TABLE IF NOT EXISTS metric_snapshots (
 );
 
 --  48. metric_adjustments — 指标调整
+--  [DEPRECATED] 当前无后端/前端引用。度量数据治理尚未落地，保留表结构待后续启用。
 CREATE TABLE IF NOT EXISTS metric_adjustments (
-    id                       BIGINT PRIMARY KEY,
+    id                       BIGINT PRIMARY KEY DEFAULT nextval('metric_adjustments_id_seq'),
     tenant_id                BIGINT NOT NULL DEFAULT 1,
     workspace_id             BIGINT NOT NULL DEFAULT 0,
     project_id               BIGINT,
@@ -1380,56 +1362,10 @@ CREATE TABLE IF NOT EXISTS invitations (
     UNIQUE (token_hash)
 );
 
---  63. tenant_members — 租户成员
-CREATE TABLE IF NOT EXISTS tenant_members (
-    id                       BIGINT PRIMARY KEY,
-    tenant_id                BIGINT NOT NULL DEFAULT 1,
-    user_id                  BIGINT NOT NULL,
-    role                     workspace_role_enum NOT NULL DEFAULT 'member',
-    status                   entity_status NOT NULL DEFAULT 'active',
-    is_owner                 BOOLEAN DEFAULT false,
-    joined_at                TIMESTAMPTZ DEFAULT now(),
-    deleted                  BOOLEAN DEFAULT false,
-    created_by               BIGINT NOT NULL DEFAULT 0,
-    created_at               TIMESTAMPTZ DEFAULT now(),
-    updated_by               BIGINT NOT NULL DEFAULT 0,
-    updated_at               TIMESTAMPTZ DEFAULT now(),
-    UNIQUE (tenant_id, user_id)
-);
-
---  64. user_preferences — 用户偏好
-CREATE TABLE IF NOT EXISTS user_preferences (
-    id                       BIGINT PRIMARY KEY,
-    tenant_id                BIGINT NOT NULL DEFAULT 1,
-    user_id                  BIGINT NOT NULL,
-    key                      VARCHAR(100) NOT NULL,
-    value                    JSONB,
-    status                   entity_status NOT NULL DEFAULT 'active',
-    deleted                  BOOLEAN DEFAULT false,
-    created_by               BIGINT NOT NULL DEFAULT 0,
-    created_at               TIMESTAMPTZ DEFAULT now(),
-    updated_by               BIGINT NOT NULL DEFAULT 0,
-    updated_at               TIMESTAMPTZ DEFAULT now(),
-    UNIQUE (tenant_id, user_id, key)
-);
-
---  65. role_menus — 角色-权限关联
-CREATE TABLE IF NOT EXISTS role_menus (
-    id                       BIGINT PRIMARY KEY,
-    role_id                  BIGINT NOT NULL,
-    menu_id                  BIGINT NOT NULL,
-    status                   entity_status NOT NULL DEFAULT 'active',
-    deleted                  BOOLEAN DEFAULT false,
-    created_by               BIGINT NOT NULL DEFAULT 0,
-    created_at               TIMESTAMPTZ DEFAULT now(),
-    updated_by               BIGINT NOT NULL DEFAULT 0,
-    updated_at               TIMESTAMPTZ DEFAULT now(),
-    UNIQUE (role_id, menu_id)
-);
-
 --  66. project_configs — 项目配置
+--  [DEPRECATED] 当前无后端/前端引用。项目配置仍存于 projects.modules JSONB，保留待结构化改造。
 CREATE TABLE IF NOT EXISTS project_configs (
-    id                       BIGINT PRIMARY KEY,
+    id                       BIGINT PRIMARY KEY DEFAULT nextval('project_configs_id_seq'),
     tenant_id                BIGINT NOT NULL DEFAULT 1,
     workspace_id             BIGINT NOT NULL DEFAULT 0,
     project_id               BIGINT NOT NULL UNIQUE,
@@ -1443,8 +1379,9 @@ CREATE TABLE IF NOT EXISTS project_configs (
 );
 
 --  67. version_sprint_relations — 版本-迭代关联
+--  [DEPRECATED] 版本-迭代关系实际由 sprints.version_id 承载，本表为冗余设计，保留待确认后清理。
 CREATE TABLE IF NOT EXISTS version_sprint_relations (
-    id                       BIGINT PRIMARY KEY,
+    id                       BIGINT PRIMARY KEY DEFAULT nextval('version_sprint_relations_id_seq'),
     tenant_id                BIGINT NOT NULL DEFAULT 1,
     workspace_id             BIGINT NOT NULL DEFAULT 0,
     project_id               BIGINT NOT NULL DEFAULT 0,
@@ -1580,29 +1517,7 @@ CREATE TABLE IF NOT EXISTS review_assignments (
     UNIQUE (review_id, assignee_id)
 );
 
---  74. documents — 文档
-CREATE TABLE IF NOT EXISTS documents (
-    id                       BIGINT PRIMARY KEY,
-    code                     VARCHAR(50),
-    name                     VARCHAR(255) NOT NULL,
-    tenant_id                BIGINT NOT NULL DEFAULT 1,
-    workspace_id             BIGINT NOT NULL DEFAULT 0,
-    project_id               BIGINT,
-    public_id                UUID DEFAULT gen_random_uuid(),
-    description              TEXT,
-    cover_image_url          TEXT,
-    is_published             BOOLEAN DEFAULT false,
-    is_archived              BOOLEAN DEFAULT false,
-    sort_order               DOUBLE PRECISION DEFAULT 65535,
-    status                   entity_status NOT NULL DEFAULT 'active',
-    deleted                  BOOLEAN DEFAULT false,
-    created_by               BIGINT NOT NULL DEFAULT 0,
-    created_at               TIMESTAMPTZ DEFAULT now(),
-    updated_by               BIGINT NOT NULL DEFAULT 0,
-    updated_at               TIMESTAMPTZ DEFAULT now()
-);
-
---  75. document_versions — 文档版本
+--  74. document_versions — 文档版本
 CREATE TABLE IF NOT EXISTS document_versions (
     id                       BIGINT PRIMARY KEY,
     tenant_id                BIGINT NOT NULL DEFAULT 1,
@@ -1622,50 +1537,7 @@ CREATE TABLE IF NOT EXISTS document_versions (
     UNIQUE (document_id, version_number)
 );
 
---  76. share_links — 分享链接
-CREATE TABLE IF NOT EXISTS share_links (
-    id                       BIGINT PRIMARY KEY,
-    tenant_id                BIGINT NOT NULL DEFAULT 1,
-    workspace_id             BIGINT NOT NULL DEFAULT 0,
-    project_id               BIGINT,
-    entity_type              VARCHAR(50) NOT NULL,
-    entity_id                BIGINT NOT NULL,
-    share_token              VARCHAR(255) NOT NULL,
-    scope                    VARCHAR(20) NOT NULL DEFAULT 'view',
-    password_hash            VARCHAR(255),
-    expires_at               TIMESTAMPTZ,
-    is_active                BOOLEAN DEFAULT true,
-    access_count             INTEGER DEFAULT 0,
-    last_accessed_at         TIMESTAMPTZ,
-    status                   entity_status NOT NULL DEFAULT 'active',
-    deleted                  BOOLEAN DEFAULT false,
-    created_by               BIGINT NOT NULL DEFAULT 0,
-    created_at               TIMESTAMPTZ DEFAULT now(),
-    updated_by               BIGINT NOT NULL DEFAULT 0,
-    updated_at               TIMESTAMPTZ DEFAULT now(),
-    UNIQUE (share_token)
-);
-
---  77. notification_subscriptions — 通知订阅
-CREATE TABLE IF NOT EXISTS notification_subscriptions (
-    id                       BIGINT PRIMARY KEY,
-    tenant_id                BIGINT NOT NULL DEFAULT 1,
-    workspace_id             BIGINT NOT NULL DEFAULT 0,
-    project_id               BIGINT,
-    user_id                  BIGINT NOT NULL,
-    entity_type              VARCHAR(50),
-    entity_id                BIGINT,
-    event_types              TEXT[] DEFAULT '{}',
-    status                   entity_status NOT NULL DEFAULT 'active',
-    deleted                  BOOLEAN DEFAULT false,
-    created_by               BIGINT NOT NULL DEFAULT 0,
-    created_at               TIMESTAMPTZ DEFAULT now(),
-    updated_by               BIGINT NOT NULL DEFAULT 0,
-    updated_at               TIMESTAMPTZ DEFAULT now(),
-    UNIQUE (tenant_id, workspace_id, user_id, entity_type, entity_id)
-);
-
---  78. saved_views — 保存视图
+--  75. saved_views — 保存视图
 CREATE TABLE IF NOT EXISTS saved_views (
     id                       BIGINT PRIMARY KEY,
     tenant_id                BIGINT NOT NULL DEFAULT 1,
@@ -1715,7 +1587,7 @@ CREATE TABLE IF NOT EXISTS calendar_events (
 
 --  80. data_jobs — 数据任务
 CREATE TABLE IF NOT EXISTS data_jobs (
-    id                       BIGINT PRIMARY KEY,
+    id                       BIGINT PRIMARY KEY DEFAULT nextval('data_jobs_id_seq'),
     tenant_id                BIGINT NOT NULL DEFAULT 1,
     workspace_id             BIGINT NOT NULL DEFAULT 0,
     project_id               BIGINT,
@@ -1723,7 +1595,7 @@ CREATE TABLE IF NOT EXISTS data_jobs (
     name                     VARCHAR(255) NOT NULL,
     parameters               JSONB DEFAULT '{}',
     progress                 INTEGER DEFAULT 0 CHECK (progress BETWEEN 0 AND 100),
-    status                   work_item_status NOT NULL DEFAULT 'active',
+    status                   data_job_status NOT NULL DEFAULT 'pending',
     error_message            TEXT,
     scheduled_at             TIMESTAMPTZ,
     executed_at              TIMESTAMPTZ,
@@ -2247,17 +2119,7 @@ CREATE TABLE IF NOT EXISTS password_reset_tokens (
     UNIQUE (token_hash)
 );
 
--- 109. idempotency_keys — API 幂等键
-CREATE TABLE IF NOT EXISTS idempotency_keys (
-    key                      VARCHAR(255) PRIMARY KEY,
-    user_id                  BIGINT,
-    response_status          INTEGER,
-    response_body            JSONB,
-    expires_at               TIMESTAMPTZ NOT NULL,
-    created_at               TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
--- 110. schema_migrations — 迁移版本
+-- 109. schema_migrations — 迁移版本
 CREATE TABLE IF NOT EXISTS schema_migrations (
     version                  BIGINT PRIMARY KEY,
     dirty                    BOOLEAN NOT NULL DEFAULT false
@@ -5017,7 +4879,7 @@ CREATE TABLE IF NOT EXISTS page_shares (
     updated_at               TIMESTAMPTZ DEFAULT now()
 );
 CREATE TABLE IF NOT EXISTS role_permissions (
-    id                       BIGINT PRIMARY KEY,
+    id                       BIGINT PRIMARY KEY DEFAULT nextval('role_permissions_id_seq'),
     tenant_id                BIGINT NOT NULL DEFAULT 1,
     role_slug                VARCHAR(100) NOT NULL,
     permission_code          VARCHAR(100) NOT NULL,
@@ -5025,6 +4887,7 @@ CREATE TABLE IF NOT EXISTS role_permissions (
     deleted                  BOOLEAN DEFAULT false,
     created_by               BIGINT NOT NULL DEFAULT 0,
     created_at               TIMESTAMPTZ DEFAULT now(),
+    updated_by               BIGINT NOT NULL DEFAULT 0,
     updated_at               TIMESTAMPTZ DEFAULT now()
 );
 CREATE TABLE IF NOT EXISTS defect_extra (

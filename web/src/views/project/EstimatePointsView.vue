@@ -4,7 +4,7 @@
  * 项目管理员可在此创建多套估算点集（斐波那契、T恤码等），
  * 工作项发布时从中选择规模评估。
  */
-import { onMounted, ref, computed } from "vue";
+import { onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
 
 import {
@@ -34,9 +34,6 @@ const editingId = ref<number | null>(null);
 const editForm = ref({ name: "", description: "", is_default: false });
 const editPointDefs = ref<EstimatePointDef[]>([]);
 const saving = ref(false);
-
-// 默认点集
-const defaultPoints = computed(() => points.value.filter((p) => p.is_default));
 
 async function load() {
   loading.value = true;

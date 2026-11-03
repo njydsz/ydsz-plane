@@ -61,15 +61,10 @@
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
 
-interface Token {
-  id: number;
-  name: string;
-  prefix: string;
-  created_at: string;
-  expires_at?: string;
-}
+import { apiTokenApi, type ApiToken } from "@/api/services/api-tokens";
+import { toast } from "@/lib/toast";
 
-const tokens = ref<Token[]>([]);
+const tokens = ref<ApiToken[]>([]);
 const newTokenName = ref("");
 const loading = ref(false);
 const creating = ref(false);
@@ -78,8 +73,9 @@ const createdToken = ref<string | null>(null);
 async function fetchTokens() {
   loading.value = true;
   try {
-    const res = await fetch("/api/v1/me/api-tokens", { credentials: "include" });
-    if (res.ok) tokens.value = await res.json();
+    tokens.value = await apiTokenApi.list();
+  } catch (err: unknown) {
+    toast.error(err instanceof Error ? err.message : "加载失败");
   } finally {
     loading.value = false;
   }
@@ -89,18 +85,12 @@ async function createToken() {
   creating.value = true;
   createdToken.value = null;
   try {
-    const res = await fetch("/api/v1/me/api-tokens", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ name: newTokenName.value }),
-    });
-    if (res.ok) {
-      const data = await res.json();
-      createdToken.value = data.token;
-      newTokenName.value = "";
-      await fetchTokens();
-    }
+    const data = await apiTokenApi.create({ name: newTokenName.value, scopes: [] });
+    createdToken.value = data.token;
+    newTokenName.value = "";
+    await fetchTokens();
+  } catch (err: unknown) {
+    toast.error(err instanceof Error ? err.message : "创建失败");
   } finally {
     creating.value = false;
   }
@@ -108,11 +98,12 @@ async function createToken() {
 
 async function revokeToken(id: number) {
   if (!confirm("确定要吊销该令牌吗？此操作不可恢复。")) return;
-  await fetch(`/api/v1/me/api-tokens/${id}`, {
-    method: "DELETE",
-    credentials: "include",
-  });
-  await fetchTokens();
+  try {
+    await apiTokenApi.revoke(id);
+    await fetchTokens();
+  } catch (err: unknown) {
+    toast.error(err instanceof Error ? err.message : "吊销失败");
+  }
 }
 
 onMounted(fetchTokens);

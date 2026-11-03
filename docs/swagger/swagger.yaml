@@ -250,7 +250,8 @@ definitions:
       email:
         type: string
       id:
-        type: integer
+        description: 雪花 ID（字符串形式，避免 JS 前端 53 位精度丢失）
+        type: string
     type: object
   automation.Action:
     properties:
@@ -651,10 +652,11 @@ definitions:
         minLength: 1
         type: string
       scopes:
-        description: |-
-          Scopes 权限范围白名单（至少 1 个，全部须命中 apitoken 白名单）。
+        description: 'Scopes 权限范围白名单（至少 1 个，全部须命中 apitoken 白名单）。
+
           可选值：read:workspace write:workspace read:issues write:issues
-          read:sprints write:sprints read:versions write:versions read:audit *
+
+          read:sprints write:sprints read:versions write:versions read:audit *'
         items:
           type: string
         maxItems: 20
@@ -836,34 +838,34 @@ definitions:
   errs.AppError:
     properties:
       code:
-        description: |-
-          Code 为唯一错误码，由 "DOMAIN.SNAKE_CASE" 格式的 ASCII 字符串构成。
-          是前端做国际化映射（i18n key）和告警分组的依据。
+        description: 'Code 为唯一错误码，由 "DOMAIN.SNAKE_CASE" 格式的 ASCII 字符串构成。
+
+          是前端做国际化映射（i18n key）和告警分组的依据。'
         type: string
       details:
-        description: |-
-          Details 携带字段级校验错误明细，通常用于请求体（DTO）参数校验失败场景。
-          如果无字段级错误，该 slice 应为 nil（JSON 序列化时被 omitempty 省略）。
+        description: 'Details 携带字段级校验错误明细，通常用于请求体（DTO）参数校验失败场景。
+
+          如果无字段级错误，该 slice 应为 nil（JSON 序列化时被 omitempty 省略）。'
         items:
           $ref: '#/definitions/errs.FieldDetail'
         type: array
       message:
-        description: |-
-          Message 是面向终端用户的中文提示文案，可直接渲染到 UI。
-          要求：简洁、可理解、无敏感堆栈信息。前端根据此字段作为 fallback 文案展示。
+        description: 'Message 是面向终端用户的中文提示文案，可直接渲染到 UI。
+
+          要求：简洁、可理解、无敏感堆栈信息。前端根据此字段作为 fallback 文案展示。'
         type: string
     type: object
   errs.FieldDetail:
     properties:
       field:
-        description: |-
-          Field 为请求参数名或 JSON path（如 "title"、"assignee.id"），
-          前端可根据此字段将错误文案定位到对应表单控件。
+        description: 'Field 为请求参数名或 JSON path（如 "title"、"assignee.id"），
+
+          前端可根据此字段将错误文案定位到对应表单控件。'
         type: string
       reason:
-        description: |-
-          Reason 为该字段的具体错误原因（中文），如 "不能超过 255 个字符"、"格式不符合邮箱规范"。
-          要求：简洁、无敏感信息、可直接渲染。
+        description: 'Reason 为该字段的具体错误原因（中文），如 "不能超过 255 个字符"、"格式不符合邮箱规范"。
+
+          要求：简洁、无敏感信息、可直接渲染。'
         type: string
     type: object
   httpapi.LogoUploadResult:
@@ -1321,6 +1323,41 @@ definitions:
         type: integer
       workspace_id:
         type: integer
+      actual_effort:
+        type: number
+      delay_reason:
+        type: string
+      description_html:
+        type: string
+      description_json:
+        type: object
+        additionalProperties: true
+      environment:
+        type: object
+        additionalProperties: true
+      fix_version_id:
+        type: integer
+      found_version_id:
+        type: integer
+      release_version_id:
+        type: integer
+      remaining_effort:
+        type: number
+      reproduce_steps:
+        type: object
+        additionalProperties: true
+      review_status:
+        type: string
+      root_cause_category:
+        type: string
+      source:
+        type: string
+      verifier_id:
+        type: integer
+      watchers:
+        type: array
+        items:
+          type: integer
     type: object
   issue.IssueDependency:
     properties:
@@ -1908,7 +1945,7 @@ definitions:
     - realtime
     - daily
     - weekly
-    - "off"
+    - 'off'
     type: string
     x-enum-varnames:
     - DigestRealtime
@@ -2595,7 +2632,7 @@ definitions:
         type: integer
       x:
         type: integer
-      "y":
+      y:
         type: integer
     type: object
   workbench.MyIssuesBucket:
@@ -2855,6 +2892,188 @@ definitions:
       updated_at:
         type: string
     type: object
+  calendar.CalendarEvent:
+    properties:
+      id:
+        type: integer
+      tenant_id:
+        type: integer
+      workspace_id:
+        type: integer
+      project_id:
+        type: integer
+      title:
+        type: string
+      description:
+        type: string
+      start_time:
+        type: string
+      end_time:
+        type: string
+      is_all_day:
+        type: boolean
+      location:
+        type: string
+      event_type:
+        type: string
+      source_type:
+        type: string
+      source_id:
+        type: integer
+      idempotency_key:
+        type: string
+      organizer_id:
+        type: integer
+      status:
+        type: string
+      version:
+        type: integer
+      created_by:
+        type: integer
+      created_at:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  calendar.CreateEventInput:
+    properties:
+      title:
+        type: string
+      description:
+        type: string
+      start_time:
+        type: string
+      end_time:
+        type: string
+      is_all_day:
+        type: boolean
+      location:
+        type: string
+      event_type:
+        type: string
+      source_type:
+        type: string
+      source_id:
+        type: integer
+      idempotency_key:
+        type: string
+      organizer_id:
+        type: integer
+    required:
+    - title
+    - start_time
+    - end_time
+    - event_type
+    type: object
+  calendar.UpdateEventInput:
+    properties:
+      title:
+        type: string
+      description:
+        type: string
+      start_time:
+        type: string
+      end_time:
+        type: string
+      is_all_day:
+        type: boolean
+      location:
+        type: string
+      event_type:
+        type: string
+      organizer_id:
+        type: integer
+      version:
+        type: integer
+    required:
+    - title
+    - start_time
+    - end_time
+    - event_type
+    - version
+    type: object
+  datajob.DataJob:
+    properties:
+      id:
+        type: integer
+      tenant_id:
+        type: integer
+      workspace_id:
+        type: integer
+      project_id:
+        type: integer
+      job_type:
+        type: string
+      name:
+        type: string
+      parameters:
+        additionalProperties: {}
+        type: object
+      progress:
+        type: integer
+      status:
+        type: string
+      error_message:
+        type: string
+      scheduled_at:
+        type: string
+      executed_at:
+        type: string
+      completed_at:
+        type: string
+      duration_ms:
+        type: integer
+      triggered_by:
+        type: integer
+      created_by:
+        type: integer
+      created_at:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  datajob.CreateJobInput:
+    properties:
+      job_type:
+        type: string
+      name:
+        type: string
+      parameters:
+        additionalProperties: {}
+        type: object
+    required:
+    - job_type
+    - name
+    type: object
+  rbac.PermissionMatrix:
+    properties:
+      roles:
+        items:
+          properties:
+            slug:
+              type: string
+            name:
+              type: string
+            description:
+              type: string
+            level:
+              type: integer
+            is_system:
+              type: boolean
+            icon:
+              type: string
+          type: object
+        type: array
+      permissions:
+        items:
+          type: string
+        type: array
+      grants:
+        additionalProperties:
+          additionalProperties: {}
+          type: object
+        type: object
+    type: object
 host: localhost:8080
 info:
   contact: {}
@@ -2881,7 +3100,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
@@ -2899,7 +3118,7 @@ paths:
         required: true
         type: integer
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
@@ -2917,7 +3136,7 @@ paths:
         required: true
         type: integer
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
@@ -2933,7 +3152,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
@@ -2941,6 +3160,7 @@ paths:
       summary: 批量清理死信
       tags:
       - dlq
+      parameters: []
   /analytics/defect-age:
     get:
       consumes:
@@ -2948,14 +3168,13 @@ paths:
       description: 输出按状态分组的缺陷龄统计（min/max/avg/median），及超7天滞留的缺陷明细
       parameters:
       - description: 工作空间 ID
-        in: path
+        in: query
         name: workspace_id
         required: true
         type: integer
       - description: 项目 ID
-        in: path
+        in: query
         name: project_id
-        required: true
         type: integer
       - description: 起始日期
         in: query
@@ -2976,7 +3195,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/issue.DefectAgeAnalysis'
@@ -2990,14 +3209,13 @@ paths:
       description: 输出按模块/严重程度/发现阶段/根因分类/缺陷龄分布/周趋势聚合的缺陷统计数据
       parameters:
       - description: 工作空间 ID
-        in: path
+        in: query
         name: workspace_id
         required: true
         type: integer
       - description: 项目 ID
-        in: path
+        in: query
         name: project_id
-        required: true
         type: integer
       - description: 起始日期（YYYY-MM-DD）
         in: query
@@ -3022,15 +3240,15 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/issue.DefectAnalytics'
-        "400":
+        '400':
           description: Bad Request
           schema:
             $ref: '#/definitions/errs.AppError'
-        "401":
+        '401':
           description: Unauthorized
           schema:
             $ref: '#/definitions/errs.AppError'
@@ -3044,14 +3262,13 @@ paths:
       description: 按与聚合分析相同的过滤条件导出缺陷明细列表（CSV / xlsx）
       parameters:
       - description: 工作空间 ID
-        in: path
+        in: query
         name: workspace_id
         required: true
         type: integer
       - description: 项目 ID
-        in: path
+        in: query
         name: project_id
-        required: true
         type: integer
       - description: 导出格式：csv（默认）| xlsx
         in: query
@@ -3084,11 +3301,11 @@ paths:
       produces:
       - application/octet-stream
       responses:
-        "400":
+        '400':
           description: Bad Request
           schema:
             $ref: '#/definitions/errs.AppError'
-        "401":
+        '401':
           description: Unauthorized
           schema:
             $ref: '#/definitions/errs.AppError'
@@ -3102,14 +3319,13 @@ paths:
       description: 输出按根因分类分组的缺陷数量、占比及总计
       parameters:
       - description: 工作空间 ID
-        in: path
+        in: query
         name: workspace_id
         required: true
         type: integer
       - description: 项目 ID
-        in: path
+        in: query
         name: project_id
-        required: true
         type: integer
       - description: 起始日期
         in: query
@@ -3122,7 +3338,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/issue.RootCauseAnalysis'
@@ -3146,12 +3362,12 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
             type: object
-        "422":
+        '422':
           description: Unprocessable Entity
           schema:
             $ref: '#/definitions/errs.AppError'
@@ -3173,7 +3389,7 @@ paths:
         required: true
         type: string
       responses:
-        "204":
+        '204':
           description: No Content
       summary: 删除附件
       tags:
@@ -3186,17 +3402,18 @@ paths:
       produces:
       - application/json
       responses:
-        "201":
+        '201':
           description: Created
           schema:
             $ref: '#/definitions/attachment.ConfirmUploadResult'
-        "422":
+        '422':
           description: Unprocessable Entity
           schema:
             $ref: '#/definitions/errs.AppError'
       summary: 确认附件上传
       tags:
       - attachment
+      parameters: []
   /attachments/presigned-upload:
     post:
       consumes:
@@ -3205,18 +3422,19 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
             type: object
-        "422":
+        '422':
           description: Unprocessable Entity
           schema:
             $ref: '#/definitions/errs.AppError'
       summary: 获取预签名上传 URL
       tags:
       - attachment
+      parameters: []
   /auth/forgot-password:
     post:
       consumes:
@@ -3232,7 +3450,7 @@ paths:
       produces:
       - application/json
       responses:
-        "202":
+        '202':
           description: Accepted
           schema:
             additionalProperties:
@@ -3256,15 +3474,15 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/auth.TokenPair'
-        "401":
+        '401':
           description: Unauthorized
           schema:
             $ref: '#/definitions/errs.AppError'
-        "422":
+        '422':
           description: Unprocessable Entity
           schema:
             $ref: '#/definitions/errs.AppError'
@@ -3286,11 +3504,11 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/auth.TokenPair'
-        "401":
+        '401':
           description: Unauthorized
           schema:
             $ref: '#/definitions/errs.AppError'
@@ -3312,15 +3530,15 @@ paths:
       produces:
       - application/json
       responses:
-        "201":
+        '201':
           description: Created
           schema:
             $ref: '#/definitions/auth.TokenPair'
-        "409":
+        '409':
           description: 邮箱已被注册
           schema:
             $ref: '#/definitions/errs.AppError'
-        "422":
+        '422':
           description: Unprocessable Entity
           schema:
             $ref: '#/definitions/errs.AppError'
@@ -3342,9 +3560,9 @@ paths:
       produces:
       - application/json
       responses:
-        "204":
+        '204':
           description: No Content
-        "422":
+        '422':
           description: Unprocessable Entity
           schema:
             $ref: '#/definitions/errs.AppError'
@@ -3372,7 +3590,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
@@ -3389,7 +3607,7 @@ paths:
       produces:
       - application/json
       responses:
-        "201":
+        '201':
           description: Created
           schema:
             $ref: '#/definitions/automation.Rule'
@@ -3398,6 +3616,7 @@ paths:
       summary: 创建自动化规则
       tags:
       - automation
+      parameters: []
   /automation/{rule_id}:
     delete:
       description: 删除一条自动化规则
@@ -3410,7 +3629,7 @@ paths:
       produces:
       - application/json
       responses:
-        "204":
+        '204':
           description: No Content
       security:
       - Bearer: []
@@ -3428,7 +3647,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/automation.Rule'
@@ -3450,7 +3669,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/automation.Rule'
@@ -3473,7 +3692,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/automation.Rule'
@@ -3490,7 +3709,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
@@ -3500,6 +3719,7 @@ paths:
       summary: 干跑测试规则
       tags:
       - automation
+      parameters: []
   /automation/executions:
     get:
       description: 查询最近 N 条规则执行审计记录
@@ -3512,7 +3732,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             items:
@@ -3531,7 +3751,7 @@ paths:
       produces:
       - application/json
       responses:
-        "201":
+        '201':
           description: Created
           schema:
             $ref: '#/definitions/automation.Rule'
@@ -3540,13 +3760,14 @@ paths:
       summary: 从模板创建规则
       tags:
       - automation
+      parameters: []
   /automation/templates:
     get:
       description: 返回 7 条预置模板（规则编辑器"添加模板"面板数据源）
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             items:
@@ -3557,12 +3778,13 @@ paths:
       summary: 列出内置模板
       tags:
       - automation
+      parameters: []
   /content-templates:
     get:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
@@ -3570,19 +3792,21 @@ paths:
       summary: 列出内容模板
       tags:
       - issue
+      parameters: []
     post:
       consumes:
       - application/json
       produces:
       - application/json
       responses:
-        "201":
+        '201':
           description: Created
           schema:
             $ref: '#/definitions/issue.ContentTemplate'
       summary: 创建内容模板
       tags:
       - issue
+      parameters: []
   /content-templates/{template_id}:
     delete:
       parameters:
@@ -3592,7 +3816,7 @@ paths:
         required: true
         type: integer
       responses:
-        "204":
+        '204':
           description: No Content
       summary: 删除内容模板
       tags:
@@ -3609,7 +3833,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/issue.ContentTemplate'
@@ -3621,19 +3845,20 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/dashboard.DashboardData'
       summary: 仪表盘数据
       tags:
       - dashboard
+      parameters: []
   /dashboard/alerts:
     get:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             items:
@@ -3642,6 +3867,7 @@ paths:
       summary: 列出风险告警
       tags:
       - dashboard
+      parameters: []
   /dashboard/alerts/{alert_id}/resolve:
     post:
       parameters:
@@ -3651,7 +3877,7 @@ paths:
         required: true
         type: integer
       responses:
-        "204":
+        '204':
           description: No Content
       summary: 解决告警
       tags:
@@ -3662,7 +3888,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             items:
@@ -3671,6 +3897,7 @@ paths:
       summary: 项目对比
       tags:
       - dashboard
+      parameters: []
   /dashboard/templates:
     get:
       parameters:
@@ -3681,7 +3908,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             items:
@@ -3695,7 +3922,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             items:
@@ -3704,19 +3931,21 @@ paths:
       summary: 列出仪表盘 Widget
       tags:
       - dashboard
+      parameters: []
     post:
       consumes:
       - application/json
       produces:
       - application/json
       responses:
-        "201":
+        '201':
           description: Created
           schema:
             $ref: '#/definitions/dashboard.DashboardWidget'
       summary: 创建 Widget
       tags:
       - dashboard
+      parameters: []
   /dashboard/widgets/{widget_id}:
     delete:
       parameters:
@@ -3726,7 +3955,7 @@ paths:
         required: true
         type: integer
       responses:
-        "204":
+        '204':
           description: No Content
       summary: 删除 Widget
       tags:
@@ -3743,7 +3972,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/dashboard.DashboardWidget'
@@ -3765,7 +3994,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
@@ -3780,17 +4009,18 @@ paths:
       produces:
       - application/json
       responses:
-        "201":
+        '201':
           description: Created
           schema:
             $ref: '#/definitions/intake.IntakeChannel'
-        "422":
+        '422':
           description: Unprocessable Entity
           schema:
             $ref: '#/definitions/errs.AppError'
       summary: 创建收件箱渠道
       tags:
       - intake
+      parameters: []
   /intake/channels/{channel_id}:
     delete:
       parameters:
@@ -3800,7 +4030,7 @@ paths:
         required: true
         type: integer
       responses:
-        "204":
+        '204':
           description: No Content
       summary: 删除渠道
       tags:
@@ -3815,7 +4045,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/intake.IntakeChannel'
@@ -3834,7 +4064,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/intake.IntakeChannel'
@@ -3870,7 +4100,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
@@ -3889,7 +4119,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/intake.IntakeIssue'
@@ -3908,7 +4138,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/intake.IntakeIssue'
@@ -3926,7 +4156,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/intake.IntakeIssue'
@@ -3945,7 +4175,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/intake.IntakeIssue'
@@ -3966,7 +4196,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/intake.IntakeIssue'
@@ -3984,7 +4214,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/intake.IntakeIssue'
@@ -4002,7 +4232,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema: {}
       summary: 邀请预览
@@ -4022,7 +4252,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/workspace.Invitation'
@@ -4034,7 +4264,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
@@ -4042,6 +4272,7 @@ paths:
       summary: 项目依赖列表
       tags:
       - issue
+      parameters: []
   /issues:
     get:
       description: 跨类型列表，支持稀疏字段集（fields）和 RFC3339 时间范围筛选。
@@ -4125,12 +4356,12 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
             type: object
-        "400":
+        '400':
           description: 时间参数格式错误
           schema:
             $ref: '#/definitions/errs.AppError'
@@ -4144,34 +4375,47 @@ paths:
       produces:
       - application/json
       responses:
-        "201":
+        '201':
           description: Created
           schema:
             $ref: '#/definitions/issue.Issue'
-        "422":
+        '422':
           description: Unprocessable Entity
           schema:
             $ref: '#/definitions/errs.AppError'
       summary: 创建工作项
       tags:
       - issue
+      parameters: []
   /issues/{issue_id}:
     delete:
+      parameters:
+      - description: 工作项 ID
+        in: path
+        name: issue_id
+        required: true
+        type: integer
       responses:
-        "204":
+        '204':
           description: No Content
       summary: 删除工作项（归档）
       tags:
       - issue
     get:
+      parameters:
+      - description: 工作项 ID
+        in: path
+        name: issue_id
+        required: true
+        type: integer
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/issue.Issue'
-        "404":
+        '404':
           description: Not Found
           schema:
             $ref: '#/definitions/errs.AppError'
@@ -4181,14 +4425,20 @@ paths:
     patch:
       consumes:
       - application/json
+      parameters:
+      - description: 工作项 ID
+        in: path
+        name: issue_id
+        required: true
+        type: integer
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/issue.Issue'
-        "409":
+        '409':
           description: 版本冲突
           schema:
             $ref: '#/definitions/errs.AppError'
@@ -4206,7 +4456,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
@@ -4226,12 +4476,12 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
             type: object
-        "404":
+        '404':
           description: Not Found
           schema:
             $ref: '#/definitions/errs.AppError'
@@ -4257,7 +4507,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
@@ -4277,7 +4527,7 @@ paths:
       produces:
       - application/json
       responses:
-        "201":
+        '201':
           description: Created
           schema:
             $ref: '#/definitions/issue.Comment'
@@ -4298,7 +4548,7 @@ paths:
         required: true
         type: integer
       responses:
-        "204":
+        '204':
           description: No Content
       summary: 删除评论
       tags:
@@ -4320,7 +4570,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/issue.Comment'
@@ -4338,7 +4588,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
@@ -4359,7 +4609,7 @@ paths:
       produces:
       - application/json
       responses:
-        "201":
+        '201':
           description: Created
           schema:
             $ref: '#/definitions/issue.IssueDependency'
@@ -4369,13 +4619,18 @@ paths:
   /issues/{issue_id}/dependencies/{dep_id}:
     delete:
       parameters:
+      - description: 工作项 ID
+        in: path
+        name: issue_id
+        required: true
+        type: integer
       - description: 依赖 ID
         in: path
         name: dep_id
         required: true
         type: integer
       responses:
-        "204":
+        '204':
           description: No Content
       summary: 删除任务依赖
       tags:
@@ -4383,11 +4638,17 @@ paths:
   /issues/{issue_id}/permanent:
     delete:
       responses:
-        "204":
+        '204':
           description: No Content
       summary: 彻底删除工作项
       tags:
       - issue
+      parameters:
+      - description: 工作项 ID
+        in: path
+        name: issue_id
+        required: true
+        type: integer
   /issues/{issue_id}/relations:
     get:
       parameters:
@@ -4399,7 +4660,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
@@ -4420,7 +4681,7 @@ paths:
       produces:
       - application/json
       responses:
-        "201":
+        '201':
           description: Created
           schema:
             $ref: '#/definitions/issue.IssueRelation'
@@ -4441,7 +4702,7 @@ paths:
         required: true
         type: integer
       responses:
-        "204":
+        '204':
           description: No Content
       summary: 删除关联
       tags:
@@ -4454,21 +4715,33 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/issue.Issue'
       summary: 看板排序
       tags:
       - issue
+      parameters:
+      - description: 工作项 ID
+        in: path
+        name: issue_id
+        required: true
+        type: integer
   /issues/{issue_id}/restore:
     post:
       responses:
-        "204":
+        '204':
           description: No Content
       summary: 恢复工作项
       tags:
       - issue
+      parameters:
+      - description: 工作项 ID
+        in: path
+        name: issue_id
+        required: true
+        type: integer
   /issues/{issue_id}/review:
     post:
       consumes:
@@ -4483,7 +4756,7 @@ paths:
       produces:
       - application/json
       responses:
-        "201":
+        '201':
           description: Created
           schema:
             $ref: '#/definitions/issue.Review'
@@ -4504,10 +4777,10 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
-            type: interface
+            type: object
       summary: 评审决定
       tags:
       - issue-review
@@ -4522,7 +4795,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
@@ -4541,7 +4814,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
@@ -4561,7 +4834,7 @@ paths:
       produces:
       - application/json
       responses:
-        "201":
+        '201':
           description: Created
           schema:
             $ref: '#/definitions/issue.TimeLog'
@@ -4582,7 +4855,7 @@ paths:
         required: true
         type: integer
       responses:
-        "204":
+        '204':
           description: No Content
       summary: 删除工时记录
       tags:
@@ -4604,7 +4877,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/issue.TimeLog'
@@ -4619,17 +4892,23 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/issue.Issue'
-        "422":
+        '422':
           description: 非法流转
           schema:
             $ref: '#/definitions/errs.AppError'
       summary: 流转状态
       tags:
       - issue
+      parameters:
+      - description: 工作项 ID
+        in: path
+        name: issue_id
+        required: true
+        type: integer
   /issues/{issue_id}/watch:
     delete:
       parameters:
@@ -4639,7 +4918,7 @@ paths:
         required: true
         type: integer
       responses:
-        "204":
+        '204':
           description: No Content
       summary: 取消关注
       tags:
@@ -4652,7 +4931,7 @@ paths:
         required: true
         type: integer
       responses:
-        "204":
+        '204':
           description: No Content
       summary: 关注工作项
       tags:
@@ -4670,11 +4949,11 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/dto.BatchResponse'
-        "422":
+        '422':
           description: Unprocessable Entity
           schema:
             $ref: '#/definitions/errs.AppError'
@@ -4704,7 +4983,7 @@ paths:
       produces:
       - text/csv
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             type: string
@@ -4715,10 +4994,7 @@ paths:
     post:
       consumes:
       - multipart/form-data
-      - multipart/form-data
-      description: |-
-        上传 CSV/XLSX 文件批量创建或增量更新工作项（支持列映射）
-        上传 CSV/xlsx 文件批量导入工作项
+      description: 上传 CSV/XLSX 文件批量创建或增量更新工作项（支持列映射）
       parameters:
       - description: CSV 或 XLSX 文件
         in: formData
@@ -4733,52 +5009,36 @@ paths:
         in: formData
         name: incremental
         type: string
-      - description: CSV 或 xlsx 文件
-        in: formData
-        name: file
-        required: true
-        type: file
       produces:
       - application/json
-      - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
             type: object
-        "422":
+        '422':
           description: Unprocessable Entity
           schema:
             $ref: '#/definitions/errs.AppError'
       summary: 导入工作项
       tags:
       - issue
-      - issue
   /issues/import/preview:
     post:
       consumes:
       - multipart/form-data
-      - multipart/form-data
-      description: |-
-        上传 CSV/XLSX 文件，返回表头与前 3 行预览
-        上传 CSV/xlsx 文件预览导入结果（不实际写入）
+      description: 上传 CSV/XLSX 文件，返回表头与前 3 行预览
       parameters:
       - description: CSV 或 XLSX 文件
         in: formData
         name: file
         required: true
         type: file
-      - description: CSV 或 xlsx 文件
-        in: formData
-        name: file
-        required: true
-        type: file
       produces:
       - application/json
-      - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
@@ -4786,13 +5046,12 @@ paths:
       summary: 预览导入
       tags:
       - issue
-      - issue
   /issues/trash:
     get:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             items:
@@ -4801,6 +5060,7 @@ paths:
       summary: 回收站列表
       tags:
       - issue
+      parameters: []
   /knowledge/search:
     get:
       description: 跨知识库空间全文检索（PostgreSQL tsvector）
@@ -4817,7 +5077,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
@@ -4835,7 +5095,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
@@ -4849,13 +5109,14 @@ paths:
       produces:
       - application/json
       responses:
-        "201":
+        '201':
           description: Created
           schema:
             $ref: '#/definitions/issue.Label'
       summary: 创建标签
       tags:
       - label
+      parameters: []
   /labels/{label_id}:
     delete:
       parameters:
@@ -4865,7 +5126,7 @@ paths:
         required: true
         type: integer
       responses:
-        "204":
+        '204':
           description: No Content
       summary: 删除标签
       tags:
@@ -4880,7 +5141,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/issue.Label'
@@ -4899,7 +5160,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/issue.Label'
@@ -4912,11 +5173,11 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/auth.UserBrief'
-        "401":
+        '401':
           description: Unauthorized
           schema:
             $ref: '#/definitions/errs.AppError'
@@ -4925,6 +5186,7 @@ paths:
       summary: 获取当前用户
       tags:
       - user
+      parameters: []
     patch:
       consumes:
       - application/json
@@ -4938,15 +5200,15 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/auth.UserBrief'
-        "400":
+        '400':
           description: Bad Request
           schema:
             $ref: '#/definitions/errs.AppError'
-        "401":
+        '401':
           description: Unauthorized
           schema:
             $ref: '#/definitions/errs.AppError'
@@ -4961,19 +5223,20 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             items:
               $ref: '#/definitions/apitoken.TokenVM'
             type: array
-        "401":
+        '401':
           description: Unauthorized
           schema:
             $ref: '#/definitions/errs.AppError'
       summary: 我的 API 令牌列表
       tags:
       - api-tokens
+      parameters: []
     post:
       consumes:
       - application/json
@@ -4988,19 +5251,19 @@ paths:
       produces:
       - application/json
       responses:
-        "201":
+        '201':
           description: Created
           schema:
             $ref: '#/definitions/apitoken.CreatedToken'
-        "401":
+        '401':
           description: Unauthorized
           schema:
             $ref: '#/definitions/errs.AppError'
-        "409":
+        '409':
           description: Conflict
           schema:
             $ref: '#/definitions/errs.AppError'
-        "422":
+        '422':
           description: Unprocessable Entity
           schema:
             $ref: '#/definitions/errs.AppError'
@@ -5017,13 +5280,13 @@ paths:
         required: true
         type: integer
       responses:
-        "204":
+        '204':
           description: No Content
-        "401":
+        '401':
           description: Unauthorized
           schema:
             $ref: '#/definitions/errs.AppError'
-        "404":
+        '404':
           description: Not Found
           schema:
             $ref: '#/definitions/errs.AppError'
@@ -5041,7 +5304,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             items:
@@ -5061,7 +5324,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/metrics.ControlChartResult'
@@ -5076,7 +5339,7 @@ paths:
       produces:
       - application/json
       responses:
-        "201":
+        '201':
           description: Created
           schema:
             additionalProperties:
@@ -5086,19 +5349,21 @@ paths:
       summary: 记录部署事件
       tags:
       - metrics
+      parameters: []
   /metrics/dora:
     get:
       description: 返回部署频率（DF）、变更前置时间（LTC）、变更失败率（CFR）、平均恢复时间（MTTR）
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/metrics.DORAResult'
       summary: DORA 效能指标
       tags:
       - metrics
+      parameters: []
   /metrics/lead-time:
     get:
       parameters:
@@ -5109,7 +5374,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/metrics.LeadTimeResult'
@@ -5121,19 +5386,20 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/metrics.QualityMetrics'
       summary: 质量指标
       tags:
       - metrics
+      parameters: []
   /metrics/resource-load:
     get:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
@@ -5141,19 +5407,21 @@ paths:
       summary: 资源负载
       tags:
       - metrics
+      parameters: []
   /metrics/resource-load/detail:
     get:
       description: 每位成员当前 WIP 数量与故事点负载
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/metrics.ResourceLoadDetail'
       summary: 资源负载明细
       tags:
       - metrics
+      parameters: []
   /metrics/snapshots:
     get:
       parameters:
@@ -5164,7 +5432,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             items:
@@ -5185,7 +5453,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             items:
@@ -5205,7 +5473,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/metrics.VelocityResult'
@@ -5222,7 +5490,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/metrics.VelocityResult'
@@ -5239,7 +5507,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             items:
@@ -5254,13 +5522,14 @@ paths:
       produces:
       - application/json
       responses:
-        "201":
+        '201':
           description: Created
           schema:
             $ref: '#/definitions/issue.Module'
       summary: 创建模块
       tags:
       - module
+      parameters: []
   /modules/{module_id}:
     delete:
       parameters:
@@ -5270,7 +5539,7 @@ paths:
         required: true
         type: integer
       responses:
-        "204":
+        '204':
           description: No Content
       summary: 删除模块
       tags:
@@ -5285,7 +5554,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/issue.Module'
@@ -5304,7 +5573,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/issue.Module'
@@ -5322,7 +5591,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
@@ -5340,7 +5609,7 @@ paths:
         required: true
         type: integer
       responses:
-        "204":
+        '204':
           description: No Content
       summary: 分配工作项到模块
       tags:
@@ -5359,7 +5628,7 @@ paths:
         required: true
         type: integer
       responses:
-        "204":
+        '204':
           description: No Content
       summary: 从模块移除工作项
       tags:
@@ -5369,26 +5638,28 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/notification.NotificationPreference'
       summary: 获取通知偏好
       tags:
       - notification
+      parameters: []
     put:
       consumes:
       - application/json
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/notification.NotificationPreference'
       summary: 更新通知偏好
       tags:
       - notification
+      parameters: []
   /notifications:
     get:
       description: 分页获取当前工作空间内当前用户的通知，支持已读过滤与事件类型过滤
@@ -5418,7 +5689,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
@@ -5435,7 +5706,7 @@ paths:
         required: true
         type: integer
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties:
@@ -5453,7 +5724,7 @@ paths:
         required: true
         type: integer
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties:
@@ -5467,7 +5738,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
@@ -5475,12 +5746,13 @@ paths:
       summary: 全部已读
       tags:
       - notification
+      parameters: []
   /notifications/unread-count:
     get:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties:
@@ -5489,12 +5761,13 @@ paths:
       summary: 未读通知数
       tags:
       - notification
+      parameters: []
   /pages:
     get:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             items:
@@ -5503,23 +5776,25 @@ paths:
       summary: 列出页面
       tags:
       - pages
+      parameters: []
     post:
       consumes:
       - application/json
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/pages.Page'
       summary: 创建页面
       tags:
       - pages
+      parameters: []
   /pages/{page_id}:
     delete:
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties:
@@ -5528,30 +5803,48 @@ paths:
       summary: 删除页面
       tags:
       - pages
+      parameters:
+      - description: 页面 ID
+        in: path
+        name: page_id
+        required: true
+        type: integer
     get:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/pages.Page'
       summary: 获取页面
       tags:
       - pages
+      parameters:
+      - description: 页面 ID
+        in: path
+        name: page_id
+        required: true
+        type: integer
     patch:
       consumes:
       - application/json
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/pages.Page'
       summary: 更新页面
       tags:
       - pages
+      parameters:
+      - description: 页面 ID
+        in: path
+        name: page_id
+        required: true
+        type: integer
   /pages/{page_id}/links:
     get:
       parameters:
@@ -5563,7 +5856,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
@@ -5583,7 +5876,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/pages.DocumentLink'
@@ -5604,7 +5897,7 @@ paths:
         required: true
         type: integer
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties:
@@ -5624,7 +5917,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
@@ -5644,7 +5937,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/pages.PageShare'
@@ -5654,13 +5947,18 @@ paths:
   /pages/{page_id}/shares/{share_id}:
     delete:
       parameters:
+      - description: 页面 ID
+        in: path
+        name: page_id
+        required: true
+        type: integer
       - description: 分享 ID
         in: path
         name: share_id
         required: true
         type: integer
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties:
@@ -5673,6 +5971,11 @@ paths:
       consumes:
       - application/json
       parameters:
+      - description: 页面 ID
+        in: path
+        name: page_id
+        required: true
+        type: integer
       - description: 分享 ID
         in: path
         name: share_id
@@ -5681,7 +5984,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/pages.PageShare'
@@ -5699,7 +6002,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
@@ -5723,7 +6026,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/pages.DocumentVersion'
@@ -5744,7 +6047,7 @@ paths:
         required: true
         type: integer
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/pages.Page'
@@ -5756,7 +6059,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             items:
@@ -5765,31 +6068,44 @@ paths:
       summary: 列出全部视图偏好
       tags:
       - preference
+      parameters: []
   /preferences/{view_type}:
     get:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/preference.ViewPreference'
       summary: 获取视图偏好
       tags:
       - preference
+      parameters:
+      - description: 视图类型
+        in: path
+        name: view_type
+        required: true
+        type: string
     put:
       consumes:
       - application/json
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/preference.ViewPreference'
       summary: 保存视图偏好
       tags:
       - preference
+      parameters:
+      - description: 视图类型
+        in: path
+        name: view_type
+        required: true
+        type: string
   /projects/{project_id}/ai/assist:
     post:
       consumes:
@@ -5798,13 +6114,19 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/ai.WritingAssistResult'
       summary: AI 续写
       tags:
       - ai
+      parameters:
+      - description: 项目 ID
+        in: path
+        name: project_id
+        required: true
+        type: integer
   /projects/{project_id}/ai/classify:
     post:
       consumes:
@@ -5813,13 +6135,19 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/ai.ClassifyResult'
       summary: 智能分类推荐
       tags:
       - ai
+      parameters:
+      - description: 项目 ID
+        in: path
+        name: project_id
+        required: true
+        type: integer
   /projects/{project_id}/ai/detect-duplicates:
     post:
       consumes:
@@ -5828,7 +6156,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             items:
@@ -5837,6 +6165,12 @@ paths:
       summary: 重复需求/任务/缺陷检测
       tags:
       - ai
+      parameters:
+      - description: 项目 ID
+        in: path
+        name: project_id
+        required: true
+        type: integer
   /projects/{project_id}/ai/fix-grammar:
     post:
       consumes:
@@ -5845,13 +6179,19 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/ai.FixGrammarResult'
       summary: 语法纠错
       tags:
       - ai
+      parameters:
+      - description: 项目 ID
+        in: path
+        name: project_id
+        required: true
+        type: integer
   /projects/{project_id}/ai/rewrite:
     post:
       consumes:
@@ -5860,13 +6200,19 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/ai.RewriteResult'
       summary: 文本改写
       tags:
       - ai
+      parameters:
+      - description: 项目 ID
+        in: path
+        name: project_id
+        required: true
+        type: integer
   /projects/{project_id}/ai/smart-assign:
     post:
       consumes:
@@ -5875,7 +6221,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             items:
@@ -5884,13 +6230,19 @@ paths:
       summary: 智能指派推荐
       tags:
       - ai
+      parameters:
+      - description: 项目 ID
+        in: path
+        name: project_id
+        required: true
+        type: integer
   /projects/{project_id}/ai/status:
     get:
       description: 返回 AI 功能的启用状态和当前 Provider
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
@@ -5898,6 +6250,12 @@ paths:
       summary: AI 功能状态
       tags:
       - ai
+      parameters:
+      - description: 项目 ID
+        in: path
+        name: project_id
+        required: true
+        type: integer
   /projects/{project_id}/ai/summarize:
     post:
       consumes:
@@ -5906,13 +6264,19 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/ai.SummarizeResult'
       summary: 生成文字摘要
       tags:
       - ai
+      parameters:
+      - description: 项目 ID
+        in: path
+        name: project_id
+        required: true
+        type: integer
   /public/intake/channels/{slug}:
     get:
       description: 通过 slug 查询匿名提报渠道公开信息（免登录）
@@ -5925,7 +6289,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/intake.IntakeChannel'
@@ -5940,17 +6304,18 @@ paths:
       produces:
       - application/json
       responses:
-        "201":
+        '201':
           description: Created
           schema:
             $ref: '#/definitions/intake.IntakeIssue'
-        "422":
+        '422':
           description: Unprocessable Entity
           schema:
             $ref: '#/definitions/errs.AppError'
       summary: 公开提交匿名工单
       tags:
       - intake-public
+      parameters: []
   /public/intake/track:
     post:
       consumes:
@@ -5959,13 +6324,14 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/intake.IntakeIssue'
       summary: 公开跟踪工单
       tags:
       - intake-public
+      parameters: []
   /public/pages/{token}:
     get:
       description: 通过 token 获取公开分享页面内容（免登录）
@@ -5982,12 +6348,12 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
             type: object
-        "401":
+        '401':
           description: Unauthorized
           schema:
             $ref: '#/definitions/errs.AppError'
@@ -5996,9 +6362,9 @@ paths:
       - pages-public
   /search:
     get:
-      description: |-
-        跨对象（issues/sprints/versions）全文检索 + 高亮 + JQL 结构化过滤
-        JQL 示例: project:YD type:defect priority:high assignee:me()
+      description: '跨对象（issues/sprints/versions）全文检索 + 高亮 + JQL 结构化过滤
+
+        JQL 示例: project:YD type:defect priority:high assignee:me()'
       parameters:
       - description: 搜索词（支持类 JQL 语法）
         in: query
@@ -6032,7 +6398,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
@@ -6045,7 +6411,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
@@ -6053,53 +6419,68 @@ paths:
       summary: 搜索收藏
       tags:
       - search
+      parameters: []
     post:
       consumes:
       - application/json
       produces:
       - application/json
       responses:
-        "201":
+        '201':
           description: Created
           schema:
             $ref: '#/definitions/search.SearchBookmark'
       summary: 创建搜索收藏
       tags:
       - search
+      parameters: []
   /search/bookmarks/{bookmark_id}:
     delete:
       responses:
-        "204":
+        '204':
           description: No Content
       summary: 删除搜索收藏
       tags:
       - search
+      parameters:
+      - description: 书签 ID
+        in: path
+        name: bookmark_id
+        required: true
+        type: integer
     patch:
       consumes:
       - application/json
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/search.SearchBookmark'
       summary: 更新搜索收藏
       tags:
       - search
+      parameters:
+      - description: 书签 ID
+        in: path
+        name: bookmark_id
+        required: true
+        type: integer
   /search/history:
     delete:
       responses:
-        "204":
+        '204':
           description: No Content
       summary: 清空搜索历史
       tags:
       - search
+      parameters: []
     get:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
@@ -6107,21 +6488,28 @@ paths:
       summary: 搜索历史
       tags:
       - search
+      parameters: []
   /search/history/{history_id}:
     delete:
       responses:
-        "204":
+        '204':
           description: No Content
       summary: 删除搜索历史
       tags:
       - search
+      parameters:
+      - description: 历史记录 ID
+        in: path
+        name: history_id
+        required: true
+        type: integer
   /search/reindex:
     post:
       description: 对本工作空间全量重建 search_documents（owner/admin 生效），幂等分批回填
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
@@ -6129,6 +6517,7 @@ paths:
       summary: 重建搜索索引
       tags:
       - search
+      parameters: []
   /spaces:
     get:
       description: 按工作空间 + 可选项目过滤，支持关键词搜索和分页
@@ -6154,12 +6543,12 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
             type: object
-        "500":
+        '500':
           description: Internal Server Error
           schema:
             $ref: '#/definitions/errs.AppError'
@@ -6173,17 +6562,18 @@ paths:
       produces:
       - application/json
       responses:
-        "201":
+        '201':
           description: Created
           schema:
             $ref: '#/definitions/knowledge.KnowledgeSpace'
-        "422":
+        '422':
           description: Unprocessable Entity
           schema:
             $ref: '#/definitions/errs.AppError'
       summary: 创建知识库空间
       tags:
       - knowledge
+      parameters: []
   /spaces/{sid}:
     delete:
       description: 软删除指定的知识库空间
@@ -6194,7 +6584,7 @@ paths:
         required: true
         type: integer
       responses:
-        "204":
+        '204':
           description: No Content
       summary: 删除知识库空间
       tags:
@@ -6210,11 +6600,11 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/knowledge.KnowledgeSpace'
-        "404":
+        '404':
           description: Not Found
           schema:
             $ref: '#/definitions/errs.AppError'
@@ -6234,7 +6624,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/knowledge.KnowledgeSpace'
@@ -6253,7 +6643,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
@@ -6273,7 +6663,7 @@ paths:
       produces:
       - application/json
       responses:
-        "201":
+        '201':
           description: Created
           schema:
             $ref: '#/definitions/knowledge.KnowledgePage'
@@ -6295,7 +6685,7 @@ paths:
         required: true
         type: integer
       responses:
-        "204":
+        '204':
           description: No Content
       summary: 删除文档
       tags:
@@ -6315,7 +6705,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/knowledge.KnowledgePage'
@@ -6339,7 +6729,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/knowledge.KnowledgePage'
@@ -6362,7 +6752,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
@@ -6387,7 +6777,7 @@ paths:
       produces:
       - application/json
       responses:
-        "201":
+        '201':
           description: Created
           schema:
             $ref: '#/definitions/knowledge.KnowledgePageRelation'
@@ -6413,7 +6803,7 @@ paths:
         required: true
         type: integer
       responses:
-        "204":
+        '204':
           description: No Content
       summary: 移除文档关联
       tags:
@@ -6436,7 +6826,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/knowledge.KnowledgePage'
@@ -6459,7 +6849,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
@@ -6472,7 +6862,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
@@ -6480,6 +6870,7 @@ paths:
       summary: 列出迭代
       tags:
       - sprint
+      parameters: []
     post:
       consumes:
       - application/json
@@ -6487,59 +6878,78 @@ paths:
       produces:
       - application/json
       responses:
-        "201":
+        '201':
           description: Created
           schema:
             $ref: '#/definitions/sprint.Sprint'
-        "422":
+        '422':
           description: Unprocessable Entity
           schema:
             $ref: '#/definitions/errs.AppError'
       summary: 创建迭代
       tags:
       - sprint
+      parameters: []
   /sprints/{sprint_id}:
     delete:
       responses:
-        "204":
+        '204':
           description: No Content
       summary: 归档迭代（仅 planned / completed 可删除）
       tags:
       - sprint
+      parameters:
+      - description: 迭代 ID
+        in: path
+        name: sprint_id
+        required: true
+        type: integer
     get:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/sprint.Sprint'
-        "404":
+        '404':
           description: Not Found
           schema:
             $ref: '#/definitions/errs.AppError'
       summary: 获取迭代详情
       tags:
       - sprint
+      parameters:
+      - description: 迭代 ID
+        in: path
+        name: sprint_id
+        required: true
+        type: integer
     patch:
       consumes:
       - application/json
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/sprint.Sprint'
       summary: 更新迭代字段（仅 planned 状态可编辑）
       tags:
       - sprint
+      parameters:
+      - description: 迭代 ID
+        in: path
+        name: sprint_id
+        required: true
+        type: integer
   /sprints/{sprint_id}/burndown:
     get:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
@@ -6547,6 +6957,12 @@ paths:
       summary: 获取迭代燃尽图数据
       tags:
       - sprint
+      parameters:
+      - description: 迭代 ID
+        in: path
+        name: sprint_id
+        required: true
+        type: integer
   /sprints/{sprint_id}/complete:
     post:
       consumes:
@@ -6555,19 +6971,25 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/sprint.Sprint'
       summary: 结束迭代
       tags:
       - sprint
+      parameters:
+      - description: 迭代 ID
+        in: path
+        name: sprint_id
+        required: true
+        type: integer
   /sprints/{sprint_id}/issues:
     get:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
@@ -6575,70 +6997,111 @@ paths:
       summary: 列出迭代内工作项
       tags:
       - sprint
+      parameters:
+      - description: 迭代 ID
+        in: path
+        name: sprint_id
+        required: true
+        type: integer
     post:
       consumes:
       - application/json
       responses:
-        "204":
+        '204':
           description: No Content
       summary: 将工作项加入迭代（拖拽规划 / 中途加项）
       tags:
       - sprint
+      parameters:
+      - description: 迭代 ID
+        in: path
+        name: sprint_id
+        required: true
+        type: integer
   /sprints/{sprint_id}/issues/{issue_id}:
     delete:
       responses:
-        "204":
+        '204':
           description: No Content
       summary: 从迭代移除工作项
       tags:
       - sprint
+      parameters:
+      - description: 工作项 ID
+        in: path
+        name: issue_id
+        required: true
+        type: integer
+      - description: 迭代 ID
+        in: path
+        name: sprint_id
+        required: true
+        type: integer
   /sprints/{sprint_id}/progress:
     get:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/sprint.SprintProgress'
       summary: 获取迭代实时进度
       tags:
       - sprint
+      parameters:
+      - description: 迭代 ID
+        in: path
+        name: sprint_id
+        required: true
+        type: integer
   /sprints/{sprint_id}/review:
     get:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/sprint.ReviewSnapshot'
       summary: 获取迭代复盘数据
       tags:
       - sprint
+      parameters:
+      - description: 迭代 ID
+        in: path
+        name: sprint_id
+        required: true
+        type: integer
   /sprints/{sprint_id}/start:
     post:
       description: 将迭代从 planned 切换到 active；校验唯一 active 约束
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/sprint.Sprint'
-        "409":
+        '409':
           description: 项目已有 active 迭代
           schema:
             $ref: '#/definitions/errs.AppError'
       summary: 启动迭代
       tags:
       - sprint
+      parameters:
+      - description: 迭代 ID
+        in: path
+        name: sprint_id
+        required: true
+        type: integer
   /sprints/backlog:
     get:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
@@ -6646,25 +7109,27 @@ paths:
       summary: 获取 Backlog 工作项列表（未规划进 active 迭代的未完成工作项）
       tags:
       - sprint
+      parameters: []
   /sprints/suggest-capacity:
     get:
       description: 基于近 N 期 completed 迭代的完成故事点统计
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/sprint.VelocityStats'
       summary: 速率建议（推荐容量）
       tags:
       - sprint
+      parameters: []
   /sso/providers:
     get:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
@@ -6672,6 +7137,7 @@ paths:
       summary: 列出 SSO Provider
       tags:
       - sso
+      parameters: []
     post:
       consumes:
       - application/json
@@ -6686,7 +7152,7 @@ paths:
       produces:
       - application/json
       responses:
-        "201":
+        '201':
           description: Created
           schema:
             $ref: '#/definitions/httpapi.ssoProviderDetail'
@@ -6702,7 +7168,7 @@ paths:
         required: true
         type: integer
       responses:
-        "204":
+        '204':
           description: No Content
       summary: 删除 SSO Provider
       tags:
@@ -6717,7 +7183,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/httpapi.ssoProviderDetail'
@@ -6742,7 +7208,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/httpapi.ssoProviderDetail'
@@ -6754,7 +7220,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
@@ -6762,15 +7228,21 @@ paths:
       summary: 列出流转规则
       tags:
       - issue
+      parameters: []
     post:
       consumes:
       - application/json
       produces:
       - application/json
-      responses: {}
+      responses:
+        '201':
+          description: Created
+          schema:
+            type: object
       summary: 添加流转规则
       tags:
       - issue
+      parameters: []
   /state-transitions/{transition_id}:
     delete:
       parameters:
@@ -6780,7 +7252,7 @@ paths:
         required: true
         type: integer
       responses:
-        "204":
+        '204':
           description: No Content
       summary: 删除流转规则
       tags:
@@ -6790,7 +7262,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
@@ -6798,6 +7270,7 @@ paths:
       summary: 列出状态
       tags:
       - issue
+      parameters: []
   /states/{state_id}:
     delete:
       parameters:
@@ -6807,7 +7280,7 @@ paths:
         required: true
         type: integer
       responses:
-        "204":
+        '204':
           description: No Content
       summary: 删除状态
       tags:
@@ -6824,7 +7297,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/issue.State'
@@ -6836,7 +7309,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
@@ -6844,19 +7317,21 @@ paths:
       summary: 列出文档模板
       tags:
       - pages
+      parameters: []
     post:
       consumes:
       - application/json
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/pages.PageTemplate'
       summary: 创建文档模板
       tags:
       - pages
+      parameters: []
   /templates/{template_id}:
     delete:
       parameters:
@@ -6866,7 +7341,7 @@ paths:
         required: true
         type: integer
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties:
@@ -6887,7 +7362,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/pages.PageTemplate'
@@ -6915,7 +7390,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
@@ -6930,17 +7405,18 @@ paths:
       produces:
       - application/json
       responses:
-        "201":
+        '201':
           description: Created
           schema:
             $ref: '#/definitions/version.Version'
-        "422":
+        '422':
           description: Unprocessable Entity
           schema:
             $ref: '#/definitions/errs.AppError'
       summary: 创建版本
       tags:
       - version
+      parameters: []
   /versions/{version_id}:
     delete:
       description: 软删除（归档）指定版本
@@ -6951,7 +7427,7 @@ paths:
         required: true
         type: integer
       responses:
-        "204":
+        '204':
           description: No Content
       summary: 归档版本
       tags:
@@ -6966,11 +7442,11 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/version.Version'
-        "404":
+        '404':
           description: Not Found
           schema:
             $ref: '#/definitions/errs.AppError'
@@ -6989,7 +7465,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/version.Version'
@@ -7008,7 +7484,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/version.Version'
@@ -7027,7 +7503,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/version.Version'
@@ -7045,7 +7521,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
@@ -7064,7 +7540,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema: {}
       summary: 交付报告
@@ -7081,7 +7557,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema: {}
       summary: 版本进度
@@ -7098,7 +7574,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema: {}
       summary: 版本质量指标
@@ -7118,11 +7594,11 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/version.Version'
-        "422":
+        '422':
           description: Unprocessable Entity
           schema:
             $ref: '#/definitions/errs.AppError'
@@ -7140,7 +7616,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
@@ -7159,7 +7635,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
@@ -7178,7 +7654,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
@@ -7196,7 +7672,7 @@ paths:
         required: true
         type: integer
       responses:
-        "204":
+        '204':
           description: No Content
       summary: 关联迭代
       tags:
@@ -7215,7 +7691,7 @@ paths:
         required: true
         type: integer
       responses:
-        "204":
+        '204':
           description: No Content
       summary: 移除迭代关联
       tags:
@@ -7242,7 +7718,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
@@ -7262,7 +7738,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             items:
@@ -7278,13 +7754,14 @@ paths:
       produces:
       - application/json
       responses:
-        "201":
+        '201':
           description: Created
           schema:
             $ref: '#/definitions/preference.SavedView'
       summary: 创建视图
       tags:
       - preference
+      parameters: []
   /views/{view_id}:
     delete:
       description: 删除指定视图（仅 owner 可操作）
@@ -7295,7 +7772,7 @@ paths:
         required: true
         type: integer
       responses:
-        "204":
+        '204':
           description: No Content
       summary: 删除视图
       tags:
@@ -7310,7 +7787,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/preference.SavedView'
@@ -7330,7 +7807,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/preference.SavedView'
@@ -7347,7 +7824,7 @@ paths:
         required: true
         type: integer
       responses:
-        "200":
+        '200':
           description: OK
       summary: 设置默认视图
       tags:
@@ -7371,7 +7848,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
@@ -7386,18 +7863,19 @@ paths:
       produces:
       - application/json
       responses:
-        "201":
+        '201':
           description: Created
           schema:
             additionalProperties: true
             type: object
-        "422":
+        '422':
           description: Unprocessable Entity
           schema:
             $ref: '#/definitions/errs.AppError'
       summary: 创建 Webhook
       tags:
       - webhook
+      parameters: []
   /webhooks/{webhook_id}:
     delete:
       description: 删除指定 Webhook 订阅
@@ -7408,7 +7886,7 @@ paths:
         required: true
         type: integer
       responses:
-        "200":
+        '200':
           description: OK
       summary: 删除 Webhook
       tags:
@@ -7424,11 +7902,11 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/webhook.Webhook'
-        "404":
+        '404':
           description: Not Found
           schema:
             $ref: '#/definitions/errs.AppError'
@@ -7448,11 +7926,11 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/webhook.Webhook'
-        "404":
+        '404':
           description: Not Found
           schema:
             $ref: '#/definitions/errs.AppError'
@@ -7487,7 +7965,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
@@ -7510,7 +7988,7 @@ paths:
         required: true
         type: integer
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
@@ -7530,7 +8008,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/webhook.Webhook'
@@ -7549,7 +8027,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/webhook.Webhook'
@@ -7566,7 +8044,7 @@ paths:
         required: true
         type: integer
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             additionalProperties: true
@@ -7580,58 +8058,62 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/workbench.WorkbenchSummary'
       summary: 工作台首屏聚合
       tags:
       - workbench
+      parameters: []
   /workbench/config:
     get:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/workbench.WorkbenchConfig'
       summary: 获取工作台布局配置
       tags:
       - workbench
+      parameters: []
     put:
       consumes:
       - application/json
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/workbench.WorkbenchConfig'
       summary: 保存工作台布局配置
       tags:
       - workbench
+      parameters: []
   /workbench/efficiency:
     get:
       description: 返回当前用户本周效率统计 + 近 4 周完成趋势
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/workbench.EfficiencyReport'
       summary: 获取个人效率报告
       tags:
       - workbench
+      parameters: []
   /workbench/feed:
     get:
       description: 返回当前用户关注的（watched + 评论过的 + 被@提及的）工作项最新活动
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             items:
@@ -7640,12 +8122,13 @@ paths:
       summary: 获取关注动态流
       tags:
       - workbench
+      parameters: []
   /workbench/recent:
     get:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             items:
@@ -7654,21 +8137,23 @@ paths:
       summary: 最近访问列表
       tags:
       - workbench
+      parameters: []
     post:
       consumes:
       - application/json
       responses:
-        "204":
+        '204':
           description: No Content
       summary: 记录最近访问
       tags:
       - workbench
+      parameters: []
   /workbench/templates:
     get:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             items:
@@ -7677,6 +8162,7 @@ paths:
       summary: 工作台模板列表
       tags:
       - workbench
+      parameters: []
   /workbench/templates/apply:
     post:
       consumes:
@@ -7684,13 +8170,14 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/workbench.WorkbenchConfig'
       summary: 应用模板到工作台
       tags:
       - workbench
+      parameters: []
   /workload-heatmap:
     get:
       description: 获取项目工时热力图数据（成员 × 日期）
@@ -7706,7 +8193,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema: {}
       summary: 工时热力图
@@ -7717,7 +8204,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             items:
@@ -7726,6 +8213,7 @@ paths:
       summary: 列出工作空间
       tags:
       - workspace
+      parameters: []
     post:
       consumes:
       - application/json
@@ -7739,7 +8227,7 @@ paths:
       produces:
       - application/json
       responses:
-        "201":
+        '201':
           description: Created
           schema:
             $ref: '#/definitions/workspace.Workspace'
@@ -7749,26 +8237,43 @@ paths:
   /workspaces/{workspace_id}:
     delete:
       responses:
-        "204":
+        '204':
           description: No Content
       summary: 归档工作空间
       tags:
       - workspace
+      parameters:
+      - description: 工作空间 ID
+        in: path
+        name: workspace_id
+        required: true
+        type: integer
     get:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/workspace.Workspace'
       summary: 获取工作空间详情
       tags:
       - workspace
+      parameters:
+      - description: 工作空间 ID
+        in: path
+        name: workspace_id
+        required: true
+        type: integer
     patch:
       consumes:
       - application/json
       parameters:
+      - description: 工作空间 ID
+        in: path
+        name: workspace_id
+        required: true
+        type: integer
       - description: 更新字段
         in: body
         name: body
@@ -7778,7 +8283,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/workspace.Workspace'
@@ -7788,6 +8293,11 @@ paths:
   /workspaces/{workspace_id}/audit-logs:
     get:
       parameters:
+      - description: 工作空间 ID
+        in: path
+        name: workspace_id
+        required: true
+        type: integer
       - description: 每页数 (默认 50, 最大 200)
         in: query
         name: limit
@@ -7795,7 +8305,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             items: {}
@@ -7806,6 +8316,11 @@ paths:
   /workspaces/{workspace_id}/invitations:
     get:
       parameters:
+      - description: 工作空间 ID
+        in: path
+        name: workspace_id
+        required: true
+        type: integer
       - description: 状态过滤
         in: query
         name: status
@@ -7813,7 +8328,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             items: {}
@@ -7825,6 +8340,11 @@ paths:
       consumes:
       - application/json
       parameters:
+      - description: 工作空间 ID
+        in: path
+        name: workspace_id
+        required: true
+        type: integer
       - description: 邀请信息
         in: body
         name: body
@@ -7834,7 +8354,7 @@ paths:
       produces:
       - application/json
       responses:
-        "201":
+        '201':
           description: Created
           schema:
             $ref: '#/definitions/workspace.Invitation'
@@ -7844,13 +8364,18 @@ paths:
   /workspaces/{workspace_id}/invitations/{invitation_id}:
     delete:
       parameters:
+      - description: 工作空间 ID
+        in: path
+        name: workspace_id
+        required: true
+        type: integer
       - description: 邀请 ID
         in: path
         name: invitation_id
         required: true
         type: integer
       responses:
-        "204":
+        '204':
           description: No Content
       summary: 撤销邀请
       tags:
@@ -7858,16 +8383,27 @@ paths:
   /workspaces/{workspace_id}/logo:
     delete:
       responses:
-        "204":
+        '204':
           description: No Content
       summary: 移除工作空间 Logo
       tags:
       - workspace
+      parameters:
+      - description: 工作空间 ID
+        in: path
+        name: workspace_id
+        required: true
+        type: integer
     post:
       consumes:
       - multipart/form-data
       description: 上传工作空间 Logo（multipart/form-data，字段名 "file"）
       parameters:
+      - description: 工作空间 ID
+        in: path
+        name: workspace_id
+        required: true
+        type: integer
       - description: Logo 文件
         in: formData
         name: file
@@ -7876,7 +8412,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/httpapi.LogoUploadResult'
@@ -7888,7 +8424,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             items: {}
@@ -7896,16 +8432,27 @@ paths:
       summary: 列出成员
       tags:
       - workspace
+      parameters:
+      - description: 工作空间 ID
+        in: path
+        name: workspace_id
+        required: true
+        type: integer
   /workspaces/{workspace_id}/members/{user_id}:
     delete:
       parameters:
+      - description: 工作空间 ID
+        in: path
+        name: workspace_id
+        required: true
+        type: integer
       - description: 用户 ID
         in: path
         name: user_id
         required: true
         type: integer
       responses:
-        "204":
+        '204':
           description: No Content
       summary: 移除成员
       tags:
@@ -7914,6 +8461,11 @@ paths:
       consumes:
       - application/json
       parameters:
+      - description: 工作空间 ID
+        in: path
+        name: workspace_id
+        required: true
+        type: integer
       - description: 用户 ID
         in: path
         name: user_id
@@ -7926,7 +8478,7 @@ paths:
         schema:
           $ref: '#/definitions/dto.ChangeRoleRequest'
       responses:
-        "204":
+        '204':
           description: No Content
       summary: 修改成员角色
       tags:
@@ -7936,7 +8488,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             items: {}
@@ -7944,10 +8496,21 @@ paths:
       summary: 列出项目
       tags:
       - workspace
+      parameters:
+      - description: 工作空间 ID
+        in: path
+        name: workspace_id
+        required: true
+        type: integer
     post:
       consumes:
       - application/json
       parameters:
+      - description: 工作空间 ID
+        in: path
+        name: workspace_id
+        required: true
+        type: integer
       - description: 项目信息
         in: body
         name: body
@@ -7957,7 +8520,7 @@ paths:
       produces:
       - application/json
       responses:
-        "201":
+        '201':
           description: Created
           schema:
             $ref: '#/definitions/workspace.Project'
@@ -7967,19 +8530,29 @@ paths:
   /workspaces/{workspace_id}/projects/{project_id}:
     delete:
       parameters:
+      - description: 工作空间 ID
+        in: path
+        name: workspace_id
+        required: true
+        type: integer
       - description: 项目 ID
         in: path
         name: project_id
         required: true
         type: integer
       responses:
-        "204":
+        '204':
           description: No Content
       summary: 归档项目
       tags:
       - workspace
     get:
       parameters:
+      - description: 工作空间 ID
+        in: path
+        name: workspace_id
+        required: true
+        type: integer
       - description: 项目 ID
         in: path
         name: project_id
@@ -7988,7 +8561,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/workspace.Project'
@@ -7999,6 +8572,11 @@ paths:
       consumes:
       - application/json
       parameters:
+      - description: 工作空间 ID
+        in: path
+        name: workspace_id
+        required: true
+        type: integer
       - description: 项目 ID
         in: path
         name: project_id
@@ -8013,7 +8591,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/workspace.Project'
@@ -8023,6 +8601,11 @@ paths:
   /workspaces/{workspace_id}/projects/{project_id}/members:
     get:
       parameters:
+      - description: 工作空间 ID
+        in: path
+        name: workspace_id
+        required: true
+        type: integer
       - description: 项目 ID
         in: path
         name: project_id
@@ -8031,7 +8614,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             items: {}
@@ -8043,6 +8626,11 @@ paths:
       consumes:
       - application/json
       parameters:
+      - description: 工作空间 ID
+        in: path
+        name: workspace_id
+        required: true
+        type: integer
       - description: 项目 ID
         in: path
         name: project_id
@@ -8057,7 +8645,7 @@ paths:
       produces:
       - application/json
       responses:
-        "201":
+        '201':
           description: Created
       summary: 添加项目成员
       tags:
@@ -8065,6 +8653,11 @@ paths:
   /workspaces/{workspace_id}/projects/{project_id}/members/{user_id}:
     delete:
       parameters:
+      - description: 工作空间 ID
+        in: path
+        name: workspace_id
+        required: true
+        type: integer
       - description: 项目 ID
         in: path
         name: project_id
@@ -8076,7 +8669,7 @@ paths:
         required: true
         type: integer
       responses:
-        "204":
+        '204':
           description: No Content
       summary: 移除项目成员
       tags:
@@ -8085,6 +8678,11 @@ paths:
       consumes:
       - application/json
       parameters:
+      - description: 工作空间 ID
+        in: path
+        name: workspace_id
+        required: true
+        type: integer
       - description: 项目 ID
         in: path
         name: project_id
@@ -8102,7 +8700,7 @@ paths:
         schema:
           $ref: '#/definitions/dto.ChangeRoleRequest'
       responses:
-        "204":
+        '204':
           description: No Content
       summary: 修改项目成员角色
       tags:
@@ -8112,7 +8710,7 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             items: {}
@@ -8120,6 +8718,12 @@ paths:
       summary: 项目模板列表
       tags:
       - workspace
+      parameters:
+      - description: 工作空间 ID
+        in: path
+        name: workspace_id
+        required: true
+        type: integer
   /workspaces/slug/{slug}:
     get:
       parameters:
@@ -8131,17 +8735,432 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/workspace.Workspace'
       summary: 按 Slug 查找工作空间
       tags:
       - workspace
+  /workspaces/{workspace_id}/calendar/events:
+    get:
+      parameters:
+      - description: 工作空间 ID
+        in: path
+        name: workspace_id
+        required: true
+        type: integer
+      - description: 开始时间（RFC3339）
+        in: query
+        name: start
+        type: string
+      - description: 结束时间（RFC3339）
+        in: query
+        name: end
+        type: string
+      - description: 事件类型
+        in: query
+        name: event_type
+        type: string
+      - description: 每页条数
+        in: query
+        name: limit
+        type: integer
+      - description: 偏移量
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        '200':
+          description: OK
+          schema:
+            properties:
+              results:
+                items:
+                  $ref: '#/definitions/calendar.CalendarEvent'
+                type: array
+            type: object
+      summary: 日历事件列表
+      tags:
+      - calendar
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 工作空间 ID
+        in: path
+        name: workspace_id
+        required: true
+        type: integer
+      - description: 事件信息
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/calendar.CreateEventInput'
+      produces:
+      - application/json
+      responses:
+        '201':
+          description: Created
+          schema:
+            $ref: '#/definitions/calendar.CalendarEvent'
+      summary: 创建日历事件
+      tags:
+      - calendar
+  /workspaces/{workspace_id}/calendar/events/{event_id}:
+    delete:
+      parameters:
+      - description: 工作空间 ID
+        in: path
+        name: workspace_id
+        required: true
+        type: integer
+      - description: 事件 ID
+        in: path
+        name: event_id
+        required: true
+        type: integer
+      responses:
+        '204':
+          description: No Content
+      summary: 归档日历事件
+      tags:
+      - calendar
+    get:
+      parameters:
+      - description: 工作空间 ID
+        in: path
+        name: workspace_id
+        required: true
+        type: integer
+      - description: 事件 ID
+        in: path
+        name: event_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        '200':
+          description: OK
+          schema:
+            $ref: '#/definitions/calendar.CalendarEvent'
+      summary: 日历事件详情
+      tags:
+      - calendar
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: 工作空间 ID
+        in: path
+        name: workspace_id
+        required: true
+        type: integer
+      - description: 事件 ID
+        in: path
+        name: event_id
+        required: true
+        type: integer
+      - description: 更新内容
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/calendar.UpdateEventInput'
+      produces:
+      - application/json
+      responses:
+        '200':
+          description: OK
+          schema:
+            $ref: '#/definitions/calendar.CalendarEvent'
+      summary: 更新日历事件
+      tags:
+      - calendar
+  /workspaces/{workspace_id}/data-jobs:
+    get:
+      parameters:
+      - description: 工作空间 ID
+        in: path
+        name: workspace_id
+        required: true
+        type: integer
+      - description: 任务类型
+        in: query
+        name: job_type
+        type: string
+      - description: 任务状态
+        in: query
+        name: status
+        type: string
+      - description: 每页条数
+        in: query
+        name: limit
+        type: integer
+      - description: 偏移量
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        '200':
+          description: OK
+          schema:
+            properties:
+              results:
+                items:
+                  $ref: '#/definitions/datajob.DataJob'
+                type: array
+            type: object
+      summary: 数据任务列表
+      tags:
+      - datajob
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 工作空间 ID
+        in: path
+        name: workspace_id
+        required: true
+        type: integer
+      - description: 任务信息
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/datajob.CreateJobInput'
+      produces:
+      - application/json
+      responses:
+        '201':
+          description: Created
+          schema:
+            $ref: '#/definitions/datajob.DataJob'
+      summary: 创建数据任务
+      tags:
+      - datajob
+  /workspaces/{workspace_id}/data-jobs/{job_id}:
+    delete:
+      parameters:
+      - description: 工作空间 ID
+        in: path
+        name: workspace_id
+        required: true
+        type: integer
+      - description: 任务 ID
+        in: path
+        name: job_id
+        required: true
+        type: integer
+      responses:
+        '204':
+          description: No Content
+      summary: 删除数据任务
+      tags:
+      - datajob
+    get:
+      parameters:
+      - description: 工作空间 ID
+        in: path
+        name: workspace_id
+        required: true
+        type: integer
+      - description: 任务 ID
+        in: path
+        name: job_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        '200':
+          description: OK
+          schema:
+            $ref: '#/definitions/datajob.DataJob'
+      summary: 数据任务详情
+      tags:
+      - datajob
+  /workspaces/{workspace_id}/data-jobs/{job_id}/progress:
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: 工作空间 ID
+        in: path
+        name: workspace_id
+        required: true
+        type: integer
+      - description: 任务 ID
+        in: path
+        name: job_id
+        required: true
+        type: integer
+      - description: 进度
+        in: body
+        name: body
+        required: true
+        schema:
+          properties:
+            progress:
+              type: integer
+          type: object
+      responses:
+        '204':
+          description: No Content
+      summary: 更新任务进度
+      tags:
+      - datajob
+  /workspaces/{workspace_id}/data-jobs/{job_id}/run:
+    post:
+      parameters:
+      - description: 工作空间 ID
+        in: path
+        name: workspace_id
+        required: true
+        type: integer
+      - description: 任务 ID
+        in: path
+        name: job_id
+        required: true
+        type: integer
+      responses:
+        '204':
+          description: No Content
+      summary: 标记任务开始执行
+      tags:
+      - datajob
+  /workspaces/{workspace_id}/data-jobs/{job_id}/success:
+    post:
+      parameters:
+      - description: 工作空间 ID
+        in: path
+        name: workspace_id
+        required: true
+        type: integer
+      - description: 任务 ID
+        in: path
+        name: job_id
+        required: true
+        type: integer
+      responses:
+        '204':
+          description: No Content
+      summary: 标记任务成功
+      tags:
+      - datajob
+  /workspaces/{workspace_id}/data-jobs/{job_id}/fail:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 工作空间 ID
+        in: path
+        name: workspace_id
+        required: true
+        type: integer
+      - description: 任务 ID
+        in: path
+        name: job_id
+        required: true
+        type: integer
+      - description: 失败原因
+        in: body
+        name: body
+        required: true
+        schema:
+          properties:
+            error_message:
+              type: string
+          type: object
+      responses:
+        '204':
+          description: No Content
+      summary: 标记任务失败
+      tags:
+      - datajob
+  /workspaces/{workspace_id}/data-jobs/{job_id}/cancel:
+    post:
+      parameters:
+      - description: 工作空间 ID
+        in: path
+        name: workspace_id
+        required: true
+        type: integer
+      - description: 任务 ID
+        in: path
+        name: job_id
+        required: true
+        type: integer
+      responses:
+        '204':
+          description: No Content
+      summary: 取消任务
+      tags:
+      - datajob
+  /workspaces/{workspace_id}/rbac/matrix:
+    get:
+      produces:
+      - application/json
+      responses:
+        '200':
+          description: OK
+          schema:
+            $ref: '#/definitions/rbac.PermissionMatrix'
+      summary: 获取权限矩阵
+      tags:
+      - rbac
+      parameters:
+      - description: 工作空间 ID
+        in: path
+        name: workspace_id
+        required: true
+        type: integer
+  /workspaces/{workspace_id}/rbac/roles/{role_slug}/permissions:
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: 工作空间 ID
+        in: path
+        name: workspace_id
+        required: true
+        type: integer
+      - description: 角色 Slug
+        in: path
+        name: role_slug
+        required: true
+        type: string
+      - description: 权限集合
+        in: body
+        name: body
+        required: true
+        schema:
+          properties:
+            permissions:
+              items:
+                type: string
+              type: array
+          type: object
+      produces:
+      - application/json
+      responses:
+        '200':
+          description: OK
+          schema:
+            $ref: '#/definitions/rbac.PermissionMatrix'
+      summary: 覆盖角色权限
+      tags:
+      - rbac
 securityDefinitions:
   Bearer:
     description: '"格式: Bearer {access_token}。登录/注册接口返回 access_token 后填入。"'
     in: header
     name: Authorization
     type: apiKey
-swagger: "2.0"
+swagger: '2.0'

@@ -19,7 +19,7 @@ export interface SlashCommandItem {
   label: string
   icon: string
   description: string
-  category: "基础" | "媒体" | "块" | "AI"
+  category: "基础" | "媒体" | "块" | "布局" | "AI"
   execute: (editor: any) => void
 }
 
@@ -185,6 +185,97 @@ const slashItems: SlashCommandItem[] = [
     execute: () => {
       // 触发自定义事件 — 由 RichTextEditor 监听并打开 Emoji 选择面板
       window.dispatchEvent(new CustomEvent("rich-editor:open-emoji"))
+    },
+  },
+  {
+    id: "video",
+    label: "视频嵌入",
+    icon: "▶",
+    description: "嵌入 YouTube / Bilibili 等视频",
+    category: "媒体",
+    execute: (editor) => {
+      const url = prompt("输入视频 URL (YouTube/Bilibili):")
+      if (url) {
+        editor.chain().focus().setEmbed("video", url).run()
+      }
+    },
+  },
+  {
+    id: "embed",
+    label: "嵌入网页",
+    icon: "🔲",
+    description: "嵌入任意 iframe 内容",
+    category: "媒体",
+    execute: (editor) => {
+      const url = prompt("输入嵌入 URL:")
+      if (url) {
+        editor.chain().focus().setEmbed("iframe", url).run()
+      }
+    },
+  },
+  {
+    id: "page-link",
+    label: "页面链接",
+    icon: "📄",
+    description: "引用知识库或项目页面",
+    category: "媒体",
+    execute: (editor) => {
+      const pageId = prompt("输入页面 ID:")
+      const title = prompt("输入页面标题:") || "页面"
+      if (pageId) {
+        editor.chain().focus().insertContent({
+          type: "pageLink",
+          attrs: { pageId, space: "project", title },
+        }).run()
+      }
+    },
+  },
+  {
+    id: "work-item-embed",
+    label: "工作项引用",
+    icon: "📋",
+    description: "嵌入引用一个工作项",
+    category: "媒体",
+    execute: (editor) => {
+      const issueId = prompt("输入工作项 ID:")
+      const title = prompt("输入工作项标题:") || "工作项"
+      if (issueId) {
+        editor.chain().focus().insertContent({
+          type: "workItemEmbed",
+          attrs: { issueId, issueType: "task", title },
+        }).run()
+      }
+    },
+  },
+  // ---- 布局 ----
+  {
+    id: "columns-2",
+    label: "双列布局",
+    icon: "▐▌",
+    description: "创建左右两列布局",
+    category: "布局",
+    execute: (editor) => {
+      editor.chain().focus().setColumns(2).run()
+    },
+  },
+  {
+    id: "columns-3",
+    label: "三列布局",
+    icon: "▌▐▌",
+    description: "创建三列布局",
+    category: "布局",
+    execute: (editor) => {
+      editor.chain().focus().setColumns(3).run()
+    },
+  },
+  {
+    id: "tabs",
+    label: "标签页",
+    icon: "⊞",
+    description: "创建可折叠的标签页块",
+    category: "布局",
+    execute: (editor) => {
+      editor.chain().focus().setTabs().run()
     },
   },
   // ---- AI ----

@@ -237,6 +237,54 @@ function toggleCallout(type: "info" | "warning" | "error" | "success" = "info") 
   editor.value?.chain().focus().toggleWrap("callout", { type }).run()
 }
 
+/* ---- Columns ---- */
+function setColumns(count: 2 | 3) {
+  editor.value?.chain().focus().setColumns(count).run()
+}
+
+/* ---- Tabs ---- */
+function setTabs() {
+  editor.value?.chain().focus().setTabs().run()
+}
+
+/* ---- Embed ---- */
+function insertEmbed(type: "video" | "iframe", url: string) {
+  if (!url) return
+  editor.value?.chain().focus().setEmbed(type, url).run()
+}
+
+function onVideoClick() {
+  const url = window.prompt("输入视频 URL (YouTube/Bilibili):")
+  if (url) insertEmbed("video", url)
+}
+
+function onEmbedClick() {
+  const url = window.prompt("输入嵌入 URL:")
+  if (url) insertEmbed("iframe", url)
+}
+
+function onPageLinkClick() {
+  const id = window.prompt("输入页面 ID:")
+  const title = window.prompt("输入页面标题:") || "页面"
+  if (id) {
+    editor.value?.chain().focus().insertContent({
+      type: "pageLink",
+      attrs: { pageId: id, space: "project", title },
+    }).run()
+  }
+}
+
+function onWorkItemEmbedClick() {
+  const id = window.prompt("输入工作项 ID:")
+  const title = window.prompt("输入工作项标题:") || "工作项"
+  if (id) {
+    editor.value?.chain().focus().insertContent({
+      type: "workItemEmbed",
+      attrs: { issueId: id, issueType: "task", title },
+    }).run()
+  }
+}
+
 /* ---- 文本对齐 ---- */
 function alignLeft() {
   editor.value?.chain().focus().setTextAlign("left").run()
@@ -264,6 +312,8 @@ const isActiveCodeBlock = computed(() => editor.value?.isActive("codeBlock") ?? 
 const isActiveLink = computed(() => editor.value?.isActive("link") ?? false)
 const isActiveTable = computed(() => editor.value?.isActive("table") ?? false)
 const isActiveCallout = computed(() => editor.value?.isActive("callout") ?? false)
+const isActiveColumns = computed(() => editor.value?.isActive("columns") ?? false)
+const isActiveTabs = computed(() => editor.value?.isActive("tabs") ?? false)
 
 /* ---- Emoji Picker ---- */
 const emojiPickerOpen = ref(false)
@@ -305,6 +355,8 @@ const toolbarGroups = computed(() => {
     ["alignLeft", "alignCenter", "alignRight"],
     ["calloutInfo", "calloutWarning", "calloutError", "calloutSuccess"],
     ["link", "image", "table"],
+    ["columns2", "columns3", "tabs"],
+    ["video", "embed", "pageLink", "workItemEmbed"],
   ]
 })
 
@@ -846,6 +898,69 @@ defineExpose({ editor })
           >
             ⊞
           </button>
+
+          <!-- 布局: 列/标签页 -->
+          <button
+            v-else-if="action === 'columns2'"
+            class="rich-editor__btn"
+            :class="{ 'rich-editor__btn--active': isActiveColumns }"
+            title="双列布局"
+            @click="setColumns(2)"
+          >
+            ▐▌
+          </button>
+          <button
+            v-else-if="action === 'columns3'"
+            class="rich-editor__btn"
+            :class="{ 'rich-editor__btn--active': isActiveColumns }"
+            title="三列布局"
+            @click="setColumns(3)"
+          >
+            ▌▐▌
+          </button>
+          <button
+            v-else-if="action === 'tabs'"
+            class="rich-editor__btn"
+            :class="{ 'rich-editor__btn--active': isActiveTabs }"
+            title="标签页块"
+            @click="setTabs"
+          >
+            ⊞
+          </button>
+
+          <!-- 嵌入: 视频/网页/页面链接/工作项 -->
+          <button
+            v-else-if="action === 'video'"
+            class="rich-editor__btn"
+            title="嵌入视频"
+            @click="onVideoClick"
+          >
+            ▶
+          </button>
+          <button
+            v-else-if="action === 'embed'"
+            class="rich-editor__btn"
+            title="嵌入网页"
+            @click="onEmbedClick"
+          >
+            🔲
+          </button>
+          <button
+            v-else-if="action === 'pageLink'"
+            class="rich-editor__btn"
+            title="引用页面"
+            @click="onPageLinkClick"
+          >
+            📄
+          </button>
+          <button
+            v-else-if="action === 'workItemEmbed'"
+            class="rich-editor__btn"
+            title="引用工作项"
+            @click="onWorkItemEmbedClick"
+          >
+            📋
+          </button>
         </template>
 
         <span v-if="gi < toolbarGroups.length - 1" class="rich-editor__divider"></span>
@@ -1358,6 +1473,116 @@ defineExpose({ editor })
 .rich-editor__content :deep(.ProseMirror div[data-type="callout"][data-callout-type="success"]) {
   background: var(--success-50, #ecfdf5);
   border-color: var(--success-500, #10b981);
+}
+
+/* Columns */
+.rich-editor__content :deep(.ProseMirror div[data-type="columns"]) {
+  display: flex;
+  gap: 16px;
+  margin: 8px 0;
+}
+
+.rich-editor__content :deep(.ProseMirror div[data-type="columns"] div[data-type="column"]) {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm, 6px);
+  padding: 12px;
+  background: var(--bg-surface-2);
+}
+
+.rich-editor__content :deep(.ProseMirror div[data-type="columns"] div[data-type="column"]:focus-within) {
+  border-color: var(--border-accent-subtle, var(--brand-200, #bfdbfe));
+  box-shadow: 0 0 0 2px var(--bg-accent-subtle, rgba(59, 130, 246, 0.08));
+}
+
+/* Tabs */
+.rich-editor__content :deep(.ProseMirror div[data-type="tabs"]) {
+  margin: 8px 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md, 8px);
+  overflow: hidden;
+}
+
+.rich-editor__content :deep(.ProseMirror div[data-type="tab"]) {
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.rich-editor__content :deep(.ProseMirror div[data-type="tab"]:last-child) {
+  border-bottom: none;
+}
+
+.rich-editor__content :deep(.ProseMirror div[data-type="tab"][data-tab-active="true"]) {
+  background: var(--bg-accent-subtle, var(--brand-50, rgba(59, 130, 246, 0.05)));
+}
+
+/* Embed */
+.rich-editor__content :deep(.ProseMirror div[data-type="embed"]) {
+  margin: 8px 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md, 8px);
+  overflow: hidden;
+  background: var(--bg-surface-2);
+}
+
+.rich-editor__content :deep(.ProseMirror div[data-type="embed"][data-embed-type="video"]) {
+  aspect-ratio: 16 / 9;
+}
+
+.rich-editor__content :deep(.ProseMirror div[data-type="embed"] iframe),
+.rich-editor__content :deep(.ProseMirror div[data-type="embed"] video) {
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+/* Work Item Embed */
+.rich-editor__content :deep(.ProseMirror div[data-type="work-item-embed"]) {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  margin: 4px 0;
+  background: var(--bg-surface-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm, 6px);
+  cursor: pointer;
+}
+
+.rich-editor__content :deep(.ProseMirror div[data-type="work-item-embed"]:hover) {
+  background: var(--bg-accent-subtle, var(--brand-50));
+  border-color: var(--border-accent-subtle);
+}
+
+/* Page Link */
+.rich-editor__content :deep(.ProseMirror div[data-type="page-link"]) {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  margin: 4px 0;
+  background: var(--bg-surface-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm, 6px);
+  color: var(--txt-accent-primary, var(--brand-500, #3b82f6));
+  cursor: pointer;
+}
+
+.rich-editor__content :deep(.ProseMirror div[data-type="page-link"]:hover) {
+  background: var(--bg-accent-subtle, var(--brand-50));
+  border-color: var(--border-accent-subtle);
+}
+
+/* Drag Indicator */
+.rich-editor__content :deep(.ProseMirror .drag-indicator) {
+  height: 2px;
+  background: var(--brand-500, #3b82f6);
+  margin: 0;
+  border-radius: 1px;
+}
+
+.rich-editor__content :deep(.ProseMirror .block-dragging) {
+  opacity: 0.5;
 }
 
 /* Table */

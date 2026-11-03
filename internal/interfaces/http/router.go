@@ -41,6 +41,9 @@ import (
 	"github.com/njydsz/ydsz-plane/internal/application/automation"
 	"github.com/njydsz/ydsz-plane/internal/application/dashboard"
 	"github.com/njydsz/ydsz-plane/internal/application/dlq"
+	"github.com/njydsz/ydsz-plane/internal/application/calendar"
+	"github.com/njydsz/ydsz-plane/internal/application/datajob"
+	"github.com/njydsz/ydsz-plane/internal/application/initiative"
 	"github.com/njydsz/ydsz-plane/internal/application/intake"
 	"github.com/njydsz/ydsz-plane/internal/application/issue"
 	"github.com/njydsz/ydsz-plane/internal/application/knowledge"
@@ -130,6 +133,12 @@ type Deps struct {
 	// 收件箱域（Intake，匿名提报）
 	IntakeHandler       *intake.Handler
 	IntakePublicHandler *intake.PublicHandler
+	// 日历域（独立事件：会议/里程碑/发布日/截止日）
+	CalendarHandler *calendar.Handler
+	// 数据任务域（异步作业：导入/导出/同步/报表）
+	DataJobHandler *datajob.Handler
+	// 倡议域（跨项目战略目标的进度聚合）
+	InitiativeHandler *initiative.Handler
 
 	// ReadyzDeps 携带 /readyz 连通性探测所需的可选外部依赖客户端。
 	// 若对应字段为 nil，则 /readyz 不检查该依赖。
@@ -463,6 +472,80 @@ func RegisterPagesPublicRoutes(r *gin.Engine, d *Deps) {
 	}
 }
 
+// RegisterDataJobRoutes 注册数据任务路由（工作空间级）。
+// 路由前缀：/api/v1/workspaces/:workspace_id/data-jobs
+// 权限分层：读 workspace:read；写 project:update（创建/状态流转）。
+func RegisterDataJobRoutes(r *gin.Engine, d *Deps) {
+	if d.DataJobHandler == nil {
+		return
+	}
+	wsRead := r.Group("/api/v1/workspaces/:workspace_id")
+	wsRead.Use(
+		middleware.RequireAuth(d.principalParser()),
+		middleware.RequireWorkspaceParam(),
+		middleware.RequirePermissionFromDB(d.RBACStore, auth.PermWorkspaceRead),
+	)
+	d.DataJobHandler.RegisterRead(wsRead.Group(""))
+
+	wsWrite := r.Group("/api/v1/workspaces/:workspace_id")
+	wsWrite.Use(
+		middleware.RequireAuth(d.principalParser()),
+		middleware.RequireWorkspaceParam(),
+		middleware.RequirePermissionFromDB(d.RBACStore, auth.PermProjectUpdate),
+	)
+	d.DataJobHandler.RegisterWrite(wsWrite.Group(""))
+}
+
+// RegisterInitiativeRoutes 注册倡议路由（工作空间级）。
+// 路由前缀：/api/v1/workspaces/:workspace_id/initiatives
+// 权限分层：读操作 workspace:read；写操作 project:update。
+func RegisterInitiativeRoutes(r *gin.Engine, d *Deps) {
+	if d.InitiativeHandler == nil {
+		return
+	}
+	wsRead := r.Group("/api/v1/workspaces/:workspace_id")
+	wsRead.Use(
+		middleware.RequireAuth(d.principalParser()),
+		middleware.RequireWorkspaceParam(),
+		middleware.RequirePermissionFromDB(d.RBACStore, auth.PermWorkspaceRead),
+	)
+	d.InitiativeHandler.RegisterRead(wsRead.Group(""))
+
+	wsWrite := r.Group("/api/v1/workspaces/:workspace_id")
+	wsWrite.Use(
+		middleware.RequireAuth(d.principalParser()),
+		middleware.RequireWorkspaceParam(),
+		middleware.RequirePermissionFromDB(d.RBACStore, auth.PermProjectUpdate),
+	)
+	d.InitiativeHandler.RegisterWrite(wsWrite.Group(""))
+}
+
+// RegisterCalendarRoutes 注册日历事件路由（工作空间级 + 项目级）。
+// 路由前缀：/api/v1/workspaces/:workspace_id/calendar
+//           /api/v1/workspaces/:workspace_id/projects/:project_id/calendar
+// 权限分层：读操作 workspace:read；写操作 project:update。
+func RegisterCalendarRoutes(r *gin.Engine, d *Deps) {
+	if d.CalendarHandler == nil {
+		return
+	}
+	wsRead := r.Group("/api/v1/workspaces/:workspace_id")
+	wsRead.Use(
+		middleware.RequireAuth(d.principalParser()),
+		middleware.RequireWorkspaceParam(),
+		middleware.RequirePermissionFromDB(d.RBACStore, auth.PermWorkspaceRead),
+	)
+	d.CalendarHandler.RegisterRead(wsRead.Group(""))
+
+	wsWrite := r.Group("/api/v1/workspaces/:workspace_id")
+	wsWrite.Use(
+		middleware.RequireAuth(d.principalParser()),
+		middleware.RequireWorkspaceParam(),
+		middleware.RequirePermissionFromDB(d.RBACStore, auth.PermProjectUpdate),
+	)
+	// 写权限更严格：未授权用户的写请求会被中间件在路由层拦截。
+	d.CalendarHandler.RegisterWrite(wsWrite.Group(""))
+}
+
 // RegisterIntakeRoutes 注册收件箱管理路由（工作空间级）。
 // 路由前缀：/api/v1/workspaces/:workspace_id/intake
 // 权限分层：读操作 workspace:read；写操作（渠道管理/工单流转/转正）intake:manage。
@@ -735,6 +818,11 @@ func NewEngine(d *Deps) *gin.Engine {
 
 				// 所有角色定义列表（只读，供成员管理表单下拉）
 				ws.GET("/roles", requireWsPermission(d, auth.PermWorkspaceRead), listRoles(d))
+
+				// RBAC 权限矩阵（读：工作空间成员可见；写：仅系统管理员）
+				ws.GET("/rbac/matrix", requireWsPermission(d, auth.PermWorkspaceRead), getPermissionMatrix(d))
+				ws.PUT("/rbac/roles/:role_slug/permissions",
+					requireWsPermission(d, auth.PermSystemConfig), replaceRolePermissions(d))
 
 				// Logo 上传 / 移除（需要 workspace:update 权限）
 				ws.POST("/logo", requireWsPermission(d, auth.PermWorkspaceUpdate), uploadLogo(d))
@@ -1277,5 +1365,65 @@ func listRoles(d *Deps) gin.HandlerFunc {
 			return
 		}
 		c.JSON(http.StatusOK, gin.H{"items": roles})
+	}
+}
+
+// getPermissionMatrix 返回完整的角色 × 权限矩阵。
+//
+// 供前端「角色与权限」页面动态渲染，替代原先硬编码的静态矩阵。
+// 数据来源为 DB（非缓存），保证管理端看到的是已提交的授权状态。
+func getPermissionMatrix(d *Deps) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		matrix, err := d.RBACStore.GetPermissionMatrix(c.Request.Context())
+		if err != nil {
+			writeError(c, err)
+			return
+		}
+		c.JSON(http.StatusOK, matrix)
+	}
+}
+
+// replaceRolePermissions 全量覆盖指定角色的权限集合。
+//
+// 请求体：{"permissions": ["issue:read", "issue:create", ...]}
+// 仅系统管理员（system:config）可调用，防止普通成员越权提权。
+func replaceRolePermissions(d *Deps) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		roleSlug := c.Param("role_slug")
+		if roleSlug == "" {
+			middleware.AbortWithError(c, errs.ErrValidation.WithDetails(
+				errs.FieldDetail{Field: "role_slug", Reason: "required"},
+			))
+			return
+		}
+
+		var req struct {
+			Permissions []string `json:"permissions" binding:"required,min=1,dive,required"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			middleware.AbortWithError(c, errs.ErrValidation.WithDetails(fieldDetails(err)...))
+			return
+		}
+
+		// 纵深防御：即使前端校验被绕过，服务端仍拒绝未注册的权限码。
+		if bad := rbac.ValidatePermissions(req.Permissions); bad != "" {
+			middleware.AbortWithError(c, errs.ErrValidation.WithDetails(
+				errs.FieldDetail{Field: "permissions", Reason: "unknown permission code: " + bad},
+			))
+			return
+		}
+
+		if err := d.RBACStore.ReplaceRolePermissions(c.Request.Context(), roleSlug, req.Permissions); err != nil {
+			writeError(c, err)
+			return
+		}
+
+		// 返回覆盖后的矩阵，便于前端就地刷新。
+		matrix, err := d.RBACStore.GetPermissionMatrix(c.Request.Context())
+		if err != nil {
+			writeError(c, err)
+			return
+		}
+		c.JSON(http.StatusOK, matrix)
 	}
 }

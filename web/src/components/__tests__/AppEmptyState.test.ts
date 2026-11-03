@@ -3,7 +3,7 @@
  *
  * 覆盖：默认场景、自定义标题/描述、CTA 事件、预设场景枚举。
  */
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { mount } from "@vue/test-utils";
 
 import AppEmptyState from "../AppEmptyState.vue";

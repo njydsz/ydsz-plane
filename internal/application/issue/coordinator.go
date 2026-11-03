@@ -48,6 +48,9 @@ type Issue struct {
 	CreatedBy   int64         `json:"created_by"`
 	CreatedAt   time.Time     `json:"created_at"`
 	UpdatedAt   time.Time     `json:"updated_at"`
+	// 内容字段（详情接口返回；列表接口为控制体积可不填充）
+	DescriptionJSON map[string]any `json:"description_json,omitempty"`
+	DescriptionHTML string         `json:"description_html,omitempty"`
 	// 按类型的可选字段
 	Severity   *int    `json:"severity,omitempty"`
 	FoundPhase *string `json:"found_phase,omitempty"`
@@ -56,6 +59,21 @@ type Issue struct {
 	Assignees  []int64 `json:"assignees,omitempty"`
 	Labels     []int64 `json:"labels,omitempty"`
 	Modules    []int64 `json:"modules,omitempty"`
+	Watchers   []int64 `json:"watchers,omitempty"`
+	// 任务工时字段
+	ActualEffort    *float64 `json:"actual_effort,omitempty"`
+	RemainingEffort *float64 `json:"remaining_effort,omitempty"`
+	DelayReason     *string  `json:"delay_reason,omitempty"`
+	// 缺陷字段
+	RootCauseCategory *string        `json:"root_cause_category,omitempty"`
+	VerifierID        *int64         `json:"verifier_id,omitempty"`
+	Environment       map[string]any `json:"environment,omitempty"`
+	ReproduceSteps    map[string]any `json:"reproduce_steps,omitempty"`
+	FoundVersionID    *int64         `json:"found_version_id,omitempty"`
+	FixVersionID      *int64         `json:"fix_version_id,omitempty"`
+	ReleaseVersionID  *int64         `json:"release_version_id,omitempty"`
+	Source            *string        `json:"source,omitempty"`
+	ReviewStatus      string         `json:"review_status,omitempty"`
 }
 
 // CreateIssueInput 创建工作项的入参（过渡 API 用）。
@@ -894,9 +912,15 @@ func taskToIssue(t *Task) *Issue {
 		SequenceID: t.SequenceID, Identifier: t.Identifier, TypeCode: t.TypeCode,
 		ParentID: t.ParentID, Depth: t.Depth, Name: t.Name, StateID: t.StateID, State: t.State,
 		Priority: t.Priority, SprintID: t.SprintID, VersionID: t.VersionID, Progress: t.Progress,
-		TargetDate: t.TargetDate, IsDraft: t.IsDraft, SortOrder: t.SortOrder, Version: t.Version,
+		StartDate: t.StartDate, TargetDate: t.TargetDate, CompletedAt: t.CompletedAt,
+		IsDraft: t.IsDraft, SortOrder: t.SortOrder, Version: t.Version,
 		CreatedBy: t.CreatedBy, CreatedAt: t.CreatedAt, UpdatedAt: t.UpdatedAt,
-		Category: t.Category, Assignees: t.Assignees, Labels: t.Labels, Modules: t.Modules,
+		Category: t.Category, Point: t.Point,
+		Assignees: t.Assignees, Labels: t.Labels, Modules: t.Modules, Watchers: t.Watchers,
+		// 任务专属：工时字段
+		ActualEffort: t.ActualEffort, RemainingEffort: t.RemainingEffort, DelayReason: t.DelayReason,
+		// 内容字段
+		DescriptionJSON: t.DescriptionJSON, DescriptionHTML: t.DescriptionHTML,
 	}
 	return iss
 }
@@ -907,9 +931,13 @@ func requirementToIssue(r *Requirement) *Issue {
 		SequenceID: r.SequenceID, Identifier: r.Identifier, TypeCode: r.TypeCode,
 		ParentID: r.ParentID, Depth: r.Depth, Name: r.Name, StateID: r.StateID, State: r.State,
 		Priority: r.Priority, SprintID: r.SprintID, VersionID: r.VersionID, Progress: r.Progress,
-		TargetDate: r.TargetDate, IsDraft: r.IsDraft, SortOrder: r.SortOrder, Version: r.Version,
+		StartDate: r.StartDate, TargetDate: r.TargetDate, CompletedAt: r.CompletedAt,
+		IsDraft: r.IsDraft, SortOrder: r.SortOrder, Version: r.Version,
 		CreatedBy: r.CreatedBy, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt,
-		Assignees: r.Assignees, Labels: r.Labels, Modules: r.Modules,
+		Category: nil, Point: r.Point,
+		Assignees: r.Assignees, Labels: r.Labels, Modules: r.Modules, Watchers: r.Watchers,
+		DescriptionJSON: r.DescriptionJSON, DescriptionHTML: r.DescriptionHTML,
+		ReviewStatus: derefStr(r.ReviewStatus), Source: r.Source,
 	}
 }
 
@@ -920,11 +948,25 @@ func defectToIssue(d *Defect) *Issue {
 		SequenceID: d.SequenceID, Identifier: d.Identifier, TypeCode: d.TypeCode,
 		ParentID: d.ParentID, Depth: d.Depth, Name: d.Name, StateID: d.StateID, State: d.State,
 		Priority: d.Priority, SprintID: d.SprintID, VersionID: d.VersionID, Progress: d.Progress,
-		TargetDate: d.TargetDate, IsDraft: d.IsDraft, SortOrder: d.SortOrder, Version: d.Version,
+		StartDate: d.StartDate, TargetDate: d.TargetDate, CompletedAt: d.CompletedAt,
+		IsDraft: d.IsDraft, SortOrder: d.SortOrder, Version: d.Version,
 		CreatedBy: d.CreatedBy, CreatedAt: d.CreatedAt, UpdatedAt: d.UpdatedAt,
 		Severity: &severity, FoundPhase: &d.FoundPhase,
-		Assignees: d.Assignees, Labels: d.Labels, Modules: d.Modules,
+		Assignees: d.Assignees, Labels: d.Labels, Modules: d.Modules, Watchers: d.Watchers,
+		// 缺陷专属字段
+		RootCauseCategory: d.RootCauseCategory, VerifierID: d.VerifierID,
+		Environment: d.Environment, ReproduceSteps: d.ReproduceSteps,
+		FoundVersionID: d.FoundVersionID, FixVersionID: d.FixVersionID,
+		DescriptionJSON: d.DescriptionJSON, DescriptionHTML: d.DescriptionHTML,
 	}
+}
+
+// derefStr 安全解引用可选字符串；nil 返回空串。
+func derefStr(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
 }
 
 // --- 跨类型 where/sort builder ---

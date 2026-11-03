@@ -13,6 +13,7 @@ package rbac
 import (
 	"context"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -20,8 +21,73 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
 
+	"github.com/njydsz/ydsz-plane/internal/application/auth"
 	"github.com/njydsz/ydsz-plane/pkg/errs"
 )
+
+// authPermissionCodes 汇总 auth 包中全部预定义权限码。
+//
+// 用于 RBAC 管理端写入时的服务端校验（纵深防御），
+// 防止通过 API 注入未在系统中注册的权限字符串。
+var authPermissionCodes = []string{
+	auth.PermSystemConfig,
+	auth.PermSystemUserRead,
+	auth.PermSystemUserManage,
+	auth.PermSystemWorkspaceList,
+	auth.PermSystemWorkspaceMgmt,
+	auth.PermSystemAuditRead,
+	auth.PermWorkspaceRead,
+	auth.PermWorkspaceUpdate,
+	auth.PermWorkspaceDelete,
+	auth.PermWorkspaceTransfer,
+	auth.PermProjectRead,
+	auth.PermProjectCreate,
+	auth.PermProjectUpdate,
+	auth.PermProjectDelete,
+	auth.PermIssueRead,
+	auth.PermIssueCreate,
+	auth.PermIssueEditOwn,
+	auth.PermIssueEditAll,
+	auth.PermIssueDelete,
+	auth.PermIssueTransition,
+	auth.PermIssueReassign,
+	auth.PermIssueChangePriority,
+	auth.PermIssueManageSprint,
+	auth.PermMemberInvite,
+	auth.PermMemberRemove,
+	auth.PermMemberChangeRole,
+	auth.PermSprintRead,
+	auth.PermSprintCreate,
+	auth.PermSprintUpdate,
+	auth.PermSprintDelete,
+	auth.PermSprintLifecycle,
+	auth.PermSprintPlan,
+	auth.PermVersionRead,
+	auth.PermVersionCreate,
+	auth.PermVersionUpdate,
+	auth.PermVersionRelease,
+	auth.PermVersionDelete,
+	auth.PermDefectCreate,
+	auth.PermQAReport,
+	auth.PermAnalyticsRead,
+	auth.PermAnalyticsExport,
+	auth.PermAutomationManage,
+	auth.PermDeployReport,
+	auth.PermAuditRead,
+	auth.PermWebhookManage,
+	auth.PermPagesManage,
+	auth.PermIntakeRead,
+	auth.PermIntakeManage,
+	auth.PermKnowledgeRead,
+	auth.PermKnowledgeManage,
+	auth.PermCommentModerate,
+	auth.PermRelationManage,
+	auth.PermFieldEditSeverity,
+	auth.PermFieldEditEffort,
+	auth.PermFieldEditDeadline,
+	auth.PermMenuSettings,
+	auth.PermMenuAudit,
+}
 
 // Role 代表 roles 表中的一行。
 type Role struct {
@@ -45,6 +111,15 @@ type Store struct {
 	cacheExp  map[string]time.Time           // slug -> expire
 	initOnce  sync.Once
 	initErr   error
+}
+
+// PermissionMatrix 是完整的角色 × 权限矩阵快照，供管理端展示。
+type PermissionMatrix struct {
+	Roles []Role `json:"roles"`
+	// Permissions 为全部权限码（去重、按字典序）。
+	Permissions []string `json:"permissions"`
+	// Grants 为 role_slug -> set(permission_code) 的映射。
+	Grants map[string]map[string]struct{} `json:"grants"`
 }
 
 // NewStore 构造 Store。
@@ -167,6 +242,130 @@ func (s *Store) ResolveMembership(ctx context.Context, wsID, userID int64) (Role
 		return Role{}, nil, err
 	}
 	return role, perms, nil
+}
+
+// GetPermissionMatrix 返回完整的角色 × 权限矩阵。
+//
+// 数据来源为 DB（非缓存），保证管理端看到的是已提交的授权状态。
+// 用于前端「角色与权限」页面的动态渲染，替代原先硬编码的静态矩阵。
+func (s *Store) GetPermissionMatrix(ctx context.Context) (*PermissionMatrix, error) {
+	roles, err := s.ListRoles(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	rows, err := s.db.Query(ctx, `
+		SELECT role_slug, permission_code
+		FROM role_permissions
+		WHERE deleted = false AND status = 'active'`)
+	if err != nil {
+		return nil, errs.ErrInternal.Wrap(err)
+	}
+	defer rows.Close()
+
+	grants := make(map[string]map[string]struct{})
+	permSet := make(map[string]struct{})
+	for rows.Next() {
+		var slug, perm string
+		if scanErr := rows.Scan(&slug, &perm); scanErr != nil {
+			return nil, errs.ErrInternal.Wrap(scanErr)
+		}
+		if grants[slug] == nil {
+			grants[slug] = make(map[string]struct{})
+		}
+		grants[slug][perm] = struct{}{}
+		permSet[perm] = struct{}{}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, errs.ErrInternal.Wrap(err)
+	}
+
+	perms := make([]string, 0, len(permSet))
+	for p := range permSet {
+		perms = append(perms, p)
+	}
+	sort.Strings(perms)
+
+	return &PermissionMatrix{
+		Roles:       roles,
+		Permissions: perms,
+		Grants:      grants,
+	}, nil
+}
+
+// ReplaceRolePermissions 全量覆盖指定角色的权限集合。
+//
+// 采用「先删后插」策略，事务内保证原子性：
+//   - 删除该角色全部现有授权（软删除，保留审计轨迹）
+//   - 插入新的授权行
+//
+// 成功后自动使缓存失效，确保后续请求读取到新权限。
+func (s *Store) ReplaceRolePermissions(ctx context.Context, roleSlug string, perms []string) error {
+	if roleSlug == "" {
+		return errs.ErrValidation.WithDetails(errs.FieldDetail{Field: "role_slug", Reason: "required"})
+	}
+	if len(perms) == 0 {
+		return errs.ErrValidation.WithDetails(errs.FieldDetail{Field: "permissions", Reason: "at least one permission required"})
+	}
+
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return errs.ErrInternal.Wrap(err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	// 软删除旧授权（保留审计轨迹，不做物理删除）。
+	if _, err := tx.Exec(ctx, `
+		UPDATE role_permissions
+		SET deleted = true, updated_at = now(), updated_by = 0
+		WHERE role_slug = $1 AND deleted = false`, roleSlug); err != nil {
+		return errs.ErrInternal.Wrap(err)
+	}
+
+	// 去重后插入新授权，使用 ON CONFLICT DO NOTHING 保证幂等。
+	seen := make(map[string]struct{}, len(perms))
+	for _, p := range perms {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		if _, dup := seen[p]; dup {
+			continue
+		}
+		seen[p] = struct{}{}
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO role_permissions (id, tenant_id, role_slug, permission_code, status, deleted)
+			VALUES (nextval('role_permissions_id_seq'), 1, $1, $2, 'active', false)
+			ON CONFLICT DO NOTHING`, roleSlug, p); err != nil {
+			return errs.ErrInternal.Wrap(err)
+		}
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return errs.ErrInternal.Wrap(err)
+	}
+
+	s.InvalidateCache(roleSlug)
+	s.log.Info("role permissions replaced",
+		zap.String("role", roleSlug), zap.Int("count", len(seen)))
+	return nil
+}
+
+// ValidatePermissions 校验权限码是否属于系统预定义的合法集合。
+//
+// 防止通过 API 注入任意权限字符串（纵深防御：即使前端校验被绕过）。
+// 返回第一个非法权限码；全部合法时返回空串。
+func ValidatePermissions(perms []string) string {
+	valid := make(map[string]struct{}, len(authPermissionCodes))
+	for _, p := range authPermissionCodes {
+		valid[p] = struct{}{}
+	}
+	for _, p := range perms {
+		if _, ok := valid[strings.TrimSpace(p)]; !ok {
+			return p
+		}
+	}
+	return ""
 }
 
 // InvalidateCache 使指定角色的缓存失效（供权限变更后调用）。

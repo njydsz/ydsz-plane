@@ -13,7 +13,7 @@
 import { computed, onMounted, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 
-import { workspaceApi, type Member } from "@/api/services/workspace";
+import { workspaceApi, type ImportMembersResult, type Member } from "@/api/services/workspace";
 import { useAuthStore } from "@/stores/auth";
 import { AppEmptyState, AppErrorState, AppSkeleton } from "@/components";
 import { formatRelativeTime } from "@/lib/formatTime";
@@ -33,6 +33,12 @@ const members = ref<Member[]>([]);
 const openRoleMenuFor = ref<number | null>(null);
 /** 正在变更/移除中的成员 ID 集合（用于 disable 按钮 + 显示 loading 文案） */
 const pendingIds = ref<Set<number>>(new Set());
+
+/** 批量导入状态。 */
+const importing = ref(false);
+const importResult = ref<ImportMembersResult | null>(null);
+const showImportDialog = ref(false);
+const fileInput = ref<HTMLInputElement | null>(null);
 
 /** 角色枚举 + 中文 label（与 RolesPermissionsView 对齐） */
 const ROLES = [
@@ -145,8 +151,39 @@ async function removeMember(m: Member) {
 onMounted(load);
 watch(workspaceId, () => {
   openRoleMenuFor.value = null;
+  importResult.value = null;
   load();
 });
+
+/** 触发文件选择。 */
+function pickFile() {
+  fileInput.value?.click();
+}
+
+/** 处理 CSV 文件选择。 */
+async function onFileSelected(e: Event) {
+  const input = e.target as HTMLInputElement;
+  const file = input.files?.[0];
+  if (!file) return;
+  if (!file.name.toLowerCase().endsWith(".csv")) {
+    toast.error("请选择 CSV 文件");
+    input.value = "";
+    return;
+  }
+  importing.value = true;
+  try {
+    const result = await workspaceApi.importMembers(workspaceId.value, file);
+    importResult.value = result;
+    showImportDialog.value = true;
+    toast.success(`导入完成：成功 ${result.success}，失败 ${result.failed}`);
+    await load();
+  } catch (err: unknown) {
+    toast.error(err instanceof Error ? err.message : "导入失败");
+  } finally {
+    importing.value = false;
+    input.value = "";
+  }
+}
 
 /** 关闭角色下拉的全局监听 — 仅当有菜单打开时才挂载，性能 OK */
 function onDocumentClick(e: MouseEvent) {
@@ -177,6 +214,28 @@ if (typeof document !== "undefined") {
     </div>
 
     <section>
+      <!-- 批量导入入口（仅 owner/admin 可见） -->
+      <div v-if="canManageMembers" class="mb-4 flex items-center gap-3">
+        <input
+          ref="fileInput"
+          type="file"
+          accept=".csv"
+          class="hidden"
+          @change="onFileSelected"
+        />
+        <button
+          type="button"
+          class="rounded-md border border-[var(--border-subtle)] px-3 py-1.5 text-sm hover:bg-[var(--surface-2)] disabled:opacity-50"
+          :disabled="importing"
+          @click="pickFile"
+        >
+          {{ importing ? "导入中…" : "批量导入 CSV" }}
+        </button>
+        <span class="text-xs text-[var(--text-tertiary)]">
+          CSV 需包含 email 列，可选 name 列（中文表头“邮箱/姓名”也支持）
+        </span>
+      </div>
+
       <!-- 三态：loading / error / empty / data -->
       <div v-if="loading" class="space-y-3">
         <AppSkeleton v-for="i in 4" :key="i" class="h-14 w-full" />
@@ -307,6 +366,56 @@ if (typeof document !== "undefined") {
         </table>
       </div>
     </section>
+
+    <!-- 导入结果弹窗 -->
+    <div
+      v-if="showImportDialog && importResult"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6"
+      @click.self="showImportDialog = false"
+    >
+      <div class="max-h-[80vh] w-full max-w-lg overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-1)] shadow-xl">
+        <h2 class="m-0 border-b border-[var(--border-subtle)] px-5 py-4 text-base font-semibold">
+          导入结果
+        </h2>
+        <div class="max-h-[60vh] overflow-y-auto px-5 py-4">
+          <div class="mb-3 flex gap-4 text-sm">
+            <span class="text-[var(--text-secondary)]">总计：{{ importResult.total }}</span>
+            <span class="text-[#16a34a]">成功：{{ importResult.success }}</span>
+            <span class="text-[var(--danger, #ef4444)]">失败：{{ importResult.failed }}</span>
+          </div>
+          <table class="w-full text-xs">
+            <thead>
+              <tr class="text-[var(--text-tertiary)]">
+                <th class="py-1 text-left font-medium">邮箱</th>
+                <th class="py-1 text-left font-medium">姓名</th>
+                <th class="py-1 text-left font-medium">状态</th>
+                <th class="py-1 text-left font-medium">说明</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-[var(--border-subtle)]">
+              <tr v-for="(row, idx) in importResult.results" :key="idx">
+                <td class="py-1.5 pr-2 text-[var(--text-primary)]">{{ row.email }}</td>
+                <td class="py-1.5 pr-2 text-[var(--text-secondary)]">{{ row.name || "—" }}</td>
+                <td class="py-1.5 pr-2">
+                  <span :class="row.status === 'ok' ? 'text-[#16a34a]' : row.status === 'exists' ? 'text-[var(--text-tertiary)]' : 'text-[var(--danger, #ef4444)]'">
+                    {{ row.status === "ok" ? "成功" : row.status === "exists" ? "已是成员" : "失败" }}
+                  </span>
+                </td>
+                <td class="py-1.5 text-[var(--text-tertiary)]">{{ row.reason || "—" }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="flex justify-end border-t border-[var(--border-subtle)] px-5 py-3">
+          <button
+            class="rounded-md bg-[var(--brand-500)] px-3 py-1.5 text-sm text-white"
+            @click="showImportDialog = false"
+          >
+            关闭
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 

@@ -42,6 +42,27 @@ export interface RBACData {
   roles: RoleDef[];
 }
 
+/**
+ * 后端 RBAC 权限矩阵响应（GET /workspaces/:wsId/rbac/matrix）。
+ *
+ * 与前端静态 RBAC_MATRIX 的区别：数据来自 DB，反映真实授权状态，
+ * 可由系统管理员动态修改。
+ */
+export interface PermissionMatrixResponse {
+  roles: Array<{
+    slug: string;
+    name: string;
+    description: string;
+    level: number;
+    is_system: boolean;
+    icon: string;
+  }>;
+  /** 全部权限码（去重、字典序）。 */
+  permissions: string[];
+  /** role_slug → 该角色拥有的权限码集合。 */
+  grants: Record<string, Record<string, never>>;
+}
+
 /** 完整权限矩阵数据 */
 export const RBAC_MATRIX: RBACData = {
   resourceGroups: [
@@ -116,6 +137,35 @@ export const rbacApi = {
    */
   async updateMemberRole(wsId: number, userId: number, role: string): Promise<void> {
     await apiClient.put(`/workspaces/${wsId}/members/${userId}/role`, { role });
+  },
+
+  /**
+   * 获取后端 RBAC 权限矩阵 — GET /workspaces/:wsId/rbac/matrix
+   *
+   * 返回全部角色、权限码、以及 role → permissions 的授权映射。
+   * 失败时抛出异常，调用方应回退到静态 RBAC_MATRIX。
+   */
+  async getPermissionMatrix(wsId: number): Promise<PermissionMatrixResponse> {
+    const { data } = await apiClient.get<PermissionMatrixResponse>(`/workspaces/${wsId}/rbac/matrix`);
+    return data;
+  },
+
+  /**
+   * 覆盖指定角色的权限集合 — PUT /workspaces/:wsId/rbac/roles/:roleSlug/permissions
+   *
+   * 全量覆盖语义：后端会软删除该角色现有授权并写入新集合。
+   * 返回覆盖后的完整矩阵，便于调用方就地刷新。
+   */
+  async replaceRolePermissions(
+    wsId: number,
+    roleSlug: string,
+    permissions: string[],
+  ): Promise<PermissionMatrixResponse> {
+    const { data } = await apiClient.put<PermissionMatrixResponse>(
+      `/workspaces/${wsId}/rbac/roles/${encodeURIComponent(roleSlug)}/permissions`,
+      { permissions },
+    );
+    return data;
   },
 };
 

@@ -6,9 +6,15 @@ import { defineStore } from "pinia";
 import { authApi } from "@/api/services/auth";
 import type { TokenPair } from "@/api/services/auth";
 
-/** 用户简要信息（列表/头像场景使用，不含敏感字段） */
+/**
+ * 用户简要信息（列表/头像场景使用，不含敏感字段）。
+ *
+ * id 类型说明：后端 users.id 为 BIGINT（Go int64），JSON 序列化为 number；
+ * 前端统一按 number 处理，避免 BigInt 精度问题在 JS 侧需额外转换的场景。
+ * 若后续启用雪花 ID String 化改造，此处应同步改为 string 并全链路适配。
+ */
 export interface UserBrief {
-  id: string;
+  id: number;
   email: string;
   display_name: string;
   avatar_url: string;

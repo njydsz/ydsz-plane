@@ -70,8 +70,8 @@ func (s *TaskService) Create(ctx context.Context, in CreateTaskInput) (*Task, er
 func (s *TaskService) GetByID(ctx context.Context, wsID, taskID int64) (*Task, error) {
 	var t Task
 	var parentID sql.NullInt64
-	var category sql.NullString
-	var point sql.NullInt64
+	var category, delayReason sql.NullString
+	var point, actualEffort, remainingEffort sql.NullInt64
 	var startDate, targetDate, completedAt sql.NullTime
 	var stateName, stateColor, identifier string
 	var stateGroup StateGroup
@@ -86,7 +86,8 @@ func (s *TaskService) GetByID(ctx context.Context, wsID, taskID int64) (*Task, e
 		       t.priority, t.category, t.point,
 		       t.start_date, t.target_date, t.completed_at, t.progress,
 		       t.is_draft, t.version, t.created_by, t.created_at, t.updated_at,
-		       p.identifier, t.sprint_id, t.version_id
+		       p.identifier, t.sprint_id, t.version_id,
+		       t.actual_effort, t.remaining_effort, t.delay_reason
 		FROM task t
 		JOIN states s ON s.id = t.state_id
 		JOIN projects p ON p.id = t.project_id
@@ -99,7 +100,8 @@ func (s *TaskService) GetByID(ctx context.Context, wsID, taskID int64) (*Task, e
 		&t.Priority, &category, &point,
 		&t.StartDate, &targetDate, &completedAt, &t.Progress,
 		&t.IsDraft, &t.Version, &t.CreatedBy, &t.CreatedAt, &t.UpdatedAt,
-		&identifier, &sprintID, &versionID)
+		&identifier, &sprintID, &versionID,
+		&actualEffort, &remainingEffort, &delayReason)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, errs.ErrNotFound
@@ -120,6 +122,18 @@ func (s *TaskService) GetByID(ctx context.Context, wsID, taskID int64) (*Task, e
 	if point.Valid {
 		v := int(point.Int64)
 		t.Point = &v
+	}
+	if actualEffort.Valid {
+		v := float64(actualEffort.Int64)
+		t.ActualEffort = &v
+	}
+	if remainingEffort.Valid {
+		v := float64(remainingEffort.Int64)
+		t.RemainingEffort = &v
+	}
+	if delayReason.Valid {
+		v := delayReason.String
+		t.DelayReason = &v
 	}
 	if startDate.Valid {
 		t.StartDate = &startDate.Time
