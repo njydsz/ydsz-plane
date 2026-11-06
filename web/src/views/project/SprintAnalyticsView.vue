@@ -84,11 +84,11 @@ const stateDistribution = computed(() => {
   const bg = progress.value?.by_state_group;
   if (!bg) return [];
   const labelMap: Record<string, string> = { backlog: "待处理", started: "进行中", completed: "已完成", cancelled: "已取消" };
-  const colorMap: Record<string, string> = { backlog: "#6b7280", started: "#f59e0b", completed: "#10b981", cancelled: "#ef4444" };
+  const colorMap: Record<string, string> = { backlog: "var(--text-secondary)", started: "var(--warning-500)", completed: "var(--success-500)", cancelled: "var(--danger-500)" };
   return Object.entries(bg).map(([k, v]) => ({
     name: labelMap[k] || k,
     value: v,
-    itemStyle: { color: colorMap[k] || "#999" },
+    itemStyle: { color: colorMap[k] || "var(--text-tertiary)" },
   }));
 });
 
@@ -111,12 +111,12 @@ const burndownOption = computed(() => {
     tooltip: { trigger: "axis" },
     legend: { data: ["理想线", "剩余点数", "已完成点数"], bottom: 0, textStyle: { fontSize: 11 } },
     grid: { left: "3%", right: "4%", top: "8%", bottom: "14%", containLabel: true },
-    xAxis: { type: "category", data: dates, boundaryGap: false, axisLabel: { fontSize: 10, color: "#999" } },
-    yAxis: { type: "value", name: "pt", axisLabel: { fontSize: 10, color: "#999" }, splitLine: { lineStyle: { type: "dashed", color: "#f0f0f0" } } },
+    xAxis: { type: "category", data: dates, boundaryGap: false, axisLabel: { fontSize: 10, color: "var(--text-tertiary)" } },
+    yAxis: { type: "value", name: "pt", axisLabel: { fontSize: 10, color: "var(--text-tertiary)" }, splitLine: { lineStyle: { type: "dashed", color: "var(--border-subtle)" } } },
     series: [
-      { name: "理想线", type: "line", data: props.burndown.map((p) => p.ideal_line), lineStyle: { type: "dashed", color: "#faad14" }, symbol: "none" },
-      { name: "剩余点数", type: "line", data: props.burndown.map((p) => p.remaining), lineStyle: { color: "#3b82f6", width: 2 }, itemStyle: { color: "#3b82f6" }, symbol: "circle", symbolSize: 5 },
-      { name: "已完成点数", type: "line", data: props.burndown.map((p) => p.done_points), lineStyle: { color: "#10b981", width: 2 }, itemStyle: { color: "#10b981" }, symbol: "diamond", symbolSize: 5 },
+      { name: "理想线", type: "line", data: props.burndown.map((p) => p.ideal_line), lineStyle: { type: "dashed", color: "var(--warning-500)" }, symbol: "none" },
+      { name: "剩余点数", type: "line", data: props.burndown.map((p) => p.remaining), lineStyle: { color: "var(--brand-500)", width: 2 }, itemStyle: { color: "var(--brand-500)" }, symbol: "circle", symbolSize: 5 },
+      { name: "已完成点数", type: "line", data: props.burndown.map((p) => p.done_points), lineStyle: { color: "var(--success-500)", width: 2 }, itemStyle: { color: "var(--success-500)" }, symbol: "diamond", symbolSize: 5 },
     ],
   };
 });
@@ -132,12 +132,12 @@ const burnupOption = computed(() => {
     tooltip: { trigger: "axis" },
     legend: { data: ["总量", "已完成", "理想线"], bottom: 0, textStyle: { fontSize: 11 } },
     grid: { left: "3%", right: "4%", top: "8%", bottom: "14%", containLabel: true },
-    xAxis: { type: "category", data: dates, boundaryGap: false, axisLabel: { fontSize: 10, color: "#999" } },
-    yAxis: { type: "value", name: "pt", max: Math.ceil(maxTotal * 1.1), axisLabel: { fontSize: 10, color: "#999" }, splitLine: { lineStyle: { type: "dashed", color: "#f0f0f0" } } },
+    xAxis: { type: "category", data: dates, boundaryGap: false, axisLabel: { fontSize: 10, color: "var(--text-tertiary)" } },
+    yAxis: { type: "value", name: "pt", max: Math.ceil(maxTotal * 1.1), axisLabel: { fontSize: 10, color: "var(--text-tertiary)" }, splitLine: { lineStyle: { type: "dashed", color: "var(--border-subtle)" } } },
     series: [
-      { name: "总量", type: "line", data: burnupPoints.value.map((p) => p.total_points), lineStyle: { color: "#6b7280", width: 2 }, itemStyle: { color: "#6b7280" }, symbol: "none", areaStyle: { color: "rgba(107,114,128,0.05)" } },
-      { name: "已完成", type: "line", data: burnupPoints.value.map((p) => p.done_points), lineStyle: { color: "#3b82f6", width: 2.5 }, itemStyle: { color: "#3b82f6" }, symbol: "circle", symbolSize: 5, areaStyle: { color: "rgba(59,130,246,0.12)" } },
-      { name: "理想线", type: "line", data: burnupPoints.value.map((p) => p.ideal_line), lineStyle: { type: "dashed", color: "#faad14" }, symbol: "none" },
+      { name: "总量", type: "line", data: burnupPoints.value.map((p) => p.total_points), lineStyle: { color: "var(--text-secondary)", width: 2 }, itemStyle: { color: "var(--text-secondary)" }, symbol: "none", areaStyle: { color: "rgba(107,114,128,0.05)" } },
+      { name: "已完成", type: "line", data: burnupPoints.value.map((p) => p.done_points), lineStyle: { color: "var(--brand-500)", width: 2.5 }, itemStyle: { color: "var(--brand-500)" }, symbol: "circle", symbolSize: 5, areaStyle: { color: "rgba(59,130,246,0.12)" } },
+      { name: "理想线", type: "line", data: burnupPoints.value.map((p) => p.ideal_line), lineStyle: { type: "dashed", color: "var(--warning-500)" }, symbol: "none" },
     ],
   };
 });
@@ -153,9 +153,9 @@ const velocityOption = computed(() => {
     xAxis: {
       type: "category",
       data: props.velocity.map((v) => v.sprint_name),
-      axisLabel: { fontSize: 10, color: "#999", rotate: 20 },
+      axisLabel: { fontSize: 10, color: "var(--text-tertiary)", rotate: 20 },
     },
-    yAxis: { type: "value", name: "故事点", axisLabel: { fontSize: 10, color: "#999" }, splitLine: { lineStyle: { type: "dashed", color: "#f0f0f0" } } },
+    yAxis: { type: "value", name: "故事点", axisLabel: { fontSize: 10, color: "var(--text-tertiary)" }, splitLine: { lineStyle: { type: "dashed", color: "var(--border-subtle)" } } },
     series: [
       {
         type: "bar",
@@ -163,14 +163,14 @@ const velocityOption = computed(() => {
         barWidth: "50%",
         itemStyle: {
           color: { type: "linear", x: 0, y: 0, x2: 0, y2: 1, colorStops: [
-            { offset: 0, color: "#3b82f6" },
-            { offset: 1, color: "#93c5fd" },
+            { offset: 0, color: "var(--brand-500)" },
+            { offset: 1, color: "var(--brand-200)" },
           ] },
           borderRadius: [4, 4, 0, 0],
         },
         markLine: {
           data: [{ type: "average", name: "平均" }],
-          lineStyle: { color: "#f59e0b", type: "dashed" },
+          lineStyle: { color: "var(--warning-500)", type: "dashed" },
           label: { formatter: "平均 {c}pt", position: "insideEndTop" },
         },
       },
@@ -304,19 +304,19 @@ const pieOption = computed(() => {
   flex-direction: column;
   gap: 4px;
   padding: 16px;
-  background: var(--surface-1, #fff);
-  border: 1px solid var(--border-subtle, #f0f0f0);
+  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md, 8px);
 }
 
-.metric-card--warn .metric-value { color: var(--warning-500, #f59e0b); }
-.metric-card--midway { background: var(--warning-50, #fffbeb); border-color: var(--warning-200, #fde68a); }
-.metric-card--midway .metric-value { color: var(--warning-600, #d97706); }
+.metric-card--warn .metric-value { color: var(--warning-500); }
+.metric-card--midway { background: var(--warning-50); border-color: var(--warning-200); }
+.metric-card--midway .metric-value { color: var(--warning-600); }
 .metric-card--midway .metric-label small { font-weight: 400; opacity: 0.7; }
 
 .metric-label {
   font-size: 12px;
-  color: var(--text-tertiary, #9ca3af);
+  color: var(--text-tertiary);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   font-weight: 500;
@@ -325,19 +325,19 @@ const pieOption = computed(() => {
 .metric-value {
   font-size: 24px;
   font-weight: 700;
-  color: var(--text-primary, #1f2937);
+  color: var(--text-primary);
 }
 
 .metric-value small {
   font-size: 13px;
   font-weight: 500;
-  color: var(--text-tertiary, #9ca3af);
+  color: var(--text-tertiary);
   margin-left: 2px;
 }
 
 .metric-detail {
   font-size: 11px;
-  color: var(--text-tertiary, #9ca3af);
+  color: var(--text-tertiary);
 }
 
 /* ---- Chart Header ---- */
@@ -351,14 +351,14 @@ const pieOption = computed(() => {
 .chart-title {
   font-size: 14px;
   font-weight: 600;
-  color: var(--text-primary, #1f2937);
+  color: var(--text-primary);
   margin: 0;
 }
 
 .chart-toggle {
   display: flex;
   gap: 0;
-  border: 1px solid var(--border-subtle, #e5e7eb);
+  border: 1px solid var(--border-subtle);
   border-radius: 6px;
   overflow: hidden;
 }
@@ -370,18 +370,18 @@ const pieOption = computed(() => {
   background: transparent;
   border: none;
   cursor: pointer;
-  color: var(--text-secondary, #6b7280);
+  color: var(--text-secondary);
   font-family: inherit;
   transition: all 0.15s;
 }
 
 .toggle-btn--active {
-  background: var(--brand-default, #3b82f6);
-  color: #fff;
+  background: var(--brand-default);
+  color: var(--text-on-color);
 }
 
 .toggle-btn:not(.toggle-btn--active):hover {
-  background: var(--surface-2, #f9fafb);
+  background: var(--surface-2);
 }
 
 /* ---- Chart Container ---- */
@@ -394,7 +394,7 @@ const pieOption = computed(() => {
   align-items: center;
   justify-content: center;
   height: 200px;
-  color: var(--text-tertiary, #9ca3af);
+  color: var(--text-tertiary);
   font-size: 13px;
 }
 

@@ -13,6 +13,7 @@ import { computed } from "vue";
 
 import { type Issue, type IssuePriority } from "@/api/services/issue";
 import InlineEdit from "@/components/InlineEdit.vue";
+import DynamicIcon from "@/components/DynamicIcon.vue";
 
 /** 显式命名以支持模板内递归自引用 */
 defineOptions({ name: "WbsTreeNode" });
@@ -61,13 +62,13 @@ const typeLabel = computed(() => {
 /** 优先级色块 */
 const priorityColor = computed(() => {
   const map: Record<IssuePriority, string> = {
-    urgent: "#ef4444",
-    high: "#f97316",
-    medium: "#eab308",
-    low: "#22c55e",
-    none: "#94a3b8",
+    urgent: "var(--danger-500)",
+    high: "var(--warning-500)",
+    medium: "var(--warning-500)",
+    low: "var(--success-500)",
+    none: "var(--text-tertiary)",
   };
-  return map[props.node.issue.priority] || "#94a3b8";
+  return map[props.node.issue.priority] || "var(--text-tertiary)";
 });
 
 /** 优先级标签 */
@@ -167,7 +168,7 @@ export interface WbsNode {
           class="wbs-action"
           title="添加子需求/任务/缺陷"
           @click.stop="emit('create-child', node.issue.id)"
-        >＋</button>
+        ><DynamicIcon name="Plus" :size="14" /></button>
         <button
           class="wbs-action wbs-action--danger"
           title="删除需求/任务/缺陷"

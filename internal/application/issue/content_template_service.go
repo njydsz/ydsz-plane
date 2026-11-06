@@ -30,19 +30,19 @@ func NewContentTemplateService(db *pgxpool.Pool) *ContentTemplateService {
 
 // ContentTemplate 内容模板实体。
 type ContentTemplate struct {
-	ID           int64           `json:"id"`
-	TenantID     int64           `json:"tenant_id"`
-	WorkspaceID  int64           `json:"workspace_id"`
-	ProjectID    *int64          `json:"project_id,omitempty"`
-	Name         string          `json:"name"`
-	TemplateType string          `json:"template_type"` // requirement | task | defect
+	ID           int64          `json:"id"`
+	TenantID     int64          `json:"tenant_id"`
+	WorkspaceID  int64          `json:"workspace_id"`
+	ProjectID    *int64         `json:"project_id,omitempty"`
+	Name         string         `json:"name"`
+	TemplateType string         `json:"template_type"` // requirement | task | defect
 	ContentJSON  map[string]any `json:"content_json"`
-	ContentHTML  string          `json:"content_html,omitempty"`
-	IsDefault    bool            `json:"is_default"`
-	Status       string          `json:"status"`
-	CreatedBy    int64           `json:"created_by"`
-	CreatedAt    time.Time       `json:"created_at"`
-	UpdatedAt    time.Time       `json:"updated_at"`
+	ContentHTML  string         `json:"content_html,omitempty"`
+	IsDefault    bool           `json:"is_default"`
+	Status       string         `json:"status"`
+	CreatedBy    int64          `json:"created_by"`
+	CreatedAt    time.Time      `json:"created_at"`
+	UpdatedAt    time.Time      `json:"updated_at"`
 }
 
 // CreateTemplateInput 创建模板入参。

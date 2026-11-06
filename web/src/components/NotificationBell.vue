@@ -2,6 +2,10 @@
  * NotificationBell — 通知铃铛组件。
  * 未读计数 badge + 下拉面板（最多 10 条）+ 30s 轮询 + 主题感知。
  */
+<script setup lang="ts">
+import DynamicIcon from "@/components/DynamicIcon.vue";
+</script>
+
 <template>
   <div class="notification-bell">
     <!-- 铃铛按钮 -->
@@ -14,10 +18,7 @@
       :aria-expanded="open"
       @click="toggle"
     >
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-        <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-      </svg>
+      <DynamicIcon name="Bell" :size="20" />
       <span v-if="unreadCount > 0" class="badge">{{ unreadCount > 99 ? '99+' : unreadCount }}</span>
     </button>
 
@@ -63,10 +64,7 @@
 
           <!-- 空态 -->
           <div v-else-if="displayItems.length === 0" class="state-wrapper empty">
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="empty-icon">
-              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-              <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-            </svg>
+          <DynamicIcon name="Bell" :size="48" class="empty-icon" />
             <span class="state-text">暂无通知</span>
             <span class="state-hint">新通知将在这里显示</span>
           </div>
@@ -83,10 +81,10 @@
               @click="handleClick(item)"
               @keydown.enter="handleClick(item)"
             >
-              <!-- 领域类型图标 -->
-              <div class="notif-icon" :class="`icon-${item.entity_type}`">
-                <component :is="getEventIcon(item.event_type)" />
-              </div>
+<!-- 领域类型图标 -->
+<div class="notif-icon" :class="`icon-${item.entity_type}`">
+<DynamicIcon :name="getEventIcon(item.event_type)" :size="16" />
+</div>
 
               <!-- 内容 -->
               <div class="notif-content">
@@ -107,9 +105,7 @@
                   title="归档"
                   @click.stop="handleArchive(item.id)"
                 >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
-                  </svg>
+              <DynamicIcon name="Bookmark" :size="14" />
                 </button>
               </div>
             </div>
@@ -120,9 +116,7 @@
         <div class="dropdown-footer">
           <router-link :to="`/${wsStore.currentId}/notifications`" class="view-all-link" @click="open = false">
             查看全部通知
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="9 18 15 12 9 6" />
-            </svg>
+            <DynamicIcon name="ChevronRight" :size="14" />
           </router-link>
         </div>
       </div>
@@ -137,32 +131,22 @@ import { useNotificationStore } from '@/stores/notification'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { formatRelativeTime } from '@/lib/formatTime'
 
-// ===== 通知类型图标组件（内联 SVG 组件）=====
+// ===== 通知类型图标名称映射 =====
 
-const IconIssue = { template: `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="6"/></svg>` }
-const IconComment = { template: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>` }
-const IconAssign = { template: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>` }
-const IconStatus = { template: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>` }
-const IconSprint = { template: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>` }
-const IconVersion = { template: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>` }
-const IconMember = { template: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>` }
-const IconInvite = { template: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>` }
-const IconDefault = { template: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>` }
-
-/** 事件类型 → 图标组件映射 */
-const eventIconMap: Record<string, any> = {
-  'issue.created': IconIssue,
-  'issue.assigned': IconAssign,
-  'issue.status_changed': IconStatus,
-  'issue.deleted': IconDefault,
-  'comment.created': IconComment,
-  'sprint.started': IconSprint,
-  'sprint.completed': IconSprint,
-  'version.released': IconVersion,
-  'member.added': IconMember,
-  'member.removed': IconMember,
-  'member.role_changed': IconMember,
-  'invitation.sent': IconInvite,
+/** 事件类型 → lucide 图标名映射 */
+const eventIconMap: Record<string, string> = {
+  'issue.created': 'CircleDot',
+  'issue.assigned': 'Users',
+  'issue.status_changed': 'CheckCircle',
+  'issue.deleted': 'Info',
+  'comment.created': 'MessageSquare',
+  'sprint.started': 'Zap',
+  'sprint.completed': 'Zap',
+  'version.released': 'Box',
+  'member.added': 'Users',
+  'member.removed': 'Users',
+  'member.role_changed': 'Users',
+  'invitation.sent': 'Mail',
 }
 
 /** 事件类型 → 中文动作描述 */
@@ -239,8 +223,8 @@ const tabUnreadCounts = computed(() => {
 })
 
 /** 根据事件类型获取图标组件 */
-function getEventIcon(eventType: string) {
-  return eventIconMap[eventType] ?? IconDefault
+function getEventIcon(eventType: string): string {
+return eventIconMap[eventType] ?? 'Info'
 }
 
 /** 根据事件类型获取中文动作描述 */
@@ -381,7 +365,7 @@ watch(
   top: 0;
   right: 0;
   background: var(--danger-500);
-  color: #fff;
+  color: var(--text-on-color);
   font-size: 10px;
   font-weight: 700;
   min-width: 18px;
@@ -502,7 +486,7 @@ watch(
   padding: 0 4px;
   border-radius: 8px;
   background: var(--danger-500);
-  color: #fff;
+  color: var(--text-on-color);
   font-size: 10px;
   font-weight: 700;
   line-height: 1;
@@ -602,23 +586,23 @@ watch(
   margin-top: 2px;
 }
 /* 图标色盘 —— 按 entity_type 分类 */
-.icon-issue { background: #e0e7ff; color: #4f46e5; }
-.icon-comment { background: #fef3c7; color: #d97706; }
-.icon-assign { background: #dbeafe; color: #2563eb; }
-.icon-sprint { background: #d1fae5; color: #059669; }
-.icon-version { background: #ede9fe; color: #7c3aed; }
-.icon-project { background: #ffe4e6; color: #e11d48; }
-.icon-workspace { background: #e0f2fe; color: #0284c7; }
-.icon-member { background: #fce7f3; color: #db2777; }
+.icon-issue { background: var(--brand-50); color: var(--brand-500); }
+.icon-comment { background: var(--warning-50); color: var(--warning-500); }
+.icon-assign { background: var(--brand-100); color: var(--brand-600); }
+.icon-sprint { background: var(--success-50); color: var(--success-500); }
+.icon-version { background: var(--brand-50); color: var(--brand-500); }
+.icon-project { background: var(--danger-50); color: var(--danger-500); }
+.icon-workspace { background: var(--info-50); color: var(--info-500); }
+.icon-member { background: var(--brand-50); color: var(--brand-500); }
 /* 暗主题下图标保持原色（确保可读） */
-[data-theme="dark"] .icon-issue { background: #312e81; color: #a5b4fc; }
-[data-theme="dark"] .icon-comment { background: #78350f; color: #fcd34d; }
-[data-theme="dark"] .icon-assign { background: #1e3a8a; color: #93c5fd; }
-[data-theme="dark"] .icon-sprint { background: #064e3b; color: #6ee7b7; }
-[data-theme="dark"] .icon-version { background: #4c1d95; color: #c4b5fd; }
-[data-theme="dark"] .icon-project { background: #881337; color: #fda4af; }
-[data-theme="dark"] .icon-workspace { background: #0c4a6e; color: #7dd3fc; }
-[data-theme="dark"] .icon-member { background: #831843; color: #f9a8d4; }
+[data-theme="dark"] .icon-issue { background: var(--brand-50); color: var(--brand-200); }
+[data-theme="dark"] .icon-comment { background: var(--warning-50); color: var(--warning-500); }
+[data-theme="dark"] .icon-assign { background: var(--brand-50); color: var(--brand-200); }
+[data-theme="dark"] .icon-sprint { background: var(--success-50); color: var(--success-500); }
+[data-theme="dark"] .icon-version { background: var(--brand-50); color: var(--brand-200); }
+[data-theme="dark"] .icon-project { background: var(--danger-50); color: var(--danger-500); }
+[data-theme="dark"] .icon-workspace { background: var(--info-50); color: var(--info-500); }
+[data-theme="dark"] .icon-member { background: var(--danger-50); color: var(--brand-200); }
 
 /* ===== 内容区 ===== */
 .notif-content {

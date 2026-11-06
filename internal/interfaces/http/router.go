@@ -35,27 +35,45 @@ import (
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/health"
 
 	"github.com/njydsz/ydsz-plane/internal/application/ai"
+	"github.com/njydsz/ydsz-plane/internal/application/aiagent"
 	"github.com/njydsz/ydsz-plane/internal/application/apitoken"
 	"github.com/njydsz/ydsz-plane/internal/application/attachment"
 	"github.com/njydsz/ydsz-plane/internal/application/auth"
 	"github.com/njydsz/ydsz-plane/internal/application/automation"
-	"github.com/njydsz/ydsz-plane/internal/application/dashboard"
-	"github.com/njydsz/ydsz-plane/internal/application/dlq"
 	"github.com/njydsz/ydsz-plane/internal/application/calendar"
+	"github.com/njydsz/ydsz-plane/internal/application/collaboration"
+	"github.com/njydsz/ydsz-plane/internal/application/customer"
+	"github.com/njydsz/ydsz-plane/internal/application/dashboard"
 	"github.com/njydsz/ydsz-plane/internal/application/datajob"
+	"github.com/njydsz/ydsz-plane/internal/application/dlq"
+	"github.com/njydsz/ydsz-plane/internal/application/godmode"
+	"github.com/njydsz/ydsz-plane/internal/application/grant"
+	"github.com/njydsz/ydsz-plane/internal/application/importer"
 	"github.com/njydsz/ydsz-plane/internal/application/initiative"
 	"github.com/njydsz/ydsz-plane/internal/application/intake"
+	"github.com/njydsz/ydsz-plane/internal/application/integration"
 	"github.com/njydsz/ydsz-plane/internal/application/issue"
 	"github.com/njydsz/ydsz-plane/internal/application/knowledge"
+	"github.com/njydsz/ydsz-plane/internal/application/milestone"
 	notif "github.com/njydsz/ydsz-plane/internal/application/notification"
+	"github.com/njydsz/ydsz-plane/internal/application/oauthapp"
+	"github.com/njydsz/ydsz-plane/internal/application/pagecomment"
 	"github.com/njydsz/ydsz-plane/internal/application/pages"
+	"github.com/njydsz/ydsz-plane/internal/application/pql"
 	"github.com/njydsz/ydsz-plane/internal/application/preference"
+	"github.com/njydsz/ydsz-plane/internal/application/projectcode"
+	"github.com/njydsz/ydsz-plane/internal/application/projectstate"
+	"github.com/njydsz/ydsz-plane/internal/application/recurring"
 	"github.com/njydsz/ydsz-plane/internal/application/search"
 	"github.com/njydsz/ydsz-plane/internal/application/sprint"
+	"github.com/njydsz/ydsz-plane/internal/application/teamspace"
 	"github.com/njydsz/ydsz-plane/internal/application/version"
 	"github.com/njydsz/ydsz-plane/internal/application/webhook"
 	"github.com/njydsz/ydsz-plane/internal/application/workbench"
+	"github.com/njydsz/ydsz-plane/internal/application/workflow"
+	"github.com/njydsz/ydsz-plane/internal/application/workitemtype"
 	"github.com/njydsz/ydsz-plane/internal/application/workspace"
+	"github.com/njydsz/ydsz-plane/internal/application/workspaceview"
 	"github.com/njydsz/ydsz-plane/internal/config"
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/mail"
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/storage"
@@ -139,6 +157,43 @@ type Deps struct {
 	DataJobHandler *datajob.Handler
 	// 倡议域（跨项目战略目标的进度聚合）
 	InitiativeHandler *initiative.Handler
+	// 工作流域（状态流转规则 + 审批门禁）
+	WorkflowHandler *workflow.Handler
+	// 团队空间域（团队 = 人 + 项目集合）
+	TeamspaceHandler *teamspace.Handler
+	// 项目状态与更新域
+	ProjectStateHandler *projectstate.Handler
+	// Projects-as-Code 域（YAML 定义项目）
+	ProjectCodeHandler *projectcode.Handler
+	// 实时协作域（编辑会话 + 乐观锁 + 操作广播）
+	CollaborationHandler *collaboration.Handler
+	// PQL 查询语言域
+	PQLHandler *pql.Handler
+	// AI Agent 域（Ask/Build/Autopilot + 记忆）
+	AIAgentHandler *aiagent.Handler
+	// God Mode 实例管理域
+	GodModeHandler *godmode.Handler
+	// 条件授权域（ABAC）
+	GrantHandler *grant.Handler
+	// 导入域（Jira/Linear/Asana/CSV）
+	ImporterHandler *importer.Handler
+	// 页面评论域（页面级 / 行内评论、线程、表情回应）
+	PageCommentHandler *pagecomment.Handler
+	// 重复工作项域（cron 模板自动生成工作项）
+	RecurringHandler *recurring.Handler
+	// 里程碑域（跨工作项聚合进度）
+	MilestoneHandler *milestone.Handler
+	// 工作空间视图域（跨项目命名视图）
+	WorkspaceViewHandler *workspaceview.Handler
+	// 客户管理域（CRM：客户记录 + 客户请求）
+	CustomerHandler *customer.Handler
+	// 自定义工作项类型域（项目级类型 + 自定义属性）
+	WorkItemTypeHandler *workitemtype.Handler
+	// 集成域（Marketplace + GitHub/GitLab/Slack/Sentry 连接器）
+	IntegrationHandler *integration.Handler
+	// OAuth 应用与授权域（开发者应用 + OAuth2 端点）
+	OAuthAppHandler *oauthapp.Handler
+	OAuthAppSvc     *oauthapp.Service
 
 	// ReadyzDeps 携带 /readyz 连通性探测所需的可选外部依赖客户端。
 	// 若对应字段为 nil，则 /readyz 不检查该依赖。
@@ -520,9 +575,435 @@ func RegisterInitiativeRoutes(r *gin.Engine, d *Deps) {
 	d.InitiativeHandler.RegisterWrite(wsWrite.Group(""))
 }
 
+// RegisterImporterRoutes 注册导入路由。
+// 路由前缀：/api/v1/workspaces/:workspace_id/projects/:project_id/imports
+// 权限：读 workspace:read；写 project:update。
+func RegisterImporterRoutes(r *gin.Engine, d *Deps) {
+	if d.ImporterHandler == nil {
+		return
+	}
+	v1 := r.Group("/api/v1/workspaces/:workspace_id")
+	v1.Use(
+		middleware.RequireAuth(d.principalParser()),
+		middleware.RequireWorkspaceParam(),
+	)
+	projects := v1.Group("/projects/:project_id")
+	projects.Use(middleware.RequireProjectParam())
+	projects.Use(middleware.RequirePermissionFromDB(d.RBACStore, auth.PermProjectUpdate))
+	d.ImporterHandler.Register(projects)
+}
+
+// RegisterGrantRoutes 注册条件授权（ABAC）路由。
+// 路由前缀：/api/v1/workspaces/:workspace_id/grant-rules
+// 权限：写 project:update；读 workspace:read。
+func RegisterGrantRoutes(r *gin.Engine, d *Deps) {
+	if d.GrantHandler == nil {
+		return
+	}
+	v1 := r.Group("/api/v1/workspaces/:workspace_id")
+	v1.Use(
+		middleware.RequireAuth(d.principalParser()),
+		middleware.RequireWorkspaceParam(),
+	)
+	// 读
+	wsRead := v1.Group("")
+	wsRead.Use(middleware.RequirePermissionFromDB(d.RBACStore, auth.PermWorkspaceRead))
+	g := wsRead.Group("/grant-rules")
+	g.GET("", d.GrantHandler.List)
+	g.POST("/evaluate", d.GrantHandler.Evaluate)
+	// 写
+	wsWrite := v1.Group("")
+	wsWrite.Use(middleware.RequirePermissionFromDB(d.RBACStore, auth.PermProjectUpdate))
+	gw := wsWrite.Group("/grant-rules")
+	gw.POST("", d.GrantHandler.Create)
+	gw.GET("/:rule_id", d.GrantHandler.Get)
+	gw.PATCH("/:rule_id", d.GrantHandler.Update)
+	gw.DELETE("/:rule_id", d.GrantHandler.Delete)
+	gw.POST("/:rule_id/enable", d.GrantHandler.Enable)
+	gw.POST("/:rule_id/disable", d.GrantHandler.Disable)
+}
+
+// RegisterGodModeRoutes 注册 God Mode（实例管理）路由。
+// 路由前缀：/api/v1/admin/*
+// 权限：实例管理员（X-Instance-Admin-Key 或 YDSZ_INSTANCE_ADMINS 白名单）。
+func RegisterGodModeRoutes(r *gin.Engine, d *Deps) {
+	if d.GodModeHandler == nil {
+		return
+	}
+	g := r.Group("/api/v1/admin")
+	g.Use(middleware.RequireAuth(d.principalParser()))
+	g.Use(func(c *gin.Context) {
+		if !godmode.IsInstanceAdmin(c) {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "instance admin required"})
+			return
+		}
+		c.Next()
+	})
+	d.GodModeHandler.Register(g)
+}
+
+// RegisterAIAgentRoutes 注册 AI Agent 路由。
+// 路由前缀：/api/v1/workspaces/:workspace_id/ai-*
+// 权限：workspace:read。
+func RegisterAIAgentRoutes(r *gin.Engine, d *Deps) {
+	if d.AIAgentHandler == nil {
+		return
+	}
+	g := r.Group("/api/v1/workspaces/:workspace_id")
+	g.Use(
+		middleware.RequireAuth(d.principalParser()),
+		middleware.RequireWorkspaceParam(),
+		middleware.RequirePermissionFromDB(d.RBACStore, auth.PermWorkspaceRead),
+	)
+	d.AIAgentHandler.Register(g)
+}
+
+// RegisterPQLRoutes 注册 PQL 查询语言路由。
+// 路由前缀：/api/v1/workspaces/:workspace_id/pql
+// 权限：workspace:read。
+func RegisterPQLRoutes(r *gin.Engine, d *Deps) {
+	if d.PQLHandler == nil {
+		return
+	}
+	g := r.Group("/api/v1/workspaces/:workspace_id/pql")
+	g.Use(
+		middleware.RequireAuth(d.principalParser()),
+		middleware.RequireWorkspaceParam(),
+		middleware.RequirePermissionFromDB(d.RBACStore, auth.PermWorkspaceRead),
+	)
+	d.PQLHandler.Register(g)
+}
+
+// RegisterCollaborationRoutes 注册实时协作路由。
+// 路由前缀：/api/v1/workspaces/:workspace_id/collaboration
+// 权限：workspace:read（会话/版本）；写操作（提交操作）同样 workspace:read。
+func RegisterCollaborationRoutes(r *gin.Engine, d *Deps) {
+	if d.CollaborationHandler == nil {
+		return
+	}
+	g := r.Group("/api/v1/workspaces/:workspace_id/collaboration")
+	g.Use(
+		middleware.RequireAuth(d.principalParser()),
+		middleware.RequireWorkspaceParam(),
+		middleware.RequirePermissionFromDB(d.RBACStore, auth.PermWorkspaceRead),
+	)
+	d.CollaborationHandler.Register(g)
+}
+
+// RegisterProjectStateRoutes 注册项目状态与更新路由。
+// 路由前缀：/api/v1/workspaces/:workspace_id/projects/:project_id/project-state[/project-updates]
+//
+//	/api/v1/workspaces/:workspace_id/initiative-updates
+//
+// 权限分层：项目状态 project:update；项目更新 comment:moderate。
+func RegisterProjectStateRoutes(r *gin.Engine, d *Deps) {
+	if d.ProjectStateHandler == nil {
+		return
+	}
+	v1 := r.Group("/api/v1/workspaces/:workspace_id")
+	v1.Use(
+		middleware.RequireAuth(d.principalParser()),
+		middleware.RequireWorkspaceParam(),
+	)
+
+	// 工作空间级：按倡议查询更新
+	wsRead := v1.Group("")
+	wsRead.Use(middleware.RequirePermissionFromDB(d.RBACStore, auth.PermWorkspaceRead))
+	d.ProjectStateHandler.RegisterWorkspace(wsRead)
+
+	// 项目级
+	projects := v1.Group("/projects/:project_id")
+	projects.Use(middleware.RequireProjectParam())
+	projects.Use(middleware.RequirePermissionFromDB(d.RBACStore, auth.PermProjectUpdate))
+	d.ProjectStateHandler.RegisterProject(projects)
+}
+
+// RegisterProjectCodeRoutes 注册 Projects-as-Code 路由。
+// 路由前缀：/api/v1/workspaces/:workspace_id/project-code
+// 权限分层：读 workspace:read；写 project:update。
+func RegisterProjectCodeRoutes(r *gin.Engine, d *Deps) {
+	if d.ProjectCodeHandler == nil {
+		return
+	}
+	wsRead := r.Group("/api/v1/workspaces/:workspace_id")
+	wsRead.Use(
+		middleware.RequireAuth(d.principalParser()),
+		middleware.RequireWorkspaceParam(),
+		middleware.RequirePermissionFromDB(d.RBACStore, auth.PermWorkspaceRead),
+	)
+	d.ProjectCodeHandler.Register(wsRead.Group(""))
+
+	// 写操作（save/delete/apply）复用同一组路由；如需更严格可单独分组。
+	// 当前 Register 已在读组内注册全部端点，写操作由 service 层做项目级校验。
+}
+
+// RegisterTeamspaceRoutes 注册团队空间路由。
+// 路由前缀：/api/v1/workspaces/:workspace_id/teamspaces
+// 权限分层：读 workspace:read；写 project:update。
+func RegisterTeamspaceRoutes(r *gin.Engine, d *Deps) {
+	if d.TeamspaceHandler == nil {
+		return
+	}
+	wsRead := r.Group("/api/v1/workspaces/:workspace_id")
+	wsRead.Use(
+		middleware.RequireAuth(d.principalParser()),
+		middleware.RequireWorkspaceParam(),
+		middleware.RequirePermissionFromDB(d.RBACStore, auth.PermWorkspaceRead),
+	)
+	d.TeamspaceHandler.RegisterRead(wsRead.Group(""))
+
+	wsWrite := r.Group("/api/v1/workspaces/:workspace_id")
+	wsWrite.Use(
+		middleware.RequireAuth(d.principalParser()),
+		middleware.RequireWorkspaceParam(),
+		middleware.RequirePermissionFromDB(d.RBACStore, auth.PermProjectUpdate),
+	)
+	d.TeamspaceHandler.RegisterWrite(wsWrite.Group(""))
+}
+
+// RegisterCustomerRoutes 注册客户管理路由（工作空间级）。
+//
+// 路由前缀：
+//   - /api/v1/workspaces/:workspace_id/customers
+//   - /api/v1/workspaces/:workspace_id/customer-requests
+//
+// 权限分层：读 customer:read；写 customer:manage。
+func RegisterCustomerRoutes(r *gin.Engine, d *Deps) {
+	if d.CustomerHandler == nil {
+		return
+	}
+	wsRead := r.Group("/api/v1/workspaces/:workspace_id")
+	wsRead.Use(
+		middleware.RequireAuth(d.principalParser()),
+		middleware.RequireWorkspaceParam(),
+		middleware.RequirePermissionFromDB(d.RBACStore, auth.PermCustomerRead),
+	)
+	d.CustomerHandler.RegisterRead(wsRead.Group(""))
+
+	wsWrite := r.Group("/api/v1/workspaces/:workspace_id")
+	wsWrite.Use(
+		middleware.RequireAuth(d.principalParser()),
+		middleware.RequireWorkspaceParam(),
+		middleware.RequirePermissionFromDB(d.RBACStore, auth.PermCustomerManage),
+	)
+	d.CustomerHandler.RegisterWrite(wsWrite.Group(""))
+}
+
+// RegisterIntegrationRoutes 注册集成管理路由（工作空间级）。
+// 路由前缀：/api/v1/workspaces/:workspace_id/integrations
+// 权限分层：读 workspace:read；写 workspace:update（集成配置为工作空间管理员职责）。
+func RegisterIntegrationRoutes(r *gin.Engine, d *Deps) {
+	if d.IntegrationHandler == nil {
+		return
+	}
+	wsRead := r.Group("/api/v1/workspaces/:workspace_id")
+	wsRead.Use(
+		middleware.RequireAuth(d.principalParser()),
+		middleware.RequireWorkspaceParam(),
+		middleware.RequirePermissionFromDB(d.RBACStore, auth.PermWorkspaceRead),
+	)
+	d.IntegrationHandler.RegisterRead(wsRead.Group(""))
+
+	wsWrite := r.Group("/api/v1/workspaces/:workspace_id")
+	wsWrite.Use(
+		middleware.RequireAuth(d.principalParser()),
+		middleware.RequireWorkspaceParam(),
+		middleware.RequirePermissionFromDB(d.RBACStore, auth.PermWorkspaceUpdate),
+	)
+	d.IntegrationHandler.RegisterWrite(wsWrite.Group(""))
+}
+
+// RegisterPageCommentRoutes 注册页面评论路由。
+// 路由前缀：
+//
+//	/api/v1/workspaces/:workspace_id/pages/:page_id/comments（列表 / 创建）
+//	/api/v1/workspaces/:workspace_id/comments/:id（编辑 / 删除 / 解决 / 回应）
+//
+// 权限分层：读 workspace:read；写 comment:moderate（评论管理）。
+func RegisterPageCommentRoutes(r *gin.Engine, d *Deps) {
+	if d.PageCommentHandler == nil {
+		return
+	}
+	wsRead := r.Group("/api/v1/workspaces/:workspace_id")
+	wsRead.Use(
+		middleware.RequireAuth(d.principalParser()),
+		middleware.RequireWorkspaceParam(),
+		middleware.RequirePermissionFromDB(d.RBACStore, auth.PermWorkspaceRead),
+	)
+	d.PageCommentHandler.RegisterRead(wsRead.Group(""))
+
+	wsWrite := r.Group("/api/v1/workspaces/:workspace_id")
+	wsWrite.Use(
+		middleware.RequireAuth(d.principalParser()),
+		middleware.RequireWorkspaceParam(),
+		middleware.RequirePermissionFromDB(d.RBACStore, auth.PermCommentModerate),
+	)
+	d.PageCommentHandler.RegisterWrite(wsWrite.Group(""))
+}
+
+// RegisterRecurringRoutes 注册重复工作项规则路由（项目级）。
+// 路由前缀：/api/v1/workspaces/:workspace_id/projects/:project_id/recurring-rules
+//
+// 权限分层：读 workspace:read；写 project:update。
+func RegisterRecurringRoutes(r *gin.Engine, d *Deps) {
+	if d.RecurringHandler == nil {
+		return
+	}
+	v1 := r.Group("/api/v1/workspaces/:workspace_id")
+	v1.Use(
+		middleware.RequireAuth(d.principalParser()),
+		middleware.RequireWorkspaceParam(),
+	)
+	projects := v1.Group("/projects/:project_id")
+	projects.Use(middleware.RequireProjectParam())
+
+	read := projects.Group("")
+	read.Use(middleware.RequirePermissionFromDB(d.RBACStore, auth.PermWorkspaceRead))
+	d.RecurringHandler.RegisterRead(read)
+
+	write := projects.Group("")
+	write.Use(middleware.RequirePermissionFromDB(d.RBACStore, auth.PermProjectUpdate))
+	d.RecurringHandler.RegisterWrite(write)
+}
+
+// RegisterMilestoneRoutes 注册里程碑路由（项目级）。
+// 路由前缀：/api/v1/workspaces/:workspace_id/projects/:project_id/milestones
+//
+// 权限分层：读 workspace:read；写 project:update。
+func RegisterMilestoneRoutes(r *gin.Engine, d *Deps) {
+	if d.MilestoneHandler == nil {
+		return
+	}
+	v1 := r.Group("/api/v1/workspaces/:workspace_id")
+	v1.Use(
+		middleware.RequireAuth(d.principalParser()),
+		middleware.RequireWorkspaceParam(),
+	)
+	projects := v1.Group("/projects/:project_id")
+	projects.Use(middleware.RequireProjectParam())
+
+	read := projects.Group("")
+	read.Use(middleware.RequirePermissionFromDB(d.RBACStore, auth.PermWorkspaceRead))
+	d.MilestoneHandler.RegisterRead(read)
+
+	write := projects.Group("")
+	write.Use(middleware.RequirePermissionFromDB(d.RBACStore, auth.PermProjectUpdate))
+	d.MilestoneHandler.RegisterWrite(write)
+}
+
+// RegisterWorkspaceViewRoutes 注册工作空间视图路由（工作空间级）。
+// 路由前缀：/api/v1/workspaces/:workspace_id/views
+//
+// 权限分层：读 workspace:read；写 project:update。
+func RegisterWorkspaceViewRoutes(r *gin.Engine, d *Deps) {
+	if d.WorkspaceViewHandler == nil {
+		return
+	}
+	wsRead := r.Group("/api/v1/workspaces/:workspace_id")
+	wsRead.Use(
+		middleware.RequireAuth(d.principalParser()),
+		middleware.RequireWorkspaceParam(),
+		middleware.RequirePermissionFromDB(d.RBACStore, auth.PermWorkspaceRead),
+	)
+	d.WorkspaceViewHandler.RegisterRead(wsRead.Group(""))
+
+	wsWrite := r.Group("/api/v1/workspaces/:workspace_id")
+	wsWrite.Use(
+		middleware.RequireAuth(d.principalParser()),
+		middleware.RequireWorkspaceParam(),
+		middleware.RequirePermissionFromDB(d.RBACStore, auth.PermProjectUpdate),
+	)
+	d.WorkspaceViewHandler.RegisterWrite(wsWrite.Group(""))
+}
+
+// RegisterOAuthAppRoutes 注册 OAuth 应用与授权路由。
+//
+// 路由前缀：
+//   - /api/v1/workspaces/:workspace_id/oauth-apps（应用管理：CRUD + 轮换密钥）
+//   - /api/v1/oauth/authorize、/oauth/token、/oauth/revoke、/oauth/apps/:client_id（OAuth2 端点）
+//
+// 权限分层：应用管理读 workspace:read；写 project:update。
+func RegisterOAuthAppRoutes(r *gin.Engine, d *Deps) {
+	if d.OAuthAppHandler == nil {
+		return
+	}
+	v1 := r.Group("/api/v1/workspaces/:workspace_id")
+	v1.Use(
+		middleware.RequireAuth(d.principalParser()),
+		middleware.RequireWorkspaceParam(),
+	)
+
+	wsRead := v1.Group("")
+	wsRead.Use(middleware.RequirePermissionFromDB(d.RBACStore, auth.PermWorkspaceRead))
+	d.OAuthAppHandler.RegisterWorkspace(wsRead)
+
+	// OAuth2 授权码签发端点：authorize GET 展示 consent、POST approve 需登录。
+	// token / revoke / apps/:client_id 为公开端点（token 端点用 client_secret 鉴权）。
+	oauth := r.Group("/api/v1/oauth")
+	{
+		authz := oauth.Group("/authorize")
+		authz.Use(middleware.RequireAuth(d.principalParser()))
+		authz.GET("", d.OAuthAppHandler.Authorize)
+		authz.POST("", d.OAuthAppHandler.ApproveAuthorize)
+		oauth.POST("/token", d.OAuthAppHandler.ExchangeOrRefresh)
+		oauth.POST("/revoke", d.OAuthAppHandler.RevokeToken)
+		oauth.GET("/apps/:client_id", d.OAuthAppHandler.PublicAppInfo)
+	}
+}
+
+// RegisterWorkflowRoutes 注册工作流与审批路由。
+// 路由前缀：/api/v1/workspaces/:workspace_id/projects/:project_id/workflows
+//
+//	/api/v1/workspaces/:workspace_id/approvals
+//
+// 权限分层：项目配置 project:update；审批待办 workspace:read。
+func RegisterWorkflowRoutes(r *gin.Engine, d *Deps) {
+	if d.WorkflowHandler == nil {
+		return
+	}
+	v1 := r.Group("/api/v1/workspaces/:workspace_id")
+	v1.Use(
+		middleware.RequireAuth(d.principalParser()),
+		middleware.RequireWorkspaceParam(),
+	)
+	projects := v1.Group("/projects/:project_id")
+	projects.Use(middleware.RequireProjectParam())
+	d.WorkflowHandler.RegisterProject(projects)
+
+	wsRead := v1.Group("")
+	wsRead.Use(middleware.RequirePermissionFromDB(d.RBACStore, auth.PermWorkspaceRead))
+	d.WorkflowHandler.RegisterWorkspace(wsRead)
+}
+
+// RegisterWorkItemTypesRoutes 注册自定义工作项类型路由（项目级）。
+// 路由前缀：/api/v1/workspaces/:workspace_id/projects/:project_id/work-item-types
+// 权限分层：读 workspace:read；写 project:update。
+func RegisterWorkItemTypesRoutes(r *gin.Engine, d *Deps) {
+	if d.WorkItemTypeHandler == nil {
+		return
+	}
+	v1 := r.Group("/api/v1/workspaces/:workspace_id")
+	v1.Use(
+		middleware.RequireAuth(d.principalParser()),
+		middleware.RequireWorkspaceParam(),
+	)
+	projects := v1.Group("/projects/:project_id")
+	projects.Use(middleware.RequireProjectParam())
+
+	read := projects.Group("")
+	read.Use(middleware.RequirePermissionFromDB(d.RBACStore, auth.PermWorkspaceRead))
+	d.WorkItemTypeHandler.RegisterRead(read)
+
+	write := projects.Group("")
+	write.Use(middleware.RequirePermissionFromDB(d.RBACStore, auth.PermProjectUpdate))
+	d.WorkItemTypeHandler.RegisterWrite(write)
+}
+
 // RegisterCalendarRoutes 注册日历事件路由（工作空间级 + 项目级）。
 // 路由前缀：/api/v1/workspaces/:workspace_id/calendar
-//           /api/v1/workspaces/:workspace_id/projects/:project_id/calendar
+//
+//	/api/v1/workspaces/:workspace_id/projects/:project_id/calendar
+//
 // 权限分层：读操作 workspace:read；写操作 project:update。
 func RegisterCalendarRoutes(r *gin.Engine, d *Deps) {
 	if d.CalendarHandler == nil {

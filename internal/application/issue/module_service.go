@@ -45,16 +45,17 @@ type CreateModuleInput struct {
 
 // UpdateModuleInput 更新模块入参。
 type UpdateModuleInput struct {
-	ID          int64
-	WorkspaceID int64
-	ProjectID   int64
-	Name        *string
-	Description *string
-	LeadID      *int64
-	Status      *string
-	StartDate   *time.Time
-	TargetDate  *time.Time
-	SortOrder   *float64
+	ID             int64
+	WorkspaceID    int64
+	ProjectID      int64
+	Name           *string
+	Description    *string
+	LeadID         *int64
+	Status         *string
+	WorkflowStatus *string
+	StartDate      *time.Time
+	TargetDate     *time.Time
+	SortOrder      *float64
 }
 
 // ListModulesFilter 模块列表筛选。
@@ -112,11 +113,11 @@ func (s *ModuleService) GetModule(ctx context.Context, moduleID int64, wsID int6
 	var m Module
 	err := s.db.QueryRow(ctx, `
 		SELECT id, public_id, workspace_id, project_id, name, description, lead_id, status,
-		       start_date, target_date, sort_order, created_by, created_at, updated_at
+		       COALESCE(workflow_status,'backlog'), start_date, target_date, sort_order, created_by, created_at, updated_at
 		FROM modules WHERE id = $1 AND workspace_id = $2 AND deleted = false`,
 		moduleID, wsID,
 	).Scan(&m.ID, &m.PublicID, &m.WorkspaceID, &m.ProjectID, &m.Name,
-		&m.Description, &m.LeadID, &m.Status, &m.StartDate, &m.TargetDate,
+		&m.Description, &m.LeadID, &m.Status, &m.WorkflowStatus, &m.StartDate, &m.TargetDate,
 		&m.SortOrder, &m.CreatedBy, &m.CreatedAt, &m.UpdatedAt)
 	if err != nil {
 		return nil, errs.ErrNotFound
@@ -138,7 +139,7 @@ func (s *ModuleService) ListModules(ctx context.Context, f ListModulesFilter) ([
 
 	rows, err := s.db.Query(ctx,
 		`SELECT id, public_id, workspace_id, project_id, name, description, lead_id, status,
-		        start_date, target_date, sort_order, created_by, created_at, updated_at
+		        COALESCE(workflow_status,'backlog'), start_date, target_date, sort_order, created_by, created_at, updated_at
 		 FROM modules WHERE `+strings.Join(conds, " AND ")+`
 		 ORDER BY sort_order ASC, id ASC`, args...)
 	if err != nil {
@@ -150,7 +151,7 @@ func (s *ModuleService) ListModules(ctx context.Context, f ListModulesFilter) ([
 	for rows.Next() {
 		var m Module
 		if err := rows.Scan(&m.ID, &m.PublicID, &m.WorkspaceID, &m.ProjectID, &m.Name,
-			&m.Description, &m.LeadID, &m.Status, &m.StartDate, &m.TargetDate,
+			&m.Description, &m.LeadID, &m.Status, &m.WorkflowStatus, &m.StartDate, &m.TargetDate,
 			&m.SortOrder, &m.CreatedBy, &m.CreatedAt, &m.UpdatedAt); err != nil {
 			return nil, errs.ErrInternal.Wrap(err)
 		}
@@ -168,18 +169,21 @@ func (s *ModuleService) UpdateModule(ctx context.Context, in UpdateModuleInput) 
 			description = COALESCE($5, description),
 			lead_id = COALESCE($6, lead_id),
 			status = COALESCE($7, status),
-			start_date = COALESCE($8, start_date),
-			target_date = COALESCE($9, target_date),
-			sort_order = COALESCE($10, sort_order)
+			workflow_status = COALESCE($8, workflow_status),
+			start_date = COALESCE($9, start_date),
+			target_date = COALESCE($10, target_date),
+			sort_order = COALESCE($11, sort_order),
+			updated_at = now()
 		WHERE id = $1 AND workspace_id = $2 AND project_id = $3 AND deleted = false
 		RETURNING id, public_id, workspace_id, project_id, name, description, lead_id, status,
-		          start_date, target_date, sort_order, created_by, created_at, updated_at`,
+		          COALESCE(workflow_status,'backlog'), start_date, target_date, sort_order,
+		          created_by, created_at, updated_at`,
 		in.ID, in.WorkspaceID, in.ProjectID,
-		in.Name, in.Description, in.LeadID, in.Status,
+		in.Name, in.Description, in.LeadID, in.Status, in.WorkflowStatus,
 		in.StartDate, in.TargetDate, in.SortOrder,
 	).Scan(&m.ID, &m.PublicID, &m.WorkspaceID, &m.ProjectID, &m.Name,
-		&m.Description, &m.LeadID, &m.Status, &m.StartDate, &m.TargetDate,
-		&m.SortOrder, &m.CreatedBy, &m.CreatedAt, &m.UpdatedAt)
+		&m.Description, &m.LeadID, &m.Status, &m.WorkflowStatus,
+		&m.StartDate, &m.TargetDate, &m.SortOrder, &m.CreatedBy, &m.CreatedAt, &m.UpdatedAt)
 	if err != nil {
 		return nil, errs.ErrNotFound
 	}

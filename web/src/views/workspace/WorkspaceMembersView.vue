@@ -15,10 +15,12 @@ import { useRoute } from "vue-router";
 
 import { workspaceApi, type ImportMembersResult, type Member } from "@/api/services/workspace";
 import { useAuthStore } from "@/stores/auth";
-import { AppEmptyState, AppErrorState, AppSkeleton } from "@/components";
+import { AppEmptyState, AppErrorState, AppSkeleton, DynamicIcon } from "@/components";
 import { formatRelativeTime } from "@/lib/formatTime";
 import { toast } from "@/lib/toast";
+import { useConfirm } from "@/composables/useConfirm";
 
+const confirm = useConfirm();
 const route = useRoute();
 const auth = useAuthStore();
 
@@ -135,7 +137,7 @@ async function changeRole(m: Member, role: string) {
 
 /** 移除成员 — 按规范走 confirm + removeMember + 重新拉取以同步服务端事实 */
 async function removeMember(m: Member) {
-  if (!confirm(`确定移除成员 ${m.display_name || m.email}？此操作无法撤销。`)) return;
+  if (!await confirm({ title: "移除成员", message: `确定移除成员 ${m.display_name || m.email}？此操作无法撤销。`, confirmText: "移除", variant: "danger" })) return;
   addPending(m.id);
   try {
     await workspaceApi.removeMember(workspaceId.value, m.id);
@@ -312,7 +314,7 @@ if (typeof document !== "undefined") {
                     title="切换角色"
                     @click.stop="toggleRoleMenu(m.id)"
                   >
-                    <span aria-hidden="true">▾</span>
+                    <span aria-hidden="true"><DynamicIcon name="ChevronDown" :size="14" /></span>
                   </button>
 
                   <!-- 角色下拉菜单 -->
@@ -380,8 +382,8 @@ if (typeof document !== "undefined") {
         <div class="max-h-[60vh] overflow-y-auto px-5 py-4">
           <div class="mb-3 flex gap-4 text-sm">
             <span class="text-[var(--text-secondary)]">总计：{{ importResult.total }}</span>
-            <span class="text-[#16a34a]">成功：{{ importResult.success }}</span>
-            <span class="text-[var(--danger, #ef4444)]">失败：{{ importResult.failed }}</span>
+            <span class="text-[var(--success-500)]">成功：{{ importResult.success }}</span>
+            <span class="text-[var(--danger)]">失败：{{ importResult.failed }}</span>
           </div>
           <table class="w-full text-xs">
             <thead>
@@ -397,7 +399,7 @@ if (typeof document !== "undefined") {
                 <td class="py-1.5 pr-2 text-[var(--text-primary)]">{{ row.email }}</td>
                 <td class="py-1.5 pr-2 text-[var(--text-secondary)]">{{ row.name || "—" }}</td>
                 <td class="py-1.5 pr-2">
-                  <span :class="row.status === 'ok' ? 'text-[#16a34a]' : row.status === 'exists' ? 'text-[var(--text-tertiary)]' : 'text-[var(--danger, #ef4444)]'">
+                  <span :class="row.status === 'ok' ? 'text-[var(--success-500)]' : row.status === 'exists' ? 'text-[var(--text-tertiary)]' : 'text-[var(--danger)]'">
                     {{ row.status === "ok" ? "成功" : row.status === "exists" ? "已是成员" : "失败" }}
                   </span>
                 </td>
@@ -433,7 +435,7 @@ if (typeof document !== "undefined") {
   overflow: hidden;
   flex-shrink: 0;
   background: var(--brand-500);
-  color: #fff;
+  color: var(--text-on-color);
   font-weight: 600;
   font-size: 13px;
   user-select: none;
@@ -466,7 +468,7 @@ if (typeof document !== "undefined") {
   color: var(--label-purple-text);
 }
 .role-badge--admin {
-  background: rgba(23, 190, 233, 0.12);
+  background: var(--info-50);
   color: var(--info-500);
 }
 .role-badge--member {

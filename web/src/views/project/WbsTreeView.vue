@@ -24,7 +24,9 @@ import { toast } from "@/lib/toast";
 import { AppEmptyState, AppErrorState, AppLoadingState } from "@/components";
 import WbsTreeNode from "./WbsTreeNode.vue";
 import IssueCreateModal from "./IssueCreateModal.vue";
+import { useConfirm } from "@/composables/useConfirm";
 
+const confirm = useConfirm();
 const route = useRoute();
 const peek = usePeekStore();
 
@@ -200,7 +202,7 @@ async function onDelete(issue: Issue) {
   const msg = hasChildren
     ? `确认删除 "${issue.identifier}" 及其所有子需求/任务/缺陷？`
     : `确认删除 "${issue.identifier}"？`;
-  if (!confirm(msg)) return;
+  if (!await confirm({ title: "删除工作项", message: msg, confirmText: "删除", variant: "danger" })) return;
   try {
     await issueApi.batch(wsId.value, projectId.value, {
       issue_ids: [issue.id],

@@ -1,7 +1,7 @@
 /** 应用根组件：挂载路由视图，并全局注入命令面板、快捷键帮助面板与消息提示。 */
 <script setup lang="ts">
 import { onMounted, ref, watch } from "vue";
-import { useRoute } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 
 import CommandPalette from "@/components/CommandPalette.vue";
 import KeyboardHelpPanel from "@/components/KeyboardHelpPanel.vue";
@@ -12,6 +12,7 @@ import { applyBrandColor, clearBrandColor } from "@/composables/useBrandColor";
 import { useKeyboardShortcuts } from "@/composables/useKeyboardShortcuts";
 
 const route = useRoute();
+const router = useRouter();
 const wsStore = useWorkspaceStore();
 const onboardingWsId = ref<string | null>(null);
 const onboardingWsName = ref<string>("");
@@ -75,7 +76,56 @@ watch(() => route.params.workspaceId, () => {
 }, { immediate: true });
 
 // 全局快捷键 + 帮助面板（"?" 打开 / 关闭，Esc 关闭）。
-const { helpOpen, shortcuts: kbList } = useKeyboardShortcuts();
+// 序列键（G/N 前缀）与单键操作均在此登记实际行为。
+const { helpOpen, shortcuts: kbList } = useKeyboardShortcuts({
+  // ---- 导航（G 前缀）----
+  gh: () => router.push({ name: "workbench" }),
+  gx: () => router.push({ name: "notifications" }),
+  gy: () => router.push({ name: "my-issues" }),
+  gi: () => goToProjectRoute("project-board"),
+  gd: () => goToProjectRoute("project-pages"),
+  gc: () => goToProjectRoute("sprint-list"),
+  gm: () => goToProjectRoute("project-modules-list"),
+  gv: () => router.push({ name: "workspace-views", params: { workspaceId: route.params.workspaceId } }),
+  gk: () => router.push({ name: "search" }),
+  gs: () => router.push({ name: "workspace-settings" }),
+  gr: () => router.push({ name: "workspace-analytics" }),
+  ga: () => router.push({ name: "workspace-automation" }),
+  gj: () => goToProjectRoute("project-milestones"),
+  gt: () => router.push({ name: "workspace-teamspaces" }),
+  gn: () => router.push({ name: "workspace-initiatives" }),
+  gb: () => router.push({ name: "knowledge-list" }),
+  gu: () => goToProjectRoute("project-dashboard"),
+  gp: () => goToProjectRoute("project-dashboard"),
+
+  // ---- 创建（N 前缀）----
+  ni: () => emitQuickCreate(),
+  nd: () => goToProjectRoute("project-pages"),
+  nc: () => goToProjectRoute("sprint-list"),
+  nm: () => goToProjectRoute("project-modules-list"),
+  nv: () => router.push({ name: "workspace-views", params: { workspaceId: route.params.workspaceId } }),
+  np: () => router.push({ name: "home" }),
+  nt: () => router.push({ name: "workspace-teamspaces" }),
+  nb: () => router.push({ name: "knowledge-list" }),
+});
+
+/** 跳转到当前工作空间下的项目路由 */
+function goToProjectRoute(name: string) {
+  const wsId = route.params.workspaceId;
+  const projectId = route.params.projectId;
+  if (wsId && projectId) {
+    router.push({ name, params: { workspaceId: wsId, projectId } });
+    return;
+  }
+  if (wsId) {
+    router.push({ name, params: { workspaceId: wsId } });
+  }
+}
+
+/** 快速创建工作项（与命令面板的 c 行为一致） */
+function emitQuickCreate() {
+  window.dispatchEvent(new CustomEvent("ydsz:quick-create"));
+}
 
 // 全局挂载：供 WorkspaceListView 跨路由也能触发
 onMounted(() => {

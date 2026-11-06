@@ -9,6 +9,7 @@ import { computed } from "vue";
 
 import type { KnowledgePageNode } from "@/api/services/knowledge";
 import InlineEdit from "@/components/InlineEdit.vue";
+import DynamicIcon from "@/components/DynamicIcon.vue";
 
 /** 显式命名以支持模板内递归自引用（KnowledgePageTreeNode） */
 defineOptions({ name: "KnowledgePageTreeNode" });
@@ -60,7 +61,7 @@ const hasChildren = computed(() => props.node.children.length > 0);
           class="tree-action"
           title="新建子文档"
           @click.stop="emit('create-child', node.id)"
-        >＋</button>
+        ><DynamicIcon name="Plus" :size="14" /></button>
         <button
           class="tree-action tree-action--danger"
           title="删除文档"

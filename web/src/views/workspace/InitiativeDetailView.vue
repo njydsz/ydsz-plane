@@ -20,16 +20,11 @@ import { workspaceApi, type Member, type Project } from "@/api/services/workspac
 import { useI18n } from "@/composables/useI18n";
 import { formatRelativeTime } from "@/lib/formatTime";
 import { toast } from "@/lib/toast";
-import {
-  AppBadge,
-  AppButton,
-  AppErrorState,
-  AppLoadingState,
-  AppModal,
-  ProgressBar,
-} from "@/components";
+import { useConfirm } from "@/composables/useConfirm";
+import { AppBadge, AppButton, AppErrorState, AppLoadingState, AppModal, AppPageContainer, ProgressBar } from "@/components";
 
 const { t } = useI18n();
+const confirm = useConfirm();
 const route = useRoute();
 const router = useRouter();
 
@@ -173,7 +168,7 @@ async function loadRelations() {
 
 async function archive() {
   if (!initiative.value) return;
-  if (!confirm(t("initiative.archiveConfirm", { title: initiative.value.title }))) return;
+  if (!await confirm({ title: "归档倡议", message: t("initiative.archiveConfirm", { title: initiative.value.title }), confirmText: "归档", variant: "danger" })) return;
   actionLoading.value = "archive";
   actionError.value = "";
   try {
@@ -190,7 +185,7 @@ async function archive() {
 
 async function restore() {
   if (!initiative.value) return;
-  if (!confirm(t("initiative.restoreConfirm", { title: initiative.value.title }))) return;
+  if (!await confirm({ title: "恢复倡议", message: t("initiative.restoreConfirm", { title: initiative.value.title }), confirmText: "恢复" })) return;
   actionLoading.value = "restore";
   actionError.value = "";
   try {
@@ -336,7 +331,9 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="initiative-detail">
+  
+  <AppPageContainer max="1200px">
+    <div class="initiative-detail">
     <AppLoadingState v-if="loading" />
     <AppErrorState v-else-if="error" :message="error" @retry="load" />
 
@@ -575,7 +572,81 @@ onMounted(async () => {
         >
           {{ t("common.confirm") }}
         </AppButton>
-      </template>
+          </AppModal>
+
+    <!-- Add work item modal -->
+    <AppModal
+      :visible="showAddWorkItem"
+      :title="t('initiative.addWorkItem')"
+      width="440px"
+      @close="showAddWorkItem = false"
+    >
+      <label class="form__field">
+        <span class="form__label">{{ t("initiative.selectWorkItem") }}</span>
+        <input
+          v-model="workItemIdentifier"
+          :placeholder="t('initiative.selectWorkItem')"
+          class="form__input"
+        />
+      </label>
+      <label class="form__field">
+        <span class="form__label">{{ t("issue.type") }}</span>
+        <select v-model="workItemType" class="form__input">
+          <option value="requirement">{{ t("issue.typeRequirement") }}</option>
+          <option value="task">{{ t("issue.typeTask") }}</option>
+          <option value="defect">{{ t("issue.typeDefect") }}</option>
+        </select>
+      </label>
+      <template #footer>
+        <AppButton variant="secondary" size="sm" @click="showAddWorkItem = false">
+          {{ t("common.cancel") }}
+        </AppButton>
+        <AppButton
+          variant="primary"
+          size="sm"
+          :loading="addingWorkItem"
+          :disabled="!workItemIdentifier.trim()"
+          @click="addWorkItem"
+        >
+          {{ t("common.confirm") }}
+        </AppButton>
+      
+    </AppModal>
+  
+    </div>
+  </AppPageContainer>
+
+
+    <!-- Add project modal -->
+    <AppModal
+      :visible="showAddProject"
+      :title="t('initiative.addProject')"
+      width="440px"
+      @close="showAddProject = false"
+    >
+      <label class="form__field">
+        <span class="form__label">{{ t("initiative.selectProject") }}</span>
+        <select v-model="selectedProjectId" class="form__input">
+          <option :value="null" disabled>{{ t("initiative.selectProject") }}</option>
+          <option v-for="p in availableProjects" :key="p.id" :value="p.id">
+            {{ p.name }} ({{ p.identifier }})
+          </option>
+        </select>
+      </label>
+      <template #footer>
+        <AppButton variant="secondary" size="sm" @click="showAddProject = false">
+          {{ t("common.cancel") }}
+        </AppButton>
+        <AppButton
+          variant="primary"
+          size="sm"
+          :loading="addingProject"
+          :disabled="!selectedProjectId"
+          @click="addProject"
+        >
+          {{ t("common.confirm") }}
+        </AppButton>
+      
     </AppModal>
 
     <!-- Add work item modal -->
@@ -614,14 +685,14 @@ onMounted(async () => {
         >
           {{ t("common.confirm") }}
         </AppButton>
-      </template>
+      
     </AppModal>
   </div>
-</template>
+
 
 <style scoped>
 .initiative-detail {
-  max-width: 1200px;
+  
 }
 
 /* ---- header ---- */
@@ -778,15 +849,15 @@ onMounted(async () => {
   font-weight: 500;
 }
 .status-pill--success {
-  background: rgba(15, 194, 123, 0.12);
+  background: var(--success-50);
   color: var(--success-500);
 }
 .status-pill--warning {
-  background: rgba(245, 158, 11, 0.12);
+  background: var(--warning-50);
   color: var(--warning-500);
 }
 .status-pill--danger {
-  background: rgba(220, 47, 47, 0.12);
+  background: var(--danger-50);
   color: var(--danger-500);
 }
 
@@ -876,7 +947,7 @@ onMounted(async () => {
   border-radius: 50%;
   margin-top: 5px;
   flex-shrink: 0;
-  background: var(--neutral-400, #9ca3af);
+  background: var(--neutral-400);
 }
 .activity-item__dot.verb-created { background: var(--success-500); }
 .activity-item__dot.verb-archived { background: var(--danger-500); }

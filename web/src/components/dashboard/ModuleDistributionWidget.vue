@@ -69,9 +69,9 @@ async function loadStats() {
 }
 
 const COLORS = [
-  "#3f63f1", "#10b981", "#f59e0b", "#ef4444",
-  "#8b5cf6", "#06b6d4", "#ec4899", "#84cc16",
-  "#6b7280",
+  "var(--brand-500)", "var(--success-500)", "var(--warning-500)", "var(--danger-500)",
+  "var(--brand-500)", "var(--info-500)", "var(--brand-500)", "var(--success-500)",
+  "var(--text-secondary)",
 ];
 
 const chartOption = computed<EChartsCoreOption>(() => {
@@ -137,10 +137,10 @@ onMounted(loadStats);
   justify-content: center;
   height: 100%;
   font-size: 13px;
-  color: var(--text-tertiary, #9ca3af);
+  color: var(--text-tertiary);
 }
 
 .error-hint {
-  color: var(--danger-500, #dc2f2f);
+  color: var(--danger-500);
 }
 </style>

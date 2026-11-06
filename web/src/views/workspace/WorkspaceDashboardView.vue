@@ -116,8 +116,8 @@ onMounted(load);
             <span
               class="mt-1 h-2 w-2 shrink-0 rounded-full"
               :class="a.severity === 'critical' || a.severity === 'high'
-                ? 'bg-[var(--danger, #ef4444)]'
-                : a.severity === 'medium' ? 'bg-[var(--warning, #f59e0b)]' : 'bg-[var(--text-tertiary)]'"
+                ? 'bg-[var(--danger)]'
+                : a.severity === 'medium' ? 'bg-[var(--warning)]' : 'bg-[var(--text-tertiary)]'"
             />
             <div class="flex-1 min-w-0">
               <div class="text-sm font-medium text-[var(--text-primary)]">{{ a.title }}</div>
@@ -129,4 +129,3 @@ onMounted(load);
       </section>
     </template>
   </div>
-</template>

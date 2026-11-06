@@ -105,9 +105,56 @@ export const WORKSPACE_MENU: MenuItem[] = [
   { name: 'workspace-versions', path: 'versions', titleKey: 'menu.versions', icon: 'Tag', permissions: ['version:read'], minLevel: 50, moduleKey: 'version' },
   { name: 'workspace-sprints', path: 'sprints', titleKey: 'menu.sprints', icon: 'Clock', permissions: ['sprint:read'], minLevel: 30, moduleKey: 'sprint' },
   { name: 'workspace-initiatives', path: 'initiatives', titleKey: 'menu.initiatives', icon: 'Target', minLevel: 30 },
+  { name: 'workspace-teamspaces', path: 'teamspaces', titleKey: 'menu.teamspaces', icon: 'Users', minLevel: 30 },
+  { name: 'workspace-projects-as-code', path: 'projects-as-code', titleKey: 'menu.projectsAsCode', icon: 'FileCode2', minLevel: 30 },
+  { name: 'workspace-pql', path: 'pql', titleKey: 'menu.pql', icon: 'SearchCode', minLevel: 30 },
+  { name: 'workspace-views', path: 'views', titleKey: 'menu.views', icon: 'LayoutGrid', permissions: ['project:update'], minLevel: 30 },
+  { name: 'workspace-customers', path: 'customers', titleKey: 'menu.customers', icon: 'Building2', minLevel: 30 },
+  { name: 'workspace-customer-requests', path: 'customer-requests', titleKey: 'menu.customerRequests', icon: 'Inbox', minLevel: 30 },
   { name: 'workspace-analytics', path: 'analytics', titleKey: 'menu.analytics', icon: 'BarChart3', permissions: ['analytics:read'], minLevel: 50 },
   { name: 'workspace-knowledge', path: 'knowledge', titleKey: 'menu.knowledge', icon: 'BookOpen' },
   { name: 'workspace-automation', path: 'automation', titleKey: 'menu.automation', icon: 'Zap', permissions: ['automation:manage'], minLevel: 80 },
+  { name: 'workspace-integrations', path: 'integrations', titleKey: 'menu.integrations', icon: 'Blocks', minLevel: 30 },
+  { name: 'workspace-ai-agents', path: 'ai-agents', titleKey: 'menu.aiAgents', icon: 'Sparkles', minLevel: 30 },
+  { name: 'workspace-ai-memory', path: 'ai-memory', titleKey: 'menu.aiMemory', icon: 'Brain', minLevel: 30 },
+  { name: 'workspace-oauth-apps', path: 'oauth-apps', titleKey: 'menu.oauthApps', icon: 'KeyRound', minLevel: 40 },
+  { name: 'workspace-grant-rules', path: 'grant-rules', titleKey: 'menu.grantRules', icon: 'ShieldCheck', minLevel: 40 },
   { name: 'workspace-members', path: 'members', titleKey: 'menu.members', icon: 'Users', permissions: ['member:change_role'], minLevel: 80 },
   { name: 'workspace-settings', path: 'settings', titleKey: 'menu.settings', icon: 'Settings', permissions: ['workspace:update'], minLevel: 80 },
+]
+
+/**
+ * 项目级左侧导航顺序与所需权限 / 角色级别参考表（项目上下文内，按侧栏从上到下）：
+ *
+ * | 顺序 | 菜单                          | 所需角色         | 所需权限          |
+ * |-----|-------------------------------|------------------|-------------------|
+ * | 1   | 看板 (Board)                  | guest+           | issue:read        |
+ * | 2   | 需求 (Requirements)           | guest+           | issue:read        |
+ * | 3   | 任务 (Tasks)                  | guest+           | issue:read        |
+ * | 4   | 缺陷 (Defects)                | guest+           | issue:read        |
+ * | 5   | 文档 (Pages)                  | guest+           | page:read         |
+ * | 6   | 日历 (Calendar)               | guest+           | issue:read        |
+ * | 7   | 效能 (Metrics)                | pm+/techlead     | analytics:read    |
+ * | 8   | 分析 (Analytics)              | pm+/techlead     | analytics:read    |
+ * | 9   | 甘特图 (Gantt)                | guest+           | issue:read        |
+ * | 10  | 时间线 (Timeline)             | guest+           | issue:read        |
+ * | 11  | 仪表盘 (Dashboard)            | guest+           | project:read      |
+ * | 12  | 工作项类型 (Work Item Types)  | admin            | project:update    |
+ */
+export const PROJECT_MENU: MenuItem[] = [
+  { name: 'project-board', path: 'board', titleKey: 'menu.board', icon: 'KanbanSquare', permissions: ['issue:read'] },
+  { name: 'project-requirements', path: 'requirements', titleKey: 'menu.requirements', icon: 'ClipboardList', permissions: ['issue:read'] },
+  { name: 'project-tasks', path: 'tasks', titleKey: 'menu.tasks', icon: 'SquareCheckBig', permissions: ['issue:read'] },
+  { name: 'project-defects', path: 'defects', titleKey: 'menu.defects', icon: 'Bug', permissions: ['issue:read'] },
+  { name: 'project-pages', path: 'pages', titleKey: 'menu.pages', icon: 'FileText', permissions: ['page:read'] },
+  { name: 'project-calendar', path: 'calendar', titleKey: 'menu.calendar', icon: 'Calendar', permissions: ['issue:read'] },
+  { name: 'project-metrics', path: 'metrics', titleKey: 'menu.metrics', icon: 'Gauge', permissions: ['analytics:read'], minLevel: 50 },
+  { name: 'project-analytics', path: 'analytics', titleKey: 'menu.analytics', icon: 'LineChart', permissions: ['analytics:read'], minLevel: 50 },
+  { name: 'project-gantt', path: 'gantt', titleKey: 'menu.gantt', icon: 'GanttChart', permissions: ['issue:read'] },
+  { name: 'project-timeline', path: 'timeline', titleKey: 'menu.timeline', icon: 'History', permissions: ['issue:read'] },
+  { name: 'project-dashboard', path: 'dashboard', titleKey: 'menu.dashboard', icon: 'LayoutDashboard', permissions: ['project:read'] },
+  { name: 'project-work-item-types', path: 'work-item-types', titleKey: 'menu.workItemTypes', icon: 'Shapes', permissions: ['project:update'], minLevel: 40 },
+  { name: 'project-recurring-rules', path: 'recurring-rules', titleKey: 'menu.recurringRules', icon: 'Repeat', permissions: ['project:update'], minLevel: 40 },
+  { name: 'project-milestones', path: 'milestones', titleKey: 'menu.milestones', icon: 'Milestone', permissions: ['project:update'], minLevel: 40 },
+  { name: 'project-imports', path: 'imports', titleKey: 'menu.imports', icon: 'Upload', permissions: ['project:update'], minLevel: 40 },
 ]

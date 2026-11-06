@@ -1,5 +1,7 @@
 <template>
-  <div class="tpl-page">
+  
+  <AppPageContainer max="1100px">
+    <div class="tpl-page">
     <!-- 页头 -->
     <div class="tpl-header">
       <div class="tpl-header__left">
@@ -146,7 +148,9 @@
         </div>
       </div>
     </div>
-  </div>
+  
+    </div>
+  </AppPageContainer>
 </template>
 
 <script setup lang="ts">
@@ -154,7 +158,9 @@ import { computed, onMounted, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import { contentTemplateApi, type ContentTemplate, type CreateTemplateRequest } from "@/api/services/contentTemplate";
 import { toast } from "@/lib/toast";
+import { useConfirm } from "@/composables/useConfirm";
 
+const confirm = useConfirm();
 const route = useRoute();
 const wsId = Number(route.params.workspaceId);
 const projectId = Number(route.params.projectId);
@@ -275,7 +281,7 @@ async function saveTpl() {
 }
 
 async function confirmDelete(tpl: ContentTemplate) {
-  if (!confirm(`确定删除模板"${tpl.name}"？`)) return;
+  if (!await confirm({ title: "删除模板", message: `确定删除模板"${tpl.name}"？`, confirmText: "删除", variant: "danger" })) return;
   try {
     await contentTemplateApi.delete(wsId, projectId, tpl.id);
     toast.success("模板已删除");
@@ -298,13 +304,14 @@ function formatDate(dateStr: string): string {
 watch(activeType, load);
 
 onMounted(load);
+import { AppPageContainer } from "@/components";
 </script>
 
 <style scoped>
 .tpl-page {
   padding: 24px;
-  max-width: 1100px;
-  margin: 0 auto;
+  
+  
 }
 
 /* ---- Header ---- */
@@ -367,7 +374,7 @@ onMounted(load);
 .tpl-btn--primary {
   background: var(--brand-600);
   border-color: var(--brand-600);
-  color: #fff;
+  color: var(--text-on-color);
 }
 .tpl-btn--primary:hover {
   background: var(--brand-700);
@@ -383,10 +390,10 @@ onMounted(load);
   background: var(--bg-secondary);
 }
 .tpl-btn--danger {
-  color: var(--danger-600, #d32f2f);
+  color: var(--danger-600);
 }
 .tpl-btn--danger:hover {
-  background: var(--danger-50, #ffebee);
+  background: var(--danger-50);
 }
 .tpl-btn--sm {
   padding: 4px 10px;
@@ -560,7 +567,7 @@ onMounted(load);
   cursor: pointer;
 }
 .tpl-required {
-  color: var(--danger-600, #d32f2f);
+  color: var(--danger-600);
 }
 .tpl-input {
   width: 100%;
@@ -611,7 +618,7 @@ onMounted(load);
 .tpl-type-btn--active {
   background: var(--brand-600);
   border-color: var(--brand-600);
-  color: #fff;
+  color: var(--text-on-color);
 }
 .tpl-type-btn:disabled {
   opacity: 0.6;

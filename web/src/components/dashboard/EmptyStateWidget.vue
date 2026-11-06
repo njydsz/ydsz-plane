@@ -37,13 +37,13 @@ const emit = defineEmits<{
 .empty-state__title {
   font-size: 16px;
   font-weight: 600;
-  color: var(--text-primary, #1f2937);
+  color: var(--text-primary);
   margin: 0 0 6px;
 }
 
 .empty-state__hint {
   font-size: 13px;
-  color: var(--text-tertiary, #9ca3af);
+  color: var(--text-tertiary);
   margin: 0 0 20px;
 }
 
@@ -53,13 +53,13 @@ const emit = defineEmits<{
   font-size: 13px;
   font-family: inherit;
   cursor: pointer;
-  background: var(--brand-500, #3f63f1);
-  color: var(--text-on-brand, #fff);
-  border: 1px solid var(--brand-500, #3f63f1);
+  background: var(--brand-500);
+  color: var(--text-on-brand);
+  border: 1px solid var(--brand-500);
   transition: background 0.15s;
 }
 
 .empty-state__btn:hover {
-  background: var(--brand-600, #2f4fd0);
+  background: var(--brand-600);
 }
 </style>

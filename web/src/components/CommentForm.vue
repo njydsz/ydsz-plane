@@ -13,6 +13,7 @@
  */
 import { computed, ref, watch } from "vue";
 import RichTextEditor from "./RichTextEditor.vue";
+import AppButton from "./AppButton.vue";
 
 const props = defineProps<{
   loading?: boolean;
@@ -114,21 +115,23 @@ defineExpose({ focus });
       </span>
 
       <div class="comment-form__actions">
-        <button
+        <AppButton
           v-if="isEditing || isReplying"
-          class="btn btn--sm"
+          size="sm"
+          variant="secondary"
           :disabled="loading"
           @click="emit('cancel')"
         >
           取消
-        </button>
-        <button
-          class="btn btn--sm btn--primary"
+        </AppButton>
+        <AppButton
+          size="sm"
+          :loading="loading"
           :disabled="!canSubmit"
           @click="handleSubmit"
         >
           {{ loading ? "提交中..." : isEditing ? "保存" : "评论" }}
-        </button>
+        </AppButton>
       </div>
     </div>
   </div>
@@ -149,7 +152,7 @@ defineExpose({ focus });
 
 .comment-form__hint {
   font-size: 11px;
-  color: var(--text-tertiary, #9ca3af);
+  color: var(--text-tertiary);
   flex: 1;
 }
 
@@ -159,33 +162,4 @@ defineExpose({ focus });
   flex-shrink: 0;
 }
 
-.btn--sm {
-  padding: 4px 12px;
-  font-size: 12px;
-  border-radius: var(--radius-sm, 4px);
-  cursor: pointer;
-  border: 1px solid var(--border-default, #d1d5db);
-  background: var(--surface-1, #fff);
-  color: var(--text-secondary, #4b5563);
-  font-family: inherit;
-}
-
-.btn--sm:hover:not(:disabled) {
-  background: var(--surface-3, #f3f4f6);
-}
-
-.btn--sm:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.btn--primary {
-  background: var(--brand-500, #3b82f6);
-  color: #fff;
-  border-color: var(--brand-500, #3b82f6);
-}
-
-.btn--primary:hover:not(:disabled) {
-  background: var(--brand-600, #2563eb);
-}
 </style>

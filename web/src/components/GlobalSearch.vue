@@ -2,14 +2,15 @@
  * GlobalSearch — 全局搜索弹层组件（⌘K）。
  * 工作空间内全文搜索，支持键盘导航、分组展示，服务端 ts_headline 高亮。
  */
+<script setup lang="ts">
+import DynamicIcon from "@/components/DynamicIcon.vue";
+</script>
 <template>
   <Teleport to="body">
     <div v-if="open" class="search-overlay" @click.self="close">
       <div class="search-dialog">
         <div class="search-input-wrap">
-          <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="11" cy="11" r="8" /> <line x1="21" y1="21" x2="16.65" y2="16.65" />
-          </svg>
+          <DynamicIcon name="Search" :size="18" class="search-icon" />
           <input
             ref="inputRef"
             v-model="q"
@@ -221,41 +222,41 @@ onUnmounted(() => {
 }
 .search-input-wrap {
   display: flex; align-items: center;
-  padding: 14px 16px; border-bottom: 1px solid #f1f5f9;
+  padding: 14px 16px; border-bottom: 1px solid var(--surface-2);
   gap: 10px;
 }
-.search-icon { color: #94a3b8; flex-shrink: 0; }
+.search-icon { color: var(--text-tertiary); flex-shrink: 0; }
 .search-input {
   flex: 1; border: none; outline: none; font-size: 16px;
-  color: #1e293b; background: transparent;
+  color: var(--text-primary); background: transparent;
 }
-.search-input::placeholder { color: #cbd5e1; }
+.search-input::placeholder { color: var(--border-subtle); }
 .shortcut-hint {
   font-size: 10px; padding: 2px 6px; border-radius: 4px;
-  background: #f1f5f9; color: #94a3b8; font-family: monospace;
+  background: var(--surface-2); color: var(--text-tertiary); font-family: monospace;
 }
 .search-body { max-height: 360px; overflow-y: auto; }
 .search-status {
-  padding: 24px; text-align: center; color: #94a3b8; font-size: 14px;
+  padding: 24px; text-align: center; color: var(--text-tertiary); font-size: 14px;
 }
 .result-group { padding: 4px 0; }
 .group-title {
   padding: 6px 16px; font-size: 11px; font-weight: 600;
-  color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px;
+  color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.5px;
 }
 .result-item {
   display: flex; align-items: center; gap: 8px;
   padding: 8px 16px; cursor: pointer; font-size: 14px;
 }
-.result-item:hover, .result-item.selected { background: #f8fafc; }
+.result-item:hover, .result-item.selected { background: var(--surface-2); }
 .ri-type {
-  font-size: 14px; color: #94a3b8; width: 20px; text-align: center;
+  font-size: 14px; color: var(--text-tertiary); width: 20px; text-align: center;
 }
-.ri-name { flex: 1; color: #1e293b; }
-.ri-meta { font-size: 12px; color: #cbd5e1; }
+.ri-name { flex: 1; color: var(--text-primary); }
+.ri-meta { font-size: 12px; color: var(--border-subtle); }
 .search-footer {
   display: flex; gap: 16px; padding: 8px 16px;
-  border-top: 1px solid #f1f5f9;
-  font-size: 11px; color: #cbd5e1;
+  border-top: 1px solid var(--surface-2);
+  font-size: 11px; color: var(--border-subtle);
 }
 </style>

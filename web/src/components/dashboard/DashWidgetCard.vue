@@ -20,6 +20,8 @@ const emit = defineEmits<{
   remove: [];
   resizeStart: [e: PointerEvent];
 }>();
+
+import DynamicIcon from "@/components/DynamicIcon.vue";
 </script>
 
 <template>
@@ -44,7 +46,7 @@ const emit = defineEmits<{
         title="删除 widget"
         @click="emit('remove')"
       >
-        &times;
+        <DynamicIcon name="X" :size="14" />
       </button>
     </div>
     <div class="dash-card__body">
@@ -68,8 +70,8 @@ const emit = defineEmits<{
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: var(--surface-1, #fff);
-  border: 1px solid var(--border-subtle, #e5e7eb);
+  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md, 8px);
   overflow: hidden;
   transition: opacity 0.15s, box-shadow 0.15s, border-color 0.15s;
@@ -81,8 +83,8 @@ const emit = defineEmits<{
 
 /* 编辑模式：蓝色描边高亮 */
 .dash-card--edit {
-  border-color: var(--brand-400, #7c9aff);
-  box-shadow: 0 0 0 1px var(--brand-400, #7c9aff);
+  border-color: var(--brand-400);
+  box-shadow: 0 0 0 1px var(--brand-400);
 }
 
 .dash-card--resizing {
@@ -95,7 +97,7 @@ const emit = defineEmits<{
   align-items: center;
   gap: 8px;
   padding: 10px 14px;
-  border-bottom: 1px solid var(--border-subtle, #e5e7eb);
+  border-bottom: 1px solid var(--border-subtle);
   flex-shrink: 0;
 }
 
@@ -109,13 +111,13 @@ const emit = defineEmits<{
   flex-shrink: 0;
   border-radius: var(--radius-sm, 4px);
   cursor: grab;
-  color: var(--text-tertiary, #9ca3af);
+  color: var(--text-tertiary);
   transition: color 0.15s, background 0.15s;
 }
 
 .dash-card__handle:hover {
-  color: var(--text-secondary, #4b5563);
-  background: var(--surface-2, #f7f8f9);
+  color: var(--text-secondary);
+  background: var(--surface-2);
 }
 
 .dash-card__handle:active {
@@ -138,7 +140,7 @@ const emit = defineEmits<{
 .dash-card__title {
   font-size: 14px;
   font-weight: 600;
-  color: var(--text-primary, #1f2937);
+  color: var(--text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -151,7 +153,7 @@ const emit = defineEmits<{
   border: none;
   font-size: 18px;
   line-height: 1;
-  color: var(--text-tertiary, #9ca3af);
+  color: var(--text-tertiary);
   cursor: pointer;
   padding: 0;
   width: 22px;
@@ -164,8 +166,8 @@ const emit = defineEmits<{
 }
 
 .dash-card__remove:hover {
-  color: var(--danger-500, #dc2f2f);
-  background: var(--danger-50, #fef2f2);
+  color: var(--danger-500);
+  background: var(--danger-50);
 }
 
 .dash-card__body {
@@ -187,7 +189,7 @@ const emit = defineEmits<{
   background-image: linear-gradient(
       135deg,
       transparent 0 40%,
-      var(--brand-500, #3f63f1) 40% 55%,
+      var(--brand-500) 40% 55%,
       transparent 55% 100%
     );
   opacity: 0.55;

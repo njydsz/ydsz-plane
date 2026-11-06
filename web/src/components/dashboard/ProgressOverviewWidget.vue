@@ -68,26 +68,26 @@ function formatRate(n: number): string {
   gap: 4px;
   padding: 12px;
   border-radius: var(--radius-sm, 6px);
-  background: var(--surface-2, #f7f8f9);
+  background: var(--surface-2);
 }
 
 .stat-card__label {
   font-size: 12px;
-  color: var(--text-tertiary, #9ca3af);
+  color: var(--text-tertiary);
 }
 
 .stat-card__value {
   font-size: 22px;
   font-weight: 600;
-  color: var(--text-primary, #1f2937);
+  color: var(--text-primary);
 }
 
 .stat-card--done .stat-card__value {
-  color: var(--success-500, #0fc27b);
+  color: var(--success-500);
 }
 
 .stat-card--in-progress .stat-card__value {
-  color: var(--brand-500, #3f63f1);
+  color: var(--brand-500);
 }
 
 .progress-overview__badges {
@@ -107,17 +107,17 @@ function formatRate(n: number): string {
 }
 
 .badge--danger {
-  background: var(--danger-50, #fef2f2);
-  color: var(--danger-600, #dc2626);
+  background: var(--danger-50);
+  color: var(--danger-600);
 }
 
 .badge--warning {
-  background: var(--warning-50, #fffbeb);
-  color: var(--warning-600, #d97706);
+  background: var(--warning-50);
+  color: var(--warning-600);
 }
 
 .badge--info {
-  background: var(--brand-50, #eef2fe);
-  color: var(--brand-600, #2f4fd0);
+  background: var(--brand-50);
+  color: var(--brand-600);
 }
 </style>

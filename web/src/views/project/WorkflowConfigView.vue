@@ -22,14 +22,11 @@ import { stateMachineApi, type State } from "@/api/services/stateMachine";
 import { workspaceApi, type Member } from "@/api/services/workspace";
 import { useWorkspaceStore } from "@/stores/workspace";
 import { useTranslation } from "@/composables/useTranslation";
-import {
-  AppLoadingState,
-  AppErrorState,
-  AppEmptyState,
-  AppModal,
-  AppBadge,
-} from "@/components";
+import { AppBadge, AppEmptyState, AppErrorState, AppLoadingState, AppModal, AppPageContainer } from "@/components";
 import { toast } from "@/lib/toast";
+import { useConfirm } from "@/composables/useConfirm";
+
+const confirm = useConfirm();
 
 /* ------------------------------------------------------------------ */
 /* i18n                                                               */
@@ -142,7 +139,7 @@ async function saveWorkflow() {
 
 async function deleteWorkflow(wf: Workflow) {
   if (!wsId.value) return;
-  if (!confirm(t("workflow.workflow.deleteConfirm", { name: wf.name }))) return;
+  if (!await confirm({ title: "删除工作流", message: t("workflow.workflow.deleteConfirm", { name: wf.name }), confirmText: "删除", variant: "danger" })) return;
   try {
     await workflowApi.remove(wsId.value, projectId.value, wf.id);
     toast.success(t("workflow.workflow.deleted"));
@@ -230,7 +227,7 @@ async function saveTransition() {
 
 async function removeTransition(tr: WorkflowTransition) {
   if (!wsId.value || !selectedWorkflow.value) return;
-  if (!confirm(t("workflow.transition.deleteConfirm"))) return;
+  if (!await confirm({ title: "删除流转规则", message: t("workflow.transition.deleteConfirm"), confirmText: "删除", variant: "danger" })) return;
   try {
     await workflowApi.removeTransition(
       wsId.value,
@@ -274,7 +271,7 @@ function stateName(id: number): string {
 }
 
 function stateColor(id: number): string {
-  return states.value.find((s) => s.id === id)?.color ?? "#9CA3AF";
+  return states.value.find((s) => s.id === id)?.color ?? "var(--text-tertiary)";
 }
 
 function memberName(id: number): string {
@@ -339,7 +336,9 @@ watch(wsId, (id) => {
 </script>
 
 <template>
-  <div class="wf-view">
+  
+  <AppPageContainer max="1200px">
+    <div class="wf-view">
     <!-- 页头 -->
     <header class="wf-view__header">
       <div>
@@ -537,7 +536,129 @@ watch(wsId, (id) => {
           </template>
         </main>
       </div>
-    </template>
+        <!-- 工作流表单弹窗 -->
+    <AppModal
+      :visible="showWorkflowForm"
+      :title="editingWorkflow ? t('workflow.workflow.edit') : t('workflow.workflow.add')"
+      width="480px"
+      @close="showWorkflowForm = false"
+    >
+      <form class="wf-form" @submit.prevent="saveWorkflow">
+        <label class="wf-form__field">
+          <span class="wf-form__label">{{ t("workflow.workflow.name") }} *</span>
+          <input
+            v-model="workflowForm.name"
+            class="wf-input"
+            :placeholder="t('workflow.workflow.namePlaceholder')"
+            required
+          />
+        </label>
+        <label class="wf-form__field">
+          <span class="wf-form__label">{{ t("workflow.workflow.description") }}</span>
+          <textarea
+            v-model="workflowForm.description"
+            class="wf-input wf-textarea"
+            :placeholder="t('workflow.workflow.descriptionPlaceholder')"
+            rows="3"
+          />
+        </label>
+        <label class="wf-form__field wf-form__field--checkbox">
+          <input v-model="workflowForm.is_default" type="checkbox" />
+          <span>{{ t("workflow.workflow.setAsDefault") }}</span>
+        </label>
+        <p v-if="workflowFormError" class="wf-form__error">{{ workflowFormError }}</p>
+        <div class="wf-form__actions">
+          <button
+            type="button"
+            class="wf-btn wf-btn--ghost"
+            @click="showWorkflowForm = false"
+          >
+            {{ t("common.cancel") }}
+          </button>
+          <button type="submit" class="wf-btn wf-btn--primary" :disabled="workflowFormSaving">
+            {{ workflowFormSaving ? t("common.saving") : t("common.save") }}
+          </button>
+        </div>
+      </form>
+    </AppModal>
+
+    <!-- 流转规则表单弹窗 -->
+    <AppModal
+      :visible="showTransitionForm"
+      :title="t('workflow.transition.add')"
+      width="520px"
+      @close="showTransitionForm = false"
+    >
+      <form class="wf-form" @submit.prevent="saveTransition">
+        <div class="wf-form__row">
+          <label class="wf-form__field">
+            <span class="wf-form__label">{{ t("workflow.transition.from") }} *</span>
+            <select v-model.number="transitionForm.from_state_id" class="wf-select" required>
+              <option value="0" disabled>— {{ t("common.select") }} —</option>
+              <option v-for="st in states" :key="st.id" :value="st.id">{{ st.name }}</option>
+            </select>
+          </label>
+          <label class="wf-form__field">
+            <span class="wf-form__label">{{ t("workflow.transition.to") }} *</span>
+            <select v-model.number="transitionForm.to_state_id" class="wf-select" required>
+              <option value="0" disabled>— {{ t("common.select") }} —</option>
+              <option v-for="st in states" :key="st.id" :value="st.id">{{ st.name }}</option>
+            </select>
+          </label>
+        </div>
+        <label class="wf-form__field">
+          <span class="wf-form__label">{{ t("workflow.transition.name") }} *</span>
+          <input
+            v-model="transitionForm.name"
+            class="wf-input"
+            :placeholder="t('workflow.transition.namePlaceholder')"
+            required
+          />
+        </label>
+        <label class="wf-form__field wf-form__field--checkbox">
+          <input v-model="transitionForm.requires_approval" type="checkbox" />
+          <span>{{ t("workflow.transition.requiresApproval") }}</span>
+        </label>
+        <template v-if="transitionForm.requires_approval">
+          <label class="wf-form__field">
+            <span class="wf-form__label">{{ t("workflow.transition.approverRole") }}</span>
+            <select v-model="transitionForm.approver_role" class="wf-select">
+              <option v-for="opt in APPROVER_ROLE_OPTIONS" :key="opt.value" :value="opt.value">
+                {{ opt.label }}
+              </option>
+            </select>
+          </label>
+          <label class="wf-form__field">
+            <span class="wf-form__label">{{ t("workflow.transition.approverIds") }}</span>
+            <select v-model="transitionForm.approver_ids" class="wf-select" multiple>
+              <option v-for="m in members" :key="m.id" :value="m.id">
+                {{ m.display_name || m.email }}
+              </option>
+            </select>
+          </label>
+        
+        <p v-if="transitionFormError" class="wf-form__error">{{ transitionFormError }}</p>
+        <div class="wf-form__actions">
+          <button
+            type="button"
+            class="wf-btn wf-btn--ghost"
+            @click="showTransitionForm = false"
+          >
+            {{ t("common.cancel") }}
+          </button>
+          <button type="submit" class="wf-btn wf-btn--primary" :disabled="transitionFormSaving">
+            {{ transitionFormSaving ? t("common.saving") : t("common.add") }}
+          </button>
+        </div>
+      </form>
+    </AppModal>
+  
+    </div>
+  </AppPageContainer>
+
+        </main>
+      </div>
+    
 
     <!-- 工作流表单弹窗 -->
     <AppModal
@@ -639,7 +760,7 @@ watch(wsId, (id) => {
               </option>
             </select>
           </label>
-        </template>
+        
         <p v-if="transitionFormError" class="wf-form__error">{{ transitionFormError }}</p>
         <div class="wf-form__actions">
           <button
@@ -656,12 +777,12 @@ watch(wsId, (id) => {
       </form>
     </AppModal>
   </div>
-</template>
+
 
 <style scoped>
 .wf-view {
-  max-width: 1200px;
-  margin: 0 auto;
+  
+  
   padding: 24px;
 }
 
@@ -879,8 +1000,8 @@ watch(wsId, (id) => {
   font-size: 11px;
   padding: 1px 6px;
   border-radius: 3px;
-  background: rgba(245, 158, 11, 0.12);
-  color: var(--warning-500, #d97706);
+  background: var(--warning-50);
+  color: var(--warning-500);
 }
 
 /* Table */
@@ -970,7 +1091,7 @@ watch(wsId, (id) => {
 }
 
 .wf-btn--danger {
-  color: var(--danger-500, #dc2f2f);
+  color: var(--danger-500);
   border-color: var(--danger-200, rgba(220, 47, 47, 0.2));
   background: transparent;
 }
@@ -1049,7 +1170,7 @@ watch(wsId, (id) => {
 }
 
 .wf-form__error {
-  color: var(--danger-500, #dc2f2f);
+  color: var(--danger-500);
   font-size: 12px;
   margin: 0;
 }

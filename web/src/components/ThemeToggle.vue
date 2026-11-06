@@ -5,6 +5,7 @@
  */
 import { computed } from "vue";
 import { applyTheme, currentTheme } from "@/lib/theme";
+import DynamicIcon from "@/components/DynamicIcon.vue";
 
 const theme = currentTheme;
 
@@ -26,14 +27,8 @@ const label = computed(() => (isDark.value ? "切换到亮色模式" : "切换�
     :aria-label="label"
     @click="toggle"
   >
-    <!-- 太阳 / 月亮 图标（内联 SVG） -->
-    <svg v-if="!isDark" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <circle cx="12" cy="12" r="4" />
-      <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
-    </svg>
-    <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
-    </svg>
+    <!-- 太阳 / 月亮 图标 -->
+    <DynamicIcon :name="isDark ? 'Moon' : 'Sun'" :size="16" />
   </button>
 </template>
 

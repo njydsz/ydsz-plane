@@ -11,7 +11,7 @@ import { sprintApi, type Sprint, type SprintStatus } from "@/api/services/sprint
 import { useWorkspaceContext } from "@/composables/useWorkspaceContext";
 import SprintStatusBadge from "@/components/sprint/SprintStatusBadge.vue";
 import SprintProgressBar from "@/components/sprint/SprintProgressBar.vue";
-import { AppErrorState, AppEmptyState, AppSkeleton } from "@/components";
+import { AppButton, AppErrorState, AppEmptyState, AppPageContainer, AppSkeleton } from "@/components";
 
 /* ------------------------------------------------------------------ */
 /* 路由上下文                                                           */
@@ -245,15 +245,16 @@ watch(ready, (r) => {
 </script>
 
 <template>
-  <div class="sprint-list">
+  <AppPageContainer>
+    <div class="sprint-list">
     <header class="header">
       <div>
         <h1>迭代</h1>
         <p class="hint">管理项目的 Sprint 生命周期 · 共 {{ total }} 个迭代</p>
       </div>
       <div class="actions">
-        <button class="btn btn-secondary" @click="goPlanning">排期规划</button>
-        <button class="btn btn-primary" @click="showCreate = true">新建迭代</button>
+        <AppButton variant="secondary" @click="goPlanning">排期规划</AppButton>
+        <AppButton @click="showCreate = true">新建迭代</AppButton>
       </div>
     </header>
 
@@ -289,7 +290,7 @@ watch(ready, (r) => {
       title="暂无迭代"
       description="当前筛选条件下没有迭代"
     >
-      <button class="btn btn-primary" @click="showCreate = true">创建第一个迭代</button>
+      <AppButton @click="showCreate = true">创建第一个迭代</AppButton>
     </AppEmptyState>
 
     <div v-else class="grid">
@@ -345,9 +346,9 @@ watch(ready, (r) => {
 
     <!-- 加载更多 -->
     <div v-if="hasMore" class="load-more">
-      <button class="btn btn-secondary" :disabled="loading" @click="loadMore">
+      <AppButton variant="secondary" :loading="loading" :disabled="loading" @click="loadMore">
         {{ loading ? "加载中..." : "加载更多" }}
-      </button>
+      </AppButton>
     </div>
 
     <!-- Create modal -->
@@ -376,10 +377,10 @@ watch(ready, (r) => {
           </label>
           <div v-if="createError" class="error">{{ createError }}</div>
           <footer>
-            <button type="button" class="btn btn-secondary" @click="showCreate = false">取消</button>
-            <button type="submit" class="btn btn-primary" :disabled="creating">
+            <AppButton type="button" variant="secondary" @click="showCreate = false">取消</AppButton>
+            <AppButton type="submit" :loading="creating" :disabled="creating">
               {{ creating ? "创建中..." : "创建" }}
-            </button>
+            </AppButton>
           </footer>
         </form>
       </div>
@@ -412,10 +413,10 @@ watch(ready, (r) => {
           <p class="hint-inline">仅「未开始」状态的迭代可编辑核心字段</p>
           <div v-if="editError" class="error">{{ editError }}</div>
           <footer>
-            <button type="button" class="btn btn-secondary" @click="editTarget = null">取消</button>
-            <button type="submit" class="btn btn-primary" :disabled="savingEdit">
+            <AppButton type="button" variant="secondary" @click="editTarget = null">取消</AppButton>
+            <AppButton type="submit" :loading="savingEdit" :disabled="savingEdit">
               {{ savingEdit ? "保存中..." : "保存" }}
-            </button>
+            </AppButton>
           </footer>
         </form>
       </div>
@@ -434,14 +435,15 @@ watch(ready, (r) => {
         </p>
         <div v-if="deleteError" class="error">{{ deleteError }}</div>
         <footer>
-          <button type="button" class="btn btn-secondary" @click="deleteTarget = null">取消</button>
-          <button type="button" class="btn btn-danger" :disabled="deleting" @click="confirmDelete">
+          <AppButton type="button" variant="secondary" @click="deleteTarget = null">取消</AppButton>
+          <AppButton type="button" variant="danger" :loading="deleting" :disabled="deleting" @click="confirmDelete">
             {{ deleting ? "归档中..." : "确认归档" }}
-          </button>
+          </AppButton>
         </footer>
       </div>
     </div>
-  </div>
+    </div>
+  </AppPageContainer>
 </template>
 
 <style scoped>
@@ -571,19 +573,6 @@ watch(ready, (r) => {
 .progress-row { margin-top: 10px; }
 
 .load-more { display: flex; justify-content: center; margin-top: 20px; }
-
-.btn {
-  font-size: 13px; font-weight: 500; padding: 6px 14px; border-radius: var(--radius-sm);
-  border: 1px solid var(--border-subtle); cursor: pointer; transition: background 0.15s;
-}
-.btn-primary { background: var(--brand-500); color: var(--text-on-brand); border-color: var(--brand-500); }
-.btn-primary:hover:not(:disabled) { background: var(--brand-600); }
-.btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
-.btn-secondary { background: var(--surface-2); color: var(--text-primary); }
-.btn-secondary:hover { background: var(--surface-3); }
-.btn-danger { background: var(--danger-500); color: var(--text-on-brand); border-color: var(--danger-500); }
-.btn-danger:hover:not(:disabled) { background: var(--danger-600); }
-.btn-danger:disabled { opacity: 0.6; cursor: not-allowed; }
 
 .modal-overlay {
   position: fixed; inset: 0; background: var(--bg-backdrop);

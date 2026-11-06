@@ -10,7 +10,7 @@
 import { ref, watch } from "vue";
 
 import type { SpacePermission, UpdateSpaceInput } from "@/api/services/knowledge";
-import { AppModal } from "@/components";
+import { AppButton, AppModal } from "@/components";
 
 /* ===== Props / Emit ===== */
 const props = defineProps<{
@@ -182,18 +182,16 @@ function onCancel() {
     </div>
 
     <template #footer>
-      <button class="btn" :disabled="submitting" @click="onCancel">取消</button>
-      <button
-        class="btn btn--primary"
+      <AppButton variant="secondary" :disabled="submitting" @click="onCancel">取消</AppButton>
+      <AppButton
+        :loading="submitting"
         :disabled="submitting || !formName.trim()"
         @click="onSubmit"
       >
         {{ submitting ? "提交中..." : space ? "保存修改" : "创建空间" }}
-      </button>
+      </AppButton>
     </template>
   </AppModal>
-</template>
-
 <style scoped>
 .space-form {
   display: flex;
@@ -211,7 +209,7 @@ function onCancel() {
   color: var(--text-secondary);
 }
 .form-label__required {
-  color: var(--danger-500, #ef4444);
+  color: var(--danger-500);
 }
 .form-input {
   padding: 8px 10px;
@@ -263,33 +261,4 @@ function onCancel() {
   user-select: none;
 }
 
-.btn {
-  padding: 8px 16px;
-  font-size: 13px;
-  font-family: inherit;
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-sm);
-  background: var(--surface-1);
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: all 0.15s;
-}
-.btn:hover {
-  border-color: var(--brand-500);
-  color: var(--brand-600);
-}
-.btn--primary {
-  background: var(--brand-500);
-  border-color: var(--brand-500);
-  color: var(--text-on-brand);
-  font-weight: 500;
-}
-.btn--primary:hover {
-  background: var(--brand-600);
-  color: var(--text-on-brand);
-}
-.btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
 </style>

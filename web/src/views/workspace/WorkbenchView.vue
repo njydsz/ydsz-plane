@@ -50,6 +50,24 @@ function openIssue() {
   router.push(`/${workspaceId.value}/my-issues`);
 }
 
+/** 打开最近访问项：优先项目内详情，缺失 project_id 时退回列表页 */
+function openRecentItem(r: { item_type: string; item_id: number }) {
+  if (r.item_type === "issue" || r.item_type === "task" || r.item_type === "requirement" || r.item_type === "defect") {
+    router.push(`/${workspaceId.value}/my-issues`);
+    return;
+  }
+  if (r.item_type === "sprint") {
+    router.push(`/${workspaceId.value}/sprints`);
+    return;
+  }
+  if (r.item_type === "version") {
+    router.push(`/${workspaceId.value}/versions`);
+    return;
+  }
+  // 未知类型兜底到我的工作项
+  router.push(`/${workspaceId.value}/my-issues`);
+}
+
 function typeLabel(code?: string): string {
   const map: Record<string, string> = {
     epic: "史诗", requirement: "需求", task: "任务", defect: "缺陷",
@@ -109,13 +127,13 @@ onMounted(load);
         </div>
         <div class="rounded-lg border border-[var(--border-subtle)] p-4">
           <div class="text-xs text-[var(--text-tertiary)]">已逾期</div>
-          <div class="mt-1 text-2xl font-bold text-[var(--danger, #ef4444)]">
+          <div class="mt-1 text-2xl font-bold text-[var(--danger)]">
             {{ summary.overdue_count }}
           </div>
         </div>
         <div class="rounded-lg border border-[var(--border-subtle)] p-4">
           <div class="text-xs text-[var(--text-tertiary)]">被阻塞</div>
-          <div class="mt-1 text-2xl font-bold text-[var(--warning, #f59e0b)]">
+          <div class="mt-1 text-2xl font-bold text-[var(--warning)]">
             {{ summary.blocked_count }}
           </div>
         </div>
@@ -198,7 +216,8 @@ onMounted(load);
           <button
             v-for="r in summary.recent_items"
             :key="`${r.item_type}-${r.item_id}`"
-            class="rounded-md border border-[var(--border-subtle)] px-3 py-1.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--surface-2)] transition-colors"
+            class="rounded-md border border-[var(--border-subtle)] px-3 py-1.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--surface-2)] hover:border-[var(--brand-500)] hover:text-[var(--text-primary)] transition-colors"
+            @click="openRecentItem(r)"
           >
             {{ r.title }}
           </button>
@@ -206,4 +225,3 @@ onMounted(load);
       </section>
     </template>
   </div>
-</template>

@@ -93,8 +93,6 @@
       </section>
     </template>
   </div>
-</template>
-
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
@@ -194,47 +192,47 @@ onMounted(() => {
 <style scoped>
 .workbench { max-width: 960px; margin: 0 auto; padding: 24px; }
 .wb-header { margin-bottom: 24px; display: flex; align-items: baseline; gap: 16px; }
-.wb-header h2 { font-size: 22px; font-weight: 700; color: #1e293b; margin: 0; }
-.wb-greeting { color: #94a3b8; font-size: 14px; }
+.wb-header h2 { font-size: 22px; font-weight: 700; color: var(--text-primary); margin: 0; }
+.wb-greeting { color: var(--text-tertiary); font-size: 14px; }
 .wb-section { margin-bottom: 24px; }
-.wb-section h3 { font-size: 14px; font-weight: 600; color: #64748b; text-transform: uppercase; margin-bottom: 12px; letter-spacing: 0.5px; }
+.wb-section h3 { font-size: 14px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 12px; letter-spacing: 0.5px; }
 .wb-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
 @media (max-width: 768px) { .wb-grid { grid-template-columns: 1fr; } }
 
 .quick-actions { display: flex; gap: 10px; flex-wrap: wrap; }
-.qa-btn { display: flex; align-items: center; gap: 6px; padding: 8px 14px; background: white; border: 1px solid #e2e8f0; border-radius: 8px; cursor: pointer; font-size: 14px; color: #334155; }
-.qa-btn:hover { background: #f8fafc; border-color: #cbd5e1; }
+.qa-btn { display: flex; align-items: center; gap: 6px; padding: 8px 14px; background: white; border: 1px solid var(--border-subtle); border-radius: 8px; cursor: pointer; font-size: 14px; color: var(--text-primary); }
+.qa-btn:hover { background: var(--surface-2); border-color: var(--border-subtle); }
 .qa-icon { font-size: 16px; }
 .qa-label { font-weight: 500; }
 
 .task-group { margin-bottom: 12px; }
 .task-group-title { font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 4px; display: inline-block; margin-bottom: 6px; }
-.task-group-title.overdue { color: #dc2626; background: #fef2f2; }
-.task-group-title.today { color: #d97706; background: #fffbeb; }
-.task-group-title.in-progress { color: #2563eb; background: #eff6ff; }
+.task-group-title.overdue { color: var(--danger-500); background: var(--danger-50); }
+.task-group-title.today { color: var(--warning-500); background: var(--warning-50); }
+.task-group-title.in-progress { color: var(--brand-600); background: var(--brand-50); }
 
 .task-item { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 6px; cursor: pointer; font-size: 14px; }
-.task-item:hover { background: #f8fafc; }
-.task-id { color: #94a3b8; font-family: monospace; font-size: 12px; min-width: 28px; }
-.task-name { flex: 1; color: #1e293b; }
-.task-meta { color: #94a3b8; font-size: 12px; }
+.task-item:hover { background: var(--surface-2); }
+.task-id { color: var(--text-tertiary); font-family: monospace; font-size: 12px; min-width: 28px; }
+.task-name { flex: 1; color: var(--text-primary); }
+.task-meta { color: var(--text-tertiary); font-size: 12px; }
 
 .sprint-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.sprint-card { background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; }
-.sprint-card.active { border-color: #bfdbfe; background: #f8fafc; }
+.sprint-card { background: white; border: 1px solid var(--border-subtle); border-radius: 8px; padding: 14px; }
+.sprint-card.active { border-color: var(--brand-100); background: var(--surface-2); }
 .sc-status { font-size: 11px; font-weight: 600; border-radius: 4px; padding: 1px 8px; display: inline-block; margin-bottom: 6px; }
-.sc-status.active { background: #dbeafe; color: #2563eb; }
-.sc-status.planned { background: #f1f5f9; color: #64748b; }
-.sc-name { font-size: 15px; font-weight: 600; color: #1e293b; margin-bottom: 4px; }
-.sc-project { font-size: 12px; color: #94a3b8; margin-bottom: 8px; }
-.sc-stats { font-size: 12px; color: #64748b; margin-top: 6px; }
-.sc-link { font-size: 13px; color: #3b82f6; text-decoration: none; margin-top: 6px; display: inline-block; }
-.sc-date { font-size: 13px; color: #64748b; }
+.sc-status.active { background: var(--brand-100); color: var(--brand-600); }
+.sc-status.planned { background: var(--surface-2); color: var(--text-secondary); }
+.sc-name { font-size: 15px; font-weight: 600; color: var(--text-primary); margin-bottom: 4px; }
+.sc-project { font-size: 12px; color: var(--text-tertiary); margin-bottom: 8px; }
+.sc-stats { font-size: 12px; color: var(--text-secondary); margin-top: 6px; }
+.sc-link { font-size: 13px; color: var(--brand-500); text-decoration: none; margin-top: 6px; display: inline-block; }
+.sc-date { font-size: 13px; color: var(--text-secondary); }
 
 .recent-list { display: flex; flex-wrap: wrap; gap: 8px; }
-.recent-item { display: flex; align-items: center; gap: 6px; padding: 6px 12px; background: white; border: 1px solid #e2e8f0; border-radius: 6px; cursor: pointer; font-size: 13px; }
-.recent-item:hover { background: #f8fafc; }
-.ri-type { font-size: 11px; color: #94a3b8; background: #f1f5f9; padding: 1px 6px; border-radius: 3px; }
-.ri-name { color: #1e293b; }
-.ri-meta { color: #94a3b8; font-size: 11px; }
+.recent-item { display: flex; align-items: center; gap: 6px; padding: 6px 12px; background: white; border: 1px solid var(--border-subtle); border-radius: 6px; cursor: pointer; font-size: 13px; }
+.recent-item:hover { background: var(--surface-2); }
+.ri-type { font-size: 11px; color: var(--text-tertiary); background: var(--surface-2); padding: 1px 6px; border-radius: 3px; }
+.ri-name { color: var(--text-primary); }
+.ri-meta { color: var(--text-tertiary); font-size: 11px; }
 </style>

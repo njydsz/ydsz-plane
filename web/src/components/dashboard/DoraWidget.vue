@@ -102,11 +102,11 @@ onMounted(load);
   justify-content: center;
   height: 100%;
   font-size: 13px;
-  color: var(--text-tertiary, #9ca3af);
+  color: var(--text-tertiary);
 }
 
 .dora-widget__hint--error {
-  color: var(--danger-500, #dc2f2f);
+  color: var(--danger-500);
 }
 
 .dora-widget__level {
@@ -118,7 +118,7 @@ onMounted(load);
 
 .dora-widget__level-label {
   font-size: 12px;
-  color: var(--text-tertiary, #9ca3af);
+  color: var(--text-tertiary);
 }
 
 .dora-level {
@@ -129,23 +129,23 @@ onMounted(load);
 }
 
 .dora-level--elite {
-  background: var(--success-50, #ecfdf5);
-  color: var(--success-600, #059669);
+  background: var(--success-50);
+  color: var(--success-600);
 }
 
 .dora-level--high {
-  background: var(--brand-50, #eef2fe);
-  color: var(--brand-600, #2f4fd0);
+  background: var(--brand-50);
+  color: var(--brand-600);
 }
 
 .dora-level--medium {
-  background: var(--warning-50, #fffbeb);
-  color: var(--warning-600, #d97706);
+  background: var(--warning-50);
+  color: var(--warning-600);
 }
 
 .dora-level--low {
-  background: var(--danger-50, #fef2f2);
-  color: var(--danger-600, #dc2626);
+  background: var(--danger-50);
+  color: var(--danger-600);
 }
 
 .dora-widget__grid {
@@ -160,24 +160,24 @@ onMounted(load);
   gap: 2px;
   padding: 10px;
   border-radius: var(--radius-sm, 6px);
-  background: var(--surface-2, #f7f8f9);
+  background: var(--surface-2);
 }
 
 .dora-stat__label {
   font-size: 11px;
-  color: var(--text-tertiary, #9ca3af);
+  color: var(--text-tertiary);
 }
 
 .dora-stat__value {
   font-size: 18px;
   font-weight: 600;
-  color: var(--text-primary, #1f2937);
+  color: var(--text-primary);
 }
 
 .dora-stat__value small {
   font-size: 11px;
   font-weight: 400;
-  color: var(--text-tertiary, #9ca3af);
+  color: var(--text-tertiary);
   margin-left: 2px;
 }
 </style>

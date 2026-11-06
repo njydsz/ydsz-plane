@@ -515,20 +515,22 @@ type BizEntityRelation struct {
 
 // Module 项目模块。
 type Module struct {
-	ID          int64      `json:"id"`
-	PublicID    string     `json:"public_id,omitempty"`
-	WorkspaceID int64      `json:"workspace_id"`
-	ProjectID   int64      `json:"project_id"`
-	Name        string     `json:"name"`
-	Description string     `json:"description,omitempty"`
-	LeadID      *int64     `json:"lead_id,omitempty"`
-	Status      string     `json:"status"`
-	StartDate   *time.Time `json:"start_date,omitempty"`
-	TargetDate  *time.Time `json:"target_date,omitempty"`
-	SortOrder   float64    `json:"sort_order"`
-	CreatedBy   int64      `json:"created_by"`
-	CreatedAt   time.Time  `json:"created_at"`
-	UpdatedAt   time.Time  `json:"updated_at"`
+	ID          int64  `json:"id"`
+	PublicID    string `json:"public_id,omitempty"`
+	WorkspaceID int64  `json:"workspace_id"`
+	ProjectID   int64  `json:"project_id"`
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
+	LeadID      *int64 `json:"lead_id,omitempty"`
+	Status      string `json:"status"`
+	// WorkflowStatus 工作流状态（backlog/planned/in_progress/paused/completed/cancelled）
+	WorkflowStatus string     `json:"workflow_status,omitempty"`
+	StartDate      *time.Time `json:"start_date,omitempty"`
+	TargetDate     *time.Time `json:"target_date,omitempty"`
+	SortOrder      float64    `json:"sort_order"`
+	CreatedBy      int64      `json:"created_by"`
+	CreatedAt      time.Time  `json:"created_at"`
+	UpdatedAt      time.Time  `json:"updated_at"`
 }
 
 // Label 项目标签。

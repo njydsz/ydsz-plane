@@ -11,7 +11,7 @@ import { type CreateIssueInput, type IssueType } from "@/api/services/issue";
 import { labelApi, type Label } from "@/api/services/label";
 import { versionApi, type Version } from "@/api/services/version";
 import { useIssueStore } from "@/stores/issue";
-import { RichTextEditor } from "@/components";
+import { AppButton, RichTextEditor, DynamicIcon } from "@/components";
 
 const props = defineProps<{
   workspaceId: number;
@@ -342,7 +342,7 @@ function cancel() {
           <h2 class="modal__title">
             {{ currentStep === "type" ? "创建需求/任务/缺陷" : "新建" + ({ epic: "史诗", requirement: "需求", task: "任务", defect: "缺陷" } as Record<string, string>)[selectedType] }}
           </h2>
-          <button class="modal__close" :disabled="submitting" @click="cancel">✕</button>
+          <button class="modal__close" :disabled="submitting" @click="cancel"><DynamicIcon name="X" :size="18" /></button>
         </div>
 
         <!-- Step 1: 选择类型 -->
@@ -484,7 +484,7 @@ function cancel() {
                   :value="l.id"
                   class="label-picker__input"
                 />
-                <span class="label-picker__dot" :style="{ backgroundColor: l.color || '#3b82f6' }" />
+                <span class="label-picker__dot" :style="{ backgroundColor: l.color || 'var(--brand-500)' }" />
                 {{ l.name }}
               </label>
             </div>
@@ -623,21 +623,19 @@ function cancel() {
 
           <!-- 操作栏 -->
           <div class="modal__actions">
-            <button v-if="!props.presetType" class="btn btn--ghost" :disabled="submitting" @click="backToType">
+            <AppButton v-if="!props.presetType" variant="ghost" :disabled="submitting" @click="backToType">
               ← 返回选择类型
-            </button>
+            </AppButton>
             <div class="spacer"></div>
-            <button class="btn btn--secondary" :disabled="submitting" @click="cancel">取消</button>
-            <button class="btn btn--primary" :disabled="!canSubmit || submitting" @click="submit">
+            <AppButton variant="secondary" :disabled="submitting" @click="cancel">取消</AppButton>
+            <AppButton :loading="submitting" :disabled="!canSubmit || submitting" @click="submit">
               {{ submitting ? "创建中..." : "创建" }}
-            </button>
+            </AppButton>
           </div>
         </div>
       </div>
     </div>
   </Teleport>
-</template>
-
 <style scoped>
 /* ===== Overlay ===== */
 .modal-overlay {
@@ -896,54 +894,6 @@ function cancel() {
 
 .spacer {
   flex: 1;
-}
-
-.btn {
-  padding: 8px 16px;
-  border-radius: var(--radius-sm);
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  border: 1px solid transparent;
-  font-family: inherit;
-  transition: background 0.15s;
-}
-
-.btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.btn--primary {
-  background: var(--brand-500);
-  color: var(--text-on-brand);
-  border-color: var(--brand-500);
-}
-
-.btn--primary:hover:not(:disabled) {
-  background: var(--brand-600);
-}
-
-.btn--secondary {
-  background: var(--surface-1);
-  color: var(--text-secondary);
-  border-color: var(--border-default);
-}
-
-.btn--secondary:hover:not(:disabled) {
-  background: var(--surface-3);
-}
-
-.btn--ghost {
-  background: none;
-  border: none;
-  color: var(--text-tertiary);
-  font-size: 12px;
-  padding: 4px 0;
-}
-
-.btn--ghost:hover:not(:disabled) {
-  color: var(--brand-500);
 }
 
 /* ===== AI Suggestions ===== */

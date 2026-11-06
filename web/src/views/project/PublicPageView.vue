@@ -13,7 +13,7 @@ import { onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
 
 import { publicPagesApi, type PublicSharePage } from "@/api/services/pages";
-import { AppEmptyState, AppErrorState, AppLoadingState } from "@/components";
+import { AppButton, AppEmptyState, AppErrorState, AppLoadingState } from "@/components";
 
 const route = useRoute();
 
@@ -89,13 +89,13 @@ onMounted(() => load());
             placeholder="访问密码"
             @keydown.enter="submitPassword"
           />
-          <button
-            class="btn btn--primary"
+          <AppButton
+            :loading="submittingPassword"
             :disabled="submittingPassword || !passwordInput.trim()"
             @click="submitPassword"
           >
             {{ submittingPassword ? '验证中...' : '查看文档' }}
-          </button>
+          </AppButton>
         </div>
         <p v-if="error" class="public-page__auth-error">{{ error }}</p>
       </div>
@@ -279,25 +279,4 @@ onMounted(() => load());
   margin: 0;
 }
 
-.btn--primary {
-  padding: 8px 16px;
-  background: var(--brand-500);
-  color: var(--text-on-brand);
-  border: none;
-  border-radius: var(--radius-sm);
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  font-family: inherit;
-  white-space: nowrap;
-}
-
-.btn--primary:hover {
-  background: var(--brand-600);
-}
-
-.btn--primary:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
 </style>

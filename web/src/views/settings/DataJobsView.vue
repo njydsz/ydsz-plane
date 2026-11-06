@@ -19,7 +19,9 @@ import {
 } from "@/api/services/datajob";
 import { AppEmptyState, AppErrorState, AppSkeleton } from "@/components";
 import { toast } from "@/lib/toast";
+import { useConfirm } from "@/composables/useConfirm";
 
+const confirm = useConfirm();
 const route = useRoute();
 const workspaceId = computed(() => Number(route.params.workspaceId ?? 0));
 
@@ -140,7 +142,7 @@ async function markFailed(job: DataJob) {
 }
 
 async function cancelJob(job: DataJob) {
-  if (!confirm(`确定取消任务「${job.name}」？`)) return;
+  if (!await confirm({ title: "取消任务", message: `确定取消任务「${job.name}」？`, confirmText: "取消", variant: "danger" })) return;
   try {
     await dataJobApi.cancel(workspaceId.value, job.id);
     toast.success("任务已取消");
@@ -151,7 +153,7 @@ async function cancelJob(job: DataJob) {
 }
 
 async function removeJob(job: DataJob) {
-  if (!confirm(`确定删除任务「${job.name}」？`)) return;
+  if (!await confirm({ title: "删除任务", message: `确定删除任务「${job.name}」？`, confirmText: "删除", variant: "danger" })) return;
   try {
     await dataJobApi.remove(workspaceId.value, job.id);
     jobs.value = jobs.value.filter((j) => j.id !== job.id);
@@ -230,7 +232,7 @@ onUnmounted(stopAutoRefresh);
           <tr v-for="job in filteredJobs" :key="job.id" class="hover:bg-[var(--surface-2)]">
             <td class="px-4 py-3">
               <div class="font-medium text-[var(--text-primary)]">{{ job.name }}</div>
-              <div v-if="job.error_message" class="mt-0.5 text-xs text-[var(--danger, #ef4444)]">
+              <div v-if="job.error_message" class="mt-0.5 text-xs text-[var(--danger)]">
                 {{ job.error_message }}
               </div>
             </td>
@@ -275,14 +277,14 @@ onUnmounted(stopAutoRefresh);
                 </button>
                 <button
                   v-if="job.status === 'running'"
-                  class="text-xs text-[#16a34a] hover:underline"
+                  class="text-xs text-[var(--success-500)] hover:underline"
                   @click="markSuccess(job)"
                 >
                   成功
                 </button>
                 <button
                   v-if="job.status === 'running'"
-                  class="text-xs text-[var(--danger, #ef4444)] hover:underline"
+                  class="text-xs text-[var(--danger)] hover:underline"
                   @click="markFailed(job)"
                 >
                   失败

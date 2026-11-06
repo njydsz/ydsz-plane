@@ -334,9 +334,9 @@ v-if="currentStatus && currentStatus !== 'draft'" class="rp-badge" :class="{
 }
 
 .rp-btn--success {
-  background: var(--success, #10B981);
+  background: var(--success);
   color: white;
-  border-color: var(--success, #10B981);
+  border-color: var(--success);
 }
 
 .rp-btn--danger {
@@ -365,20 +365,20 @@ v-if="currentStatus && currentStatus !== 'draft'" class="rp-badge" :class="{
 
 .rp-badge--active,
 .rp-badge--in-review {
-  background: var(--warning-light, #FEF3C7);
-  color: var(--warning, #D97706);
+  background: var(--warning-light);
+  color: var(--warning);
 }
 
 .rp-badge--completed,
 .rp-badge--approved {
-  background: var(--success-light, #D1FAE5);
-  color: var(--success, #059669);
+  background: var(--success-light);
+  color: var(--success);
 }
 
 .rp-badge--cancelled,
 .rp-badge--rejected {
-  background: var(--danger-light, #FEE2E2);
-  color: var(--danger, #DC2626);
+  background: var(--danger-light);
+  color: var(--danger);
 }
 
 /* Form */

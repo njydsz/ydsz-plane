@@ -14,11 +14,14 @@ export interface WebhookWebhook {
   is_active?: boolean;
   last_error?: string;
   last_status?: string;
-  last_triggered?: string;
   name?: string;
   project_id?: number;
-  target_url?: string;
   unhealthy_at?: string;
   updated_at?: string;
   workspace_id?: number;
+  url?: string;
+  status?: string;
+  last_triggered_at?: string;
+  failure_count?: number;
+  description?: string;
 }

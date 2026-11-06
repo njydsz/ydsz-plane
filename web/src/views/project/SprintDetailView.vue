@@ -22,7 +22,7 @@ import {
 import { useWorkspaceContext } from "@/composables/useWorkspaceContext";
 import SprintStatusBadge from "@/components/sprint/SprintStatusBadge.vue";
 import SprintAnalyticsView from "./SprintAnalyticsView.vue";
-import { AppLoadingState, AppErrorState, AppEmptyState } from "@/components";
+import { AppButton, AppLoadingState, AppErrorState, AppEmptyState } from "@/components";
 
 /* ------------------------------------------------------------------ */
 /* 路由上下文                                                           */
@@ -233,20 +233,20 @@ watch(ready, (r) => {
         <template v-if="sprint">
           <!-- planned：编辑 + 启动 -->
           <template v-if="sprint.status === 'planned'">
-            <button class="btn btn-secondary" :disabled="busy" @click="openEdit">编辑</button>
-            <button class="btn btn-primary" :disabled="busy" @click="startSprint">
+            <AppButton variant="secondary" :disabled="busy" @click="openEdit">编辑</AppButton>
+            <AppButton :loading="busy" :disabled="busy" @click="startSprint">
               {{ busy ? "处理中..." : "启动迭代" }}
-            </button>
+            </AppButton>
           </template>
           <!-- active：站会 / 排期规划 / 结束 -->
           <template v-else-if="sprint.status === 'active'">
-            <button class="btn btn-secondary" @click="router.push(`/${workspaceId}/projects/${projectId}/sprints/${sprint.id}/standup`)">
+            <AppButton variant="secondary" @click="router.push(`/${workspaceId}/projects/${projectId}/sprints/${sprint.id}/standup`)">
               站会模式
-            </button>
-            <button class="btn btn-secondary" @click="goPlanning">排期规划</button>
-            <button class="btn btn-danger" :disabled="busy" @click="openComplete">结束迭代</button>
+            </AppButton>
+            <AppButton variant="secondary" @click="goPlanning">排期规划</AppButton>
+            <AppButton variant="danger" :disabled="busy" @click="openComplete">结束迭代</AppButton>
           </template>
-          <button v-else class="btn btn-secondary" disabled>已结束</button>
+          <AppButton v-else variant="secondary" disabled>已结束</AppButton>
         </template>
       </div>
     </header>
@@ -258,7 +258,7 @@ watch(ready, (r) => {
       title="迭代不存在或已被删除"
       description="请检查迭代 ID 是否正确"
     >
-      <button class="btn btn-secondary" @click="router.back()">返回</button>
+      <AppButton variant="secondary" @click="router.back()">返回</AppButton>
     </AppEmptyState>
 
     <div v-else class="content">
@@ -324,10 +324,10 @@ watch(ready, (r) => {
           </label>
           <div v-if="editError" class="error">{{ editError }}</div>
           <footer>
-            <button type="button" class="btn btn-secondary" @click="showEdit = false">取消</button>
-            <button type="submit" class="btn btn-primary" :disabled="busy">
+            <AppButton type="button" variant="secondary" @click="showEdit = false">取消</AppButton>
+            <AppButton type="submit" :loading="busy" :disabled="busy">
               {{ busy ? "保存中..." : "保存" }}
-            </button>
+            </AppButton>
           </footer>
         </form>
       </div>
@@ -373,16 +373,16 @@ watch(ready, (r) => {
 
           <div v-if="completeError" class="error">{{ completeError }}</div>
           <footer>
-            <button type="button" class="btn btn-secondary" @click="showComplete = false">取消</button>
-            <button type="submit" class="btn btn-danger" :disabled="busy">
+            <AppButton type="button" variant="secondary" @click="showComplete = false">取消</AppButton>
+            <AppButton type="submit" variant="danger" :loading="busy" :disabled="busy">
               {{ busy ? "处理中..." : "确认结束" }}
-            </button>
+            </AppButton>
           </footer>
         </form>
       </div>
     </div>
   </div>
-</template>
+
 
 <style scoped>
 .header {
@@ -475,13 +475,13 @@ section h2 { margin: 0 0 12px; font-size: 14px; font-weight: 600; }
   display: flex; align-items: center; gap: 8px; padding: 6px 8px;
   background: var(--surface-2); border-radius: var(--radius-sm); font-size: 12px;
 }
-.issue-row--midway { background: var(--warning-50, #fffbeb); border-left: 2px solid var(--warning-400, #fbbf24); }
+.issue-row--midway { background: var(--warning-50); border-left: 2px solid var(--warning-400); }
 .issue-row .name { flex: 1; color: var(--text-primary); }
 .issue-row .state { color: var(--text-secondary); font-size: 11px; font-weight: 500; }
 .issue-row .point { font-family: var(--font-mono); color: var(--text-tertiary); font-size: 11px; }
 .midway-badge {
   font-size: 9px; padding: 1px 5px; border-radius: 3px;
-  background: var(--warning-100, #fef3c7); color: var(--warning-700, #b45309); font-weight: 600;
+  background: var(--warning-100); color: var(--warning-700); font-weight: 600;
 }
 
 .type-badge {
@@ -492,19 +492,6 @@ section h2 { margin: 0 0 12px; font-size: 14px; font-weight: 600; }
 .type-badge.type-defect { background: var(--danger-50); color: var(--danger-600); }
 .type-badge.type-requirement { background: var(--brand-50); color: var(--brand-600); }
 .type-badge.type-task { background: var(--success-50); color: var(--success-600); }
-
-.btn {
-  font-size: 13px; font-weight: 500; padding: 6px 14px; border-radius: var(--radius-sm);
-  border: 1px solid var(--border-subtle); cursor: pointer; transition: background 0.15s;
-}
-.btn-primary { background: var(--brand-500); color: var(--text-on-brand); border-color: var(--brand-500); }
-.btn-primary:hover:not(:disabled) { background: var(--brand-600); }
-.btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
-.btn-secondary { background: var(--surface-2); color: var(--text-primary); }
-.btn-secondary:hover { background: var(--surface-3); }
-.btn-danger { background: var(--danger-500); color: var(--text-on-brand); border-color: var(--danger-500); }
-.btn-danger:hover:not(:disabled) { background: var(--danger-600); }
-.btn-danger:disabled { opacity: 0.6; cursor: not-allowed; }
 
 .modal-overlay {
   position: fixed; inset: 0; background: var(--bg-backdrop);

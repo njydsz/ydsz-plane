@@ -861,7 +861,7 @@ func (h *IssueHandler) listTrash(c *gin.Context) {
 	rows, err := h.d.IssueSvc.db.Query(c.Request.Context(), `
 		SELECT i.id, i.project_id, i.sequence_id, i.type_code, i.name,
 		       i.state_id, i.priority, i.deleted
-		FROM (SELECT id, public_id, workspace_id, project_id, sequence_id, 'requirement'::text AS type_code, parent_id, depth, name, description_json, description_html, description_stripped, state_id, priority, NULL::smallint AS severity, NULL::text AS found_phase, NULL::text AS root_cause_category, NULL::bigint AS verifier_id, NULL::jsonb AS environment, NULL::jsonb AS reproduce_steps, NULL::text AS category, NULL::numeric AS actual_effort, NULL::numeric AS remaining_effort, NULL::text AS delay_reason, source, point, sprint_id, progress, start_date, target_date, completed_at, is_draft, sort_order, version, version_id, NULL::bigint AS found_version_id, NULL::bigint AS fix_version_id, created_by, created_at, updated_at, deleted FROM requirement WHERE deleted = false UNION ALL SELECT id, public_id, workspace_id, project_id, sequence_id, 'task'::text, parent_id, depth, name, description_json, description_html, description_stripped, state_id, priority, NULL::smallint, NULL::text, NULL::text, NULL::bigint, NULL::jsonb, NULL::jsonb, category, actual_effort, remaining_effort, delay_reason, NULL::text, point, sprint_id, progress, start_date, target_date, completed_at, is_draft, sort_order, version, version_id, NULL::bigint AS found_version_id, NULL::bigint AS fix_version_id, created_by, created_at, updated_at, deleted FROM task WHERE deleted = false UNION ALL SELECT id, public_id, workspace_id, project_id, sequence_id, 'defect'::text, parent_id, depth, name, description_json, description_html, description_stripped, state_id, priority, severity, found_phase, root_cause_category, verifier_id, environment, reproduce_steps, NULL::text, NULL::numeric, NULL::numeric, NULL::text, NULL::text, point, sprint_id, progress, start_date, target_date, completed_at, is_draft, sort_order, version, version_id, found_version_id, fix_version_id, created_by, created_at, updated_at, deleted FROM defect WHERE deleted = false) AS w i
+		FROM (SELECT id, public_id AS identifier, workspace_id, project_id, sequence_id, 'requirement'::text AS type_code, parent_id, depth, name, description_json, description_html, description_stripped, state_id, priority, NULL::smallint AS severity, NULL::text AS found_phase, NULL::text AS root_cause_category, NULL::bigint AS verifier_id, NULL::jsonb AS environment, NULL::jsonb AS reproduce_steps, NULL::text AS category, NULL::numeric AS actual_effort, NULL::numeric AS remaining_effort, NULL::text AS delay_reason, source, point, sprint_id, progress, start_date, target_date, completed_at, is_draft, sort_order, version, version_id, NULL::bigint AS found_version_id, NULL::bigint AS fix_version_id, created_by, created_at, updated_at, deleted FROM requirement WHERE deleted = false UNION ALL SELECT id, public_id AS identifier, workspace_id, project_id, sequence_id, 'task'::text, parent_id, depth, name, description_json, description_html, description_stripped, state_id, priority, NULL::smallint, NULL::text, NULL::text, NULL::bigint, NULL::jsonb, NULL::jsonb, category, actual_effort, remaining_effort, delay_reason, NULL::text, point, sprint_id, progress, start_date, target_date, completed_at, is_draft, sort_order, version, version_id, NULL::bigint AS found_version_id, NULL::bigint AS fix_version_id, created_by, created_at, updated_at, deleted FROM task WHERE deleted = false UNION ALL SELECT id, public_id AS identifier, workspace_id, project_id, sequence_id, 'defect'::text, parent_id, depth, name, description_json, description_html, description_stripped, state_id, priority, severity, found_phase, root_cause_category, verifier_id, environment, reproduce_steps, NULL::text, NULL::numeric, NULL::numeric, NULL::text, NULL::text, point, sprint_id, progress, start_date, target_date, completed_at, is_draft, sort_order, version, version_id, found_version_id, fix_version_id, created_by, created_at, updated_at, deleted FROM defect WHERE deleted = false) AS i
 		WHERE i.workspace_id = $1 AND i.project_id = $2 AND i.deleted = true
 		ORDER BY i.deleted DESC
 		LIMIT 200`, wsID, projectID)
@@ -879,7 +879,7 @@ func (h *IssueHandler) listTrash(c *gin.Context) {
 		Name       string     `json:"name"`
 		StateID    int64      `json:"state_id"`
 		Priority   string     `json:"priority"`
-		DeletedAt  *time.Time `json:"deleted"`
+		DeletedAt  *time.Time `json:"deleted_at"`
 	}
 
 	var items []TrashItem
@@ -1171,6 +1171,7 @@ func filterIssueFields(issues []Issue, fields []string) []any {
 // 查询参数：
 //   - format: csv（默认）| xlsx — 导出格式
 //   - type / state_id / search: 过滤条件（同列表接口）
+//
 // exportIssues 导出工作项列表。
 //
 //	@Summary		导出工作项
@@ -1283,6 +1284,7 @@ func (h *IssueHandler) exportIssues(c *gin.Context) {
 //	@Success		200				{object}	ImportResult
 //	@Failure		422				{object}	errs.AppError
 //	@Router			/issues/import [post]
+//
 // importIssues 批量导入工作项。
 //
 //	@Summary		导入工作项
@@ -1372,6 +1374,7 @@ func (h *IssueHandler) importIssues(c *gin.Context) {
 //	@Param			file	formData	file	true	"CSV 或 XLSX 文件"
 //	@Success		200		{object}	map[string]any
 //	@Router			/issues/import/preview [post]
+//
 // previewImport 预览工作项导入（不实际写入）。
 //
 //	@Summary		预览导入
@@ -1745,29 +1748,29 @@ type createIssueRequest struct {
 }
 
 type updateIssueRequest struct {
-	Name              *string         `json:"name"`
-	DescriptionHTML   *string         `json:"description_html"`
-	Priority          *string         `json:"priority"`
-	TypeCode          *string         `json:"type_code"`
-	ParentID          *int64          `json:"parent_id"`
-	Severity          *int            `json:"severity"`
-	FoundPhase        *string         `json:"found_phase"`
-	RootCauseCategory *string         `json:"root_cause_category"`
-	Category          *string         `json:"category"`
-	Assignees         []int64         `json:"assignees"`
-	Labels            []int64         `json:"labels"`
-	Modules           []int64         `json:"modules"`
-	Source            *string         `json:"source"`
-	Point             *int            `json:"point"`
-	TargetDate        *string         `json:"target_date"`
-	Progress          *int            `json:"progress"`
-	DelayReason       *string         `json:"delay_reason"`
-	Version           int             `json:"version" binding:"required"`
-	FoundVersionID    *int64          `json:"found_version_id"`
-	FixVersionID      *int64          `json:"fix_version_id"`
-	ReleaseVersionID  *int64          `json:"release_version_id"`
-	VerifierID        *int64          `json:"verifier_id,omitempty"`
-	ReproduceSteps    map[string]any   `json:"reproduce_steps,omitempty"`
+	Name              *string        `json:"name"`
+	DescriptionHTML   *string        `json:"description_html"`
+	Priority          *string        `json:"priority"`
+	TypeCode          *string        `json:"type_code"`
+	ParentID          *int64         `json:"parent_id"`
+	Severity          *int           `json:"severity"`
+	FoundPhase        *string        `json:"found_phase"`
+	RootCauseCategory *string        `json:"root_cause_category"`
+	Category          *string        `json:"category"`
+	Assignees         []int64        `json:"assignees"`
+	Labels            []int64        `json:"labels"`
+	Modules           []int64        `json:"modules"`
+	Source            *string        `json:"source"`
+	Point             *int           `json:"point"`
+	TargetDate        *string        `json:"target_date"`
+	Progress          *int           `json:"progress"`
+	DelayReason       *string        `json:"delay_reason"`
+	Version           int            `json:"version" binding:"required"`
+	FoundVersionID    *int64         `json:"found_version_id"`
+	FixVersionID      *int64         `json:"fix_version_id"`
+	ReleaseVersionID  *int64         `json:"release_version_id"`
+	VerifierID        *int64         `json:"verifier_id,omitempty"`
+	ReproduceSteps    map[string]any `json:"reproduce_steps,omitempty"`
 }
 
 type reorderIssueRequest struct {

@@ -11,7 +11,7 @@
  *   - 点击树节点加载文档内容到编辑器
  *   - 编辑器内容变化后自动保存（防抖），乐观锁 version 冲突时提示
  */
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 
 import {
@@ -20,12 +20,39 @@ import {
   type PageTemplate, type PageShare,
 } from "@/api/services/pages";
 import { useWorkspaceContext } from "@/composables/useWorkspaceContext";
-import { toast } from "@/lib/toast";
 import RichTextEditor from "@/components/RichTextEditor.vue";
-import { AppErrorState, AppEmptyState, AppModal, InlineEdit } from "@/components";
+import {
+  AppButton,
+  AppErrorState,
+  AppEmptyState,
+  AppModal,
+  DynamicIcon,
+  InlineEdit,
+  PageCommentThread,
+  PresenceBar,
+} from "@/components";
+import { useCollaboration } from "@/composables/useCollaboration";
+import { useWorkspaceStore } from "@/stores/workspace";
+import { toast } from "@/lib/toast";
+import { useConfirm } from "@/composables/useConfirm";
 
+const confirm = useConfirm();
 const route = useRoute();
 const { wsId } = useWorkspaceContext();
+const wsStore = useWorkspaceStore();
+
+/** 是否具备评论审核权限（comment:moderate）——驱动评论隐藏 / 取消隐藏入口 */
+const canModerateComment = computed(() => wsStore.hasPermission("comment:moderate"));
+
+// 实时协作（在线编辑者 + 乐观锁）
+const collaboration = useCollaboration({
+  workspaceId: wsId,
+  documentType: "project_page",
+  documentId: computed(() => currentPageId.value ?? 0),
+  onOperation: () => {
+    // 他人编辑时不覆盖本地内容，仅提示
+  },
+});
 
 const projectId = computed(() => Number(route.params.projectId));
 const loading = ref(true);
@@ -125,6 +152,12 @@ watch(currentPageId, (id) => {
   editCategory.value = null;
   loadVersions();
   loadLinks();
+  // 加入实时协作会话
+  void collaboration.join();
+});
+
+onBeforeUnmount(() => {
+  void collaboration.leave();
 });
 
 // ---- 操作 ----
@@ -160,7 +193,7 @@ async function renamePage(page: Page, name: string) {
 }
 
 async function deletePage(page: Page) {
-  if (!window.confirm(`确定删除文档「${page.name}」？子文档也会一并删除。`)) return;
+  if (!await confirm({ title: "删除文档", message: `确定删除文档「${page.name}」？子文档也会一并删除。`, confirmText: "删除", variant: "danger" })) return;
   try {
     await pagesApi.remove(wsId.value, projectId.value, page.id);
     // 级联移除本地子树
@@ -282,7 +315,7 @@ function closeViewVersion() {
 
 async function rollbackToVersion(versionNumber: number) {
   if (!currentPageId.value) return;
-  if (!window.confirm(`确定回滚到版本 v${versionNumber}？当前未保存的更改将丢失。`)) return;
+  if (!await confirm({ title: "回滚版本", message: `确定回滚到版本 v${versionNumber}？当前未保存的更改将丢失。`, confirmText: "回滚", variant: "danger" })) return;
   try {
     const page = await versionsApi.rollback(
       wsId.value, projectId.value, currentPageId.value, versionNumber,
@@ -333,7 +366,7 @@ async function addLink() {
 }
 
 async function removeLink(linkId: number) {
-  if (!currentPageId.value || !window.confirm("确定删除该关联？")) return;
+  if (!currentPageId.value || !await confirm({ title: "删除关联", message: "确定删除该关联？", confirmText: "删除", variant: "danger" })) return;
   try {
     await linksApi.remove(wsId.value, projectId.value, currentPageId.value, linkId);
     toast.success("关联已删除");
@@ -460,7 +493,7 @@ async function toggleShareActive(share: PageShare) {
 }
 
 async function revokeShare(share: PageShare) {
-  if (!window.confirm("确定吊销该分享链接？此操作不可恢复。")) return;
+  if (!await confirm({ title: "吊销分享链接", message: "确定吊销该分享链接？此操作不可恢复。", confirmText: "吊销", variant: "danger" })) return;
   try {
     await sharesApi.revoke(wsId.value, projectId.value, share.page_id, share.id);
     shares.value = shares.value.filter((s) => s.id !== share.id);
@@ -510,8 +543,15 @@ onMounted(load);
       </div>
       <div class="pages__header-right">
         <span v-if="saving" class="pages__saving">保存中...</span>
-        <button class="btn" @click="openTemplateModal">从模板创建</button>
-        <button class="btn btn--primary" @click="createPage(null)">+ 新建文档</button>
+        <PresenceBar
+          v-if="currentPageId"
+          :sessions="collaboration.allEditors.value"
+          :current-user-id="collaboration.currentUserId.value"
+          :version="collaboration.version.value"
+          :joined="collaboration.joined.value"
+        />
+        <AppButton variant="secondary" @click="openTemplateModal">从模板创建</AppButton>
+        <AppButton @click="createPage(null)">+ 新建文档</AppButton>
       </div>
     </header>
 
@@ -546,7 +586,7 @@ onMounted(load);
                 @submit="(v) => renamePage(node, v)"
               />
               <span class="tree-actions">
-                <button class="tree-action" title="新建子文档" @click.stop="createPage(node.id)">＋</button>
+                <button class="tree-action" title="新建子文档" @click.stop="createPage(node.id)"><DynamicIcon name="Plus" :size="14" /></button>
                 <button class="tree-action tree-action--danger" title="删除" @click.stop="deletePage(node)">×</button>
               </span>
             </div>
@@ -572,7 +612,7 @@ onMounted(load);
                     @submit="(v) => renamePage(child, v)"
                   />
                   <span class="tree-actions">
-                    <button class="tree-action" title="新建子文档" @click.stop="createPage(child.id)">＋</button>
+                    <button class="tree-action" title="新建子文档" @click.stop="createPage(child.id)"><DynamicIcon name="Plus" :size="14" /></button>
                     <button class="tree-action tree-action--danger" title="删除" @click.stop="deletePage(child)">×</button>
                   </span>
                 </div>
@@ -587,7 +627,7 @@ onMounted(load);
                       <span class="tree-file">📄</span>
                       <span class="tree-name">{{ grand.name }}</span>
                       <span class="tree-actions">
-                        <button class="tree-action" title="新建子文档" @click.stop="createPage(grand.id)">＋</button>
+                        <button class="tree-action" title="新建子文档" @click.stop="createPage(grand.id)"><DynamicIcon name="Plus" :size="14" /></button>
                         <button class="tree-action tree-action--danger" title="删除" @click.stop="deletePage(grand)">×</button>
                       </span>
                     </div>
@@ -607,7 +647,7 @@ onMounted(load);
           title="选择或创建文档"
           description="从左侧目录选择文档，或点击「新建文档」开始撰写"
         >
-          <button class="btn btn--primary" @click="createPage(null)">+ 新建文档</button>
+          <AppButton @click="createPage(null)">+ 新建文档</AppButton>
         </AppEmptyState>
         <div v-else class="pages__doc">
           <div class="pages__doc-title">
@@ -623,18 +663,18 @@ onMounted(load);
                 <span class="pages__doc-category-badge" :class="currentPage?.category ? '' : 'pages__doc-category-badge--empty'">
                   {{ categoryLabel(currentPage?.category) }}
                 </span>
-                <button class="btn btn--sm btn--ghost" @click="editCategory = currentPage?.category ?? ''">✎</button>
+                <AppButton size="sm" variant="ghost" @click="editCategory = currentPage?.category ?? ''">✎</AppButton>
               </span>
               <span v-else class="pages__doc-category-edit">
                 <select v-model="editCategory" class="edit-select">
                   <option value="">-- 请选择 --</option>
                   <option v-for="opt in categoryOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
                 </select>
-                <button class="btn btn--sm btn--primary" @click="saveCategory(currentPage!, editCategory)">保存</button>
-                <button class="btn btn--sm" @click="editCategory = null">取消</button>
+                <AppButton size="sm" @click="saveCategory(currentPage!, editCategory)">保存</AppButton>
+                <AppButton size="sm" variant="secondary" @click="editCategory = null">取消</AppButton>
               </span>
             </div>
-            <button class="btn btn--sm btn--ghost pages__share-btn" @click="openShareModal">🔗 分享</button>
+            <AppButton size="sm" variant="ghost" class="pages__share-btn" @click="openShareModal">🔗 分享</AppButton>
           </div>
           <RichTextEditor
             v-model:content-html="editorHtml"
@@ -642,7 +682,9 @@ onMounted(load);
             variant="full"
             :min-height="'40vh'"
             placeholder="开始撰写文档..."
+            :remote-cursors="collaboration.remoteCursors.value"
             @update:content-html="onEditorUpdate"
+            @cursor="collaboration.broadcastCursor"
           />
 
           <!-- 版本历史 -->
@@ -659,8 +701,8 @@ onMounted(load);
               >
                 <span class="version-item__number">v{{ dv.version_number }}</span>
                 <span class="version-item__time">{{ new Date(dv.created_at).toLocaleString() }}</span>
-                <button class="btn btn--sm btn--ghost" @click="viewVersion(dv.version_number)">查看</button>
-                <button class="btn btn--sm btn--ghost" @click="rollbackToVersion(dv.version_number)">回滚</button>
+                <AppButton size="sm" variant="ghost" @click="viewVersion(dv.version_number)">查看</AppButton>
+                <AppButton size="sm" variant="ghost" @click="rollbackToVersion(dv.version_number)">回滚</AppButton>
               </div>
             </div>
 
@@ -668,7 +710,7 @@ onMounted(load);
             <div v-if="viewingVersion && viewingVersionContent" class="version-preview">
               <div class="version-preview__header">
                 <span>版本 v{{ viewingVersion }} {{ new Date(viewingVersionContent.created_at).toLocaleString() }}</span>
-                <button class="btn btn--sm" @click="closeViewVersion">关闭</button>
+                <AppButton size="sm" variant="secondary" @click="closeViewVersion">关闭</AppButton>
               </div>
               <!-- eslint-disable-next-line vue/no-v-html -->
               <div class="version-preview__content" v-html="viewingVersionContent.content_html || '<p>（空内容）</p>'"></div>
@@ -687,7 +729,7 @@ onMounted(load);
                 style="width: 160px"
                 @keydown.enter="addLink"
               />
-              <button class="btn btn--sm btn--primary" @click="addLink">添加关联</button>
+              <AppButton size="sm" @click="addLink">添加关联</AppButton>
             </div>
             <div v-if="linksLoading" class="text-muted" style="margin-top: 8px">加载中...</div>
             <div v-else-if="links.length === 0" class="text-muted" style="margin-top: 8px">暂无关联</div>
@@ -700,9 +742,19 @@ onMounted(load);
                 >
                   #{{ link.linkable_id }}
                 </router-link>
-                <button class="btn btn--sm btn--ghost link-item__remove" @click="removeLink(link.id)">✕</button>
+                <AppButton size="sm" variant="ghost" class="link-item__remove" @click="removeLink(link.id)"><DynamicIcon name="X" :size="14" /></AppButton>
               </div>
             </div>
+          </div>
+
+          <!-- 页面评论 -->
+          <div class="pages__comments">
+            <PageCommentThread
+              :workspace-id="wsId"
+              :page-id="currentPageId!"
+              page-type="project"
+              :can-moderate="canModerateComment"
+            />
           </div>
         </div>
       </main>
@@ -725,18 +777,19 @@ onMounted(load);
             <span class="template-item__name">{{ tmpl.name }}</span>
             <span class="template-item__desc">{{ tmpl.description || '—' }}</span>
           </div>
-          <button
-            class="btn btn--sm btn--primary"
+          <AppButton
+            size="sm"
+            :loading="creatingFromTemplate"
             :disabled="creatingFromTemplate || !tmpl.content_html"
             @click="createFromTemplate(tmpl)"
           >
 使用此模板
-</button>
+</AppButton>
         </div>
       </div>
     </div>
     <template #footer>
-      <button class="btn" @click="closeTemplateModal">关闭</button>
+      <AppButton variant="secondary" @click="closeTemplateModal">关闭</AppButton>
     </template>
   </AppModal>
 
@@ -758,7 +811,7 @@ onMounted(load);
           class="form-input"
           style="width: 180px"
         />
-        <button class="btn btn--sm btn--primary" @click="createShare">生成链接</button>
+        <AppButton size="sm" @click="createShare">生成链接</AppButton>
       </div>
       <p class="text-muted" style="margin: 4px 0 0; font-size: 11px">
         分享链接无需登录即可访问此文档（只读）。
@@ -784,22 +837,21 @@ onMounted(load);
             </span>
           </div>
           <div class="share-row__actions">
-            <button class="btn btn--sm btn--ghost" @click="copyShareUrl(share.token, idx)">
+            <AppButton size="sm" variant="ghost" @click="copyShareUrl(share.token, idx)">
               {{ copiedShareIndex === idx ? '已复制' : '复制链接' }}
-            </button>
-            <button class="btn btn--sm" @click="toggleShareActive(share)">
+            </AppButton>
+            <AppButton size="sm" variant="secondary" @click="toggleShareActive(share)">
               {{ share.is_active ? '停用' : '激活' }}
-            </button>
-            <button class="btn btn--sm btn--danger" @click="revokeShare(share)">吊销</button>
+            </AppButton>
+            <AppButton size="sm" variant="danger" @click="revokeShare(share)">吊销</AppButton>
           </div>
         </div>
       </div>
     </div>
     <template #footer>
-      <button class="btn" @click="closeShareModal">关闭</button>
-    </template>
-  </AppModal>
-</template>
+      <AppButton variant="secondary" @click="closeShareModal">关闭</AppButton>
+      </AppModal>
+
 
 <style scoped>
 .pages__header {
@@ -812,20 +864,6 @@ onMounted(load);
 .hint { color: var(--text-tertiary); font-size: 13px; margin: 0; }
 .pages__header-right { display: flex; align-items: center; gap: 12px; }
 .pages__saving { font-size: 12px; color: var(--text-tertiary); }
-
-.btn--primary {
-  padding: 8px 16px;
-  background: var(--brand-500);
-  color: var(--text-on-brand);
-  border: none;
-  border-radius: var(--radius-sm);
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  font-family: inherit;
-  white-space: nowrap;
-}
-.btn--primary:hover { background: var(--brand-600); }
 
 .pages__body {
   display: grid;
@@ -1139,28 +1177,10 @@ onMounted(load);
 
 .link-item:hover .link-item__remove { opacity: 1; }
 
-.btn--sm {
-  padding: 4px 10px;
-  font-size: 12px;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  border: 1px solid var(--border-default);
-  background: var(--surface-1);
-  color: var(--text-secondary);
-  font-family: inherit;
-}
-
-.btn--ghost {
-  background: none;
-  border: none;
-  color: var(--brand-500);
-  padding: 2px 4px;
-}
-
-.btn--primary {
-  background: var(--brand-500);
-  color: var(--text-on-brand);
-  border-color: var(--brand-500);
+/* ---- 页面评论 ---- */
+.pages__comments {
+  margin-top: 24px;
+  padding-top: 8px;
 }
 
 .text-muted {
@@ -1301,8 +1321,8 @@ onMounted(load);
 }
 
 .share-row__status--active {
-  background: var(--success-50, #e6f4ea);
-  color: var(--success-600, #1e8e3e);
+  background: var(--success-50);
+  color: var(--success-600);
 }
 
 .share-row__status--inactive {
@@ -1311,8 +1331,8 @@ onMounted(load);
 }
 
 .share-row__status--expired {
-  background: var(--warning-50, #fef7e0);
-  color: var(--warning-600, #b06000);
+  background: var(--warning-50);
+  color: var(--warning-600);
 }
 
 .share-row__expiry {
@@ -1329,12 +1349,4 @@ onMounted(load);
   flex-shrink: 0;
 }
 
-.btn--danger {
-  color: var(--danger-500);
-  border-color: var(--danger-500);
-}
-
-.btn--danger:hover {
-  background: var(--danger-50);
-}
 </style>

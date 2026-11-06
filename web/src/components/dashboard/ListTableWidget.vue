@@ -83,11 +83,11 @@ function priorityColor(priority: string): string {
 .list-table__summary {
   margin: 0;
   font-size: 12px;
-  color: var(--text-tertiary, #9ca3af);
+  color: var(--text-tertiary);
 }
 
 .list-table__summary strong {
-  color: var(--text-primary, #1f2937);
+  color: var(--text-primary);
 }
 
 .list-table__wrap {
@@ -103,15 +103,15 @@ function priorityColor(priority: string): string {
 .list-table__inner th {
   text-align: left;
   padding: 6px 8px;
-  border-bottom: 1px solid var(--border-subtle, #e5e7eb);
-  color: var(--text-tertiary, #9ca3af);
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-tertiary);
   font-weight: 500;
 }
 
 .list-table__inner td {
   padding: 8px;
-  border-bottom: 1px solid var(--border-subtle, #e5e7eb);
-  color: var(--text-primary, #1f2937);
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-primary);
 }
 
 .list-table__inner tr:last-child td {
@@ -147,8 +147,8 @@ function priorityColor(priority: string): string {
   display: inline-block;
   padding: 2px 8px;
   border-radius: 10px;
-  background: var(--danger-50, #fef2f2);
-  color: var(--danger-600, #dc2626);
+  background: var(--danger-50);
+  color: var(--danger-600);
   font-size: 11px;
   font-weight: 500;
 }
@@ -156,7 +156,7 @@ function priorityColor(priority: string): string {
 .list-table__empty {
   padding: 24px 0;
   text-align: center;
-  color: var(--text-tertiary, #9ca3af);
+  color: var(--text-tertiary);
   font-size: 13px;
 }
 </style>

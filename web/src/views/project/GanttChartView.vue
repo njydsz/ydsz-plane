@@ -18,7 +18,7 @@ import dayjs from "dayjs";
 import { ganttApi } from "@/api/services/gantt";
 import type { GanttIssue, GanttDependency } from "@/api/services/gantt";
 import { useWorkspaceStore } from "@/stores/workspace";
-import { AppErrorState, AppEmptyState, AppSkeleton } from "@/components";
+import { AppEmptyState, AppErrorState, AppPageContainer, AppSkeleton } from "@/components";
 
 const route = useRoute();
 const router = useRouter();
@@ -155,20 +155,20 @@ const monthTicks = computed(() => {
 /** 颜色映射 */
 function stateColor(group: string): string {
   switch (group) {
-    case 'completed': return '#16a34a';
-    case 'started': return '#2563eb';
-    case 'cancelled': return '#6b7280';
-    default: return '#d97706';
+    case 'completed': return 'var(--success-500)';
+    case 'started': return 'var(--brand-600)';
+    case 'cancelled': return 'var(--text-secondary)';
+    default: return 'var(--warning-500)';
   }
 }
 
 function priorityColor(priority: string): string {
   switch (priority) {
-    case 'urgent': return '#dc2626';
-    case 'high': return '#ea580c';
-    case 'medium': return '#d97706';
-    case 'low': return '#65a30d';
-    default: return '#6b7280';
+    case 'urgent': return 'var(--danger-500)';
+    case 'high': return 'var(--warning-500)';
+    case 'medium': return 'var(--warning-500)';
+    case 'low': return 'var(--success-500)';
+    default: return 'var(--text-secondary)';
   }
 }
 
@@ -218,7 +218,9 @@ const svgHeight = computed(() => HEADER_HEIGHT + issues.value.length * ROW_HEIGH
 </script>
 
 <template>
-  <div class="gantt-view">
+  
+  <AppPageContainer max="1200px">
+    <div class="gantt-view">
     <!-- 顶部栏 -->
     <header class="page-header">
       <div>
@@ -317,20 +319,22 @@ const svgHeight = computed(() => HEADER_HEIGHT + issues.value.length * ROW_HEIGH
             />
             <defs>
               <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
-                <polygon points="0 0, 8 3, 0 6" fill="#6b7280" />
+                <polygon points="0 0, 8 3, 0 6" fill="var(--text-secondary)" />
               </marker>
             </defs>
           </svg>
         </div>
       </div>
     </div>
-  </div>
+  
+    </div>
+  </AppPageContainer>
 </template>
 
 <style scoped>
 .gantt-view {
-  max-width: 1200px;
-  margin: 0 auto;
+  
+  
   padding: 24px;
   display: flex;
   flex-direction: column;
@@ -505,7 +509,7 @@ const svgHeight = computed(() => HEADER_HEIGHT + issues.value.length * ROW_HEIGH
 }
 
 .arrow-path {
-  stroke: #6b7280;
+  stroke: var(--text-secondary);
   stroke-width: 1.2;
   stroke-dasharray: 4 2;
   opacity: 0.5;

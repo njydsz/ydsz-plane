@@ -390,6 +390,14 @@ definitions:
         type: boolean
       workspace_id:
         type: integer
+      rule_name:
+        type: string
+      trigger_event:
+        type: string
+      actions_executed:
+        type: array
+        items:
+          type: string
     type: object
   automation.RuleStatus:
     enum:
@@ -1679,6 +1687,8 @@ definitions:
         type: integer
       workspace_id:
         type: integer
+      deleted_at:
+        type: string
     type: object
   knowledge.KnowledgePageRelation:
     properties:
@@ -1721,6 +1731,8 @@ definitions:
         type: string
       workspace_id:
         type: integer
+      deleted_at:
+        type: string
     type: object
   knowledge.PageRelationType:
     enum:
@@ -2050,6 +2062,8 @@ definitions:
         type: integer
       workspace_id:
         type: integer
+      deleted_at:
+        type: string
     type: object
   pages.PageShare:
     properties:
@@ -2071,6 +2085,8 @@ definitions:
         type: string
       workspace_id:
         type: integer
+      has_password:
+        type: boolean
     type: object
   pages.PageTemplate:
     properties:
@@ -2529,20 +2545,26 @@ definitions:
         type: string
       last_status:
         type: string
-      last_triggered:
-        type: string
       name:
         type: string
       project_id:
         type: integer
-      target_url:
-        type: string
       unhealthy_at:
         type: string
       updated_at:
         type: string
       workspace_id:
         type: integer
+      url:
+        type: string
+      status:
+        type: string
+      last_triggered_at:
+        type: string
+      failure_count:
+        type: integer
+      description:
+        type: string
     type: object
   workbench.EfficiencyReport:
     properties:
@@ -4108,6 +4130,18 @@ paths:
       summary: 列出收件箱工单
       tags:
       - intake
+    post:
+      tags:
+      - intake
+      summary: intake POST /intake/issues
+      produces:
+      - application/json
+      parameters: []
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
   /intake/issues/{issue_id}:
     get:
       parameters:
@@ -9157,6 +9191,2208 @@ paths:
       summary: 覆盖角色权限
       tags:
       - rbac
+  /calendar/events:
+    get:
+      tags:
+      - calendar
+      summary: calendar GET /calendar/events
+      produces:
+      - application/json
+      parameters: []
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+    post:
+      tags:
+      - calendar
+      summary: calendar POST /calendar/events
+      produces:
+      - application/json
+      parameters: []
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /calendar/events/{event_id}:
+    get:
+      tags:
+      - calendar
+      summary: calendar GET /calendar/events/:event_id
+      produces:
+      - application/json
+      parameters:
+      - description: Event Id
+        in: path
+        name: event_id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+    patch:
+      tags:
+      - calendar
+      summary: calendar PATCH /calendar/events/:event_id
+      produces:
+      - application/json
+      parameters:
+      - description: Event Id
+        in: path
+        name: event_id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+    delete:
+      tags:
+      - calendar
+      summary: calendar DELETE /calendar/events/:event_id
+      produces:
+      - application/json
+      parameters:
+      - description: Event Id
+        in: path
+        name: event_id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /collaboration/sessions:
+    post:
+      tags:
+      - collaboration
+      summary: collaboration POST /collaboration/sessions
+      produces:
+      - application/json
+      parameters: []
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+    delete:
+      tags:
+      - collaboration
+      summary: collaboration DELETE /collaboration/sessions
+      produces:
+      - application/json
+      parameters: []
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+    get:
+      tags:
+      - collaboration
+      summary: collaboration GET /collaboration/sessions
+      produces:
+      - application/json
+      parameters: []
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /collaboration/heartbeat:
+    post:
+      tags:
+      - collaboration
+      summary: collaboration POST /collaboration/heartbeat
+      produces:
+      - application/json
+      parameters: []
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /collaboration/version:
+    get:
+      tags:
+      - collaboration
+      summary: collaboration GET /collaboration/version
+      produces:
+      - application/json
+      parameters: []
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /collaboration/operations:
+    post:
+      tags:
+      - collaboration
+      summary: collaboration POST /collaboration/operations
+      produces:
+      - application/json
+      parameters: []
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /customers:
+    get:
+      tags:
+      - customer
+      summary: customer GET /customers
+      produces:
+      - application/json
+      parameters: []
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+    post:
+      tags:
+      - customer
+      summary: customer POST /customers
+      produces:
+      - application/json
+      parameters: []
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /customers/search:
+    get:
+      tags:
+      - customer
+      summary: customer GET /customers/search
+      produces:
+      - application/json
+      parameters: []
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /customers/{id}:
+    get:
+      tags:
+      - customer
+      summary: customer GET /customers/:id
+      produces:
+      - application/json
+      parameters:
+      - description: Id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+    patch:
+      tags:
+      - customer
+      summary: customer PATCH /customers/:id
+      produces:
+      - application/json
+      parameters:
+      - description: Id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+    delete:
+      tags:
+      - customer
+      summary: customer DELETE /customers/:id
+      produces:
+      - application/json
+      parameters:
+      - description: Id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /customers/{id}/stats:
+    get:
+      tags:
+      - customer
+      summary: customer GET /customers/:id/stats
+      produces:
+      - application/json
+      parameters:
+      - description: Id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /data-jobs:
+    get:
+      tags:
+      - datajob
+      summary: datajob GET /data-jobs
+      produces:
+      - application/json
+      parameters: []
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+    post:
+      tags:
+      - datajob
+      summary: datajob POST /data-jobs
+      produces:
+      - application/json
+      parameters: []
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /data-jobs/{job_id}:
+    get:
+      tags:
+      - datajob
+      summary: datajob GET /data-jobs/:job_id
+      produces:
+      - application/json
+      parameters:
+      - description: Job Id
+        in: path
+        name: job_id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+    delete:
+      tags:
+      - datajob
+      summary: datajob DELETE /data-jobs/:job_id
+      produces:
+      - application/json
+      parameters:
+      - description: Job Id
+        in: path
+        name: job_id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /data-jobs/{job_id}/progress:
+    patch:
+      tags:
+      - datajob
+      summary: datajob PATCH /data-jobs/:job_id/progress
+      produces:
+      - application/json
+      parameters:
+      - description: Job Id
+        in: path
+        name: job_id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /data-jobs/{job_id}/run:
+    post:
+      tags:
+      - datajob
+      summary: datajob POST /data-jobs/:job_id/run
+      produces:
+      - application/json
+      parameters:
+      - description: Job Id
+        in: path
+        name: job_id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /data-jobs/{job_id}/success:
+    post:
+      tags:
+      - datajob
+      summary: datajob POST /data-jobs/:job_id/success
+      produces:
+      - application/json
+      parameters:
+      - description: Job Id
+        in: path
+        name: job_id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /data-jobs/{job_id}/fail:
+    post:
+      tags:
+      - datajob
+      summary: datajob POST /data-jobs/:job_id/fail
+      produces:
+      - application/json
+      parameters:
+      - description: Job Id
+        in: path
+        name: job_id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /data-jobs/{job_id}/cancel:
+    post:
+      tags:
+      - datajob
+      summary: datajob POST /data-jobs/:job_id/cancel
+      produces:
+      - application/json
+      parameters:
+      - description: Job Id
+        in: path
+        name: job_id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /admin/settings:
+    get:
+      tags:
+      - godmode
+      summary: godmode GET /admin/settings
+      produces:
+      - application/json
+      parameters: []
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+    put:
+      tags:
+      - godmode
+      summary: godmode PUT /admin/settings
+      produces:
+      - application/json
+      parameters: []
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /admin/settings/reset:
+    post:
+      tags:
+      - godmode
+      summary: godmode POST /admin/settings/reset
+      produces:
+      - application/json
+      parameters: []
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /admin/license:
+    get:
+      tags:
+      - godmode
+      summary: godmode GET /admin/license
+      produces:
+      - application/json
+      parameters: []
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /admin/status:
+    get:
+      tags:
+      - godmode
+      summary: godmode GET /admin/status
+      produces:
+      - application/json
+      parameters: []
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /admin/usage:
+    get:
+      tags:
+      - godmode
+      summary: godmode GET /admin/usage
+      produces:
+      - application/json
+      parameters: []
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /admin/test-smtp:
+    post:
+      tags:
+      - godmode
+      summary: godmode POST /admin/test-smtp
+      produces:
+      - application/json
+      parameters: []
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /grant-rules:
+    get:
+      tags:
+      - grant
+      summary: grant GET /grant-rules
+      produces:
+      - application/json
+      parameters: []
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+    post:
+      tags:
+      - grant
+      summary: grant POST /grant-rules
+      produces:
+      - application/json
+      parameters: []
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /grant-rules/{rule_id}:
+    get:
+      tags:
+      - grant
+      summary: grant GET /grant-rules/:rule_id
+      produces:
+      - application/json
+      parameters:
+      - description: Rule Id
+        in: path
+        name: rule_id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+    patch:
+      tags:
+      - grant
+      summary: grant PATCH /grant-rules/:rule_id
+      produces:
+      - application/json
+      parameters:
+      - description: Rule Id
+        in: path
+        name: rule_id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+    delete:
+      tags:
+      - grant
+      summary: grant DELETE /grant-rules/:rule_id
+      produces:
+      - application/json
+      parameters:
+      - description: Rule Id
+        in: path
+        name: rule_id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /grant-rules/{rule_id}/enable:
+    post:
+      tags:
+      - grant
+      summary: grant POST /grant-rules/:rule_id/enable
+      produces:
+      - application/json
+      parameters:
+      - description: Rule Id
+        in: path
+        name: rule_id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /grant-rules/{rule_id}/disable:
+    post:
+      tags:
+      - grant
+      summary: grant POST /grant-rules/:rule_id/disable
+      produces:
+      - application/json
+      parameters:
+      - description: Rule Id
+        in: path
+        name: rule_id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /grant-rules/evaluate:
+    post:
+      tags:
+      - grant
+      summary: grant POST /grant-rules/evaluate
+      produces:
+      - application/json
+      parameters: []
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /imports/jobs:
+    get:
+      tags:
+      - importer
+      summary: importer GET /imports/jobs
+      produces:
+      - application/json
+      parameters: []
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+    post:
+      tags:
+      - importer
+      summary: importer POST /imports/jobs
+      produces:
+      - application/json
+      parameters: []
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /imports/jobs/{job_id}:
+    get:
+      tags:
+      - importer
+      summary: importer GET /imports/jobs/:job_id
+      produces:
+      - application/json
+      parameters:
+      - description: Job Id
+        in: path
+        name: job_id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /imports/jobs/{job_id}/csv:
+    post:
+      tags:
+      - importer
+      summary: importer POST /imports/jobs/:job_id/csv
+      produces:
+      - application/json
+      parameters:
+      - description: Job Id
+        in: path
+        name: job_id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /imports/jobs/{job_id}/platform:
+    post:
+      tags:
+      - importer
+      summary: importer POST /imports/jobs/:job_id/platform
+      produces:
+      - application/json
+      parameters:
+      - description: Job Id
+        in: path
+        name: job_id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /imports/sources:
+    get:
+      tags:
+      - importer
+      summary: importer GET /imports/sources
+      produces:
+      - application/json
+      parameters: []
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /initiatives:
+    get:
+      tags:
+      - initiative
+      summary: initiative GET /initiatives
+      produces:
+      - application/json
+      parameters: []
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+    post:
+      tags:
+      - initiative
+      summary: initiative POST /initiatives
+      produces:
+      - application/json
+      parameters: []
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /intake/channels/{slug}:
+    get:
+      tags:
+      - intake
+      summary: intake GET /intake/channels/:slug
+      produces:
+      - application/json
+      parameters:
+      - description: Slug
+        in: path
+        name: slug
+        required: true
+        type: string
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /intake/track:
+    post:
+      tags:
+      - intake
+      summary: intake POST /intake/track
+      produces:
+      - application/json
+      parameters: []
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /integrations:
+    get:
+      tags:
+      - integration
+      summary: integration GET /integrations
+      produces:
+      - application/json
+      parameters: []
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+    post:
+      tags:
+      - integration
+      summary: integration POST /integrations
+      produces:
+      - application/json
+      parameters: []
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /integrations/providers:
+    get:
+      tags:
+      - integration
+      summary: integration GET /integrations/providers
+      produces:
+      - application/json
+      parameters: []
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /integrations/{id}:
+    get:
+      tags:
+      - integration
+      summary: integration GET /integrations/:id
+      produces:
+      - application/json
+      parameters:
+      - description: Id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+    patch:
+      tags:
+      - integration
+      summary: integration PATCH /integrations/:id
+      produces:
+      - application/json
+      parameters:
+      - description: Id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+    delete:
+      tags:
+      - integration
+      summary: integration DELETE /integrations/:id
+      produces:
+      - application/json
+      parameters:
+      - description: Id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /integrations/{id}/test:
+    post:
+      tags:
+      - integration
+      summary: integration POST /integrations/:id/test
+      produces:
+      - application/json
+      parameters:
+      - description: Id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /integrations/{id}/sync:
+    post:
+      tags:
+      - integration
+      summary: integration POST /integrations/:id/sync
+      produces:
+      - application/json
+      parameters:
+      - description: Id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /integrations/{id}/pause:
+    post:
+      tags:
+      - integration
+      summary: integration POST /integrations/:id/pause
+      produces:
+      - application/json
+      parameters:
+      - description: Id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /integrations/{id}/resume:
+    post:
+      tags:
+      - integration
+      summary: integration POST /integrations/:id/resume
+      produces:
+      - application/json
+      parameters:
+      - description: Id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /integrations/{id}/disconnect:
+    post:
+      tags:
+      - integration
+      summary: integration POST /integrations/:id/disconnect
+      produces:
+      - application/json
+      parameters:
+      - description: Id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /integrations/{id}/events:
+    get:
+      tags:
+      - integration
+      summary: integration GET /integrations/:id/events
+      produces:
+      - application/json
+      parameters:
+      - description: Id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /milestones:
+    get:
+      tags:
+      - milestone
+      summary: milestone GET /milestones
+      produces:
+      - application/json
+      parameters: []
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+    post:
+      tags:
+      - milestone
+      summary: milestone POST /milestones
+      produces:
+      - application/json
+      parameters: []
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /milestones/{milestone_id}:
+    get:
+      tags:
+      - milestone
+      summary: milestone GET /milestones/:milestone_id
+      produces:
+      - application/json
+      parameters:
+      - description: Milestone Id
+        in: path
+        name: milestone_id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+    patch:
+      tags:
+      - milestone
+      summary: milestone PATCH /milestones/:milestone_id
+      produces:
+      - application/json
+      parameters:
+      - description: Milestone Id
+        in: path
+        name: milestone_id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+    delete:
+      tags:
+      - milestone
+      summary: milestone DELETE /milestones/:milestone_id
+      produces:
+      - application/json
+      parameters:
+      - description: Milestone Id
+        in: path
+        name: milestone_id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /milestones/{milestone_id}/progress:
+    get:
+      tags:
+      - milestone
+      summary: milestone GET /milestones/:milestone_id/progress
+      produces:
+      - application/json
+      parameters:
+      - description: Milestone Id
+        in: path
+        name: milestone_id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /milestones/{milestone_id}/work-items:
+    get:
+      tags:
+      - milestone
+      summary: milestone GET /milestones/:milestone_id/work-items
+      produces:
+      - application/json
+      parameters:
+      - description: Milestone Id
+        in: path
+        name: milestone_id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+    post:
+      tags:
+      - milestone
+      summary: milestone POST /milestones/:milestone_id/work-items
+      produces:
+      - application/json
+      parameters:
+      - description: Milestone Id
+        in: path
+        name: milestone_id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /milestones/{milestone_id}/work-items/{work_item_id}:
+    delete:
+      tags:
+      - milestone
+      summary: milestone DELETE /milestones/:milestone_id/work-items/:work_item_id
+      produces:
+      - application/json
+      parameters:
+      - description: Milestone Id
+        in: path
+        name: milestone_id
+        required: true
+        type: integer
+      - description: Work Item Id
+        in: path
+        name: work_item_id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /oauth-apps:
+    get:
+      tags:
+      - oauthapp
+      summary: oauthapp GET /oauth-apps
+      produces:
+      - application/json
+      parameters: []
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+    post:
+      tags:
+      - oauthapp
+      summary: oauthapp POST /oauth-apps
+      produces:
+      - application/json
+      parameters: []
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /oauth-apps/{app_id}:
+    get:
+      tags:
+      - oauthapp
+      summary: oauthapp GET /oauth-apps/:app_id
+      produces:
+      - application/json
+      parameters:
+      - description: App Id
+        in: path
+        name: app_id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+    patch:
+      tags:
+      - oauthapp
+      summary: oauthapp PATCH /oauth-apps/:app_id
+      produces:
+      - application/json
+      parameters:
+      - description: App Id
+        in: path
+        name: app_id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+    delete:
+      tags:
+      - oauthapp
+      summary: oauthapp DELETE /oauth-apps/:app_id
+      produces:
+      - application/json
+      parameters:
+      - description: App Id
+        in: path
+        name: app_id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /oauth-apps/{app_id}/rotate:
+    post:
+      tags:
+      - oauthapp
+      summary: oauthapp POST /oauth-apps/:app_id/rotate
+      produces:
+      - application/json
+      parameters:
+      - description: App Id
+        in: path
+        name: app_id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /project-code/configs:
+    get:
+      tags:
+      - projectcode
+      summary: projectcode GET /project-code/configs
+      produces:
+      - application/json
+      parameters: []
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+    post:
+      tags:
+      - projectcode
+      summary: projectcode POST /project-code/configs
+      produces:
+      - application/json
+      parameters: []
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /project-code/configs/{id}:
+    get:
+      tags:
+      - projectcode
+      summary: projectcode GET /project-code/configs/:id
+      produces:
+      - application/json
+      parameters:
+      - description: Id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+    delete:
+      tags:
+      - projectcode
+      summary: projectcode DELETE /project-code/configs/:id
+      produces:
+      - application/json
+      parameters:
+      - description: Id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /project-code/parse:
+    post:
+      tags:
+      - projectcode
+      summary: projectcode POST /project-code/parse
+      produces:
+      - application/json
+      parameters: []
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /project-code/diff:
+    post:
+      tags:
+      - projectcode
+      summary: projectcode POST /project-code/diff
+      produces:
+      - application/json
+      parameters: []
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /project-code/apply:
+    post:
+      tags:
+      - projectcode
+      summary: projectcode POST /project-code/apply
+      produces:
+      - application/json
+      parameters: []
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /project-code/export/{project_id}:
+    get:
+      tags:
+      - projectcode
+      summary: projectcode GET /project-code/export/:project_id
+      produces:
+      - application/json
+      parameters:
+      - description: Project Id
+        in: path
+        name: project_id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /project-state:
+    get:
+      tags:
+      - projectstate
+      summary: projectstate GET /project-state
+      produces:
+      - application/json
+      parameters: []
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+    put:
+      tags:
+      - projectstate
+      summary: projectstate PUT /project-state
+      produces:
+      - application/json
+      parameters: []
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /recurring-rules:
+    get:
+      tags:
+      - recurring
+      summary: recurring GET /recurring-rules
+      produces:
+      - application/json
+      parameters: []
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+    post:
+      tags:
+      - recurring
+      summary: recurring POST /recurring-rules
+      produces:
+      - application/json
+      parameters: []
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /recurring-rules/{rule_id}:
+    get:
+      tags:
+      - recurring
+      summary: recurring GET /recurring-rules/:rule_id
+      produces:
+      - application/json
+      parameters:
+      - description: Rule Id
+        in: path
+        name: rule_id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+    patch:
+      tags:
+      - recurring
+      summary: recurring PATCH /recurring-rules/:rule_id
+      produces:
+      - application/json
+      parameters:
+      - description: Rule Id
+        in: path
+        name: rule_id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+    delete:
+      tags:
+      - recurring
+      summary: recurring DELETE /recurring-rules/:rule_id
+      produces:
+      - application/json
+      parameters:
+      - description: Rule Id
+        in: path
+        name: rule_id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /recurring-rules/{rule_id}/enable:
+    post:
+      tags:
+      - recurring
+      summary: recurring POST /recurring-rules/:rule_id/enable
+      produces:
+      - application/json
+      parameters:
+      - description: Rule Id
+        in: path
+        name: rule_id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /recurring-rules/{rule_id}/disable:
+    post:
+      tags:
+      - recurring
+      summary: recurring POST /recurring-rules/:rule_id/disable
+      produces:
+      - application/json
+      parameters:
+      - description: Rule Id
+        in: path
+        name: rule_id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /recurring-rules/{rule_id}/run-now:
+    post:
+      tags:
+      - recurring
+      summary: recurring POST /recurring-rules/:rule_id/run-now
+      produces:
+      - application/json
+      parameters:
+      - description: Rule Id
+        in: path
+        name: rule_id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /teamspaces:
+    get:
+      tags:
+      - teamspace
+      summary: teamspace GET /teamspaces
+      produces:
+      - application/json
+      parameters: []
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+    post:
+      tags:
+      - teamspace
+      summary: teamspace POST /teamspaces
+      produces:
+      - application/json
+      parameters: []
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /teamspaces/{teamspace_id}:
+    get:
+      tags:
+      - teamspace
+      summary: teamspace GET /teamspaces/:teamspace_id
+      produces:
+      - application/json
+      parameters:
+      - description: Teamspace Id
+        in: path
+        name: teamspace_id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+    patch:
+      tags:
+      - teamspace
+      summary: teamspace PATCH /teamspaces/:teamspace_id
+      produces:
+      - application/json
+      parameters:
+      - description: Teamspace Id
+        in: path
+        name: teamspace_id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+    delete:
+      tags:
+      - teamspace
+      summary: teamspace DELETE /teamspaces/:teamspace_id
+      produces:
+      - application/json
+      parameters:
+      - description: Teamspace Id
+        in: path
+        name: teamspace_id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /teamspaces/{teamspace_id}/members:
+    get:
+      tags:
+      - teamspace
+      summary: teamspace GET /teamspaces/:teamspace_id/members
+      produces:
+      - application/json
+      parameters:
+      - description: Teamspace Id
+        in: path
+        name: teamspace_id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+    post:
+      tags:
+      - teamspace
+      summary: teamspace POST /teamspaces/:teamspace_id/members
+      produces:
+      - application/json
+      parameters:
+      - description: Teamspace Id
+        in: path
+        name: teamspace_id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /teamspaces/{teamspace_id}/projects:
+    get:
+      tags:
+      - teamspace
+      summary: teamspace GET /teamspaces/:teamspace_id/projects
+      produces:
+      - application/json
+      parameters:
+      - description: Teamspace Id
+        in: path
+        name: teamspace_id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+    post:
+      tags:
+      - teamspace
+      summary: teamspace POST /teamspaces/:teamspace_id/projects
+      produces:
+      - application/json
+      parameters:
+      - description: Teamspace Id
+        in: path
+        name: teamspace_id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /teamspaces/{teamspace_id}/progress:
+    get:
+      tags:
+      - teamspace
+      summary: teamspace GET /teamspaces/:teamspace_id/progress
+      produces:
+      - application/json
+      parameters:
+      - description: Teamspace Id
+        in: path
+        name: teamspace_id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /teamspaces/{teamspace_id}/workloads:
+    get:
+      tags:
+      - teamspace
+      summary: teamspace GET /teamspaces/:teamspace_id/workloads
+      produces:
+      - application/json
+      parameters:
+      - description: Teamspace Id
+        in: path
+        name: teamspace_id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /teamspaces/{teamspace_id}/archive:
+    post:
+      tags:
+      - teamspace
+      summary: teamspace POST /teamspaces/:teamspace_id/archive
+      produces:
+      - application/json
+      parameters:
+      - description: Teamspace Id
+        in: path
+        name: teamspace_id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /teamspaces/{teamspace_id}/restore:
+    post:
+      tags:
+      - teamspace
+      summary: teamspace POST /teamspaces/:teamspace_id/restore
+      produces:
+      - application/json
+      parameters:
+      - description: Teamspace Id
+        in: path
+        name: teamspace_id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /teamspaces/{teamspace_id}/members/{user_id}:
+    delete:
+      tags:
+      - teamspace
+      summary: teamspace DELETE /teamspaces/:teamspace_id/members/:user_id
+      produces:
+      - application/json
+      parameters:
+      - description: Teamspace Id
+        in: path
+        name: teamspace_id
+        required: true
+        type: integer
+      - description: User Id
+        in: path
+        name: user_id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /teamspaces/{teamspace_id}/projects/{project_id}:
+    delete:
+      tags:
+      - teamspace
+      summary: teamspace DELETE /teamspaces/:teamspace_id/projects/:project_id
+      produces:
+      - application/json
+      parameters:
+      - description: Teamspace Id
+        in: path
+        name: teamspace_id
+        required: true
+        type: integer
+      - description: Project Id
+        in: path
+        name: project_id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /workflows:
+    get:
+      tags:
+      - workflow
+      summary: workflow GET /workflows
+      produces:
+      - application/json
+      parameters: []
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+    post:
+      tags:
+      - workflow
+      summary: workflow POST /workflows
+      produces:
+      - application/json
+      parameters: []
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /workflows/{workflow_id}:
+    get:
+      tags:
+      - workflow
+      summary: workflow GET /workflows/:workflow_id
+      produces:
+      - application/json
+      parameters:
+      - description: Workflow Id
+        in: path
+        name: workflow_id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+    patch:
+      tags:
+      - workflow
+      summary: workflow PATCH /workflows/:workflow_id
+      produces:
+      - application/json
+      parameters:
+      - description: Workflow Id
+        in: path
+        name: workflow_id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+    delete:
+      tags:
+      - workflow
+      summary: workflow DELETE /workflows/:workflow_id
+      produces:
+      - application/json
+      parameters:
+      - description: Workflow Id
+        in: path
+        name: workflow_id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /workflows/{workflow_id}/transitions:
+    post:
+      tags:
+      - workflow
+      summary: workflow POST /workflows/:workflow_id/transitions
+      produces:
+      - application/json
+      parameters:
+      - description: Workflow Id
+        in: path
+        name: workflow_id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /workflows/{workflow_id}/transitions/{transition_id}:
+    delete:
+      tags:
+      - workflow
+      summary: workflow DELETE /workflows/:workflow_id/transitions/:transition_id
+      produces:
+      - application/json
+      parameters:
+      - description: Workflow Id
+        in: path
+        name: workflow_id
+        required: true
+        type: integer
+      - description: Transition Id
+        in: path
+        name: transition_id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /workflows/{workflow_id}/transitions/{transition_id}/validate:
+    post:
+      tags:
+      - workflow
+      summary: workflow POST /workflows/:workflow_id/transitions/:transition_id/validate
+      produces:
+      - application/json
+      parameters:
+      - description: Workflow Id
+        in: path
+        name: workflow_id
+        required: true
+        type: integer
+      - description: Transition Id
+        in: path
+        name: transition_id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /workflows/{approval_id}/approve:
+    post:
+      tags:
+      - workflow
+      summary: workflow POST /workflows/:approval_id/approve
+      produces:
+      - application/json
+      parameters:
+      - description: Approval Id
+        in: path
+        name: approval_id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /workflows/{approval_id}/reject:
+    post:
+      tags:
+      - workflow
+      summary: workflow POST /workflows/:approval_id/reject
+      produces:
+      - application/json
+      parameters:
+      - description: Approval Id
+        in: path
+        name: approval_id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /work-item-types:
+    get:
+      tags:
+      - workitemtype
+      summary: workitemtype GET /work-item-types
+      produces:
+      - application/json
+      parameters: []
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+    post:
+      tags:
+      - workitemtype
+      summary: workitemtype POST /work-item-types
+      produces:
+      - application/json
+      parameters: []
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /work-item-types/{type_id}:
+    get:
+      tags:
+      - workitemtype
+      summary: workitemtype GET /work-item-types/:type_id
+      produces:
+      - application/json
+      parameters:
+      - description: Type Id
+        in: path
+        name: type_id
+        required: true
+        type: string
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+    patch:
+      tags:
+      - workitemtype
+      summary: workitemtype PATCH /work-item-types/:type_id
+      produces:
+      - application/json
+      parameters:
+      - description: Type Id
+        in: path
+        name: type_id
+        required: true
+        type: string
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+    delete:
+      tags:
+      - workitemtype
+      summary: workitemtype DELETE /work-item-types/:type_id
+      produces:
+      - application/json
+      parameters:
+      - description: Type Id
+        in: path
+        name: type_id
+        required: true
+        type: string
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /work-item-types/{type_id}/properties:
+    get:
+      tags:
+      - workitemtype
+      summary: workitemtype GET /work-item-types/:type_id/properties
+      produces:
+      - application/json
+      parameters:
+      - description: Type Id
+        in: path
+        name: type_id
+        required: true
+        type: string
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+    post:
+      tags:
+      - workitemtype
+      summary: workitemtype POST /work-item-types/:type_id/properties
+      produces:
+      - application/json
+      parameters:
+      - description: Type Id
+        in: path
+        name: type_id
+        required: true
+        type: string
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /work-item-types/{type_id}/values/{work_item_id}:
+    get:
+      tags:
+      - workitemtype
+      summary: workitemtype GET /work-item-types/:type_id/values/:work_item_id
+      produces:
+      - application/json
+      parameters:
+      - description: Type Id
+        in: path
+        name: type_id
+        required: true
+        type: string
+      - description: Work Item Id
+        in: path
+        name: work_item_id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /work-item-types/{type_id}/archive:
+    post:
+      tags:
+      - workitemtype
+      summary: workitemtype POST /work-item-types/:type_id/archive
+      produces:
+      - application/json
+      parameters:
+      - description: Type Id
+        in: path
+        name: type_id
+        required: true
+        type: string
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /work-item-types/{type_id}/restore:
+    post:
+      tags:
+      - workitemtype
+      summary: workitemtype POST /work-item-types/:type_id/restore
+      produces:
+      - application/json
+      parameters:
+      - description: Type Id
+        in: path
+        name: type_id
+        required: true
+        type: string
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /work-item-types/{type_id}/properties/{prop_id}:
+    delete:
+      tags:
+      - workitemtype
+      summary: workitemtype DELETE /work-item-types/:type_id/properties/:prop_id
+      produces:
+      - application/json
+      parameters:
+      - description: Type Id
+        in: path
+        name: type_id
+        required: true
+        type: string
+      - description: Prop Id
+        in: path
+        name: prop_id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /work-item-types/{type_id}/values:
+    put:
+      tags:
+      - workitemtype
+      summary: workitemtype PUT /work-item-types/:type_id/values
+      produces:
+      - application/json
+      parameters:
+      - description: Type Id
+        in: path
+        name: type_id
+        required: true
+        type: string
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /views/{view_id}/duplicate:
+    post:
+      tags:
+      - workspaceview
+      summary: workspaceview POST /views/:view_id/duplicate
+      produces:
+      - application/json
+      parameters:
+      - description: View Id
+        in: path
+        name: view_id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /views/{view_id}/favorite:
+    post:
+      tags:
+      - workspaceview
+      summary: workspaceview POST /views/:view_id/favorite
+      produces:
+      - application/json
+      parameters:
+      - description: View Id
+        in: path
+        name: view_id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+  /views/{view_id}/public:
+    post:
+      tags:
+      - workspaceview
+      summary: workspaceview POST /views/:view_id/public
+      produces:
+      - application/json
+      parameters:
+      - description: View Id
+        in: path
+        name: view_id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
 securityDefinitions:
   Bearer:
     description: '"格式: Bearer {access_token}。登录/注册接口返回 access_token 后填入。"'

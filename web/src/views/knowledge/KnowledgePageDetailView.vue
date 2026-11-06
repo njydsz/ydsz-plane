@@ -21,8 +21,13 @@ import {
   type PageStatus,
 } from "@/api/services/knowledge";
 import { searchApi } from "@/api/services/search";
+import { AppButton, PageCommentThread, DynamicIcon } from "@/components";
 import { renderMarkdown } from "@/lib/markdown";
+import { useWorkspaceStore } from "@/stores/workspace";
 import { toast } from "@/lib/toast";
+import { useConfirm } from "@/composables/useConfirm";
+
+const confirm = useConfirm();
 
 /* ===== Props / Emit ===== */
 const props = defineProps<{
@@ -30,6 +35,11 @@ const props = defineProps<{
   workspaceId: number;
   spaceId: number;
 }>();
+
+const wsStore = useWorkspaceStore();
+
+/** 是否具备评论审核权限（comment:moderate）——驱动评论隐藏 / 取消隐藏入口 */
+const canModerateComment = computed(() => wsStore.hasPermission("comment:moderate"));
 
 const emit = defineEmits<{
   (e: "deleted", id: number): void;
@@ -107,12 +117,13 @@ async function savePage() {
 /* ===== 状态切换 ===== */
 async function changeStatus(status: PageStatus) {
   if (props.page.status === status) return;
-  const confirms: Partial<Record<PageStatus, string>> = {
-    published: `确定发布文档「${props.page.title}」？`,
-    archived: `确定归档文档「${props.page.title}」？归档后仅可浏览。`,
-    draft: `确定将文档「${props.page.title}」转为草稿？`,
+  const confirms: Partial<Record<PageStatus, { title: string; message: string }>> = {
+    published: { title: "发布文档", message: `确定发布文档「${props.page.title}」？` },
+    archived: { title: "归档文档", message: `确定归档文档「${props.page.title}」？归档后仅可浏览。` },
+    draft: { title: "转为草稿", message: `确定将文档「${props.page.title}」转为草稿？` },
   };
-  if (confirms[status] && !window.confirm(confirms[status])) return;
+  const action = confirms[status];
+  if (action && !await confirm({ ...action, confirmText: "确定" })) return;
   try {
     const updated = await knowledgeApi.updatePage(
       props.workspaceId, props.spaceId, props.page.id,
@@ -223,7 +234,7 @@ function exitVersionPreview() {
 }
 
 async function revertToVersion(v: KnowledgePageVersion) {
-  if (!window.confirm(`确定回滚到版本 v${v.version}？当前未保存的更改将丢失。`)) return;
+  if (!await confirm({ title: "回滚版本", message: `确定回滚到版本 v${v.version}？当前未保存的更改将丢失。`, confirmText: "回滚", variant: "danger" })) return;
   try {
     const updated = await knowledgeApi.revertVersion(
       props.workspaceId, props.spaceId, props.page.id, v.version,
@@ -308,7 +319,7 @@ async function addRelation(issueId: number) {
 }
 
 async function removeRelation(rel: KnowledgePageRelation) {
-  if (!window.confirm("确定删除该关联？")) return;
+  if (!await confirm({ title: "删除关联", message: "确定删除该关联？", confirmText: "删除", variant: "danger" })) return;
   try {
     await knowledgeApi.removeRelation(props.workspaceId, props.spaceId, props.page.id, rel.id);
     relations.value = relations.value.filter((r) => r.id !== rel.id);
@@ -352,44 +363,49 @@ onMounted(() => {
     <!-- 状态操作栏 -->
     <div class="kpage__toolbar">
       <div class="kpage__status-actions">
-        <button
+        <AppButton
           v-if="page.status !== 'published'"
-          class="btn btn--sm"
+          size="sm"
+          variant="secondary"
           @click="changeStatus('published')"
         >
 发布
-</button>
-        <button
+</AppButton>
+        <AppButton
           v-if="page.status !== 'draft'"
-          class="btn btn--sm"
+          size="sm"
+          variant="secondary"
           @click="changeStatus('draft')"
         >
 转为草稿
-</button>
-        <button
+</AppButton>
+        <AppButton
           v-if="page.status !== 'archived'"
-          class="btn btn--sm"
+          size="sm"
+          variant="secondary"
           @click="changeStatus('archived')"
         >
 归档
-</button>
-        <button
+</AppButton>
+        <AppButton
           v-if="page.status === 'archived'"
-          class="btn btn--sm"
+          size="sm"
+          variant="secondary"
           @click="changeStatus('published')"
         >
 重新发布
-</button>
+</AppButton>
       </div>
       <div class="kpage__actions">
         <span v-if="saving" class="kpage__saving">保存中...</span>
-        <button
-          class="btn btn--sm btn--primary"
+        <AppButton
+          size="sm"
+          :loading="saving"
           :disabled="saving || !dirty"
           @click="savePage"
         >
 {{ saving ? "保存中..." : "保存" }}
-</button>
+</AppButton>
       </div>
     </div>
 
@@ -470,7 +486,7 @@ H3
           · {{ fmtTime(viewingVersion.created_at) }}
         </span>
         <span v-else>预览模式</span>
-        <button class="btn btn--sm" @click="exitVersionPreview">返回编辑</button>
+        <AppButton size="sm" variant="secondary" @click="exitVersionPreview">返回编辑</AppButton>
       </div>
 
       <!-- 编辑区 / 预览区 -->
@@ -488,6 +504,16 @@ H3
         />
         <!-- eslint-enable vue/no-v-html -->
       </div>
+    </div>
+
+    <!-- 页面评论 -->
+    <div class="kpage__comments">
+      <PageCommentThread
+        :workspace-id="workspaceId"
+        :page-id="page.id"
+        page-type="knowledge"
+        :can-moderate="canModerateComment"
+      />
     </div>
 
     <!-- 侧边栏 tabs -->
@@ -514,8 +540,8 @@ H3
         <!-- 版本对比选择提示 -->
         <div v-if="diffSourceVer || diffTargetVer" class="diff-hint">
           <span>已选择: {{ diffSourceVer ? `v${diffSourceVer.version}` : "?" }} → {{ diffTargetVer ? `v${diffTargetVer.version}` : "?" }}</span>
-          <button class="btn btn--sm btn--primary" :disabled="!diffSourceVer || !diffTargetVer" @click="startDiff">对比</button>
-          <button class="btn btn--sm btn--ghost" @click="exitDiff">取消</button>
+          <AppButton size="sm" :disabled="!diffSourceVer || !diffTargetVer" @click="startDiff">对比</AppButton>
+          <AppButton size="sm" variant="ghost" @click="exitDiff">取消</AppButton>
         </div>
         <div v-if="versionsLoading" class="text-muted">加载中...</div>
         <div v-else-if="versions.length === 0" class="text-muted">暂无历史版本</div>
@@ -533,14 +559,15 @@ H3
             <span class="version-item__number">v{{ v.version }}</span>
             <span class="version-item__time">{{ fmtTime(v.created_at) }}</span>
             <span class="version-item__summary">{{ v.change_summary || "—" }}</span>
-            <button class="btn btn--sm btn--ghost" @click="viewVersion(v)">查看</button>
-            <button class="btn btn--sm btn--ghost" @click="selectForDiff(v)">对比</button>
-            <button
-              class="btn btn--sm btn--ghost"
+            <AppButton size="sm" variant="ghost" @click="viewVersion(v)">查看</AppButton>
+            <AppButton size="sm" variant="ghost" @click="selectForDiff(v)">对比</AppButton>
+            <AppButton
+              size="sm"
+              variant="ghost"
               @click="revertToVersion(v)"
             >
 回滚
-            </button>
+</AppButton>
           </div>
         </div>
       </div>
@@ -556,7 +583,7 @@ H3
                 →
                 <span class="diff-modal__new">v{{ diffTargetVer?.version }}</span>
               </span>
-              <button class="btn btn--sm btn--ghost" @click="exitDiff">✕</button>
+              <AppButton size="sm" variant="ghost" @click="exitDiff"><DynamicIcon name="X" :size="14" /></AppButton>
             </div>
             <div class="diff-modal__body">
               <div
@@ -601,13 +628,13 @@ H3
               <span class="rel-result__name" :title="r.name">{{ r.name }}</span>
               <span class="rel-result__proj">{{ r.project_name }}</span>
             </div>
-            <button
-              class="btn btn--sm btn--primary"
+            <AppButton
+              size="sm"
               :disabled="addingRelation"
               @click="addRelation(r.id)"
             >
-＋
-</button>
+              <DynamicIcon name="Plus" :size="14" />
+            </AppButton>
           </div>
         </div>
 
@@ -617,14 +644,12 @@ H3
         <div v-else class="rel-list">
           <div v-for="rel in relations" :key="rel.id" class="rel-item">
             <span class="rel-item__type">需求/任务/缺陷 #{{ rel.issue_id }}</span>
-            <button class="btn btn--sm btn--ghost rel-item__remove" @click="removeRelation(rel)">✕</button>
+            <AppButton size="sm" variant="ghost" class="rel-item__remove" @click="removeRelation(rel)"><DynamicIcon name="X" :size="14" /></AppButton>
           </div>
         </div>
       </div>
     </div>
   </div>
-</template>
-
 <style scoped>
 /* ---- 标题栏 ---- */
 .kpage__header {
@@ -660,12 +685,12 @@ H3
   color: var(--text-tertiary);
 }
 .status-badge--published {
-  background: var(--success-50, #e6f4ea);
-  color: var(--success-600, #1e8e3e);
+  background: var(--success-50);
+  color: var(--success-600);
 }
 .status-badge--archived {
-  background: var(--warning-50, #fef7e0);
-  color: var(--warning-600, #b06000);
+  background: var(--warning-50);
+  color: var(--warning-600);
 }
 .kpage__version {
   font-family: var(--font-mono, monospace);
@@ -674,7 +699,7 @@ H3
 }
 .kpage__dirty-dot {
   font-size: 16px;
-  color: var(--warning-500, #f59e0b);
+  color: var(--warning-500);
 }
 
 /* ---- 工具栏 ---- */
@@ -742,10 +767,10 @@ H3
   align-items: center;
   justify-content: space-between;
   padding: 6px 12px;
-  background: var(--warning-50, #fef7e0);
-  border-bottom: 1px solid var(--warning-300, #fcd34d);
+  background: var(--warning-50);
+  border-bottom: 1px solid var(--warning-300);
   font-size: 12px;
-  color: var(--warning-700, #b45309);
+  color: var(--warning-700);
 }
 
 /* editor */
@@ -780,7 +805,7 @@ H3
   margin: 4px 0 8px;
 }
 .km-editor__tiptap :deep(.ProseMirror blockquote) {
-  border-left: 3px solid var(--brand-300, #9ec5ff);
+  border-left: 3px solid var(--brand-300);
   padding-left: 12px;
   margin: 8px 0;
   color: var(--text-tertiary);
@@ -862,7 +887,7 @@ H3
 .km-editor__preview :deep(blockquote) {
   margin: 0.8em 0;
   padding: 4px 14px;
-  border-left: 3px solid var(--brand-300, #9ec5ff);
+  border-left: 3px solid var(--brand-300);
   color: var(--text-tertiary);
   background: var(--surface-2);
 }
@@ -874,6 +899,11 @@ H3
 .km-editor__preview :deep(th) { background: var(--surface-2); font-weight: 600; }
 .km-editor__preview :deep(img) { max-width: 100%; border-radius: var(--radius-sm); }
 .km-editor__preview :deep(hr) { border: none; border-top: 1px solid var(--border-subtle); margin: 1.2em 0; }
+
+/* ---- 页面评论 ---- */
+.kpage__comments {
+  margin-top: 16px;
+}
 
 /* ---- 侧边栏 ---- */
 .kpage__sidebar {
@@ -927,7 +957,7 @@ H3
   font-size: 12px;
 }
 .version-item:hover { background: var(--surface-2); }
-.version-item--active { background: var(--warning-50, #fef7e0); }
+.version-item--active { background: var(--warning-50); }
 .version-item__number {
   font-family: var(--font-mono, monospace);
   font-weight: 600;
@@ -1030,29 +1060,6 @@ H3
   box-shadow: 0 0 0 2px var(--brand-50);
 }
 
-.btn {
-  padding: 8px 16px;
-  font-size: 13px;
-  font-family: inherit;
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-sm);
-  background: var(--surface-1);
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: all 0.15s;
-}
-.btn:hover { border-color: var(--brand-500); color: var(--brand-600); }
-.btn--sm { padding: 4px 10px; font-size: 12px; }
-.btn--ghost { background: none; border: none; color: var(--brand-500); padding: 2px 4px; }
-.btn--primary {
-  background: var(--brand-500);
-  border-color: var(--brand-500);
-  color: var(--text-on-brand);
-  font-weight: 500;
-}
-.btn--primary:hover { background: var(--brand-600); color: var(--text-on-brand); }
-.btn:disabled { opacity: 0.6; cursor: not-allowed; }
-
 /* ---- 版本对比 ---- */
 .diff-hint {
   display: flex;
@@ -1066,8 +1073,8 @@ H3
 }
 .diff-hint span { flex: 1; }
 
-.version-item--diff-source { border-left: 3px solid var(--danger, #DC2626); }
-.version-item--diff-target { border-left: 3px solid var(--success, #10B981); }
+.version-item--diff-source { border-left: 3px solid var(--danger); }
+.version-item--diff-target { border-left: 3px solid var(--success); }
 
 .diff-modal {
   position: fixed;
@@ -1093,15 +1100,15 @@ H3
   align-items: center;
   gap: 12px;
   padding: 16px 20px;
-  border-bottom: 1px solid var(--border-color, #E5E7EB);
+  border-bottom: 1px solid var(--border-color);
 }
 .diff-modal__header h3 { margin: 0; font-size: 16px; }
 .diff-modal__versions {
   font-size: 13px;
   color: var(--text-secondary);
 }
-.diff-modal__old { color: var(--danger, #DC2626); }
-.diff-modal__new { color: var(--success, #10B981); }
+.diff-modal__old { color: var(--danger); }
+.diff-modal__new { color: var(--success); }
 .diff-modal__body {
   overflow-y: auto;
   padding: 12px 20px;
@@ -1121,7 +1128,7 @@ H3
   flex-shrink: 0;
   color: var(--text-tertiary);
 }
-.diff-line--add .diff-line__mark { color: var(--success, #10B981); }
-.diff-line--del .diff-line__mark { color: var(--danger, #DC2626); }
+.diff-line--add .diff-line__mark { color: var(--success); }
+.diff-line--del .diff-line__mark { color: var(--danger); }
 .diff-line__text { flex: 1; }
 </style>

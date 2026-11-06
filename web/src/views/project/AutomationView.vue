@@ -24,8 +24,11 @@ import {
 } from "@/api/services/automation";
 import { ApiError } from "@/api/client";
 import { toast } from "@/lib/toast";
-import { AppLoadingState, AppErrorState } from "@/components";
+import { AppButton, AppLoadingState, AppErrorState, DynamicIcon } from "@/components";
 import { useWorkspaceContext } from "@/composables/useWorkspaceContext";
+import { useConfirm } from "@/composables/useConfirm";
+
+const confirm = useConfirm();
 
 /* ------------------------------------------------------------------ */
 /* Constants                                                          */
@@ -172,7 +175,7 @@ async function loadAll() {
 }
 
 async function removeRule(rule: AutomationRule) {
-  if (!confirm(`确定删除规则「${rule.name}」吗？`)) return;
+  if (!await confirm({ title: "删除规则", message: `确定删除规则「${rule.name}」吗？`, confirmText: "删除", variant: "danger" })) return;
   try {
     await automationApi.delete(wsId.value, projectId.value, rule.id);
     rules.value = rules.value.filter((r) => r.id !== rule.id);
@@ -430,17 +433,17 @@ watch(ready, (v) => {
       <div class="au-header__actions">
         <!-- Template dropdown -->
         <div class="au-dropdown-wrapper">
-          <button class="btn btn--primary" @click="openCreate">
-            ＋ 创建规则
-          </button>
-          <button
-            class="btn btn--primary au-dropdown-toggle"
+          <AppButton @click="openCreate">
+            <DynamicIcon name="Plus" :size="14" /> 创建规则
+          </AppButton>
+          <AppButton
+            class="au-dropdown-toggle"
             :disabled="templateLoading"
             title="从模板创建"
             @click="showTemplateMenu = !showTemplateMenu"
           >
-            <span class="au-caret" :class="{ open: showTemplateMenu }">▾</span>
-          </button>
+            <span class="au-caret" :class="{ open: showTemplateMenu }"><DynamicIcon name="ChevronDown" :size="14" /></span>
+          </AppButton>
           <div v-if="showTemplateMenu" class="au-dropdown-menu" @mouseleave="showTemplateMenu = false">
             <div v-if="templates.length === 0" class="au-dropdown-empty">暂无模板</div>
             <button
@@ -489,12 +492,12 @@ watch(ready, (v) => {
           </div>
         </div>
         <div class="au-card__actions">
-          <button class="btn-sm" @click="toggleRule(r)">
+          <AppButton size="sm" variant="secondary" @click="toggleRule(r)">
             {{ r.status === "disabled" || r.status === "draft" ? "启用" : "停用" }}
-          </button>
-          <button class="btn-sm" @click="viewHistory(r)">历史</button>
-          <button class="btn-sm" @click="openEdit(r)">编辑</button>
-          <button class="btn-sm btn-sm--danger" @click="removeRule(r)">删除</button>
+          </AppButton>
+          <AppButton size="sm" variant="secondary" @click="viewHistory(r)">历史</AppButton>
+          <AppButton size="sm" variant="secondary" @click="openEdit(r)">编辑</AppButton>
+          <AppButton size="sm" variant="danger" @click="removeRule(r)">删除</AppButton>
         </div>
       </div>
     </div>
@@ -546,10 +549,10 @@ watch(ready, (v) => {
                 <option v-for="o in OPERATOR_OPTIONS" :key="o.value" :value="o.value">{{ o.label }}</option>
               </select>
               <input v-model="c.value" class="wh-input au-cond-val" placeholder="值" />
-              <button class="btn-sm btn-sm--danger" title="删除条件" @click="removeCondition(idx)">×</button>
+              <AppButton size="sm" variant="danger" title="删除条件" @click="removeCondition(idx)">×</AppButton>
             </div>
           </div>
-          <button class="btn-sm au-add-btn" @click="addCondition">＋ 添加条件</button>
+          <AppButton size="sm" variant="secondary" class="au-add-btn" @click="addCondition"><DynamicIcon name="Plus" :size="14" /> 添加条件</AppButton>
         </fieldset>
 
         <!-- ===== Actions ===== -->
@@ -562,7 +565,7 @@ watch(ready, (v) => {
                 <select v-model="a.type" class="wh-input au-act-type" @change="onActionTypeChange(idx)">
                   <option v-for="o in ACTION_OPTIONS" :key="o.value" :value="o.value">{{ o.label }}</option>
                 </select>
-                <button class="btn-sm btn-sm--danger" title="删除动作" @click="removeAction(idx)">×</button>
+                <AppButton size="sm" variant="danger" title="删除动作" @click="removeAction(idx)">×</AppButton>
               </div>
               <!-- transition_status params -->
               <template v-if="a.type === 'transition_status'">
@@ -595,14 +598,14 @@ watch(ready, (v) => {
               </template>
             </div>
           </div>
-          <button class="btn-sm au-add-btn" @click="addAction">＋ 添加动作</button>
+          <AppButton size="sm" variant="secondary" class="au-add-btn" @click="addAction"><DynamicIcon name="Plus" :size="14" /> 添加动作</AppButton>
         </fieldset>
 
         <!-- Dry-Run result panel -->
         <div v-if="showDryRun || dryRunResult" class="au-dryrun">
           <div class="au-dryrun__head">
             <strong>干跑测试结果</strong>
-            <button class="btn-sm" @click="showDryRun = false; dryRunResult = null">×</button>
+            <AppButton size="sm" variant="ghost" @click="showDryRun = false; dryRunResult = null">×</AppButton>
           </div>
           <div v-if="dryRunLoading" class="au-dryrun__loading">正在校验...</div>
           <div v-else-if="dryRunResult" class="au-dryrun__body">
@@ -628,16 +631,16 @@ watch(ready, (v) => {
         <p v-if="formError" class="wh-err">{{ formError }}</p>
 
         <div class="wh-modal-actions">
-          <button class="btn btn--primary" :disabled="formSaving" @click="saveForm(true)">
+          <AppButton :loading="formSaving" :disabled="formSaving" @click="saveForm(true)">
             {{ formSaving ? "保存中..." : editingRule ? "保存并激活" : "创建并激活" }}
-          </button>
-          <button class="btn" :disabled="formSaving" @click="saveForm(false)">
+          </AppButton>
+          <AppButton variant="secondary" :disabled="formSaving" @click="saveForm(false)">
             {{ editingRule ? "保存" : "保存草稿" }}
-          </button>
-          <button class="btn" :disabled="dryRunLoading" @click="runDryRun">
+          </AppButton>
+          <AppButton variant="secondary" :loading="dryRunLoading" :disabled="dryRunLoading" @click="runDryRun">
             {{ dryRunLoading ? "校验中..." : "Dry Run" }}
-          </button>
-          <button class="btn" @click="closeForm">取消</button>
+          </AppButton>
+          <AppButton variant="ghost" @click="closeForm">取消</AppButton>
         </div>
       </div>
     </div>
@@ -680,11 +683,11 @@ watch(ready, (v) => {
           </tbody>
         </table>
         <p v-else class="au-empty">暂无执行记录</p>
-        <button class="btn" style="margin-top:12px" @click="closeHistory">关闭</button>
+        <AppButton variant="secondary" style="margin-top:12px" @click="closeHistory">关闭</AppButton>
       </div>
     </div>
   </div>
-</template>
+
 
 <style scoped>
 .au-view { max-width: 880px; }
@@ -948,7 +951,7 @@ watch(ready, (v) => {
   padding: 0;
   margin: 0;
   font-size: 12px;
-  color: var(--warning-500, #f59e0b);
+  color: var(--warning-500);
 }
 
 .au-dryrun__warnings li::before { content: "⚠ "; }
@@ -970,42 +973,6 @@ watch(ready, (v) => {
   color: var(--text-secondary);
 }
 
-/* Reuse styles from WebhookSettingsView */
-.btn {
-  padding: 8px 14px;
-  border-radius: var(--radius-sm);
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  border: 1px solid var(--border-default);
-  background: var(--surface-1);
-  color: var(--text-secondary);
-  font-family: inherit;
-}
-
-.btn--primary {
-  background: var(--brand-500);
-  border-color: var(--brand-500);
-  color: var(--text-on-brand);
-}
-
-.btn--primary:disabled { opacity: 0.6; cursor: not-allowed; }
-
-.btn-sm {
-  padding: 4px 10px;
-  border-radius: var(--radius-sm);
-  font-size: 12px;
-  cursor: pointer;
-  border: 1px solid var(--border-default);
-  background: var(--surface-1);
-  color: var(--text-secondary);
-  font-family: inherit;
-}
-
-.btn-sm:hover { background: var(--surface-3); }
-.btn-sm--danger { color: var(--danger-500); }
-.btn-sm--danger:hover { background: rgba(220, 47, 47, 0.08); }
-
 .wh-badge {
   display: inline-block;
   padding: 1px 8px;
@@ -1014,18 +981,18 @@ watch(ready, (v) => {
   font-weight: 500;
 }
 
-.wh-badge.active { background: rgba(15,194,123,0.12); color: var(--success-500,#0fc27b); }
+.wh-badge.active { background: var(--success-50); color: var(--success-500); }
 .wh-badge.paused { background: var(--surface-3); color: var(--text-tertiary); }
-.wh-badge.unhealthy { background: rgba(220,47,47,0.12); color: var(--danger-500,#dc2f2f); }
+.wh-badge.unhealthy { background: var(--danger-50); color: var(--danger-500); }
 .wh-badge.draft { background: var(--surface-3); color: var(--text-tertiary); }
-.wh-badge.disabled { background: rgba(245,158,11,0.12); color: var(--warning-500,#f59e0b); }
-.wh-badge.error { background: rgba(220,47,47,0.12); color: var(--danger-500,#dc2f2f); }
+.wh-badge.disabled { background: var(--warning-50); color: var(--warning-500); }
+.wh-badge.error { background: var(--danger-50); color: var(--danger-500); }
 
 /* au-prefixed badge variants (used by AutomationView status maps) */
-.au-badge--active { background: rgba(15,194,123,0.12); color: var(--success-500,#0fc27b); }
+.au-badge--active { background: var(--success-50); color: var(--success-500); }
 .au-badge--draft { background: var(--surface-3); color: var(--text-tertiary); }
-.au-badge--disabled { background: rgba(245,158,11,0.12); color: var(--warning-500,#f59e0b); }
-.au-badge--error { background: rgba(220,47,47,0.12); color: var(--danger-500,#dc2f2f); }
+.au-badge--disabled { background: var(--warning-50); color: var(--warning-500); }
+.au-badge--error { background: var(--danger-50); color: var(--danger-500); }
 
 /* The wh-badge base class must also be applied when using au-badge--* variants
    since they share the same visual base. We rely on the template composing both classes. */

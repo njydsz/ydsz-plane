@@ -106,6 +106,8 @@ type ProjectUpdateInput struct {
 	Color         *string
 	Modules       *ProjectModuleToggles
 	CoverImageUrl *string
+	// AllowParallelCycles 允许同项目多个进行中的迭代（并行周期）。
+	AllowParallelCycles *bool
 }
 
 // ProjectService 项目应用服务。
@@ -257,6 +259,11 @@ func (s *ProjectService) Update(ctx context.Context, wsID, projectID int64, in P
 	if in.Color != nil {
 		sets = append(sets, "color = $"+strconv.Itoa(arg))
 		args = append(args, *in.Color)
+		arg++
+	}
+	if in.AllowParallelCycles != nil {
+		sets = append(sets, "allow_parallel_cycles = $"+strconv.Itoa(arg))
+		args = append(args, *in.AllowParallelCycles)
 		arg++
 	}
 	if in.Modules != nil {

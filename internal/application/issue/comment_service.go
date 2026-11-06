@@ -68,6 +68,17 @@ func (s *CommentService) CreateWithEvent(ctx context.Context, input CreateCommen
 	if err != nil {
 		return nil, err
 	}
+
+	// 触发 Agent（@mention）
+	if s.agentTrigger != nil && s.agentTrigger.IsEnabled() {
+		tc, terr := detectWorkitemType(context.Background(), s.db, comment.IssueID)
+		if terr == nil {
+			s.agentTrigger.OnCommentCreated(context.Background(),
+				comment.WorkspaceID, comment.ProjectID, comment.IssueID,
+				string(tc), comment.CreatedBy, comment.ContentStripped)
+		}
+	}
+
 	return &comment, nil
 }
 
@@ -145,6 +156,22 @@ type UpdateCommentInput struct {
 // CommentService 评论应用服务。
 type CommentService struct {
 	db *pgxpool.Pool
+	// agentTrigger 可选的 Agent 触发钩子（@mention 时触发 Agent Run）
+	agentTrigger AgentTriggerSink
+}
+
+// AgentTriggerSink Agent 触发接口（由 aiagent 包实现，避免循环依赖）。
+type AgentTriggerSink interface {
+	IsEnabled() bool
+	OnCommentCreated(ctx context.Context, workspaceID, projectID, issueID int64, issueType string, actorID int64, content string)
+	OnWorkItemCreated(ctx context.Context, workspaceID, projectID, issueID int64, issueType, title, description string, actorID int64)
+	OnWorkItemAssigned(ctx context.Context, workspaceID, projectID, issueID int64, issueType, title string, assigneeID, actorID int64)
+	OnStateChanged(ctx context.Context, workspaceID, projectID, issueID int64, issueType, stateName string, actorID int64)
+}
+
+// SetAgentTrigger 注入 Agent 触发钩子。
+func (s *CommentService) SetAgentTrigger(sink AgentTriggerSink) {
+	s.agentTrigger = sink
 }
 
 // NewCommentService 创建评论服务。

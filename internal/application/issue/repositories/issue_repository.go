@@ -33,16 +33,16 @@ import (
 
 // ListOptions 跨类型列表查询选项。
 type ListOptions struct {
-	StateID    *int64
-	Group      string
-	TypeCode   string
-	Priority   string
-	ParentID   *int64
-	Search     string
-	SortBy     string
-	SortDesc   bool
-	Limit      int
-	Offset     int
+	StateID  *int64
+	Group    string
+	TypeCode string
+	Priority string
+	ParentID *int64
+	Search   string
+	SortBy   string
+	SortDesc bool
+	Limit    int
+	Offset   int
 }
 
 // normalize 填充 Limit / Offset 安全默认值。

@@ -14,7 +14,7 @@ import { computed, onMounted, ref } from "vue";
 
 import { moduleApi, type CreateModuleInput, type Module, type UpdateModuleInput } from "@/api/services/module";
 import { workspaceApi, type Member } from "@/api/services/workspace";
-import { AppButton, AppCard, AppEmptyState, AppErrorState, AppLoadingState } from "@/components";
+import { AppButton, AppCard, AppEmptyState, AppErrorState, AppLoadingState, AppPageContainer, DynamicIcon } from "@/components";
 import { toast } from "@/lib/toast";
 
 import ModuleFormModal from "./ModuleFormModal.vue";
@@ -132,7 +132,9 @@ const activeCount = computed(() => modules.value.filter((m) => m.status !== "arc
 </script>
 
 <template>
-  <div class="modules-view">
+  
+  <AppPageContainer max="960px">
+    <div class="modules-view">
     <!-- 顶部标题 + 操作栏 -->
     <header class="modules-view__header">
       <div>
@@ -142,7 +144,7 @@ const activeCount = computed(() => modules.value.filter((m) => m.status !== "arc
         </p>
       </div>
       <AppButton variant="primary" size="sm" @click="openCreate">
-        ＋ 新建模块
+        <DynamicIcon name="Plus" :size="14" /> 新建模块
       </AppButton>
     </header>
 
@@ -282,7 +284,7 @@ const activeCount = computed(() => modules.value.filter((m) => m.status !== "arc
               aria-label="关闭"
               @click="deleteTarget = null"
             >
-              &times;
+              <DynamicIcon name="X" :size="18" />
             </button>
           </header>
           <div class="confirm-dialog__body">
@@ -293,31 +295,34 @@ const activeCount = computed(() => modules.value.filter((m) => m.status !== "arc
             </p>
           </div>
           <footer class="confirm-dialog__footer">
-            <button
+            <AppButton
               type="button"
-              class="btn btn--secondary"
+              variant="secondary"
               @click="deleteTarget = null"
             >
               取消
-            </button>
-            <button
+            </AppButton>
+            <AppButton
               type="button"
-              class="btn btn--danger"
+              variant="danger"
+              :loading="deleting"
               :disabled="deleting"
               @click="confirmDelete"
             >
               {{ deleting ? "删除中…" : "确认删除" }}
-            </button>
+            </AppButton>
           </footer>
         </div>
       </div>
     </Teleport>
-  </div>
+  
+    </div>
+  </AppPageContainer>
 </template>
 
 <style scoped>
 .modules-view {
-  max-width: 960px;
+  
 }
 
 /* ---------- header ---------- */
@@ -380,7 +385,7 @@ const activeCount = computed(() => modules.value.filter((m) => m.status !== "arc
 }
 
 .module-table tbody tr:hover {
-  background: var(--surface-hover, #f9fafb);
+  background: var(--surface-hover);
 }
 
 .module-table tbody tr:last-child td {
@@ -430,8 +435,8 @@ const activeCount = computed(() => modules.value.filter((m) => m.status !== "arc
   width: 22px;
   height: 22px;
   border-radius: 50%;
-  background: var(--brand-100, #dbe4ff);
-  color: var(--brand-600, #3b82f6);
+  background: var(--brand-100);
+  color: var(--brand-600);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -451,12 +456,12 @@ const activeCount = computed(() => modules.value.filter((m) => m.status !== "arc
 }
 
 .status--active {
-  background: var(--success-50, #e6f9f0);
-  color: var(--success-600, #0c8c4a);
+  background: var(--success-50);
+  color: var(--success-600);
 }
 
 .status--archived {
-  background: var(--text-tertiary-bg, #f0f0f0);
+  background: var(--text-tertiary-bg);
   color: var(--text-tertiary);
 }
 
@@ -480,7 +485,7 @@ const activeCount = computed(() => modules.value.filter((m) => m.status !== "arc
 }
 
 .op-btn:hover:not(:disabled) {
-  background: var(--surface-hover, #f9fafb);
+  background: var(--surface-hover);
   color: var(--text-primary);
 }
 
@@ -490,13 +495,13 @@ const activeCount = computed(() => modules.value.filter((m) => m.status !== "arc
 }
 
 .op-btn--danger {
-  color: var(--danger-500, #ef4444);
-  border-color: var(--danger-200, #fecaca);
+  color: var(--danger-500);
+  border-color: var(--danger-200);
 }
 
 .op-btn--danger:hover:not(:disabled) {
-  background: var(--danger-50, #fef2f2);
-  color: var(--danger-600, #dc2626);
+  background: var(--danger-50);
+  color: var(--danger-600);
 }
 
 /* ---------- delete confirm ---------- */
@@ -564,43 +569,6 @@ const activeCount = computed(() => modules.value.filter((m) => m.status !== "arc
   display: flex;
   gap: 8px;
   justify-content: flex-end;
-}
-
-/* ---------- buttons ---------- */
-.btn {
-  padding: 7px 14px;
-  border-radius: var(--radius-sm);
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  border: 1px solid transparent;
-  transition: background 0.15s, border-color 0.15s, opacity 0.15s;
-  font-family: inherit;
-}
-
-.btn--secondary {
-  background: var(--surface-1);
-  border-color: var(--border-default);
-  color: var(--text-secondary);
-}
-
-.btn--secondary:hover {
-  background: var(--surface-hover, #f9fafb);
-}
-
-.btn--danger {
-  background: var(--danger-500, #ef4444);
-  border-color: var(--danger-500, #ef4444);
-  color: #fff;
-}
-
-.btn--danger:hover:not(:disabled) {
-  background: var(--danger-600, #dc2626);
-}
-
-.btn--danger:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
 }
 
 /* ---------- animations ---------- */

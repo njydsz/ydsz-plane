@@ -94,6 +94,12 @@ const router = createRouter({
       name: "profile",
       component: () => import("@/views/settings/ProfileView.vue"),
     },
+    // God Mode 实例管理（实例级，非工作空间作用域；后端校验实例管理员权限）
+    {
+      path: "/admin",
+      name: "admin-god-mode",
+      component: () => import("@/views/admin/GodModeView.vue"),
+    },
     {
       path: "/",
       component: () => import("@/layouts/WorkspaceLayout.vue"),
@@ -192,6 +198,13 @@ const router = createRouter({
           component: () => import("@/views/workspace/RolesPermissionsView.vue"),
           props: (route) => ({ workspaceId: Number(route.params.workspaceId) }),
         },
+        // 条件授权（ABAC）规则管理
+        {
+          path: ":workspaceId(\\d+)/grant-rules",
+          name: "workspace-grant-rules",
+          component: () => import("@/views/workspace/GrantRulesView.vue"),
+          props: (route) => ({ workspaceId: Number(route.params.workspaceId) }),
+        },
         {
           path: ":workspaceId(\\d+)/dashboard",
           name: "workspace-dashboard",
@@ -236,6 +249,61 @@ const router = createRouter({
             id: Number(route.params.id),
           }),
         },
+        // 工作空间级团队空间列表
+        {
+          path: ":workspaceId(\\d+)/teamspaces",
+          name: "workspace-teamspaces",
+          component: () => import("@/views/workspace/TeamspacesView.vue"),
+          props: (route) => ({ workspaceId: Number(route.params.workspaceId) }),
+        },
+        // 工作空间级团队空间详情
+        {
+          path: ":workspaceId(\\d+)/teamspaces/:id",
+          name: "workspace-teamspace-detail",
+          component: () => import("@/views/workspace/TeamspaceDetailView.vue"),
+          props: (route) => ({
+            workspaceId: Number(route.params.workspaceId),
+            id: Number(route.params.id),
+          }),
+        },
+        // 工作空间级保存视图（跨项目）
+        {
+          path: ":workspaceId(\\d+)/views",
+          name: "workspace-views",
+          component: () => import("@/views/workspace/WorkspaceViewsView.vue"),
+          props: (route) => ({ workspaceId: Number(route.params.workspaceId) }),
+        },
+        // 工作空间级客户列表
+        {
+          path: ":workspaceId(\\d+)/customers",
+          name: "workspace-customers",
+          component: () => import("@/views/workspace/CustomersView.vue"),
+          props: (route) => ({ workspaceId: Number(route.params.workspaceId) }),
+        },
+        // 工作空间级客户详情
+        {
+          path: ":workspaceId(\\d+)/customers/:id",
+          name: "workspace-customer-detail",
+          component: () => import("@/views/workspace/CustomerDetailView.vue"),
+          props: (route) => ({
+            workspaceId: Number(route.params.workspaceId),
+            id: Number(route.params.id),
+          }),
+        },
+        // 工作空间级客户请求
+        {
+          path: ":workspaceId(\\d+)/customer-requests",
+          name: "workspace-customer-requests",
+          component: () => import("@/views/workspace/CustomerRequestsView.vue"),
+          props: (route) => ({ workspaceId: Number(route.params.workspaceId) }),
+        },
+        // OAuth 应用（开发者应用注册与管理，仅 admin）
+        {
+          path: ":workspaceId(\\d+)/oauth-apps",
+          name: "workspace-oauth-apps",
+          component: () => import("@/views/workspace/OAuthAppsView.vue"),
+          props: (route) => ({ workspaceId: Number(route.params.workspaceId) }),
+        },
         // 工作空间级报表跳板页（跨项目完成率/缺陷/迭代对比）
         {
           path: ":workspaceId(\\d+)/analytics",
@@ -248,6 +316,41 @@ const router = createRouter({
           path: ":workspaceId(\\d+)/automation",
           name: "workspace-automation",
           component: () => import("@/views/workspace/WorkspaceAutomationView.vue"),
+          props: (route) => ({ workspaceId: Number(route.params.workspaceId) }),
+        },
+        // Projects-as-Code：YAML 声明式定义项目（校验 / 对比 / 应用 / 导出）
+        {
+          path: ":workspaceId(\\d+)/projects-as-code",
+          name: "workspace-projects-as-code",
+          component: () => import("@/views/workspace/ProjectsAsCodeView.vue"),
+          props: (route) => ({ workspaceId: Number(route.params.workspaceId) }),
+        },
+        // PQL 查询控制台
+        {
+          path: ":workspaceId(\\d+)/pql",
+          name: "workspace-pql",
+          component: () => import("@/views/workspace/PqlConsoleView.vue"),
+          props: (route) => ({ workspaceId: Number(route.params.workspaceId) }),
+        },
+        // 集成中心（Marketplace + 第三方连接器）
+        {
+          path: ":workspaceId(\\d+)/integrations",
+          name: "workspace-integrations",
+          component: () => import("@/views/workspace/IntegrationsView.vue"),
+          props: (route) => ({ workspaceId: Number(route.params.workspaceId) }),
+        },
+        // AI Agent（Plane AI 风格：Agent 管理 + 会话）
+        {
+          path: ":workspaceId(\\d+)/ai-agents",
+          name: "workspace-ai-agents",
+          component: () => import("@/views/workspace/AIAgentsView.vue"),
+          props: (route) => ({ workspaceId: Number(route.params.workspaceId) }),
+        },
+        // AI 记忆（用户 / 项目 / 工作空间级上下文）
+        {
+          path: ":workspaceId(\\d+)/ai-memory",
+          name: "workspace-ai-memory",
+          component: () => import("@/views/workspace/AIMemoryView.vue"),
           props: (route) => ({ workspaceId: Number(route.params.workspaceId) }),
         },
         // 知识库：空间列表
@@ -266,6 +369,36 @@ const router = createRouter({
           path: ":workspaceId(\\d+)/projects",
           name: "projects",
           component: () => import("@/views/project/ProjectListView.vue"),
+        },
+        // 重复工作项规则
+        {
+          path: ":workspaceId(\\d+)/projects/:projectId/recurring-rules",
+          name: "project-recurring-rules",
+          component: () => import("@/views/project/RecurringRulesView.vue"),
+          props: (route) => ({
+            workspaceId: Number(route.params.workspaceId),
+            projectId: Number(route.params.projectId),
+          }),
+        },
+        // 数据导入（CSV / Jira / Linear / Asana）
+        {
+          path: ":workspaceId(\\d+)/projects/:projectId/imports",
+          name: "project-imports",
+          component: () => import("@/views/project/ImporterView.vue"),
+          props: (route) => ({
+            workspaceId: Number(route.params.workspaceId),
+            projectId: Number(route.params.projectId),
+          }),
+        },
+        // 项目里程碑
+        {
+          path: ":workspaceId(\\d+)/projects/:projectId/milestones",
+          name: "project-milestones",
+          component: () => import("@/views/project/MilestonesView.vue"),
+          props: (route) => ({
+            workspaceId: Number(route.params.workspaceId),
+            projectId: Number(route.params.projectId),
+          }),
         },
         // 项目仪表盘
         {
@@ -302,6 +435,36 @@ const router = createRouter({
           path: ":workspaceId(\\d+)/projects/:projectId/state-machine",
           name: "project-state-machine",
           component: () => import("@/views/project/StateMachineConfigView.vue"),
+          props: (route) => ({
+            workspaceId: Number(route.params.workspaceId),
+            projectId: Number(route.params.projectId),
+          }),
+        },
+        // 工作流与审批配置
+        {
+          path: ":workspaceId(\\d+)/projects/:projectId/workflow",
+          name: "project-workflow",
+          component: () => import("@/views/project/WorkflowConfigView.vue"),
+          props: (route) => ({
+            workspaceId: Number(route.params.workspaceId),
+            projectId: Number(route.params.projectId),
+          }),
+        },
+        // 项目状态与更新
+        {
+          path: ":workspaceId(\\d+)/projects/:projectId/state-updates",
+          name: "project-state",
+          component: () => import("@/views/project/ProjectStateView.vue"),
+          props: (route) => ({
+            workspaceId: Number(route.params.workspaceId),
+            projectId: Number(route.params.projectId),
+          }),
+        },
+        // 自定义工作项类型
+        {
+          path: ":workspaceId(\\d+)/projects/:projectId/work-item-types",
+          name: "project-work-item-types",
+          component: () => import("@/views/project/WorkItemTypesView.vue"),
           props: (route) => ({
             workspaceId: Number(route.params.workspaceId),
             projectId: Number(route.params.projectId),

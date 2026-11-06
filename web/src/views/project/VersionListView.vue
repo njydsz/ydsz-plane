@@ -8,8 +8,10 @@ import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
 import { versionApi, type Version, type VersionStatus } from "@/api/services/version";
-import { AppButton, AppBadge, AppEmptyState, AppErrorState, ProgressBar, AppSkeleton } from "@/components";
+import { AppBadge, AppButton, AppEmptyState, AppErrorState, AppPageContainer, AppSkeleton, ProgressBar } from "@/components";
+import { useConfirm } from "@/composables/useConfirm";
 
+const confirm = useConfirm();
 const route = useRoute();
 const router = useRouter();
 
@@ -109,7 +111,7 @@ async function createVersion() {
 }
 
 async function deleteVersion(v: Version) {
-  if (!confirm(`确定删除版本「${v.name}」吗？此操作不可撤销。`)) return;
+  if (!await confirm({ title: "删除版本", message: `确定删除版本「${v.name}」吗？此操作不可撤销。`, confirmText: "删除", variant: "danger" })) return;
   deletingId.value = v.id;
   try {
     const wsId = await resolveWsId();
@@ -148,7 +150,9 @@ onMounted(load);
 </script>
 
 <template>
-  <div class="version-list">
+  
+  <AppPageContainer max="960px">
+    <div class="version-list">
     <!-- Header -->
     <header class="header">
       <div>
@@ -360,12 +364,14 @@ v-if="v.quality" class="card__quality" :class="{
         </div>
       </article>
     </div>
-  </div>
+  
+    </div>
+  </AppPageContainer>
 </template>
 
 <style scoped>
 .version-list {
-  max-width: 960px;
+  
 }
 
 /* ---- header ---- */

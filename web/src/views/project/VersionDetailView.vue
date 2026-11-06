@@ -8,10 +8,12 @@ import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
 import { versionApi, type Version } from "@/api/services/version";
-import { AppBadge, AppButton, ProgressBar, MiniGantt, AppEmptyState, AppLoadingState, AppErrorState } from "@/components";
+import { AppBadge, AppButton, AppEmptyState, AppErrorState, AppLoadingState, AppPageContainer, MiniGantt, ProgressBar } from "@/components";
 import type { GanttSprint } from "@/components/MiniGantt.vue";
 import DefectPanel from "./DefectPanel.vue";
+import { useConfirm } from "@/composables/useConfirm";
 
+const confirm = useConfirm();
 const route = useRoute();
 const router = useRouter();
 
@@ -122,7 +124,7 @@ async function transition(action: "activate" | "archive") {
     if (action === "activate") {
       await versionApi.activateVersion(wsId, projectId.value, versionId.value);
     } else {
-      if (!confirm(`确定要归档版本「${version.value?.name}」吗？`)) return;
+      if (!await confirm({ title: "归档版本", message: `确定要归档版本「${version.value?.name}」吗？`, confirmText: "归档", variant: "danger" })) return;
       await versionApi.archiveVersion(wsId, projectId.value, versionId.value);
     }
     await load();
@@ -227,7 +229,9 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="version-detail">
+  
+  <AppPageContainer max="960px">
+    <div class="version-detail">
     <AppLoadingState v-if="loading" />
     <AppErrorState v-else-if="error" :message="error" @retry="load" />
 
@@ -530,12 +534,15 @@ onMounted(async () => {
         />
       </div>
     </template>
+  
+    </div>
+  </AppPageContainer>
   </div>
-</template>
+
 
 <style scoped>
 .version-detail {
-  max-width: 960px;
+  
 }
 
 /* ---- skeleton ---- */

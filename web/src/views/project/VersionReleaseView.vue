@@ -323,13 +323,14 @@ onMounted(load);
               :disabled="savingChecklist"
               @keydown.enter.prevent="addCheckItem"
             />
-            <button
-              class="btn btn--sm"
+            <AppButton
+              size="sm"
+              :loading="savingChecklist"
               :disabled="!newChecklistLabel.trim() || savingChecklist"
               @click="addCheckItem"
             >
               {{ savingChecklist ? '保存中...' : 'Add Checklist Item' }}
-            </button>
+            </AppButton>
           </div>
 
           <label class="force-toggle">
@@ -476,13 +477,12 @@ onMounted(load);
           >
             <template v-if="!checklistAllDone && !forceChecklist">
               ⚠️ 检查清单有未完成的必做项
-            </template>
-            <template v-if="!qualityPassed">
+                        <template v-if="!qualityPassed">
               ⚠️ 存在未关闭的致命/严重缺陷，质量门禁未通过
-            </template>
+            
             <template v-if="!checklistAllDone && !forceChecklist && !qualityPassed">
               <br />
-            </template>
+            
           </div>
         </section>
       </div>
@@ -528,9 +528,9 @@ onMounted(load);
           {{ releasing ? '发布中…' : '确认发布' }}
         </AppButton>
       </footer>
-    </template>
+    
   </div>
-</template>
+
 
 <style scoped>
 .release-wizard {
@@ -770,37 +770,16 @@ onMounted(load);
   padding: 6px 10px;
   font-size: 13px;
   font-family: inherit;
-  border: 1px solid var(--border-default, #d1d5db);
+  border: 1px solid var(--border-default);
   border-radius: var(--radius-sm, 6px);
-  background: var(--surface-1, #fff);
-  color: var(--text-primary, #1f2937);
+  background: var(--surface-1);
+  color: var(--text-primary);
   outline: none;
 }
 
 .checklist-add__input:focus {
   border-color: var(--brand-500);
   box-shadow: 0 0 0 2px var(--brand-50);
-}
-
-.btn--sm {
-  padding: 6px 12px;
-  font-size: 12px;
-  font-family: inherit;
-  border-radius: var(--radius-sm, 6px);
-  cursor: pointer;
-  border: 1px solid var(--border-default, #d1d5db);
-  background: var(--brand-500);
-  color: #fff;
-  white-space: nowrap;
-}
-
-.btn--sm:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.btn--sm:hover:not(:disabled) {
-  background: var(--brand-600);
 }
 
 .force-toggle {

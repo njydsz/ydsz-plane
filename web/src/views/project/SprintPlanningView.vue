@@ -22,7 +22,7 @@ import {
   type SprintIssueView,
 } from "@/api/services/sprint";
 import { useWorkspaceContext } from "@/composables/useWorkspaceContext";
-import { AppLoadingState, AppErrorState } from "@/components";
+import { AppButton, AppLoadingState, AppErrorState } from "@/components";
 
 /* ------------------------------------------------------------------ */
 /* 路由上下文                                                           */
@@ -264,9 +264,9 @@ function openSprint(sp: Sprint) {
         <span v-if="capacityStats" class="capacity-badge" title="基于历史迭代完成点数的速率建议">
           速率: avg {{ capacityStats.avg }}pt / P50 {{ capacityStats.p50 }}pt
         </span>
-        <button class="btn btn-secondary" @click="router.push(`/${workspaceId}/projects/${projectId}/sprints`)">
+        <AppButton variant="secondary" @click="router.push(`/${workspaceId}/projects/${projectId}/sprints`)">
           返回列表
-        </button>
+        </AppButton>
       </div>
     </header>
 
@@ -415,22 +415,21 @@ function openSprint(sp: Sprint) {
             <div v-if="sprintIssues.length === 0" class="empty">
               拖拽需求/任务/缺陷到此迭代中
             </div>
-          </template>
-        </VueDraggable>
+                  </VueDraggable>
 
         <div v-if="!selectedSprint" class="panel-body">
           <div class="empty">请先选择或创建一个迭代</div>
         </div>
 
         <div v-if="selectedSprint" class="panel-footer">
-          <button class="btn btn-primary" :disabled="saving" @click="openSprint(selectedSprint)">
+          <AppButton :loading="saving" :disabled="saving" @click="openSprint(selectedSprint)">
             查看迭代详情
-          </button>
+          </AppButton>
         </div>
       </section>
     </div>
   </div>
-</template>
+
 
 <style scoped>
 .header {
@@ -531,13 +530,4 @@ function openSprint(sp: Sprint) {
 .stat .num.over { color: var(--danger-500); }
 .stat .label { font-size: 10px; color: var(--text-tertiary); }
 
-.btn {
-  font-size: 13px; font-weight: 500; padding: 6px 14px; border-radius: var(--radius-sm);
-  border: 1px solid var(--border-subtle); cursor: pointer; transition: background 0.15s;
-}
-.btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.btn-primary { background: var(--brand-500); color: #fff; border-color: var(--brand-500); }
-.btn-primary:hover:not(:disabled) { background: var(--brand-600); }
-.btn-secondary { background: var(--surface-2); color: var(--text-primary); }
-.btn-secondary:hover { background: var(--surface-3); }
 </style>

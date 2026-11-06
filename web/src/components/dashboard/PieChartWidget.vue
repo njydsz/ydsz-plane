@@ -82,11 +82,11 @@ function buildOption(): EChartsCoreOption {
 .pie-chart__total-num {
   font-size: 22px;
   font-weight: 600;
-  color: var(--text-primary, #1f2937);
+  color: var(--text-primary);
 }
 
 .pie-chart__total-label {
   font-size: 11px;
-  color: var(--text-tertiary, #9ca3af);
+  color: var(--text-tertiary);
 }
 </style>

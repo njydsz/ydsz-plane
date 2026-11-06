@@ -17,11 +17,13 @@ import { prefs } from "@/lib/prefs";
 import { toast } from "@/lib/toast";
 import IssueFilter from "./IssueFilter.vue";
 import ViewsManager from "./ViewsManager.vue";
-import { AppErrorState, AppEmptyState, InlineEdit, InlineSelectEdit, AppSkeleton } from "@/components";
+import { AppButton, AppErrorState, AppEmptyState, InlineEdit, InlineSelectEdit, AppSkeleton } from "@/components";
 import { type FilterState, filterToListParams } from "@/lib/filter-adapter";
 import ImportDialog from "@/components/ImportDialog.vue";
 import { useTranslation } from "@/composables/useTranslation";
+import { useConfirm } from "@/composables/useConfirm";
 
+const confirm = useConfirm();
 const props = withDefaults(defineProps<{
   /** 固定类型过滤 — 传入后列表仅展示该类型（requirement/task/defect），用户无法覆盖 */
   typeCode?: IssueType;
@@ -477,11 +479,13 @@ async function batchDelete() {
   }
 }
 
-function confirmTransition(toStateId: number) {
+async function confirmTransition(toStateId: number) {
   const count = selectedIds.value.size
-  const ok = window.confirm(
-    `确定要将选中的 ${count} 项工作项流转至该状态？跨状态批量流转将统一调用 update 接口。`
-  )
+  const ok = await confirm({
+    title: "批量流转",
+    message: `确定要将选中的 ${count} 项工作项流转至该状态？跨状态批量流转将统一调用 update 接口。`,
+    confirmText: "确定",
+  })
   if (ok) void batchTransition(toStateId)
 }
 
@@ -655,12 +659,9 @@ const isCurrentPageAllSelected = computed(() => {
       </div>
       <div class="list-view__header-right">
         <div class="view-dropdown">
-          <button
-            class="btn btn--sm btn--view"
-            @click="showViewsDropdown = !showViewsDropdown"
-          >
+          <AppButton size="sm" @click="showViewsDropdown = !showViewsDropdown">
             {{ t('view.header.view') }}
-          </button>
+          </AppButton>
           <div v-if="showViewsDropdown" class="view-dropdown__panel">
             <ViewsManager
               :workspace-id="Number(route.params.workspaceId)"
@@ -685,12 +686,9 @@ const isCurrentPageAllSelected = computed(() => {
             <a :href="exportXlsxUrl" class="export-dropdown__item" download>{{ t('issue.export.xlsx') }}</a>
           </div>
         </div>
-        <button
-          class="btn btn--sm btn--import"
-          @click="showImportDialog = true"
-        >
+        <AppButton size="sm" variant="secondary" @click="showImportDialog = true">
           {{ t('view.header.import') }}
-        </button>
+        </AppButton>
         <div class="view-switcher">
           <router-link
             :to="`/${route.params.workspaceId}/projects/${projectId}/board`"
@@ -724,8 +722,7 @@ const isCurrentPageAllSelected = computed(() => {
         </template>
         <template v-else>
           <strong>{{ $tc('issue.batch.selected', totalSelectedCount) }}</strong>
-        </template>
-      </span>
+              </span>
       <select
 class="batch-select" @change="(e: Event) => {
         const v = Number((e.target as HTMLSelectElement).value)
@@ -746,44 +743,44 @@ class="batch-select" @change="(e: Event) => {
       </select>
 
       <div class="batch-inline-dropdown">
-        <button class="btn btn--sm" :class="{ 'btn--active': showBatchAssign }" @click="showBatchAssign = !showBatchAssign">
+        <AppButton size="sm" :class="{ 'btn--active': showBatchAssign }" @click="showBatchAssign = !showBatchAssign">
           {{ t('issue.batch.assign') }}
-        </button>
+        </AppButton>
         <div v-if="showBatchAssign" class="batch-inline-panel">
           <select v-model="batchAssignId" class="batch-select">
             <option :value="null" disabled>{{ t('view.list.selectMember') }}</option>
             <option v-for="m in members" :key="m.id" :value="m.id">{{ m.display_name || m.email }}</option>
           </select>
-          <button class="btn btn--sm btn--primary" :disabled="batchAssignId == null || batchOperating" @click="batchAssign">
+          <AppButton size="sm" :loading="batchOperating" :disabled="batchAssignId == null || batchOperating" @click="batchAssign">
             {{ batchOperating ? t('view.batch.processing') : t('view.batch.confirmBtn') }}
-          </button>
+          </AppButton>
         </div>
       </div>
 
       <div class="batch-inline-dropdown">
-        <button
-          class="btn btn--sm"
+        <AppButton
+          size="sm"
           :class="{ 'btn--active': showBatchLabel }"
           :disabled="!LABEL_API_AVAILABLE"
           :title="LABEL_API_AVAILABLE ? '' : t('view.list.labelApiUnavailable')"
           @click="showBatchLabel = !showBatchLabel"
         >
           {{ t('issue.batch.labels') }}
-        </button>
+        </AppButton>
         <div v-if="showBatchLabel" class="batch-inline-panel">
           <select v-model="batchLabelId" class="batch-select" :disabled="!LABEL_API_AVAILABLE">
             <option :value="null" disabled>{{ t('view.list.selectLabel') }}</option>
             <option v-for="l in labels" :key="l.id" :value="l.id">{{ l.name }}</option>
           </select>
-          <button class="btn btn--sm btn--primary" :disabled="batchLabelId == null || batchOperating || !LABEL_API_AVAILABLE" @click="batchAddLabel">
+          <AppButton size="sm" :loading="batchOperating" :disabled="batchLabelId == null || batchOperating || !LABEL_API_AVAILABLE" @click="batchAddLabel">
             {{ batchOperating ? t('view.batch.processing') : t('view.batch.confirmBtn') }}
-          </button>
+          </AppButton>
         </div>
       </div>
 
-      <button class="btn btn--sm btn--danger" @click="showDeleteConfirm = true">{{ t('issue.batch.delete') }}</button>
-      <button class="btn btn--sm btn--ghost" @click="clearSelection">{{ t('view.list.clearSelection') }}</button>
-      <button class="btn btn--sm btn--ghost" @click="selectAllMatching">{{ t('view.list.selectAllMatching') }}</button>
+      <AppButton size="sm" variant="danger" @click="showDeleteConfirm = true">{{ t('issue.batch.delete') }}</AppButton>
+      <AppButton size="sm" variant="ghost" @click="clearSelection">{{ t('view.list.clearSelection') }}</AppButton>
+      <AppButton size="sm" variant="ghost" @click="selectAllMatching">{{ t('view.list.selectAllMatching') }}</AppButton>
     </div>
 
     <!-- 列头右键菜单 -->
@@ -891,7 +888,7 @@ class="batch-select" @change="(e: Event) => {
                   <span class="priority-text" :class="`pri-${iss.priority}`">
                     {{ priorityLabel(iss.priority) }}
                   </span>
-                </template>
+                
               </InlineSelectEdit>
             </td>
             <td v-if="visibleColumns.some(c => c.key === 'state')">
@@ -904,11 +901,11 @@ class="batch-select" @change="(e: Event) => {
                 <template #trigger>
                   <span
                     class="state-badge"
-                    :style="{ backgroundColor: stateMap[iss.state_id]?.color ?? '#ccc' }"
+                    :style="{ backgroundColor: stateMap[iss.state_id]?.color ?? 'var(--text-tertiary)' }"
                   >
                     {{ stateMap[iss.state_id]?.name ?? iss.state_id }}
                   </span>
-                </template>
+                
               </InlineSelectEdit>
             </td>
             <td v-if="visibleColumns.some(c => c.key === 'severity')" class="td-severity">
@@ -960,7 +957,7 @@ class="batch-select" @change="(e: Event) => {
 {{ p }}
 </button>
           <span v-else-if="p === 4 || p === totalPages - 3" class="page-ellipsis">...</span>
-        </template>
+        
 
         <button
           class="page-btn"
@@ -980,14 +977,15 @@ class="batch-select" @change="(e: Event) => {
         <h3>{{ t('view.batch.deleteTitle') }}</h3>
         <p>{{ $tc('view.batch.deleteConfirm', selectedIds.size) }}</p>
         <div class="modal-actions">
-          <button class="btn btn--ghost" @click="showDeleteConfirm = false">{{ t('common.cancel') }}</button>
-          <button
-            class="btn btn--danger"
+          <AppButton variant="ghost" @click="showDeleteConfirm = false">{{ t('common.cancel') }}</AppButton>
+          <AppButton
+            variant="danger"
+            :loading="batchDeleting"
             :disabled="batchDeleting"
             @click="batchDelete"
           >
             {{ batchDeleting ? t('view.batch.deleting') : t('view.batch.deleteConfirmBtn') }}
-          </button>
+          </AppButton>
         </div>
       </div>
     </div>
@@ -997,7 +995,7 @@ class="batch-select" @change="(e: Event) => {
       <div class="column-config-modal">
         <div class="column-config-modal__header">
           <h3>{{ t('view.list.columnTitle') }}</h3>
-          <button class="btn btn--ghost btn--sm" @click="showColumnConfigModal = false">×</button>
+          <AppButton variant="ghost" size="sm" @click="showColumnConfigModal = false">×</AppButton>
         </div>
         <p class="column-config-modal__hint">{{ t('view.list.columnHint') }}</p>
         <ul class="column-config-list">
@@ -1023,10 +1021,10 @@ class="batch-select" @change="(e: Event) => {
           </li>
         </ul>
         <div class="column-config-modal__actions">
-          <button class="btn btn--ghost" @click="showColumnConfigModal = false">{{ t('common.cancel') }}</button>
-          <button class="btn btn--primary" :disabled="savingColumnConfig" @click="applyColumnConfig">
+          <AppButton variant="ghost" @click="showColumnConfigModal = false">{{ t('common.cancel') }}</AppButton>
+          <AppButton :loading="savingColumnConfig" :disabled="savingColumnConfig" @click="applyColumnConfig">
             {{ savingColumnConfig ? t('common.loading') : t('view.list.saveConfig') }}
-          </button>
+          </AppButton>
         </div>
       </div>
     </div>
@@ -1040,7 +1038,7 @@ class="batch-select" @change="(e: Event) => {
       @imported="onImported"
     />
   </div>
-</template>
+
 
 <style scoped>
 .list-view__header {
@@ -1113,21 +1111,11 @@ class="batch-select" @change="(e: Event) => {
   box-shadow: var(--shadow-popover);
 }
 
-.btn--sm { padding: 4px 10px; font-size: 12px; font-family: inherit; border-radius: var(--radius-sm); cursor: pointer; border: 1px solid var(--border-default); background: var(--surface-1); color: var(--text-primary); }
-.btn--danger { background: var(--danger-500); color: var(--text-on-brand); border: none; }
-.btn--danger:hover { background: var(--danger-600); }
-.btn--ghost { background: none; color: var(--text-secondary); border-color: transparent; }
-.btn--ghost:hover { background: var(--surface-3); }
-.btn--primary { background: var(--brand-500); color: var(--text-on-brand); border-color: var(--brand-500); }
-.btn--primary:hover:not(:disabled) { background: var(--brand-600); }
-.btn--primary:disabled { opacity: 0.5; cursor: not-allowed; }
-.btn--active { background: var(--brand-100); color: var(--brand-600); border-color: var(--brand-200); }
-.btn--export { background: var(--success-500); color: var(--text-on-brand); text-decoration: none; border: none; font-size: 12px; }
+/* 导出按钮（success 绿，AppButton 无对应 variant，保留原生样式） */
+.btn--export { padding: 4px 10px; font-size: 12px; font-family: inherit; border-radius: var(--radius-sm); cursor: pointer; background: var(--success-500); color: var(--text-on-brand); text-decoration: none; border: none; }
 .btn--export:hover { background: var(--success-600); }
-.btn--import { background: var(--surface-1); color: var(--text-primary); border: 1px solid var(--border-default); font-size: 12px; }
-.btn--import:hover { background: var(--surface-3); }
-.btn--view { background: var(--brand-500); color: var(--text-on-brand); text-decoration: none; border: none; font-size: 12px; }
-.btn--view:hover { background: var(--brand-600); }
+/* AppButton 上用于批量指派/标签下拉的激活态 */
+.btn--active { background: var(--brand-100); color: var(--brand-600); border-color: var(--brand-200); }
 
 /* 视图下拉面板 */
 .view-dropdown {

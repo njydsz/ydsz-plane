@@ -682,6 +682,7 @@ func (s *Service) ListShares(ctx context.Context, wsID, pageID int64) ([]PageSha
 		}
 		if passwordHash.Valid {
 			sh.PasswordHash = passwordHash.String
+			sh.HasPassword = passwordHash.String != ""
 		}
 		items = append(items, sh)
 	}

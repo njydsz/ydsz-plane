@@ -7,7 +7,7 @@
 import { onMounted, ref } from "vue";
 
 import { issueApi, type IssueRelation } from "@/api/services/issue";
-import { AppLoadingState, AppErrorState } from "@/components";
+import { AppButton, AppLoadingState, AppErrorState, DynamicIcon } from "@/components";
 
 const props = defineProps<{
   workspaceId: number;
@@ -85,9 +85,9 @@ onMounted(() => {
   <div class="relation-panel">
     <h3>关联关系</h3>
 
-    <button v-if="!showForm" class="btn btn--outline" @click="showForm = true">
-      ＋ 添加关联
-    </button>
+    <AppButton v-if="!showForm" size="sm" class="btn--outline" @click="showForm = true">
+      <DynamicIcon name="Plus" :size="14" /> 添加关联
+    </AppButton>
 
     <!-- 添加关联表单 -->
     <div v-if="showForm" class="relation-form">
@@ -107,10 +107,10 @@ onMounted(() => {
         </select>
       </div>
       <div class="relation-form__actions">
-        <button class="btn btn--sm" :disabled="submitting" @click="showForm = false">取消</button>
-        <button class="btn btn--sm btn--primary" :disabled="!targetIssueId || submitting" @click="createRel">
+        <AppButton size="sm" variant="secondary" :disabled="submitting" @click="showForm = false">取消</AppButton>
+        <AppButton size="sm" :loading="submitting" :disabled="!targetIssueId || submitting" @click="createRel">
           {{ submitting ? "添加中..." : "确认" }}
-        </button>
+        </AppButton>
       </div>
     </div>
 
@@ -129,7 +129,7 @@ onMounted(() => {
             #{{ rel.source_issue_id === props.issueId ? rel.target_issue_id : rel.source_issue_id }}
           </span>
         </div>
-        <button class="relation-item__remove" title="移除关联" @click="removeRel(rel.id)">✕</button>
+        <button class="relation-item__remove" title="移除关联" @click="removeRel(rel.id)"><DynamicIcon name="X" :size="14" /></button>
       </div>
     </div>
     <div v-else-if="!showForm" class="text-muted">暂无关联关系</div>
@@ -156,53 +156,19 @@ h3 {
   margin-bottom: 8px;
 }
 
-/* Button */
+/* 虚线 outline 风格（添加关联入口），AppButton 无对应 variant，保留辅助类 */
 .btn--outline {
-  border: 1px dashed var(--border-strong);
-  background: none;
-  color: var(--text-tertiary);
+  border: 1px dashed var(--border-strong) !important;
+  background: none !important;
+  color: var(--text-tertiary) !important;
   font-size: 12px;
-  padding: 6px 10px;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  font-family: inherit;
   width: 100%;
   text-align: center;
 }
 
 .btn--outline:hover {
-  border-color: var(--brand-500);
-  color: var(--brand-500);
-}
-
-.btn--sm {
-  padding: 4px 10px;
-  font-size: 12px;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  border: 1px solid var(--border-default);
-  background: var(--surface-1);
-  color: var(--text-secondary);
-  font-family: inherit;
-}
-
-.btn--sm:hover:not(:disabled) {
-  background: var(--surface-3);
-}
-
-.btn--primary {
-  background: var(--brand-500);
-  color: #fff;
-  border-color: var(--brand-500);
-}
-
-.btn--primary:hover:not(:disabled) {
-  background: var(--brand-600);
-}
-
-.btn--sm:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+  border-color: var(--brand-500) !important;
+  color: var(--brand-500) !important;
 }
 
 /* Form */

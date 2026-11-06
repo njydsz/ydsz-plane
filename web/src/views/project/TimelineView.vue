@@ -51,7 +51,7 @@ use([
 import { issueApi, type Issue, type State } from "@/api/services/issue";
 import { ApiError } from "@/api/client";
 import { useWorkspaceStore } from "@/stores/workspace";
-import { AppErrorState, AppEmptyState, AppSkeleton } from "@/components";
+import { AppButton, AppErrorState, AppEmptyState, AppSkeleton } from "@/components";
 import { toast } from "@/lib/toast";
 
 // --- Route ---
@@ -200,15 +200,15 @@ function barColor(issue: Issue): string {
   // 回退：按优先级色
   switch (issue.priority) {
     case "urgent":
-      return "#dc2626";
+      return "var(--danger-500)";
     case "high":
-      return "#ea580c";
+      return "var(--warning-500)";
     case "medium":
-      return "#d97706";
+      return "var(--warning-500)";
     case "low":
-      return "#65a30d";
+      return "var(--success-500)";
     default:
-      return "#6b7280";
+      return "var(--text-secondary)";
   }
 }
 
@@ -260,12 +260,12 @@ function buildOption(): EChartsCoreOption {
       max: zoomHi,
       axisLabel: {
         fontSize: 11,
-        color: "#6b7280",
+        color: "var(--text-secondary)",
         formatter: (val: number) => dayjs(val).format("MM-DD"),
       },
       splitLine: {
         show: true,
-        lineStyle: { color: "#f3f4f6", type: "dashed" },
+        lineStyle: { color: "var(--surface-2)", type: "dashed" },
       },
     },
     yAxis: {
@@ -276,7 +276,7 @@ function buildOption(): EChartsCoreOption {
         width: 230,
         overflow: "truncate",
         fontSize: 12,
-        color: "#374151",
+        color: "var(--text-primary)",
         formatter: (v: string) => v.length > 32 ? v.slice(0, 32) + "…" : v,
       },
       axisTick: { show: false },
@@ -295,7 +295,7 @@ function buildOption(): EChartsCoreOption {
                 return i && i.name.length <= 12 ? i.name : "";
               },
               fontSize: 10,
-              color: "#fff",
+              color: "var(--text-on-color)",
             }
           : undefined,
         renderItem(params: any, api: any) {
@@ -496,9 +496,9 @@ const uniqueAssignees = computed(() => {
         标注
       </label>
 
-      <button class="btn-refresh" :disabled="loading" @click="loadData">
+      <AppButton size="sm" variant="secondary" :loading="loading" :disabled="loading" @click="loadData">
         {{ loading ? "加载中…" : "刷新" }}
-      </button>
+      </AppButton>
     </div>
 
     <!-- 加载 / 错误 / 空 -->
@@ -523,14 +523,12 @@ const uniqueAssignees = computed(() => {
       提示: ↑↓ 导航 · Enter 打开详情 · 滚轮缩放 · 拖拽平移
     </div>
   </div>
-</template>
-
 <style scoped>
 .timeline-view {
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: var(--surface-1, #fff);
+  background: var(--surface-1);
 }
 
 /* --- Header --- */
@@ -546,12 +544,12 @@ const uniqueAssignees = computed(() => {
   font-size: 22px;
   font-weight: 600;
   margin: 0;
-  color: var(--text-primary, #111827);
+  color: var(--text-primary);
 }
 
 .page-subtitle {
   font-size: 13px;
-  color: var(--text-tertiary, #6b7280);
+  color: var(--text-tertiary);
   margin: 4px 0 0;
 }
 
@@ -563,7 +561,7 @@ const uniqueAssignees = computed(() => {
 
 .range-tabs {
   display: flex;
-  background: var(--surface-2, #f3f4f6);
+  background: var(--surface-2);
   border-radius: 6px;
   padding: 2px;
 }
@@ -573,15 +571,15 @@ const uniqueAssignees = computed(() => {
   font-size: 13px;
   border: none;
   background: transparent;
-  color: var(--text-secondary, #6b7280);
+  color: var(--text-secondary);
   cursor: pointer;
   border-radius: 4px;
   transition: all 0.15s;
 }
 
 .range-tab.active {
-  background: var(--surface-1, #fff);
-  color: var(--text-primary, #111827);
+  background: var(--surface-1);
+  color: var(--text-primary);
   font-weight: 500;
 }
 
@@ -591,8 +589,8 @@ const uniqueAssignees = computed(() => {
   align-items: center;
   gap: 16px;
   padding: 12px 24px;
-  border-bottom: 1px solid var(--border, #e5e7eb);
-  background: var(--surface-2, #f9fafb);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
   flex-shrink: 0;
 }
 
@@ -605,22 +603,22 @@ const uniqueAssignees = computed(() => {
 .filter-label {
   font-size: 12px;
   font-weight: 500;
-  color: var(--text-secondary, #6b7280);
+  color: var(--text-secondary);
 }
 
 .filter-select {
   padding: 4px 8px;
   font-size: 12px;
   font-family: inherit;
-  border: 1px solid var(--border, #e5e7eb);
+  border: 1px solid var(--border);
   border-radius: 5px;
-  background: var(--surface-1, #fff);
+  background: var(--surface-1);
   color: var(--text-primary);
   cursor: pointer;
 }
 
 .filter-select:focus {
-  border-color: var(--brand-500, #3b82f6);
+  border-color: var(--brand-500);
   outline: none;
 }
 
@@ -629,34 +627,12 @@ const uniqueAssignees = computed(() => {
   align-items: center;
   gap: 4px;
   font-size: 12px;
-  color: var(--text-secondary, #6b7280);
+  color: var(--text-secondary);
   cursor: pointer;
 }
 
 .toggle-label input {
-  accent-color: var(--brand-500, #3b82f6);
-}
-
-.btn-refresh {
-  margin-left: auto;
-  padding: 4px 12px;
-  font-size: 12px;
-  font-family: inherit;
-  border: 1px solid var(--border, #e5e7eb);
-  border-radius: 5px;
-  background: var(--surface-1, #fff);
-  color: var(--text-primary);
-  cursor: pointer;
-  transition: background 0.1s;
-}
-
-.btn-refresh:hover:not(:disabled) {
-  background: var(--surface-2, #f3f4f6);
-}
-
-.btn-refresh:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+  accent-color: var(--brand-500);
 }
 
 /* --- Chart --- */
@@ -676,9 +652,9 @@ const uniqueAssignees = computed(() => {
 .footer-hint {
   padding: 6px 24px;
   font-size: 11px;
-  color: var(--text-tertiary, #9ca3af);
-  border-top: 1px solid var(--border, #e5e7eb);
-  background: var(--surface-2, #f9fafb);
+  color: var(--text-tertiary);
+  border-top: 1px solid var(--border);
+  background: var(--surface-2);
   opacity: 0.7;
   flex-shrink: 0;
 }

@@ -250,8 +250,8 @@ func (h *CachedHandler) ListSnapshots(c *gin.Context) {
 	}
 
 	// 直查 DB
-	query := `SELECT metric, value, dimensions, snapshot_date FROM metric_snapshots
-			  WHERE workspace_id = $1 AND project_id = $2`
+	query := `SELECT metric, value, metadata AS dimensions, snapshot_date FROM metric_snapshots
+				  WHERE workspace_id = $1 AND project_id = $2`
 	args := []any{wsID, projectID}
 	if metric != "" {
 		query += ` AND metric = $3`
@@ -278,7 +278,7 @@ func (h *CachedHandler) ListSnapshots(c *gin.Context) {
 		results = append(results, map[string]any{
 			"metric":        m,
 			"value":         v,
-			"dims":          dims,
+			"dimensions":    dims,
 			"snapshot_date": d,
 		})
 	}

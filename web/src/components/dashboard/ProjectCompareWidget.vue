@@ -88,7 +88,7 @@ const chartOption = computed<EChartsCoreOption>(() => {
         name: "需求完成率",
         type: "bar",
         barWidth: "30%",
-        itemStyle: { color: "var(--success-500, #10b981)", borderRadius: [3, 3, 0, 0] },
+        itemStyle: { color: "var(--success-500)", borderRadius: [3, 3, 0, 0] },
         data: rows.map((r) => r.completion_rate),
       },
       {
@@ -96,7 +96,7 @@ const chartOption = computed<EChartsCoreOption>(() => {
         type: "bar",
         yAxisIndex: 1,
         barWidth: "30%",
-        itemStyle: { color: "var(--danger-400, #f87171)", borderRadius: [3, 3, 0, 0] },
+        itemStyle: { color: "var(--danger-400)", borderRadius: [3, 3, 0, 0] },
         data: rows.map((r) => r.defect_count),
       },
     ],
@@ -125,10 +125,10 @@ onMounted(load);
   justify-content: center;
   height: 100%;
   font-size: 13px;
-  color: var(--text-tertiary, #9ca3af);
+  color: var(--text-tertiary);
 }
 
 .project-compare__hint--error {
-  color: var(--danger-500, #dc2f2f);
+  color: var(--danger-500);
 }
 </style>

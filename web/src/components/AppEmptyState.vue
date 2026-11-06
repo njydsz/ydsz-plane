@@ -197,163 +197,163 @@ const illustrationPx = computed(() => sizeMap[props.illustrationSize])
     >
       <!-- Issues: 卡片 + 勾选 -->
       <g v-if="scenario === 'issues'">
-        <rect x="14" y="20" width="68" height="56" rx="8" fill="var(--neutral-200, #e5e7eb)" />
-        <rect x="22" y="28" width="28" height="4" rx="2" fill="var(--neutral-600, #9ca3af)" opacity="0.7" />
-        <rect x="22" y="38" width="40" height="3" rx="1.5" fill="var(--neutral-500, #d1d5db)" opacity="0.5" />
-        <rect x="22" y="46" width="34" height="3" rx="1.5" fill="var(--neutral-500, #d1d5db)" opacity="0.5" />
-        <rect x="22" y="58" width="16" height="8" rx="2" fill="var(--brand-default, #3b82f6)" opacity="0.15" />
-        <circle cx="72" cy="22" r="14" fill="var(--brand-default, #3b82f6)" />
+        <rect x="14" y="20" width="68" height="56" rx="8" fill="var(--neutral-200)" />
+        <rect x="22" y="28" width="28" height="4" rx="2" fill="var(--neutral-600)" opacity="0.7" />
+        <rect x="22" y="38" width="40" height="3" rx="1.5" fill="var(--neutral-500)" opacity="0.5" />
+        <rect x="22" y="46" width="34" height="3" rx="1.5" fill="var(--neutral-500)" opacity="0.5" />
+        <rect x="22" y="58" width="16" height="8" rx="2" fill="var(--brand-default)" opacity="0.15" />
+        <circle cx="72" cy="22" r="14" fill="var(--brand-default)" />
         <path d="M66 22l4 4 8-8" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
       </g>
 
       <!-- Projects: 文件夹 -->
       <g v-else-if="scenario === 'projects'">
-        <path d="M16 28a4 4 0 014-4h16l6 6h24a4 4 0 014 4v36a4 4 0 01-4 4H20a4 4 0 01-4-4V28z" fill="var(--brand-300, #93c5fd)" opacity="0.3" />
-        <path d="M16 36h64a4 4 0 014 4v28a4 4 0 01-4 4H16V36z" fill="var(--neutral-200, #e5e7eb)" />
-        <rect x="22" y="46" width="18" height="4" rx="2" fill="var(--neutral-600, #9ca3af)" opacity="0.6" />
-        <rect x="22" y="54" width="30" height="3" rx="1.5" fill="var(--neutral-500, #d1d5db)" opacity="0.4" />
+        <path d="M16 28a4 4 0 014-4h16l6 6h24a4 4 0 014 4v36a4 4 0 01-4 4H20a4 4 0 01-4-4V28z" fill="var(--brand-300)" opacity="0.3" />
+        <path d="M16 36h64a4 4 0 014 4v28a4 4 0 01-4 4H16V36z" fill="var(--neutral-200)" />
+        <rect x="22" y="46" width="18" height="4" rx="2" fill="var(--neutral-600)" opacity="0.6" />
+        <rect x="22" y="54" width="30" height="3" rx="1.5" fill="var(--neutral-500)" opacity="0.4" />
       </g>
 
       <!-- Sprints: 火山/冲刺 -->
       <g v-else-if="scenario === 'sprints'">
-        <circle cx="48" cy="56" r="28" fill="var(--neutral-200, #e5e7eb)" />
-        <path d="M32 56l8-16 8 12 6-8 6 8 8-12v24H32z" fill="var(--brand-default, #3b82f6)" opacity="0.3" />
-        <circle cx="68" cy="28" r="12" fill="var(--warning-300, #fcd34d)" opacity="0.4" />
+        <circle cx="48" cy="56" r="28" fill="var(--neutral-200)" />
+        <path d="M32 56l8-16 8 12 6-8 6 8 8-12v24H32z" fill="var(--brand-default)" opacity="0.3" />
+        <circle cx="68" cy="28" r="12" fill="var(--warning-300)" opacity="0.4" />
         <path d="M65 28l3 3 6-6" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
       </g>
 
       <!-- Modules: 积木/模块 -->
       <g v-else-if="scenario === 'modules'">
-        <rect x="16" y="40" width="24" height="24" rx="4" fill="var(--brand-200, #bfdbfe)" />
-        <rect x="44" y="40" width="24" height="24" rx="4" fill="var(--success-200, #bbf7d0)" />
-        <rect x="30" y="20" width="24" height="24" rx="4" fill="var(--warning-200, #fde68a)" />
-        <rect x="44" y="56" width="36" height="24" rx="4" fill="var(--neutral-200, #e5e7eb)" opacity="0.6" />
+        <rect x="16" y="40" width="24" height="24" rx="4" fill="var(--brand-200)" />
+        <rect x="44" y="40" width="24" height="24" rx="4" fill="var(--success-200)" />
+        <rect x="30" y="20" width="24" height="24" rx="4" fill="var(--warning-200)" />
+        <rect x="44" y="56" width="36" height="24" rx="4" fill="var(--neutral-200)" opacity="0.6" />
       </g>
 
       <!-- Search: 放大镜 -->
       <g v-else-if="scenario === 'search'">
-        <circle cx="44" cy="44" r="20" stroke="var(--neutral-400, #9ca3af)" stroke-width="4" fill="none" />
-        <path d="M58 58l16 16" stroke="var(--neutral-400, #9ca3af)" stroke-width="4" stroke-linecap="round" />
-        <circle cx="44" cy="44" r="8" fill="var(--neutral-200, #e5e7eb)" />
+        <circle cx="44" cy="44" r="20" stroke="var(--neutral-400)" stroke-width="4" fill="none" />
+        <path d="M58 58l16 16" stroke="var(--neutral-400)" stroke-width="4" stroke-linecap="round" />
+        <circle cx="44" cy="44" r="8" fill="var(--neutral-200)" />
       </g>
 
       <!-- Inbox: 收件箱 -->
       <g v-else-if="scenario === 'inbox'">
-        <rect x="16" y="32" width="64" height="40" rx="6" fill="var(--neutral-200, #e5e7eb)" />
-        <path d="M16 32l32 20 32-20" stroke="var(--neutral-400, #9ca3af)" stroke-width="2.5" fill="none" />
-        <path d="M32 20h12l8 12H24z" fill="var(--brand-200, #bfdbfe)" />
+        <rect x="16" y="32" width="64" height="40" rx="6" fill="var(--neutral-200)" />
+        <path d="M16 32l32 20 32-20" stroke="var(--neutral-400)" stroke-width="2.5" fill="none" />
+        <path d="M32 20h12l8 12H24z" fill="var(--brand-200)" />
       </g>
 
       <!-- Notifications: 铃铛 -->
       <g v-else-if="scenario === 'notifications'">
-        <path d="M48 16c-12 0-20 8-20 22v8l-6 8h52l-6-8v-8c0-14-8-22-20-22z" fill="var(--neutral-200, #e5e7eb)" />
-        <rect x="44" y="10" width="8" height="12" rx="4" fill="var(--brand-default, #3b82f6)" opacity="0.6" />
-        <ellipse cx="48" cy="76" rx="10" ry="4" fill="var(--neutral-300, #d1d5db)" />
+        <path d="M48 16c-12 0-20 8-20 22v8l-6 8h52l-6-8v-8c0-14-8-22-20-22z" fill="var(--neutral-200)" />
+        <rect x="44" y="10" width="8" height="12" rx="4" fill="var(--brand-default)" opacity="0.6" />
+        <ellipse cx="48" cy="76" rx="10" ry="4" fill="var(--neutral-300)" />
       </g>
 
       <!-- Labels: 标签 -->
       <g v-else-if="scenario === 'labels'">
-        <path d="M20 28l20-12 32 12v32l-32 16-20-16z" fill="var(--neutral-200, #e5e7eb)" />
-        <circle cx="36" cy="44" r="6" fill="var(--brand-default, #3b82f6)" opacity="0.5" />
+        <path d="M20 28l20-12 32 12v32l-32 16-20-16z" fill="var(--neutral-200)" />
+        <circle cx="36" cy="44" r="6" fill="var(--brand-default)" opacity="0.5" />
       </g>
 
       <!-- Members: 人群 -->
       <g v-else-if="scenario === 'members'">
-        <circle cx="36" cy="32" r="10" fill="var(--brand-200, #bfdbfe)" />
-        <circle cx="60" cy="32" r="10" fill="var(--success-200, #bbf7d0)" />
-        <circle cx="48" cy="48" r="10" fill="var(--warning-200, #fde68a)" />
-        <path d="M20 72c0-10 8-18 18-18s18 8 18 18" stroke="var(--neutral-300, #d1d5db)" stroke-width="3" fill="none" />
-        <path d="M52 72c0-10 8-18 18-18s18 8 18 18" stroke="var(--neutral-300, #d1d5db)" stroke-width="3" fill="none" />
+        <circle cx="36" cy="32" r="10" fill="var(--brand-200)" />
+        <circle cx="60" cy="32" r="10" fill="var(--success-200)" />
+        <circle cx="48" cy="48" r="10" fill="var(--warning-200)" />
+        <path d="M20 72c0-10 8-18 18-18s18 8 18 18" stroke="var(--neutral-300)" stroke-width="3" fill="none" />
+        <path d="M52 72c0-10 8-18 18-18s18 8 18 18" stroke="var(--neutral-300)" stroke-width="3" fill="none" />
       </g>
 
       <!-- Analytics: 图表 -->
       <g v-else-if="scenario === 'analytics'">
-        <rect x="20" y="56" width="10" height="20" rx="2" fill="var(--brand-default, #3b82f6)" opacity="0.6" />
-        <rect x="36" y="44" width="10" height="32" rx="2" fill="var(--brand-default, #3b82f6)" opacity="0.4" />
-        <rect x="52" y="34" width="10" height="42" rx="2" fill="var(--brand-default, #3b82f6)" opacity="0.7" />
-        <rect x="68" y="48" width="10" height="28" rx="2" fill="var(--brand-default, #3b82f6)" opacity="0.5" />
+        <rect x="20" y="56" width="10" height="20" rx="2" fill="var(--brand-default)" opacity="0.6" />
+        <rect x="36" y="44" width="10" height="32" rx="2" fill="var(--brand-default)" opacity="0.4" />
+        <rect x="52" y="34" width="10" height="42" rx="2" fill="var(--brand-default)" opacity="0.7" />
+        <rect x="68" y="48" width="10" height="28" rx="2" fill="var(--brand-default)" opacity="0.5" />
       </g>
 
       <!-- Views: 视图/网格 -->
       <g v-else-if="scenario === 'views'">
-        <rect x="16" y="20" width="28" height="24" rx="4" fill="var(--neutral-200, #e5e7eb)" />
-        <rect x="52" y="20" width="28" height="24" rx="4" fill="var(--neutral-200, #e5e7eb)" />
-        <rect x="16" y="52" width="28" height="24" rx="4" fill="var(--brand-200, #bfdbfe)" />
-        <rect x="52" y="52" width="28" height="24" rx="4" fill="var(--neutral-200, #e5e7eb)" />
+        <rect x="16" y="20" width="28" height="24" rx="4" fill="var(--neutral-200)" />
+        <rect x="52" y="20" width="28" height="24" rx="4" fill="var(--neutral-200)" />
+        <rect x="16" y="52" width="28" height="24" rx="4" fill="var(--brand-200)" />
+        <rect x="52" y="52" width="28" height="24" rx="4" fill="var(--neutral-200)" />
       </g>
 
       <!-- API Token: 钥匙 -->
       <g v-else-if="scenario === 'api-token'">
-        <circle cx="36" cy="44" r="14" stroke="var(--neutral-400, #9ca3af)" stroke-width="4" fill="none" />
-        <path d="M46 54l30 30" stroke="var(--neutral-400, #9ca3af)" stroke-width="4" stroke-linecap="round" />
-        <path d="M70 70l-6 6M76 76l-6 6" stroke="var(--neutral-400, #9ca3af)" stroke-width="3" stroke-linecap="round" />
+        <circle cx="36" cy="44" r="14" stroke="var(--neutral-400)" stroke-width="4" fill="none" />
+        <path d="M46 54l30 30" stroke="var(--neutral-400)" stroke-width="4" stroke-linecap="round" />
+        <path d="M70 70l-6 6M76 76l-6 6" stroke="var(--neutral-400)" stroke-width="3" stroke-linecap="round" />
       </g>
 
       <!-- Webhooks: 钩子/链接 -->
       <g v-else-if="scenario === 'webhooks'">
-        <rect x="16" y="36" width="28" height="24" rx="4" fill="var(--neutral-200, #e5e7eb)" />
-        <rect x="52" y="36" width="28" height="24" rx="4" fill="var(--neutral-200, #e5e7eb)" />
-        <path d="M44 48h8" stroke="var(--brand-default, #3b82f6)" stroke-width="3" stroke-linecap="round" stroke-dasharray="2 3" />
-        <circle cx="44" cy="48" r="4" fill="var(--brand-default, #3b82f6)" opacity="0.4" />
-        <circle cx="52" cy="48" r="4" fill="var(--brand-default, #3b82f6)" opacity="0.4" />
+        <rect x="16" y="36" width="28" height="24" rx="4" fill="var(--neutral-200)" />
+        <rect x="52" y="36" width="28" height="24" rx="4" fill="var(--neutral-200)" />
+        <path d="M44 48h8" stroke="var(--brand-default)" stroke-width="3" stroke-linecap="round" stroke-dasharray="2 3" />
+        <circle cx="44" cy="48" r="4" fill="var(--brand-default)" opacity="0.4" />
+        <circle cx="52" cy="48" r="4" fill="var(--brand-default)" opacity="0.4" />
       </g>
 
       <!-- Gantt: 时间轴 -->
       <g v-else-if="scenario === 'gantt'">
-        <rect x="12" y="24" width="72" height="8" rx="4" fill="var(--brand-default, #3b82f6)" opacity="0.7" />
-        <rect x="12" y="40" width="48" height="8" rx="4" fill="var(--brand-default, #3b82f6)" opacity="0.4" />
-        <rect x="12" y="56" width="60" height="8" rx="4" fill="var(--success-default, #10b981)" opacity="0.5" />
-        <rect x="12" y="72" width="32" height="8" rx="4" fill="var(--warning-default, #f59e0b)" opacity="0.4" />
-        <line x1="12" y1="18" x2="12" y2="84" stroke="var(--neutral-300, #d1d5db)" stroke-width="1.5" />
+        <rect x="12" y="24" width="72" height="8" rx="4" fill="var(--brand-default)" opacity="0.7" />
+        <rect x="12" y="40" width="48" height="8" rx="4" fill="var(--brand-default)" opacity="0.4" />
+        <rect x="12" y="56" width="60" height="8" rx="4" fill="var(--success-default)" opacity="0.5" />
+        <rect x="12" y="72" width="32" height="8" rx="4" fill="var(--warning-default)" opacity="0.4" />
+        <line x1="12" y1="18" x2="12" y2="84" stroke="var(--neutral-300)" stroke-width="1.5" />
       </g>
 
       <!-- Calendar: 日历 -->
       <g v-else-if="scenario === 'calendar'">
-        <rect x="18" y="20" width="60" height="56" rx="6" fill="var(--neutral-200, #e5e7eb)" />
-        <rect x="18" y="20" width="60" height="16" rx="6" fill="var(--brand-default, #3b82f6)" opacity="0.6" />
-        <circle cx="32" cy="50" r="4" fill="var(--neutral-300, #d1d5db)" />
-        <circle cx="48" cy="50" r="4" fill="var(--neutral-300, #d1d5db)" />
-        <circle cx="64" cy="50" r="4" fill="var(--neutral-300, #d1d5db)" />
-        <circle cx="40" cy="64" r="4" fill="var(--neutral-300, #d1d5db)" />
-        <circle cx="56" cy="64" r="4" fill="var(--brand-300, #93c5fd)" />
+        <rect x="18" y="20" width="60" height="56" rx="6" fill="var(--neutral-200)" />
+        <rect x="18" y="20" width="60" height="16" rx="6" fill="var(--brand-default)" opacity="0.6" />
+        <circle cx="32" cy="50" r="4" fill="var(--neutral-300)" />
+        <circle cx="48" cy="50" r="4" fill="var(--neutral-300)" />
+        <circle cx="64" cy="50" r="4" fill="var(--neutral-300)" />
+        <circle cx="40" cy="64" r="4" fill="var(--neutral-300)" />
+        <circle cx="56" cy="64" r="4" fill="var(--brand-300)" />
       </g>
 
       <!-- Pages: 文档/书 -->
       <g v-else-if="scenario === 'pages'">
-        <path d="M24 20h24l8 8v44a4 4 0 01-4 4H24a4 4 0 01-4-4V24a4 4 0 014-4z" fill="var(--neutral-200, #e5e7eb)" />
-        <path d="M48 20v8h8" fill="var(--brand-200, #bfdbfe)" />
-        <rect x="28" y="36" width="24" height="3" rx="1.5" fill="var(--neutral-500, #9ca3af)" opacity="0.6" />
-        <rect x="28" y="44" width="18" height="2" rx="1" fill="var(--neutral-400, #d1d5db)" opacity="0.4" />
-        <rect x="28" y="50" width="22" height="2" rx="1" fill="var(--neutral-400, #d1d5db)" opacity="0.4" />
+        <path d="M24 20h24l8 8v44a4 4 0 01-4 4H24a4 4 0 01-4-4V24a4 4 0 014-4z" fill="var(--neutral-200)" />
+        <path d="M48 20v8h8" fill="var(--brand-200)" />
+        <rect x="28" y="36" width="24" height="3" rx="1.5" fill="var(--neutral-500)" opacity="0.6" />
+        <rect x="28" y="44" width="18" height="2" rx="1" fill="var(--neutral-400)" opacity="0.4" />
+        <rect x="28" y="50" width="22" height="2" rx="1" fill="var(--neutral-400)" opacity="0.4" />
       </g>
 
       <!-- Cycles: 循环/时间盒 -->
       <g v-else-if="scenario === 'cycles'">
-        <circle cx="48" cy="48" r="28" stroke="var(--neutral-300, #d1d5db)" stroke-width="4" fill="none" stroke-dasharray="8 4" />
-        <path d="M48 28v20l12 8" stroke="var(--brand-default, #3b82f6)" stroke-width="3" stroke-linecap="round" />
-        <circle cx="48" cy="48" r="4" fill="var(--brand-default, #3b82f6)" />
+        <circle cx="48" cy="48" r="28" stroke="var(--neutral-300)" stroke-width="4" fill="none" stroke-dasharray="8 4" />
+        <path d="M48 28v20l12 8" stroke="var(--brand-default)" stroke-width="3" stroke-linecap="round" />
+        <circle cx="48" cy="48" r="4" fill="var(--brand-default)" />
       </g>
 
       <!-- Automation: 闪电/齿轮 -->
       <g v-else-if="scenario === 'automation'">
-        <circle cx="48" cy="48" r="20" stroke="var(--neutral-300, #d1d5db)" stroke-width="3" fill="none" />
-        <circle cx="48" cy="48" r="10" stroke="var(--brand-default, #3b82f6)" stroke-width="2" fill="none" />
-        <path d="M44 28l4-4 4 4M52 68l-4 4-4-4M28 44l-4 4 4 4M68 52l4-4-4-4" stroke="var(--neutral-400, #d1d5db)" stroke-width="2" stroke-linecap="round" />
-        <path d="M48 36v8h6l-6 12v-8h-6l6-12z" fill="var(--brand-default, #3b82f6)" opacity="0.7" />
+        <circle cx="48" cy="48" r="20" stroke="var(--neutral-300)" stroke-width="3" fill="none" />
+        <circle cx="48" cy="48" r="10" stroke="var(--brand-default)" stroke-width="2" fill="none" />
+        <path d="M44 28l4-4 4 4M52 68l-4 4-4-4M28 44l-4 4 4 4M68 52l4-4-4-4" stroke="var(--neutral-400)" stroke-width="2" stroke-linecap="round" />
+        <path d="M48 36v8h6l-6 12v-8h-6l6-12z" fill="var(--brand-default)" opacity="0.7" />
       </g>
 
       <!-- Comments: 对话气泡 -->
       <g v-else-if="scenario === 'comments'">
-        <path d="M22 24h44a4 4 0 014 4v28a4 4 0 01-4 4H36l-14 12V28a4 4 0 014-4z" fill="var(--neutral-200, #e5e7eb)" />
-        <rect x="28" y="34" width="24" height="3" rx="1.5" fill="var(--neutral-400, #d1d5db)" opacity="0.5" />
-        <rect x="28" y="42" width="16" height="2" rx="1" fill="var(--neutral-300, #d1d5db)" opacity="0.4" />
+        <path d="M22 24h44a4 4 0 014 4v28a4 4 0 01-4 4H36l-14 12V28a4 4 0 014-4z" fill="var(--neutral-200)" />
+        <rect x="28" y="34" width="24" height="3" rx="1.5" fill="var(--neutral-400)" opacity="0.5" />
+        <rect x="28" y="42" width="16" height="2" rx="1" fill="var(--neutral-300)" opacity="0.4" />
       </g>
 
       <!-- Default fallback: simple box -->
       <g v-else>
-        <circle cx="48" cy="48" r="32" fill="var(--neutral-200, #e5e7eb)" />
-        <rect x="32" y="40" width="32" height="4" rx="2" fill="var(--neutral-500, #9ca3af)" opacity="0.5" />
-        <rect x="36" y="48" width="24" height="3" rx="1.5" fill="var(--neutral-400, #d1d5db)" opacity="0.4" />
+        <circle cx="48" cy="48" r="32" fill="var(--neutral-200)" />
+        <rect x="32" y="40" width="32" height="4" rx="2" fill="var(--neutral-500)" opacity="0.5" />
+        <rect x="36" y="48" width="24" height="3" rx="1.5" fill="var(--neutral-400)" opacity="0.4" />
       </g>
     </svg>
 
@@ -368,9 +368,9 @@ const illustrationPx = computed(() => sizeMap[props.illustrationSize])
       xmlns="http://www.w3.org/2000/svg"
       aria-hidden="true"
     >
-      <circle cx="48" cy="48" r="40" fill="var(--danger-50, #fef2f2)" />
-      <path d="M48 28v24" stroke="var(--danger-500, #ef4444)" stroke-width="5" stroke-linecap="round" />
-      <circle cx="48" cy="66" r="3" fill="var(--danger-500, #ef4444)" />
+      <circle cx="48" cy="48" r="40" fill="var(--danger-50)" />
+      <path d="M48 28v24" stroke="var(--danger-500)" stroke-width="5" stroke-linecap="round" />
+      <circle cx="48" cy="66" r="3" fill="var(--danger-500)" />
     </svg>
 
     <!-- 标题与描述 -->
@@ -448,13 +448,13 @@ const illustrationPx = computed(() => sizeMap[props.illustrationSize])
 .app-empty__title {
   font-size: 16px;
   font-weight: 600;
-  color: var(--txt-primary, var(--text-primary, #1f2937));
+  color: var(--txt-primary, var(--text-primary));
   margin: 0 0 8px;
 }
 
 .app-empty__desc {
   font-size: 13px;
-  color: var(--txt-tertiary, var(--text-tertiary, #9ca3af));
+  color: var(--txt-tertiary, var(--text-tertiary));
   margin: 0 0 16px;
   line-height: 1.5;
   max-width: 320px;
@@ -478,20 +478,20 @@ const illustrationPx = computed(() => sizeMap[props.illustrationSize])
   font-weight: 500;
   cursor: pointer;
   border: 1px solid var(--border-default);
-  background: var(--bg-surface-1, var(--surface-1, #fff));
+  background: var(--bg-surface-1, var(--surface-1));
   color: var(--txt-primary);
   transition: all 0.15s;
   font-family: inherit;
 }
 
 .app-empty__cta:hover {
-  background: var(--bg-surface-2, var(--surface-2, #f9fafb));
+  background: var(--bg-surface-2, var(--surface-2));
 }
 
 .app-empty__cta--secondary {
   background: transparent;
   border-color: transparent;
-  color: var(--txt-secondary, var(--text-secondary, #6b7280));
+  color: var(--txt-secondary, var(--text-secondary));
 }
 
 .app-empty__cta--secondary:hover {

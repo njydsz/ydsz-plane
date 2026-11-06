@@ -129,6 +129,10 @@ type RuleExecution struct {
 	TriggerDepth   int             `json:"trigger_depth"`
 	ViaAutomation  bool            `json:"via_automation"`
 	CreatedAt      time.Time       `json:"created_at"`
+	// 关联展示字段（列表查询时 JOIN automation_rules 填充，非表列）
+	RuleName       string   `json:"rule_name,omitempty"`
+	TriggerEvent   string   `json:"trigger_event,omitempty"`
+	ActionsExecuted []string `json:"actions_executed,omitempty"`
 }
 
 // Template 是预置规则模板（从 automation_templates 表读取）。

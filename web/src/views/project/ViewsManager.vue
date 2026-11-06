@@ -12,6 +12,10 @@
 import { computed, onMounted, ref } from "vue";
 import { viewsApi, type SavedView, type ViewScope, type CreateViewInput, type PreferenceViewType } from "@/api/services/preference";
 import { toast } from "@/lib/toast";
+import { AppButton, AppEmptyState, AppErrorState, AppLoadingState } from "@/components";
+import { useConfirm } from "@/composables/useConfirm";
+
+const confirm = useConfirm();
 
 export interface ViewConfig {
   filters?: unknown;
@@ -44,6 +48,7 @@ const emit = defineEmits<{
 // ---- 状态 ----
 const views = ref<SavedView[]>([]);
 const loading = ref(true);
+const error = ref("");
 const showCreateModal = ref(false);
 const editingView = ref<SavedView | null>(null);
 
@@ -61,10 +66,13 @@ const defaultViews = computed(() => views.value.filter((v) => v.scope === "defau
 // ---- 方法 ----
 async function loadViews() {
   loading.value = true;
+  error.value = "";
   try {
     views.value = await viewsApi.list(props.workspaceId, props.projectId);
   } catch (e: unknown) {
-    toast.error(e instanceof Error ? e.message : "加载视图列表失败");
+    const msg = e instanceof Error ? e.message : "加载视图列表失败";
+    error.value = msg;
+    toast.error(msg);
   } finally {
     loading.value = false;
   }
@@ -137,7 +145,7 @@ function applyView(view: SavedView) {
 
 /** 删除视图 */
 async function deleteView(view: SavedView) {
-  if (!confirm(`确定要删除视图「${view.name}」吗？此操作不可撤销。`)) return;
+  if (!await confirm({ title: "删除视图", message: `确定要删除视图「${view.name}」吗？此操作不可撤销。`, confirmText: "删除", variant: "danger" })) return;
   try {
     await viewsApi.delete(props.workspaceId, props.projectId, view.id);
     toast.success("视图已删除");
@@ -174,13 +182,21 @@ onMounted(loadViews);
   <div class="views-manager">
     <!-- 工具栏 -->
     <div class="views-manager__toolbar">
-      <button class="btn btn--sm btn--primary" @click="saveCurrentView">
-        保存视图
-      </button>
+      <AppButton size="sm" @click="saveCurrentView">
+         保存视图
+      </AppButton>
     </div>
 
     <!-- 视图列表 -->
-    <div v-if="loading" class="views-manager__loading">加载中...</div>
+    <AppLoadingState v-if="loading" />
+
+    <AppErrorState v-else-if="error" :message="error" @retry="loadViews" />
+
+    <AppEmptyState
+      v-else-if="views.length === 0"
+      title="暂无保存的视图"
+      description="点击上方「保存视图」将当前配置保存为命名视图"
+    />
 
     <template v-else>
       <!-- 默认视图 -->
@@ -246,14 +262,12 @@ onMounted(loadViews);
               <button class="action-btn" title="删除" @click.stop="deleteView(v)">×</button>
             </div>
           </li>
-          <li v-if="personalViews.length === 0 && teamViews.length === 0 && defaultViews.length === 0" class="view-item view-item--empty">
-            <span class="view-item__name">暂无保存的视图</span>
+          <li v-if="personalViews.length === 0" class="view-item view-item--empty">
+            <span class="view-item__name">暂无个人视图</span>
           </li>
         </ul>
       </div>
-    </template>
-
-    <!-- 创建/编辑弹窗 -->
+        <!-- 创建/编辑弹窗 -->
     <div v-if="showCreateModal" class="modal-overlay" @click.self="showCreateModal = false">
       <div class="modal-box view-modal">
         <h3>{{ editingView ? '编辑视图' : '保存视图' }}</h3>
@@ -283,15 +297,15 @@ onMounted(loadViews);
         </div>
         <p v-if="formScope === 'team' || formShared" class="form-hint">团队视图对项目内所有成员可见，其他成员可通过视图切换面板加载此视图配置。</p>
         <div class="modal-actions">
-          <button class="btn btn--ghost" @click="showCreateModal = false">取消</button>
-          <button class="btn btn--primary" :disabled="saving || !formName.trim()" @click="submitForm">
+          <AppButton variant="ghost" @click="showCreateModal = false">取消</AppButton>
+          <AppButton :loading="saving" :disabled="saving || !formName.trim()" @click="submitForm">
             {{ saving ? '保存中...' : (editingView ? '保存' : '创建') }}
-          </button>
+          </AppButton>
         </div>
       </div>
     </div>
   </div>
-</template>
+
 
 <style scoped>
 .views-manager {
@@ -420,48 +434,6 @@ onMounted(loadViews);
 .action-btn:hover {
   background: var(--surface-3);
   color: var(--text-primary);
-}
-
-/* 按钮 */
-.btn {
-  padding: 5px 12px;
-  font-size: 12px;
-  font-family: inherit;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  border: 1px solid var(--border-default);
-  background: var(--surface-1);
-  color: var(--text-primary);
-}
-
-.btn--sm {
-  padding: 4px 10px;
-  font-size: 12px;
-}
-
-.btn--primary {
-  background: var(--brand-500);
-  color: var(--text-on-brand);
-  border-color: var(--brand-500);
-}
-
-.btn--primary:hover:not(:disabled) {
-  background: var(--brand-600);
-}
-
-.btn--primary:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.btn--ghost {
-  background: none;
-  color: var(--text-secondary);
-  border-color: transparent;
-}
-
-.btn--ghost:hover {
-  background: var(--surface-3);
 }
 
 /* 弹窗 */

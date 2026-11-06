@@ -21,4 +21,5 @@ export interface KnowledgeKnowledgeSpace {
   slug?: string;
   updated_at?: string;
   workspace_id?: number;
+  deleted_at?: string;
 }

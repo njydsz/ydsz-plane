@@ -110,14 +110,17 @@ type Webhook struct {
 	WorkspaceID   int64      `json:"workspace_id"`
 	ProjectID     *int64     `json:"project_id,omitempty"`
 	Name          string     `json:"name"`
-	TargetURL     string     `json:"target_url"`
+	TargetURL     string     `json:"url"` // 对外契约用 url；DB 列为 target_url
 	Secret        string     `json:"-"` // 不在 API 响应中暴露；仅在创建时返回一次
 	Events        []string   `json:"events"`
 	IsActive      bool       `json:"is_active"`
+	Status        string     `json:"status,omitempty"`
 	LastError     string     `json:"last_error,omitempty"`
-	LastTriggered *time.Time `json:"last_triggered,omitempty"`
+	LastTriggered *time.Time `json:"last_triggered_at,omitempty"` // 对外契约用 last_triggered_at
 	LastStatus    string     `json:"last_status,omitempty"`
 	UnhealthyAt   *time.Time `json:"unhealthy_at,omitempty"`
+	FailureCount  int        `json:"failure_count"` // 由列表查询聚合填充，非表列
+	Description   string     `json:"description,omitempty"` // 预留扩展，当前 DB 无此列
 	CreatedBy     int64      `json:"created_by"`
 	CreatedAt     time.Time  `json:"created_at"`
 	UpdatedAt     time.Time  `json:"updated_at"`

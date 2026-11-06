@@ -8,8 +8,10 @@ import { useRoute, useRouter } from "vue-router";
 
 import { issueApi, type TrashItem } from "@/api/services/issue";
 import { toast } from "@/lib/toast";
-import { AppLoadingState, AppErrorState, AppEmptyState } from "@/components";
+import { AppButton, AppEmptyState, AppErrorState, AppLoadingState, AppPageContainer } from "@/components";
+import { useConfirm } from "@/composables/useConfirm";
 
+const confirm = useConfirm();
 const route = useRoute();
 const router = useRouter();
 const workspaceId = Number(route.params.workspaceId);
@@ -48,7 +50,7 @@ async function restoreItem(id: number) {
 }
 
 async function deletePermanently(id: number) {
-  if (!confirm("此操作不可撤销，确定要彻底删除该需求/任务/缺陷吗？")) return;
+  if (!await confirm({ title: "彻底删除", message: "此操作不可撤销，确定要彻底删除该需求/任务/缺陷吗？", confirmText: "删除", variant: "danger" })) return;
   if (deleting.value.has(id)) return;
   deleting.value.add(id);
   try {
@@ -70,13 +72,15 @@ onMounted(load);
 </script>
 
 <template>
-  <div class="trash-view">
+  
+  <AppPageContainer max="900px">
+    <div class="trash-view">
     <header class="trash-view__header">
       <div>
         <h1>回收站</h1>
         <p class="meta">被归档的需求/任务/缺陷会保留 30 天后自动清理，你可以在此恢复。</p>
       </div>
-      <button class="btn btn--ghost" @click="router.back()">← 返回</button>
+      <AppButton variant="ghost" @click="router.back()">← 返回</AppButton>
     </header>
 
     <AppLoadingState v-if="loading" />
@@ -103,29 +107,35 @@ onMounted(load);
         <span class="col-priority">{{ item.priority }}</span>
         <span class="col-date">{{ new Date(item.deleted_at).toLocaleString() }}</span>
         <span class="col-actions">
-          <button
-            class="btn btn--sm btn--outline"
+          <AppButton
+            size="sm"
+            variant="secondary"
+            :loading="restoring.has(item.id)"
             :disabled="restoring.has(item.id)"
             @click="restoreItem(item.id)"
           >
             {{ restoring.has(item.id) ? "恢复中..." : "恢复" }}
-          </button>
-          <button
-            class="btn btn--sm btn--danger"
+          </AppButton>
+          <AppButton
+            size="sm"
+            variant="danger"
+            :loading="deleting.has(item.id)"
             :disabled="deleting.has(item.id)"
             @click="deletePermanently(item.id)"
           >
             {{ deleting.has(item.id) ? "删除中..." : "彻底删除" }}
-          </button>
+          </AppButton>
         </span>
       </div>
     </div>
-  </div>
+  
+    </div>
+  </AppPageContainer>
 </template>
 
 <style scoped>
 .trash-view {
-  max-width: 900px;
+  
 }
 
 .trash-view__header {
@@ -202,50 +212,4 @@ onMounted(load);
 .badge-defect { background: var(--danger-50); color: var(--danger-600); }
 .badge-epic { background: var(--warning-50); color: var(--warning-600); }
 
-.btn {
-  padding: 6px 12px;
-  border-radius: var(--radius-sm);
-  font-size: 12px;
-  cursor: pointer;
-  border: 1px solid transparent;
-  font-family: inherit;
-}
-
-.btn--sm {
-  padding: 4px 10px;
-  font-size: 12px;
-}
-
-.btn--ghost {
-  background: none;
-  border: none;
-  color: var(--brand-500);
-  padding: 4px 0;
-}
-
-.btn--outline {
-  border: 1px solid var(--border-default);
-  background: var(--surface-1);
-  color: var(--text-secondary);
-}
-
-.btn--outline:hover:not(:disabled) {
-  border-color: var(--brand-500);
-  color: var(--brand-500);
-}
-
-.btn--danger {
-  border-color: var(--danger-200);
-  background: var(--danger-50);
-  color: var(--danger-600);
-}
-
-.btn--danger:hover:not(:disabled) {
-  background: var(--danger-100);
-}
-
-.btn:disabled, .btn--sm:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
 </style>

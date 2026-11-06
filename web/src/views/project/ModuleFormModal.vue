@@ -16,6 +16,7 @@ import {
   type UpdateModuleInput,
 } from "@/api/services/module";
 import type { Member } from "@/api/services/workspace";
+import { AppButton, DynamicIcon } from "@/components";
 
 const props = defineProps<{
   /** 是否可见 */
@@ -121,7 +122,7 @@ function onMemberSelect(e: Event) {
             aria-label="关闭"
             @click="emit('close')"
           >
-            &times;
+            <DynamicIcon name="X" :size="18" />
           </button>
         </header>
 
@@ -179,21 +180,21 @@ function onMemberSelect(e: Event) {
         </div>
 
         <footer class="modal__footer">
-          <button
+          <AppButton
             type="button"
-            class="btn btn--secondary"
+            variant="secondary"
             @click="emit('close')"
           >
             取消
-          </button>
-          <button
+          </AppButton>
+          <AppButton
             type="submit"
-            class="btn btn--primary"
+            :loading="submitting"
             :disabled="submitting || !form.name.trim()"
             @click="handleSubmit"
           >
             {{ submitting ? "保存中..." : isEdit ? "保存修改" : "创建" }}
-          </button>
+          </AppButton>
         </footer>
       </div>
     </div>
@@ -317,43 +318,6 @@ function onMemberSelect(e: Event) {
   display: flex;
   gap: 8px;
   justify-content: flex-end;
-}
-
-/* ---------- buttons ---------- */
-.btn {
-  padding: 7px 14px;
-  border-radius: var(--radius-sm);
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  border: 1px solid transparent;
-  transition: background 0.15s, border-color 0.15s, opacity 0.15s;
-  font-family: inherit;
-}
-
-.btn--primary {
-  background: var(--brand-500);
-  border-color: var(--brand-500);
-  color: var(--text-on-brand);
-}
-
-.btn--primary:hover:not(:disabled) {
-  background: var(--brand-600);
-}
-
-.btn--primary:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.btn--secondary {
-  background: var(--surface-1);
-  border-color: var(--border-default);
-  color: var(--text-secondary);
-}
-
-.btn--secondary:hover {
-  background: var(--surface-hover, #f9fafb);
 }
 
 /* ---------- animations ---------- */

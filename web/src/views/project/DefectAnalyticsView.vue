@@ -13,7 +13,7 @@ import type { EChartsCoreOption } from "echarts";
 import { defectAnalyticsApi, SEVERITY_LABELS, PHASE_LABELS } from "@/api/services/defectAnalytics";
 import type { DefectAnalytics, SeverityCount, PhaseCount, ModuleCount, RootCauseCount, AgeBucket, TrendPoint, DefectAgeAnalysis, DefectAgeStat, RootCauseAnalysis, RootCauseStat } from "@/api/services/defectAnalytics";
 import { useWorkspaceStore } from "@/stores/workspace";
-import { AppLoadingState, AppErrorState, AppEmptyState } from "@/components";
+import { AppButton, AppEmptyState, AppErrorState, AppLoadingState, AppPageContainer } from "@/components";
 import ChartWidget from "@/components/dashboard/ChartWidget.vue";
 import { toast } from "@/lib/toast";
 
@@ -117,7 +117,7 @@ watch([wsId], () => {
 
 // --- 图表构造函数 ---
 
-const SEVERITY_COLORS = ["#dc2626", "#ea580c", "#d97706", "#ca8a04", "#65a30d"];
+const SEVERITY_COLORS = ["var(--danger-500)", "var(--warning-500)", "var(--warning-500)", "var(--warning-500)", "var(--success-500)"];
 
 function severityChartOption(data: SeverityCount[]): EChartsCoreOption {
   if (!data.length) return emptyChartOption;
@@ -233,8 +233,8 @@ function trendChartOption(data: TrendPoint[]): EChartsCoreOption {
     },
     yAxis: { type: "value", axisLabel: { color: "var(--text-secondary)" } },
     series: [
-      { name: "新增", type: "line", smooth: true, data: data.map((d) => d.opened), itemStyle: { color: "#dc2626" }, areaStyle: { opacity: 0.1 } },
-      { name: "解决", type: "line", smooth: true, data: data.map((d) => d.resolved), itemStyle: { color: "#16a34a" }, areaStyle: { opacity: 0.1 } },
+      { name: "新增", type: "line", smooth: true, data: data.map((d) => d.opened), itemStyle: { color: "var(--danger-500)" }, areaStyle: { opacity: 0.1 } },
+      { name: "解决", type: "line", smooth: true, data: data.map((d) => d.resolved), itemStyle: { color: "var(--success-500)" }, areaStyle: { opacity: 0.1 } },
     ],
   };
 }
@@ -258,10 +258,10 @@ function defectAgeChartOption(data: DefectAgeStat[]): EChartsCoreOption {
     },
     yAxis: { type: "value", axisLabel: { color: "var(--text-secondary)" }, name: "天数" },
     series: [
-      { name: "最低(天)", type: "bar", data: data.map((d) => d.min_days), itemStyle: { color: "#16a34a" }, barGap: "10%" },
-      { name: "平均(天)", type: "bar", data: data.map((d) => d.avg_days), itemStyle: { color: "#2563eb" } },
-      { name: "最高(天)", type: "bar", data: data.map((d) => d.max_days), itemStyle: { color: "#dc2626" } },
-      { name: "中位(天)", type: "bar", data: data.map((d) => d.median_days), itemStyle: { color: "#d97706" } },
+      { name: "最低(天)", type: "bar", data: data.map((d) => d.min_days), itemStyle: { color: "var(--success-500)" }, barGap: "10%" },
+      { name: "平均(天)", type: "bar", data: data.map((d) => d.avg_days), itemStyle: { color: "var(--brand-600)" } },
+      { name: "最高(天)", type: "bar", data: data.map((d) => d.max_days), itemStyle: { color: "var(--danger-500)" } },
+      { name: "中位(天)", type: "bar", data: data.map((d) => d.median_days), itemStyle: { color: "var(--warning-500)" } },
     ],
   };
 }
@@ -287,16 +287,18 @@ function rootCausePieOption(data: RootCauseStat[]): EChartsCoreOption {
 }
 
 const OVERDUE_COLORS: Record<number, string> = {
-  1: "#dc2626",
-  2: "#ea580c",
-  3: "#d97706",
-  4: "#ca8a04",
-  5: "#65a30d",
+  1: "var(--danger-500)",
+  2: "var(--warning-500)",
+  3: "var(--warning-500)",
+  4: "var(--warning-500)",
+  5: "var(--success-500)",
 };
 </script>
 
 <template>
-  <div class="defect-analytics">
+  
+  <AppPageContainer max="1200px">
+    <div class="defect-analytics">
     <!-- 顶部栏 -->
     <header class="page-header">
       <div>
@@ -316,9 +318,9 @@ const OVERDUE_COLORS: Record<number, string> = {
           </button>
         </div>
         <!-- 导出按钮 -->
-        <button class="btn-secondary" :disabled="loading || !analytics" @click="handleExport">
+        <AppButton variant="secondary" :disabled="loading || !analytics" @click="handleExport">
           导出 CSV
-        </button>
+        </AppButton>
       </div>
     </header>
 
@@ -410,7 +412,7 @@ const OVERDUE_COLORS: Record<number, string> = {
                 <td class="mono">{{ item.identifier }}</td>
                 <td class="overflow-name" :title="item.name">{{ item.name }}</td>
                 <td>
-                  <span class="sev-tag" :style="{ background: OVERDUE_COLORS[item.severity || 5] || '#65a30d' }">
+                  <span class="sev-tag" :style="{ background: OVERDUE_COLORS[item.severity || 5] || 'var(--success-500)' }">
                     {{ item.severity_label }}
                   </span>
                 </td>
@@ -454,13 +456,16 @@ const OVERDUE_COLORS: Record<number, string> = {
         </div>
       </section>
     </template>
+  
+    </div>
+  </AppPageContainer>
   </div>
-</template>
+
 
 <style scoped>
 .defect-analytics {
-  max-width: 1200px;
-  margin: 0 auto;
+  
+  
   padding: 24px;
   display: flex;
   flex-direction: column;
@@ -518,21 +523,6 @@ const OVERDUE_COLORS: Record<number, string> = {
   font-weight: 500;
 }
 
-.btn-secondary {
-  padding: 6px 14px;
-  font-size: 13px;
-  border: 1px solid var(--border);
-  background: var(--surface-1);
-  color: var(--text-primary);
-  border-radius: 6px;
-  cursor: pointer;
-}
-
-.btn-secondary:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
 /* KPI 卡片 */
 .kpi-grid {
   display: grid;
@@ -567,8 +557,8 @@ const OVERDUE_COLORS: Record<number, string> = {
   margin-left: 2px;
 }
 
-.text-danger { color: #dc2626; }
-.text-success { color: #16a34a; }
+.text-danger { color: var(--danger-500); }
+.text-success { color: var(--success-500); }
 
 /* 图表卡片 */
 .chart-card {
@@ -641,7 +631,7 @@ const OVERDUE_COLORS: Record<number, string> = {
   border-radius: 10px;
   font-size: 11px;
   font-weight: 500;
-  color: #fff;
+  color: var(--text-on-color);
 }
 
 .badge-overdue {
@@ -649,8 +639,8 @@ const OVERDUE_COLORS: Record<number, string> = {
   margin-left: 8px;
   padding: 1px 8px;
   border-radius: 10px;
-  background: #fee2e2;
-  color: #dc2626;
+  background: var(--danger-50);
+  color: var(--danger-500);
   font-size: 12px;
   font-weight: 500;
 }

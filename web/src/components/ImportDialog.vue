@@ -17,6 +17,7 @@ import {
   issueApi,
 } from "@/api/services/issue";
 import { toast } from "@/lib/toast";
+import AppButton from "./AppButton.vue";
 
 const props = defineProps<{
   visible: boolean;
@@ -263,13 +264,13 @@ function selectFieldName(row: MappingRow, event: Event) {
         style="display: none"
         @change="onFileChange"
       />
-      <button
-        class="btn btn--primary import-upload-btn"
+      <AppButton
+        class="import-upload-btn"
         :disabled="parsing"
         @click="triggerFileInput"
       >
         {{ parsing ? "解析中..." : (file ? file.name || "重新选择文件" : "选择文件") }}
-      </button>
+      </AppButton>
       <p v-if="parseError" class="import-error">{{ parseError }}</p>
       <p v-if="file && !parseError" class="import-info">
         已选择：{{ file.name }}
@@ -281,7 +282,7 @@ function selectFieldName(row: MappingRow, event: Event) {
       <div class="import-preview">
         <strong>预览</strong>
         <span class="import-preview__name">{{ file?.name }}</span>
-        <button class="btn btn--ghost btn--sm" @click="reset">重新选择</button>
+        <AppButton variant="ghost" size="sm" @click="reset">重新选择</AppButton>
       </div>
 
       <p class="import-step__hint">
@@ -343,14 +344,14 @@ function selectFieldName(row: MappingRow, event: Event) {
       </p>
 
       <div class="import-step__actions">
-        <button class="btn btn--ghost" @click="close">取消</button>
-        <button
-          class="btn btn--primary"
+        <AppButton variant="ghost" @click="close">取消</AppButton>
+        <AppButton
+          :loading="submitting"
           :disabled="!canSubmit || submitting"
           @click="submit"
         >
           {{ submitting ? "导入中..." : "开始导入" }}
-        </button>
+        </AppButton>
       </div>
     </div>
 
@@ -389,8 +390,8 @@ function selectFieldName(row: MappingRow, event: Event) {
       </div>
 
       <div class="import-step__actions">
-        <button class="btn btn--ghost" @click="reset">再次导入</button>
-        <button class="btn btn--primary" @click="close">完成</button>
+        <AppButton variant="ghost" @click="reset">再次导入</AppButton>
+        <AppButton @click="close">完成</AppButton>
       </div>
     </div>
   </AppModal>
@@ -401,9 +402,6 @@ function selectFieldName(row: MappingRow, event: Event) {
 .import-step__hint { font-size: 12px; color: var(--text-tertiary); margin: 0; }
 .import-step__actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
 
-.import-upload-btn { width: 100%; padding: 16px; border: 2px dashed var(--border-default); background: var(--surface-2); border-radius: var(--radius-sm); font-size: 13px; cursor: pointer; }
-.import-upload-btn:hover:not(:disabled) { border-color: var(--brand-500); }
-.import-upload-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .import-error { color: var(--danger-500); font-size: 12px; margin: 0; }
 .import-info { font-size: 12px; color: var(--text-tertiary); margin: 0; }
@@ -445,11 +443,16 @@ function selectFieldName(row: MappingRow, event: Event) {
 .import-errors ul { list-style: none; padding: 0; margin: 4px 0 0; }
 .import-errors li { padding: 2px 0; color: var(--text-secondary); border-bottom: 1px solid var(--border-subtle); }
 
-.btn { cursor: pointer; font-family: inherit; border-radius: var(--radius-sm); }
-.btn--primary { background: var(--brand-500); color: var(--text-on-brand); padding: 6px 14px; font-size: 13px; border: none; }
-.btn--primary:hover:not(:disabled) { background: var(--brand-600); }
-.btn--primary:disabled { opacity: 0.5; cursor: not-allowed; }
-.btn--ghost { background: none; color: var(--text-secondary); padding: 6px 14px; font-size: 13px; border: 1px solid transparent; }
-.btn--ghost:hover { background: var(--surface-3); }
-.btn--sm { padding: 3px 8px; font-size: 11px; }
+/* 拖拽上传区（保持虚线大按钮外观） */
+.import-upload-btn {
+  width: 100% !important;
+  height: auto !important;
+  padding: 16px !important;
+  border: 2px dashed var(--border-default) !important;
+  background: var(--surface-2) !important;
+  border-radius: var(--radius-sm);
+  font-size: 13px !important;
+}
+.import-upload-btn:hover:not(:disabled) { border-color: var(--brand-500) !important; }
+.import-upload-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 </style>

@@ -164,7 +164,7 @@ onMounted(load);
             <input
               v-model="brand.currentColor"
               type="text"
-              placeholder="#2563eb"
+              placeholder="var(--brand-600)"
               class="w-28 rounded-md border border-[var(--border-subtle)] px-3 py-1.5 text-sm uppercase"
             />
             <button
@@ -239,7 +239,7 @@ onMounted(load);
             </div>
             <button
               v-if="inv.status === 'pending'"
-              class="text-xs text-[var(--danger, #ef4444)]"
+              class="text-xs text-[var(--danger)]"
               @click="revoke(inv)"
             >
               撤销
@@ -249,4 +249,3 @@ onMounted(load);
       </section>
     </template>
   </div>
-</template>

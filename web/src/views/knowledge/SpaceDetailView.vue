@@ -22,8 +22,10 @@ import {
 import { toast } from "@/lib/toast";
 import KnowledgePageTreeNode from "./KnowledgePageTreeNode.vue";
 import KnowledgePageDetailView from "./KnowledgePageDetailView.vue";
-import { AppEmptyState, AppErrorState } from "@/components";
+import { AppButton, AppEmptyState, AppErrorState, DynamicIcon } from "@/components";
+import { useConfirm } from "@/composables/useConfirm";
 
+const confirm = useConfirm();
 const route = useRoute();
 
 const workspaceId = computed(() => Number(route.params.workspaceId ?? 0));
@@ -138,7 +140,7 @@ async function renamePage(node: KnowledgePageNode, title: string) {
 }
 
 async function deletePage(node: KnowledgePageNode) {
-  if (!window.confirm(`确定删除文档「${node.title}」？其子文档也会一并删除。`)) return;
+  if (!await confirm({ title: "删除文档", message: `确定删除文档「${node.title}」？其子文档也会一并删除。`, confirmText: "删除", variant: "danger" })) return;
   try {
     await knowledgeApi.deletePage(workspaceId.value, spaceId.value, node.id);
     tree.value = removeNodeById(tree.value, node.id);
@@ -188,7 +190,7 @@ onMounted(load);
           <p v-else class="hint">/{{ space?.slug ?? "" }}</p>
         </div>
         <div class="space-detail__header-right">
-          <button class="btn btn--primary" @click="createPage(null)">＋ 新建根文档</button>
+          <AppButton @click="createPage(null)"><DynamicIcon name="Plus" :size="14" /> 新建根文档</AppButton>
         </div>
       </header>
 
@@ -197,7 +199,7 @@ onMounted(load);
         <aside class="space-detail__tree">
           <div class="tree-header">
             <span class="tree-header__title">文档目录</span>
-            <button class="tree-header__add" title="新建根文档" @click="createPage(null)">＋</button>
+            <button class="tree-header__add" title="新建根文档" @click="createPage(null)"><DynamicIcon name="Plus" :size="14" /></button>
           </div>
 
           <div v-if="tree.length === 0 && !loading" class="tree-empty">
@@ -245,8 +247,6 @@ onMounted(load);
       </div>
     </template>
   </div>
-</template>
-
 <style scoped>
 .space-detail__header {
   display: flex;
@@ -344,30 +344,4 @@ onMounted(load);
   padding: 16px 24px;
 }
 
-/* ---- 按钮 ---- */
-.btn {
-  padding: 8px 16px;
-  font-size: 13px;
-  font-family: inherit;
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-sm);
-  background: var(--surface-1);
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: all 0.15s;
-}
-.btn:hover {
-  border-color: var(--brand-500);
-  color: var(--brand-600);
-}
-.btn--primary {
-  background: var(--brand-500);
-  border-color: var(--brand-500);
-  color: var(--text-on-brand);
-  font-weight: 500;
-}
-.btn--primary:hover {
-  background: var(--brand-600);
-  color: var(--text-on-brand);
-}
 </style>

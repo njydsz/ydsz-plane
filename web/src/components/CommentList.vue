@@ -16,6 +16,7 @@ import CommentForm from "./CommentForm.vue";
 import AppEmptyState from "./AppEmptyState.vue";
 import AppLoadingState from "./AppLoadingState.vue";
 import AppErrorState from "./AppErrorState.vue";
+import AppButton from "./AppButton.vue";
 
 const props = withDefaults(defineProps<{
   workspaceId: number;
@@ -288,7 +289,7 @@ watch(
       <!-- 页面级错误横幅（已有数据时） -->
       <div v-if="error && comments.length > 0" class="comment-list__error-banner">
         {{ error }}
-        <button class="btn--link" @click="loadComments">重试</button>
+        <AppButton variant="ghost" size="sm" class="btn--link" @click="loadComments">重试</AppButton>
       </div>
     </div>
   </div>
@@ -298,7 +299,7 @@ watch(
 .comment-list {
   margin-top: 24px;
   padding-top: 24px;
-  border-top: 1px solid var(--border-subtle, #e5e7eb);
+  border-top: 1px solid var(--border-subtle);
 }
 
 .comment-list__header {
@@ -311,7 +312,7 @@ watch(
 .comment-list__title {
   font-size: 14px;
   font-weight: 600;
-  color: var(--text-primary, #1f2937);
+  color: var(--text-primary);
   margin: 0;
   display: flex;
   align-items: center;
@@ -321,8 +322,8 @@ watch(
 .comment-list__count {
   font-size: 12px;
   font-weight: 500;
-  color: var(--text-tertiary, #9ca3af);
-  background: var(--surface-3, #f3f4f6);
+  color: var(--text-tertiary);
+  background: var(--surface-3);
   padding: 1px 7px;
   border-radius: 10px;
 }
@@ -338,7 +339,7 @@ watch(
 
 .comment-list__edit-label {
   font-size: 12px;
-  color: var(--brand-500, #3b82f6);
+  color: var(--brand-500);
   font-weight: 500;
 }
 
@@ -350,7 +351,7 @@ watch(
 .comment-list__replies {
   margin-left: 36px;
   padding-left: 12px;
-  border-left: 2px solid var(--border-subtle, #e5e7eb);
+  border-left: 2px solid var(--border-subtle);
   margin-top: 0;
 }
 
@@ -359,13 +360,13 @@ watch(
   margin-top: 12px;
   margin-bottom: 12px;
   padding: 12px;
-  background: var(--surface-2, #f9fafb);
+  background: var(--surface-2);
   border-radius: var(--radius-md, 8px);
 }
 
 .comment-list__reply-hint {
   font-size: 12px;
-  color: var(--brand-500, #3b82f6);
+  color: var(--brand-500);
   margin-bottom: 8px;
   font-weight: 500;
 }
@@ -374,7 +375,7 @@ watch(
   margin-top: 12px;
   padding: 8px 12px;
   font-size: 12px;
-  color: var(--danger-500, #ef4444);
+  color: var(--danger-500);
   background: var(--danger-50, rgba(239,68,68,0.06));
   border-radius: var(--radius-sm, 4px);
   display: flex;
@@ -382,14 +383,14 @@ watch(
   gap: 8px;
 }
 
+/* 文字链接风格的幽灵按钮 */
 .btn--link {
-  background: none;
-  border: none;
-  padding: 0;
-  font-size: 12px;
-  color: var(--brand-500, #3b82f6);
-  cursor: pointer;
-  font-family: inherit;
+  background: none !important;
+  border: none !important;
+  padding: 0 !important;
+  height: auto !important;
+  font-size: 12px !important;
+  color: var(--brand-500) !important;
   text-decoration: underline;
 }
 

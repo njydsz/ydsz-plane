@@ -8,7 +8,7 @@ import { useRoute, useRouter } from "vue-router";
 
 import { workspaceApi, type Project, type Workspace } from "@/api/services/workspace";
 import { templateApi, type ProjectTemplate } from "@/api/services/template";
-import { AppLoadingState, AppErrorState, AppEmptyState } from "@/components";
+import { AppButton, AppLoadingState, AppErrorState, AppEmptyState, AppPageContainer } from "@/components";
 
 const route = useRoute();
 const router = useRouter();
@@ -104,7 +104,8 @@ onMounted(load);
 </script>
 
 <template>
-  <div class="projects">
+  <AppPageContainer>
+    <div class="projects">
     <header class="projects__header">
       <div>
         <h1 v-if="ws">{{ ws.name }} · 项目</h1>
@@ -112,7 +113,7 @@ onMounted(load);
         <p class="hint">管理工作空间下的项目</p>
       </div>
       <div class="actions">
-        <button class="btn btn--primary" @click="openCreateModal">创建项目</button>
+        <AppButton @click="openCreateModal">创建项目</AppButton>
       </div>
     </header>
 
@@ -123,7 +124,7 @@ onMounted(load);
       title="暂无项目"
       description="该项目空间下暂无项目"
     >
-      <button class="btn btn--primary" @click="openCreateModal">创建项目</button>
+      <AppButton @click="openCreateModal">创建项目</AppButton>
     </AppEmptyState>
     <div v-else class="project-grid">
       <div
@@ -189,14 +190,15 @@ onMounted(load);
           <div v-if="createError" class="form-error">{{ createError }}</div>
         </div>
         <footer class="modal__footer">
-          <button class="btn" @click="showCreate = false">取消</button>
-          <button class="btn btn--primary" :disabled="createSending || !createName.trim()" @click="createProject">
+          <AppButton variant="secondary" @click="showCreate = false">取消</AppButton>
+          <AppButton :loading="createSending" :disabled="createSending || !createName.trim()" @click="createProject">
             {{ createSending ? "创建中..." : "创建" }}
-          </button>
+          </AppButton>
         </footer>
       </div>
     </div>
-  </div>
+    </div>
+  </AppPageContainer>
 </template>
 
 <style scoped>
@@ -333,25 +335,6 @@ onMounted(load);
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
-
-.btn {
-  padding: 8px 16px;
-  border-radius: var(--radius-sm);
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  border: 1px solid var(--border-default);
-  background: var(--surface-1);
-  color: var(--text-secondary);
-}
-
-.btn--primary {
-  background: var(--brand-500);
-  border-color: var(--brand-500);
-  color: var(--text-on-brand);
-}
-
-.btn--primary:disabled { opacity: 0.6; cursor: not-allowed; }
 
 /* Modal */
 .modal-overlay {

@@ -17,17 +17,11 @@ import {
 import { workspaceApi, type Member, type Project } from "@/api/services/workspace";
 import { useI18n } from "@/composables/useI18n";
 import { toast } from "@/lib/toast";
-import {
-  AppBadge,
-  AppButton,
-  AppEmptyState,
-  AppErrorState,
-  AppModal,
-  AppSkeleton,
-  ProgressBar,
-} from "@/components";
+import { useConfirm } from "@/composables/useConfirm";
+import { AppBadge, AppButton, AppEmptyState, AppErrorState, AppModal, AppPageContainer, AppSkeleton, ProgressBar } from "@/components";
 
 const { t } = useI18n();
+const confirm = useConfirm();
 const route = useRoute();
 const router = useRouter();
 
@@ -186,7 +180,7 @@ async function submitForm() {
 const archivingId = ref<number | null>(null);
 
 async function archiveItem(item: Initiative) {
-  if (!confirm(t("initiative.archiveConfirm", { title: item.title }))) return;
+  if (!await confirm({ title: "归档倡议", message: t("initiative.archiveConfirm", { title: item.title }), confirmText: "归档", variant: "danger" })) return;
   archivingId.value = item.id;
   try {
     await initiativeApi.archive(workspaceId.value, item.id);
@@ -200,7 +194,7 @@ async function archiveItem(item: Initiative) {
 }
 
 async function restoreItem(item: Initiative) {
-  if (!confirm(t("initiative.restoreConfirm", { title: item.title }))) return;
+  if (!await confirm({ title: "恢复倡议", message: t("initiative.restoreConfirm", { title: item.title }), confirmText: "恢复" })) return;
   archivingId.value = item.id;
   try {
     await initiativeApi.restore(workspaceId.value, item.id);
@@ -291,7 +285,9 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="initiative-list">
+  
+  <AppPageContainer max="1100px">
+    <div class="initiative-list">
     <!-- Header -->
     <header class="header">
       <div>
@@ -542,12 +538,16 @@ onMounted(async () => {
         </AppButton>
       </template>
     </AppModal>
+  
+    </div>
+  </AppPageContainer>
+    </AppModal>
   </div>
-</template>
+
 
 <style scoped>
 .initiative-list {
-  max-width: 1100px;
+  
 }
 
 /* ---- header ---- */

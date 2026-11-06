@@ -99,8 +99,7 @@ onMounted(load);
           >
             登录后接受邀请
           </button>
-        </template>
-      </div>
+              </div>
     </div>
   </div>
-</template>
+

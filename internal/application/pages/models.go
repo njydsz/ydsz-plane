@@ -25,7 +25,7 @@ type Page struct {
 	CreatedBy           int64           `json:"created_by"`
 	CreatedAt           time.Time       `json:"created_at"`
 	UpdatedAt           time.Time       `json:"updated_at"`
-	DeletedAt           *time.Time      `json:"deleted,omitempty"`
+	DeletedAt           *time.Time      `json:"deleted_at,omitempty"`
 	Version             int32           `json:"version"`
 }
 
@@ -90,6 +90,7 @@ type PageShare struct {
 	Token        string     `json:"token"`
 	IsActive     bool       `json:"is_active"`
 	PasswordHash string     `json:"-"` // 不序列化到 JSON
+	HasPassword  bool       `json:"has_password"` // 列表接口标记是否设有访问密码
 	ExpiresAt    *time.Time `json:"expires_at,omitempty"`
 	CreatedBy    int64      `json:"created_by"`
 	CreatedAt    time.Time  `json:"created_at"`

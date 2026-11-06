@@ -14,8 +14,11 @@ import dayjs from "dayjs";
 import { calendarApi, type CalendarEvent, type CalendarEventType } from "@/api/services/calendar";
 import { issueApi } from "@/api/services/issue";
 import { useWorkspaceStore } from "@/stores/workspace";
-import { AppErrorState, AppEmptyState, AppSkeleton } from "@/components";
+import { AppButton, AppEmptyState, AppErrorState, AppPageContainer, AppSkeleton } from "@/components";
 import { toast } from "@/lib/toast";
+import { useConfirm } from "@/composables/useConfirm";
+
+const confirm = useConfirm();
 
 interface IssueCalendarEvent {
   id: number;
@@ -187,7 +190,7 @@ async function load() {
         identifier: item.identifier,
         name: item.name,
         type_code: item.type_code,
-        state: item.state ?? { name: '', group: 'backlog', color: '#6b7280' },
+        state: item.state ?? { name: '', group: 'backlog', color: 'var(--text-secondary)' },
         priority: item.priority,
         target_date: item.target_date,
         start_date: item.start_date,
@@ -258,7 +261,7 @@ async function submitCreate() {
 
 /** 归档独立日历事件。 */
 async function archiveEvent(eventId: number) {
-  if (!confirm('确定归档该事件？')) return;
+  if (!await confirm({ title: "归档事件", message: "确定归档该事件？", confirmText: "归档", variant: "danger" })) return;
   try {
     await calendarApi.archive(wsId.value, eventId);
     calendarEvents.value = calendarEvents.value.filter((e) => e.id !== eventId);
@@ -328,22 +331,22 @@ function typeIconFromMeta(meta: string): string {
 
 function typeColor(type: string): string {
   switch (type) {
-    case 'requirement': return '#2563eb';
-    case 'task': return '#d97706';
-    case 'defect': return '#dc2626';
-    default: return '#6b7280';
+    case 'requirement': return 'var(--brand-600)';
+    case 'task': return 'var(--warning-500)';
+    case 'defect': return 'var(--danger-500)';
+    default: return 'var(--text-secondary)';
   }
 }
 
 /** 独立日历事件的颜色映射。 */
 function calendarColor(type: CalendarEventType): string {
   switch (type) {
-    case 'meeting': return '#7c3aed';
-    case 'milestone': return '#0891b2';
-    case 'release': return '#16a34a';
-    case 'deadline': return '#ea580c';
-    case 'other': return '#64748b';
-    default: return '#64748b';
+    case 'meeting': return 'var(--brand-500)';
+    case 'milestone': return 'var(--info-500)';
+    case 'release': return 'var(--success-500)';
+    case 'deadline': return 'var(--warning-500)';
+    case 'other': return 'var(--text-secondary)';
+    default: return 'var(--text-secondary)';
   }
 }
 
@@ -358,7 +361,9 @@ const EVENT_TYPE_LABELS: Record<CalendarEventType, string> = {
 </script>
 
 <template>
-  <div class="calendar-view">
+  
+  <AppPageContainer max="1200px">
+    <div class="calendar-view">
     <!-- 顶部栏 -->
     <header class="page-header">
       <div class="header-left">
@@ -367,11 +372,11 @@ const EVENT_TYPE_LABELS: Record<CalendarEventType, string> = {
           <button class="icon-btn" aria-label="上一个" @click="prev">‹</button>
           <span class="view-title">{{ viewTitle }}</span>
           <button class="icon-btn" aria-label="下一个" @click="next">›</button>
-          <button class="btn-today" @click="goToday">今天</button>
+          <AppButton size="sm" variant="secondary" @click="goToday">今天</AppButton>
         </div>
       </div>
       <div class="header-actions">
-        <button class="btn-primary" @click="openCreateModal">+ 新建事件</button>
+        <AppButton @click="openCreateModal">+ 新建事件</AppButton>
         <div class="view-tabs">
           <button
             v-for="v in VIEW_MODES"
@@ -509,20 +514,22 @@ const EVENT_TYPE_LABELS: Record<CalendarEventType, string> = {
           </label>
         </div>
         <div class="modal-footer">
-          <button class="btn-today" @click="showCreateModal = false">取消</button>
-          <button class="btn-primary" :disabled="saving" @click="submitCreate">
+          <AppButton variant="secondary" @click="showCreateModal = false">取消</AppButton>
+          <AppButton :loading="saving" :disabled="saving" @click="submitCreate">
             {{ saving ? '创建中…' : '创建' }}
-          </button>
+          </AppButton>
         </div>
       </div>
     </div>
-  </div>
+  
+    </div>
+  </AppPageContainer>
 </template>
 
 <style scoped>
 .calendar-view {
-  max-width: 1200px;
-  margin: 0 auto;
+  
+  
   padding: 24px;
   display: flex;
   flex-direction: column;
@@ -574,16 +581,6 @@ const EVENT_TYPE_LABELS: Record<CalendarEventType, string> = {
   color: var(--text-primary);
   min-width: 140px;
   text-align: center;
-}
-
-.btn-today {
-  padding: 4px 12px;
-  font-size: 12px;
-  border: 1px solid var(--border);
-  background: var(--surface-1);
-  border-radius: 6px;
-  cursor: pointer;
-  color: var(--text-primary);
 }
 
 .view-tabs {
@@ -819,27 +816,6 @@ const EVENT_TYPE_LABELS: Record<CalendarEventType, string> = {
   display: flex;
   flex-direction: column;
   gap: 8px;
-}
-
-/* --- 新建事件按钮 --- */
-.btn-primary {
-  padding: 6px 14px;
-  font-size: 13px;
-  border: none;
-  background: var(--brand-500);
-  color: var(--text-on-brand);
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: 500;
-}
-
-.btn-primary:hover {
-  opacity: 0.9;
-}
-
-.btn-primary:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
 }
 
 /* --- 弹窗 --- */

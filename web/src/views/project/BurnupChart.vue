@@ -92,7 +92,7 @@ const option = computed<EChartsOption>(() => {
         text: "暂无燃起图数据",
         left: "center",
         top: "center",
-        textStyle: { color: "#999", fontSize: 14, fontWeight: "normal" as const },
+        textStyle: { color: "var(--text-tertiary)", fontSize: 14, fontWeight: "normal" as const },
       },
       grid: { show: false },
     };
@@ -126,26 +126,26 @@ const option = computed<EChartsOption>(() => {
     },
     xAxis: {
       type: "category", data: dates, boundaryGap: false,
-      axisLabel: { fontSize: 10, color: "#999" },
+      axisLabel: { fontSize: 10, color: "var(--text-tertiary)" },
     },
     yAxis: {
       type: "value", name: "故事点 (pt)",
-      nameTextStyle: { fontSize: 11, color: "#999" },
-      axisLabel: { fontSize: 10, color: "#999" },
-      splitLine: { lineStyle: { color: "#f0f0f0", type: "dashed" } },
+      nameTextStyle: { fontSize: 11, color: "var(--text-tertiary)" },
+      axisLabel: { fontSize: 10, color: "var(--text-tertiary)" },
+      splitLine: { lineStyle: { color: "var(--border-subtle)", type: "dashed" } },
       minInterval: 1,
     },
     dataZoom: enableZoom ? [{
       type: "slider", start: 0, end: 100, height: 20, bottom: 30,
-      borderColor: "transparent", backgroundColor: "#f5f5f5",
+      borderColor: "transparent", backgroundColor: "var(--border-subtle)",
       fillerColor: "rgba(16,185,129,0.1)",
     }] : undefined,
     series: [
       {
         name: "总量线",
         type: "line", data: totalData,
-        lineStyle: { color: "#faad14", width: 2 },
-        itemStyle: { color: "#faad14" },
+        lineStyle: { color: "var(--warning-500)", width: 2 },
+        itemStyle: { color: "var(--warning-500)" },
         symbol: "circle", symbolSize: 4,
         areaStyle: {
           color: { type: "linear", x: 0, y: 0, x2: 0, y2: 1, colorStops: [
@@ -157,8 +157,8 @@ const option = computed<EChartsOption>(() => {
       {
         name: "已完成",
         type: "line", data: doneData,
-        lineStyle: { color: "#10b981", width: 2.5 },
-        itemStyle: { color: "#10b981" },
+        lineStyle: { color: "var(--success-500)", width: 2.5 },
+        itemStyle: { color: "var(--success-500)" },
         symbol: "diamond", symbolSize: 5,
         areaStyle: {
           color: { type: "linear", x: 0, y: 0, x2: 0, y2: 1, colorStops: [
@@ -170,8 +170,8 @@ const option = computed<EChartsOption>(() => {
       {
         name: "理想线",
         type: "line", data: idealData,
-        lineStyle: { color: "#d1d5db", type: "dashed", width: 1.5 },
-        itemStyle: { color: "#d1d5db" },
+        lineStyle: { color: "var(--border-subtle)", type: "dashed", width: 1.5 },
+        itemStyle: { color: "var(--border-subtle)" },
         symbol: "none",
       },
     ],
@@ -192,9 +192,9 @@ defineExpose({ chartRef });
 <style scoped>
 .burnup-chart {
   position: relative;
-  background: var(--surface-1, #fff);
+  background: var(--surface-1);
   border-radius: var(--radius-md, 8px);
-  border: 1px solid var(--border-subtle, #f0f0f0);
+  border: 1px solid var(--border-subtle);
   overflow: hidden;
 }
 .chart-canvas {

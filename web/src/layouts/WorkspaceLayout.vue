@@ -26,6 +26,7 @@ import { useNotificationStore } from "@/stores/notification";
 import { wsClient } from "@/lib/ws-client";
 import NotificationBell from "@/components/NotificationBell.vue";
 import { IssuePeekOverview } from "@/components";
+import { PwaPrompts } from "@/components";
 import ThemeToggle from "@/components/ThemeToggle.vue";
 import SidebarUserMenu from "@/components/SidebarUserMenu.vue";
 import { WORKSPACE_MENU } from "@/types/permission";
@@ -274,7 +275,7 @@ watch(
         aria-label="关闭菜单"
         @click="closeMobileSidebar"
       >
-        ✕
+        <DynamicIcon name="X" :size="18" />
       </button>
 
       <!-- ===== 工作空间切换器 ===== -->
@@ -287,7 +288,7 @@ watch(
           <span class="ws-switcher__name">{{ currentWs?.name ?? "选择空间" }}</span>
           <span class="ws-switcher__role">{{ roleLabel(currentWs?.role) }}</span>
         </div>
-        <span v-if="!collapsed" class="ws-switcher__caret">▾</span>
+        <span v-if="!collapsed" class="ws-switcher__caret"><DynamicIcon name="ChevronDown" :size="14" /></span>
 
         <!--
           切换器下拉：必须放在 .ws-switcher 内部，
@@ -318,7 +319,7 @@ watch(
           </div>
           <div class="ws-switcher__actions">
             <button class="ws-switcher__action" @click="gotoList">📋 查看所有空间</button>
-            <button class="ws-switcher__action" @click="gotoCreate">＋ 创建工作空间</button>
+            <button class="ws-switcher__action" @click="gotoCreate"><DynamicIcon name="Plus" :size="14" /> 创建工作空间</button>
           </div>
         </div>
       </div>
@@ -337,9 +338,9 @@ watch(
         @click="handleQuickCreate"
       >
         <span v-if="!collapsed">
-          ＋{{ isHome ? "新建空间" : currentProjectId ? "新建需求/任务/缺陷" : "新建项目" }}
+          <DynamicIcon name="Plus" :size="14" />{{ isHome ? "新建空间" : currentProjectId ? "新建需求/任务/缺陷" : "新建项目" }}
         </span>
-        <span v-else>＋</span>
+        <span v-else><DynamicIcon name="Plus" :size="14" /></span>
       </button>
 
       <!-- ===== 侧边导航 ===== -->
@@ -481,13 +482,31 @@ watch(
               <DynamicIcon name="LayoutDashboard" class="nav-icon" />
               <span v-if="!collapsed">仪表盘</span>
             </router-link>
+            <router-link
+              :to="`/${wsStore.currentId}/projects/${currentProjectId}/milestones`"
+              class="nav-item"
+              active-class="is-active"
+              exact-active-class="is-active"
+            >
+              <DynamicIcon name="Milestone" class="nav-icon" />
+              <span v-if="!collapsed">{{ $t('menu.milestones') }}</span>
+            </router-link>
+            <router-link
+              :to="`/${wsStore.currentId}/projects/${currentProjectId}/recurring-rules`"
+              class="nav-item"
+              active-class="is-active"
+              exact-active-class="is-active"
+            >
+              <DynamicIcon name="Repeat" class="nav-icon" />
+              <span v-if="!collapsed">{{ $t('menu.recurringRules') }}</span>
+            </router-link>
           </div>
         </template>
       </nav>
 
       <!-- 折叠按钮 -->
       <button class="sidebar__collapse" @click="collapsed = !collapsed">
-        {{ collapsed ? "»" : "«" }}
+        <DynamicIcon :name="collapsed ? 'ChevronRight' : 'ChevronLeft'" :size="18" />
       </button>
 
       <!-- 侧栏底部用户菜单（collapsed 时仅显示头像）-->
@@ -514,7 +533,7 @@ watch(
           </slot>
         </div>
         <div class="header__actions">
-          <kbd class="cmdk-hint" title="搜索 (Ctrl+K)" @click="searchStore.toggle()">⌘ K</kbd>
+          <kbd class="cmdk-hint" title="搜索 (Ctrl+K)" @click="searchStore.toggle()"><DynamicIcon name="Command" :size="12" /> K</kbd>
           <ThemeToggle />
           <NotificationBell />
         </div>
@@ -526,6 +545,9 @@ watch(
 
     <!-- 全局 Issue Peek Overview 抽屉 -->
     <IssuePeekOverview />
+
+    <!-- PWA 提示（安装/离线/更新） -->
+    <PwaPrompts />
   </div>
 </template>
 

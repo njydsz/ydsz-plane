@@ -16,6 +16,9 @@
 import { computed } from "vue";
 import AppAvatar from "./AppAvatar.vue";
 import type { IssueComment } from "@/api/services/issue";
+import { useConfirm } from "@/composables/useConfirm";
+
+const confirm = useConfirm();
 
 const props = defineProps<{
   comment: IssueComment;
@@ -45,8 +48,8 @@ const timeAgo = computed(() => {
   return d.toLocaleDateString("zh-CN");
 });
 
-function handleDelete() {
-  if (confirm("确定删除该评论？")) {
+async function handleDelete() {
+  if (await confirm({ title: "删除评论", message: "确定删除该评论？", confirmText: "删除", variant: "danger" })) {
     emit("delete", props.comment);
   }
 }
@@ -92,7 +95,7 @@ function handleDelete() {
   display: flex;
   gap: 10px;
   padding: 12px 0;
-  border-bottom: 1px solid var(--border-subtle, #e5e7eb);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .comment-item:last-child {
@@ -121,30 +124,30 @@ function handleDelete() {
 .comment-item__author {
   font-size: 13px;
   font-weight: 600;
-  color: var(--text-primary, #1f2937);
+  color: var(--text-primary);
 }
 
 .comment-item__time {
   font-size: 11px;
-  color: var(--text-tertiary, #9ca3af);
+  color: var(--text-tertiary);
 }
 
 .comment-item__edited {
   font-size: 11px;
-  color: var(--text-tertiary, #9ca3af);
+  color: var(--text-tertiary);
   font-style: italic;
 }
 
 .comment-item__reply-hint {
   font-size: 11px;
-  color: var(--brand-500, #3b82f6);
+  color: var(--brand-500);
   margin-bottom: 4px;
 }
 
 .comment-item__content {
   font-size: 13px;
   line-height: 1.6;
-  color: var(--text-secondary, #4b5563);
+  color: var(--text-secondary);
   word-break: break-word;
 }
 
@@ -157,11 +160,11 @@ function handleDelete() {
 }
 
 .comment-item__content :deep(a) {
-  color: var(--brand-500, #3b82f6);
+  color: var(--brand-500);
 }
 
 .comment-item__content :deep(code) {
-  background: var(--surface-3, #f3f4f6);
+  background: var(--surface-3);
   padding: 1px 4px;
   border-radius: 3px;
   font-size: 12px;
@@ -169,7 +172,7 @@ function handleDelete() {
 }
 
 .comment-item__content :deep(pre) {
-  background: var(--surface-3, #f3f4f6);
+  background: var(--surface-3);
   padding: 8px 12px;
   border-radius: var(--radius-sm, 4px);
   overflow-x: auto;
@@ -187,16 +190,16 @@ function handleDelete() {
   border: none;
   padding: 0;
   font-size: 11px;
-  color: var(--text-tertiary, #9ca3af);
+  color: var(--text-tertiary);
   cursor: pointer;
   font-family: inherit;
 }
 
 .comment-item__action:hover {
-  color: var(--brand-500, #3b82f6);
+  color: var(--brand-500);
 }
 
 .comment-item__action--danger:hover {
-  color: var(--danger-500, #ef4444);
+  color: var(--danger-500);
 }
 </style>

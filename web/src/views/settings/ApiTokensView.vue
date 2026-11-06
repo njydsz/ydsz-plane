@@ -63,7 +63,9 @@ import { onMounted, ref } from "vue";
 
 import { apiTokenApi, type ApiToken } from "@/api/services/api-tokens";
 import { toast } from "@/lib/toast";
+import { useConfirm } from "@/composables/useConfirm";
 
+const confirm = useConfirm();
 const tokens = ref<ApiToken[]>([]);
 const newTokenName = ref("");
 const loading = ref(false);
@@ -97,7 +99,7 @@ async function createToken() {
 }
 
 async function revokeToken(id: number) {
-  if (!confirm("确定要吊销该令牌吗？此操作不可恢复。")) return;
+  if (!await confirm({ title: "吊销令牌", message: "确定要吊销该令牌吗？此操作不可恢复。", confirmText: "吊销", variant: "danger" })) return;
   try {
     await apiTokenApi.revoke(id);
     await fetchTokens();

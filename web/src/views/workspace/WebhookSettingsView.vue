@@ -13,7 +13,9 @@ import {
 } from "@/api/services/webhook";
 import { AppEmptyState, AppErrorState, AppSkeleton } from "@/components";
 import { toast } from "@/lib/toast";
+import { useConfirm } from "@/composables/useConfirm";
 
+const confirm = useConfirm();
 const route = useRoute();
 const workspaceId = computed(() => Number(route.params.workspaceId ?? 0));
 
@@ -97,7 +99,7 @@ async function test(w: Webhook) {
 }
 
 async function remove(w: Webhook) {
-  if (!confirm(`确定删除 Webhook「${w.name}」？`)) return;
+  if (!await confirm({ title: "删除 Webhook", message: `确定删除 Webhook「${w.name}」？`, confirmText: "删除", variant: "danger" })) return;
   try {
     await webhookApi.delete(workspaceId.value, w.id);
     await load();
@@ -231,7 +233,7 @@ onMounted(load);
             <button class="text-xs text-[var(--brand-600)]" @click="toggle(w)">
               {{ w.status === "paused" ? "启用" : "暂停" }}
             </button>
-            <button class="text-xs text-[var(--danger, #ef4444)]" @click="remove(w)">删除</button>
+            <button class="text-xs text-[var(--danger)]" @click="remove(w)">删除</button>
           </div>
         </div>
         <div class="mt-1 truncate font-mono text-xs text-[var(--text-tertiary)]">{{ w.url }}</div>

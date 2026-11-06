@@ -62,7 +62,7 @@ function verbLabel(verb: string): string {
   align-items: flex-start;
   gap: 10px;
   padding: 10px 0;
-  border-bottom: 1px solid var(--border-subtle, #e5e7eb);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .activity-item:last-child {
@@ -74,8 +74,8 @@ function verbLabel(verb: string): string {
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  background: var(--brand-50, #eef2fe);
-  color: var(--brand-600, #2f4fd0);
+  background: var(--brand-50);
+  color: var(--brand-600);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -95,15 +95,15 @@ function verbLabel(verb: string): string {
 
 .activity-item__actor {
   font-weight: 500;
-  color: var(--text-primary, #1f2937);
+  color: var(--text-primary);
 }
 
 .activity-item__verb {
-  color: var(--text-secondary, #4b5563);
+  color: var(--text-secondary);
 }
 
 .activity-item__issue {
-  color: var(--brand-500, #3f63f1);
+  color: var(--brand-500);
   font-weight: 500;
   font-family: var(--font-mono, monospace);
   cursor: pointer;
@@ -114,7 +114,7 @@ function verbLabel(verb: string): string {
 }
 
 .activity-item__time {
-  color: var(--text-tertiary, #9ca3af);
+  color: var(--text-tertiary);
   font-size: 11px;
   margin-left: auto;
 }
@@ -122,7 +122,7 @@ function verbLabel(verb: string): string {
 .activity-timeline__empty {
   padding: 24px 0;
   text-align: center;
-  color: var(--text-tertiary, #9ca3af);
+  color: var(--text-tertiary);
   font-size: 13px;
 }
 </style>

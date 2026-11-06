@@ -103,10 +103,10 @@ const emptyOption: EChartsCoreOption = {
   gap: 16px;
   margin-bottom: 8px;
   font-size: 12px;
-  color: var(--text-tertiary, #9ca3af);
+  color: var(--text-tertiary);
 }
 
 .line-chart__meta-item strong {
-  color: var(--text-secondary, #4b5563);
+  color: var(--text-secondary);
 }
 </style>

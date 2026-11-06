@@ -10,7 +10,7 @@ import { useRoute } from "vue-router";
 
 import { moduleApi, type CreateModuleInput, type Module, type UpdateModuleInput } from "@/api/services/module";
 import { workspaceApi, type Member } from "@/api/services/workspace";
-import { AppErrorState, AppLoadingState, AppModal } from "@/components";
+import { AppButton, AppErrorState, AppLoadingState, AppModal, AppPageContainer, DynamicIcon } from "@/components";
 import { toast } from "@/lib/toast";
 
 /** 模板中使用 setTimeout 时需显式暴露，避免组件实例类型上找不到该全局函数。 */
@@ -205,7 +205,9 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="module-settings">
+  
+  <AppPageContainer max="900px">
+    <div class="module-settings">
     <div class="settings__header">
       <h1>模块管理</h1>
       <p class="meta">管理项目模块，为需求/任务/缺陷划分分类维度</p>
@@ -217,7 +219,7 @@ onMounted(() => {
     <div v-else class="content">
       <!-- 操作栏 -->
       <div class="toolbar">
-        <button class="btn btn--primary" @click="openCreate">添加模块</button>
+        <AppButton @click="openCreate">添加模块</AppButton>
       </div>
 
       <!-- 内联创建表单 -->
@@ -241,7 +243,7 @@ class="picker-input" tabindex="0" @focus="showMemberDropdown = 1"
 >
                 <span v-if="createForm.lead_id" class="selected-member">{{ getMemberName(createForm.lead_id) }}</span>
                 <input v-else v-model="memberSearch" type="text" placeholder="搜索成员..." @focus="showMemberDropdown = 1" />
-                <button v-if="createForm.lead_id" type="button" class="clear-btn" @click="clearLead('create')">&times;</button>
+                <button v-if="createForm.lead_id" type="button" class="clear-btn" @click="clearLead('create')"><DynamicIcon name="X" :size="12" /></button>
               </div>
               <div v-if="showMemberDropdown === 1" class="picker-dropdown">
                 <div v-if="filteredMembers.length === 0" class="dropdown-empty">无匹配成员</div>
@@ -258,10 +260,10 @@ v-for="m in filteredMembers" :key="m.id" type="button" class="dropdown-item"
           </div>
         </div>
         <div class="actions">
-          <button class="btn btn--primary" :disabled="creating || !createForm.name.trim()" @click="doCreate">
+          <AppButton :loading="creating" :disabled="creating || !createForm.name.trim()" @click="doCreate">
             {{ creating ? "创建中..." : "确认创建" }}
-          </button>
-          <button class="btn" @click="cancelCreate">取消</button>
+          </AppButton>
+          <AppButton variant="secondary" @click="cancelCreate">取消</AppButton>
         </div>
       </div>
 
@@ -299,11 +301,11 @@ v-for="m in filteredMembers" :key="m.id" type="button" class="dropdown-item"
                   <td>{{ mod.issue_count ?? 0 }}</td>
                   <td>{{ mod.sort_order }}</td>
                   <td class="cell--actions">
-                    <button class="btn btn--sm" @click="startEdit(mod)">编辑</button>
-                    <button class="btn btn--sm" @click="toggleStatus(mod)">
+                    <AppButton size="sm" variant="secondary" @click="startEdit(mod)">编辑</AppButton>
+                    <AppButton size="sm" variant="secondary" @click="toggleStatus(mod)">
                       {{ mod.status === "active" ? "禁用" : "启用" }}
-                    </button>
-                    <button class="btn btn--sm btn--danger" @click="deleteTarget = mod">删除</button>
+                    </AppButton>
+                    <AppButton size="sm" variant="danger" @click="deleteTarget = mod">删除</AppButton>
                   </td>
                 </tr>
                 <!-- 编辑行 -->
@@ -322,7 +324,7 @@ class="picker-input" tabindex="0" @focus="showMemberDropdown = 2"
 >
                         <span v-if="editForm.lead_id" class="selected-member">{{ getMemberName(editForm.lead_id) }}</span>
                         <input v-else v-model="memberSearch" type="text" placeholder="搜索..." @focus="showMemberDropdown = 2" />
-                        <button v-if="editForm.lead_id" type="button" class="clear-btn" @click="clearLead('edit')">&times;</button>
+                        <button v-if="editForm.lead_id" type="button" class="clear-btn" @click="clearLead('edit')"><DynamicIcon name="X" :size="12" /></button>
                       </div>
                       <div v-if="showMemberDropdown === 2" class="picker-dropdown">
                         <div v-if="filteredMembers.length === 0" class="dropdown-empty">无匹配成员</div>
@@ -339,10 +341,10 @@ v-for="m in filteredMembers" :key="m.id" type="button" class="dropdown-item"
                   </td>
                   <td colspan="3"></td>
                   <td class="cell--actions">
-                    <button class="btn btn--sm btn--primary" :disabled="saving || !editForm.name.trim()" @click="saveEdit(mod.id)">
+                    <AppButton size="sm" :loading="saving" :disabled="saving || !editForm.name.trim()" @click="saveEdit(mod.id)">
                       {{ saving ? "保存中..." : "保存" }}
-                    </button>
-                    <button class="btn btn--sm" @click="cancelEdit">取消</button>
+                    </AppButton>
+                    <AppButton size="sm" variant="secondary" @click="cancelEdit">取消</AppButton>
                   </td>
                 </tr>
               </template>
@@ -358,17 +360,18 @@ v-for="m in filteredMembers" :key="m.id" type="button" class="dropdown-item"
         确定要删除模块「{{ deleteTarget?.name }}」吗？此操作不可撤销。
       </p>
       <template #footer>
-        <button class="btn" @click="deleteTarget = null">取消</button>
-        <button class="btn btn--danger" :disabled="deleting" @click="confirmDelete">
+        <AppButton variant="secondary" @click="deleteTarget = null">取消</AppButton>
+        <AppButton variant="danger" :loading="deleting" :disabled="deleting" @click="confirmDelete">
           {{ deleting ? "删除中..." : "确认删除" }}
-        </button>
-      </template>
-    </AppModal>
-  </div>
-</template>
+        </AppButton>
+          </AppModal>
+  
+    </div>
+  </AppPageContainer>
+
 
 <style scoped>
-.module-settings { max-width: 900px; }
+.module-settings {  }
 
 .settings__header {
   margin-bottom: 24px;
@@ -413,7 +416,7 @@ v-for="m in filteredMembers" :key="m.id" type="button" class="dropdown-item"
 
 .create-panel {
   border-color: var(--brand-300);
-  background: var(--brand-50, #f0f4ff);
+  background: var(--brand-50);
 }
 
 .form-grid {
@@ -532,12 +535,12 @@ v-for="m in filteredMembers" :key="m.id" type="button" class="dropdown-item"
 }
 
 .status--active {
-  background: var(--success-50, #e6f9f0);
-  color: var(--success-600, #0c8c4a);
+  background: var(--success-50);
+  color: var(--success-600);
 }
 
 .status--archived {
-  background: var(--text-tertiary-bg, #f0f0f0);
+  background: var(--text-tertiary-bg);
   color: var(--text-tertiary);
 }
 
@@ -655,7 +658,7 @@ v-for="m in filteredMembers" :key="m.id" type="button" class="dropdown-item"
 }
 
 .dropdown-item.active {
-  background: var(--brand-50, #f0f4ff);
+  background: var(--brand-50);
   color: var(--brand-600);
 }
 
@@ -663,7 +666,7 @@ v-for="m in filteredMembers" :key="m.id" type="button" class="dropdown-item"
   width: 24px;
   height: 24px;
   border-radius: 50%;
-  background: var(--brand-100, #dbe4ff);
+  background: var(--brand-100);
   color: var(--brand-600);
   display: flex;
   align-items: center;
@@ -688,57 +691,6 @@ v-for="m in filteredMembers" :key="m.id" type="button" class="dropdown-item"
   padding: 40px 0;
   color: var(--text-tertiary);
   font-size: 14px;
-}
-
-/* ---------- 通用按钮 ---------- */
-.btn {
-  padding: 7px 14px;
-  border-radius: var(--radius-sm);
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  border: 1px solid var(--border-default);
-  background: var(--surface-1);
-  color: var(--text-secondary);
-}
-
-.btn:hover {
-  background: var(--surface-hover);
-}
-
-.btn--sm {
-  padding: 4px 10px;
-  font-size: 12px;
-}
-
-.btn--primary {
-  background: var(--brand-500);
-  border-color: var(--brand-500);
-  color: var(--text-on-brand);
-}
-
-.btn--primary:hover:not(:disabled) {
-  background: var(--brand-600);
-}
-
-.btn--primary:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.btn--danger {
-  background: var(--danger-500);
-  border-color: var(--danger-500);
-  color: var(--text-on-brand);
-}
-
-.btn--danger:hover:not(:disabled) {
-  background: var(--danger-600);
-}
-
-.btn--danger:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
 }
 
 /* ---------- 删除确认 ---------- */

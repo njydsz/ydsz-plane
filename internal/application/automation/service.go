@@ -356,7 +356,9 @@ func (s *Service) ListRecentExecutions(ctx context.Context, projectID int64, lim
 	rows, err := s.db.Query(ctx, `
 		SELECT e.id, e.workspace_id, e.project_id, e.rule_id, e.trigger_event_id,
 		       e.status, e.duration_ms, e.error_message, e.context_json,
-		       e.trigger_depth, e.via_automation, e.created_at
+		       e.trigger_depth, e.via_automation, e.created_at,
+		       COALESCE(r.name, ''), COALESCE(r.trigger_type, ''),
+		       COALESCE(r.actions, '[]')
 		FROM rule_executions e
 		LEFT JOIN automation_rules r ON r.id = e.rule_id
 		WHERE (e.project_id = $1 OR r.project_id IS NULL) AND e.workspace_id = r.workspace_id
@@ -370,13 +372,15 @@ func (s *Service) ListRecentExecutions(ctx context.Context, projectID int64, lim
 	var execs []RuleExecution
 	for rows.Next() {
 		var e RuleExecution
-		var ctxJSON []byte
+		var ctxJSON, actionsJSON []byte
 		if err := rows.Scan(&e.ID, &e.WorkspaceID, &e.ProjectID, &e.RuleID,
 			&e.TriggerEventID, &e.Status, &e.DurationMs, &e.ErrorMessage, &ctxJSON,
-			&e.TriggerDepth, &e.ViaAutomation, &e.CreatedAt); err != nil {
+			&e.TriggerDepth, &e.ViaAutomation, &e.CreatedAt,
+			&e.RuleName, &e.TriggerEvent, &actionsJSON); err != nil {
 			return nil, errs.ErrInternal.Wrap(err)
 		}
 		_ = json.Unmarshal(ctxJSON, &e.ContextJSON)
+		_ = json.Unmarshal(actionsJSON, &e.ActionsExecuted)
 		execs = append(execs, e)
 	}
 	return execs, rows.Err()

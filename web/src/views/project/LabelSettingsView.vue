@@ -9,7 +9,9 @@ import { useRoute } from "vue-router";
 import { labelApi, type Label } from "@/api/services/label";
 import { AppEmptyState, AppErrorState, AppLoadingState } from "@/components";
 import { toast } from "@/lib/toast";
+import { useConfirm } from "@/composables/useConfirm";
 
+const confirm = useConfirm();
 const route = useRoute();
 const workspaceId = Number(route.params.workspaceId);
 const projectId = Number(route.params.projectId);
@@ -20,18 +22,18 @@ const error = ref("");
 
 // 预设颜色
 const COLOR_PRESETS = [
-  "#ef4444", "#f97316", "#eab308", "#22c55e", "#14b8a6",
-  "#3b82f6", "#6366f1", "#a855f7", "#ec4899", "#64748b",
+  "var(--danger-500)", "var(--warning-500)", "var(--warning-500)", "var(--success-500)", "var(--info-500)",
+  "var(--brand-500)", "var(--brand-500)", "var(--brand-500)", "var(--brand-500)", "var(--text-secondary)",
 ];
 
 // 新建
 const showCreate = ref(false);
-const createForm = ref({ name: "", color: "#3b82f6", description: "" });
+const createForm = ref({ name: "", color: "var(--brand-500)", description: "" });
 const creating = ref(false);
 
 // 行内编辑
 const editingId = ref<number | null>(null);
-const editForm = ref({ name: "", color: "#3b82f6", description: "" });
+const editForm = ref({ name: "", color: "var(--brand-500)", description: "" });
 const saving = ref(false);
 
 async function loadLabels() {
@@ -49,7 +51,7 @@ async function loadLabels() {
 
 function openCreate() {
   showCreate.value = true;
-  createForm.value = { name: "", color: "#3b82f6", description: "" };
+  createForm.value = { name: "", color: "var(--brand-500)", description: "" };
 }
 
 async function doCreate() {
@@ -73,7 +75,7 @@ async function doCreate() {
 
 function startEdit(l: Label) {
   editingId.value = l.id;
-  editForm.value = { name: l.name, color: l.color || "#3b82f6", description: l.description ?? "" };
+  editForm.value = { name: l.name, color: l.color || "var(--brand-500)", description: l.description ?? "" };
 }
 
 async function saveEdit(l: Label) {
@@ -96,7 +98,7 @@ async function saveEdit(l: Label) {
 }
 
 async function remove(l: Label) {
-  if (!confirm(`确定删除标签「${l.name}」？工作项上的标签关联会一并解除。`)) return;
+  if (!await confirm({ title: "删除标签", message: `确定删除标签「${l.name}」？工作项上的标签关联会一并解除。`, confirmText: "删除", variant: "danger" })) return;
   try {
     await labelApi.remove(workspaceId, projectId, l.id);
     toast.success("标签已删除");
@@ -184,18 +186,17 @@ onMounted(loadLabels);
           </template>
           <template v-else>
             <div class="flex min-w-0 items-center gap-2">
-              <span class="inline-block h-3 w-3 shrink-0 rounded-full" :style="{ backgroundColor: l.color || '#3b82f6' }" />
+              <span class="inline-block h-3 w-3 shrink-0 rounded-full" :style="{ backgroundColor: l.color || 'var(--brand-500)' }" />
               <span class="truncate text-sm font-medium">{{ l.name }}</span>
               <span v-if="l.description" class="hidden truncate text-xs text-[var(--text-tertiary)] md:inline">{{ l.description }}</span>
             </div>
             <div class="flex shrink-0 items-center gap-3">
               <span class="text-xs text-[var(--text-tertiary)]">使用 {{ l.issue_count ?? 0 }}</span>
               <button class="text-xs text-[var(--text-secondary)] hover:text-[var(--brand-600)]" @click="startEdit(l)">编辑</button>
-              <button class="text-xs text-[var(--danger,#ef4444)]" @click="remove(l)">删除</button>
+              <button class="text-xs text-[var(--danger)]" @click="remove(l)">删除</button>
             </div>
-          </template>
-        </div>
+                  </div>
       </section>
-    </template>
+    
   </div>
-</template>
+

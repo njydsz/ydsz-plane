@@ -97,7 +97,7 @@ const chartOption = computed<EChartsCoreOption>(() => {
         type: "bar",
         stack: "total",
         data: versionStats.value.map((v) => v.done),
-        itemStyle: { color: "var(--success-500, #10b981)", borderRadius: [0, 0, 0, 0] },
+        itemStyle: { color: "var(--success-500)", borderRadius: [0, 0, 0, 0] },
         barWidth: "40%",
       },
       {
@@ -105,7 +105,7 @@ const chartOption = computed<EChartsCoreOption>(() => {
         type: "bar",
         stack: "total",
         data: versionStats.value.map((v) => v.remaining),
-        itemStyle: { color: "var(--brand-200, #c7d2fe)", borderRadius: [4, 4, 0, 0] },
+        itemStyle: { color: "var(--brand-200)", borderRadius: [4, 4, 0, 0] },
         barWidth: "40%",
       },
     ],
@@ -155,11 +155,11 @@ onMounted(loadStats);
   justify-content: center;
   height: 100%;
   font-size: 13px;
-  color: var(--text-tertiary, #9ca3af);
+  color: var(--text-tertiary);
 }
 
 .error-hint {
-  color: var(--danger-500, #dc2f2f);
+  color: var(--danger-500);
 }
 
 .version-stats {
@@ -167,7 +167,7 @@ onMounted(loadStats);
   flex-direction: column;
   gap: 6px;
   padding-top: 4px;
-  border-top: 1px solid var(--border-subtle, #e5e7eb);
+  border-top: 1px solid var(--border-subtle);
 }
 
 .stat-row {
@@ -180,13 +180,13 @@ onMounted(loadStats);
 .stat-name {
   width: 40px;
   flex-shrink: 0;
-  color: var(--text-secondary, #4b5563);
+  color: var(--text-secondary);
 }
 
 .stat-bar {
   flex: 1;
   height: 6px;
-  background: var(--surface-2, #f3f4f6);
+  background: var(--surface-2);
   border-radius: 3px;
   overflow: hidden;
 }
@@ -194,7 +194,7 @@ onMounted(loadStats);
 .stat-bar__fill {
   display: block;
   height: 100%;
-  background: var(--success-500, #10b981);
+  background: var(--success-500);
   border-radius: 3px;
   transition: width 0.3s;
 }
@@ -203,6 +203,6 @@ onMounted(loadStats);
   width: 32px;
   text-align: right;
   flex-shrink: 0;
-  color: var(--text-tertiary, #9ca3af);
+  color: var(--text-tertiary);
 }
 </style>

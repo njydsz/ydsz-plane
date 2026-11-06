@@ -333,7 +333,7 @@ function fmtTime(iso: string): string {
   position: fixed;
   inset: 0;
   z-index: 9999;
-  background: var(--bg-base, #f9fafb);
+  background: var(--bg-base);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -345,8 +345,8 @@ function fmtTime(iso: string): string {
   align-items: center;
   gap: 16px;
   padding: 12px 24px;
-  background: var(--surface-1, #fff);
-  border-bottom: 1px solid var(--border-subtle, #e5e7eb);
+  background: var(--surface-1);
+  border-bottom: 1px solid var(--border-subtle);
   flex-shrink: 0;
 }
 
@@ -357,17 +357,17 @@ function fmtTime(iso: string): string {
   padding: 6px 12px;
   font-size: 13px;
   font-weight: 500;
-  color: var(--text-secondary, #4b5563);
-  background: var(--surface-2, #f9fafb);
-  border: 1px solid var(--border-default, #d1d5db);
+  color: var(--text-secondary);
+  background: var(--surface-2);
+  border: 1px solid var(--border-default);
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.15s;
   flex-shrink: 0;
 }
 .focus-mode__back:hover {
-  background: var(--surface-3, #f3f4f6);
-  color: var(--text-primary, #1f2937);
+  background: var(--surface-3);
+  color: var(--text-primary);
 }
 
 .focus-mode__title {
@@ -381,14 +381,14 @@ function fmtTime(iso: string): string {
 .focus-mode__identifier {
   font-size: 14px;
   font-weight: 600;
-  color: var(--brand-500, #3b82f6);
+  color: var(--brand-500);
   flex-shrink: 0;
 }
 
 .focus-mode__name {
   font-size: 15px;
   font-weight: 500;
-  color: var(--text-primary, #1f2937);
+  color: var(--text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -402,17 +402,17 @@ function fmtTime(iso: string): string {
 .focus-mode__action-btn {
   padding: 5px 12px;
   font-size: 12px;
-  color: var(--text-secondary, #4b5563);
+  color: var(--text-secondary);
   background: none;
-  border: 1px solid var(--border-subtle, #e5e7eb);
+  border: 1px solid var(--border-subtle);
   border-radius: 4px;
   cursor: pointer;
   transition: all 0.15s;
   font-family: inherit;
 }
 .focus-mode__action-btn:hover {
-  background: var(--surface-2, #f9fafb);
-  border-color: var(--border-default, #d1d5db);
+  background: var(--surface-2);
+  border-color: var(--border-default);
 }
 
 /* ---- 加载 / 错误 ---- */
@@ -424,14 +424,14 @@ function fmtTime(iso: string): string {
   align-items: center;
   justify-content: center;
   gap: 12px;
-  color: var(--text-tertiary, #9ca3af);
+  color: var(--text-tertiary);
   font-size: 14px;
 }
 .focus-mode__spinner {
   width: 28px;
   height: 28px;
-  border: 3px solid var(--border-subtle, #e5e7eb);
-  border-top-color: var(--brand-500, #3b82f6);
+  border: 3px solid var(--border-subtle);
+  border-top-color: var(--brand-500);
   border-radius: 50%;
   animation: focus-spin 0.8s linear infinite;
 }
@@ -439,7 +439,7 @@ function fmtTime(iso: string): string {
   to { transform: rotate(360deg); }
 }
 .focus-mode__error {
-  color: var(--danger-500, #ef4444);
+  color: var(--danger-500);
 }
 
 /* ---- 主体内容 ---- */
@@ -471,14 +471,14 @@ function fmtTime(iso: string): string {
 
 /* ---- 描述（富文本渲染） ---- */
 .focus-mode__description {
-  background: var(--surface-1, #fff);
-  border: 1px solid var(--border-subtle, #e5e7eb);
+  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
   border-radius: 8px;
   padding: 20px 24px;
 }
 
 .focus-mode__empty {
-  color: var(--text-tertiary, #9ca3af);
+  color: var(--text-tertiary);
   font-size: 14px;
   font-style: italic;
   margin: 0;
@@ -510,19 +510,19 @@ function fmtTime(iso: string): string {
   margin-bottom: 4px;
 }
 .focus-mode__prose :deep(blockquote) {
-  border-left: 3px solid var(--brand-200, #bfdbfe);
+  border-left: 3px solid var(--brand-200);
   padding-left: 12px;
   margin: 8px 0;
-  color: var(--text-secondary, #4b5563);
+  color: var(--text-secondary);
 }
 .focus-mode__prose :deep(code) {
-  background: var(--surface-3, #f3f4f6);
+  background: var(--surface-3);
   padding: 2px 6px;
   border-radius: 4px;
   font-size: 13px;
 }
 .focus-mode__prose :deep(pre) {
-  background: var(--surface-2, #f9fafb);
+  background: var(--surface-2);
   border: 1px solid var(--border-subtle);
   border-radius: 6px;
   padding: 12px;
@@ -534,7 +534,7 @@ function fmtTime(iso: string): string {
   padding: 0;
 }
 .focus-mode__prose :deep(a) {
-  color: var(--brand-500, #3b82f6);
+  color: var(--brand-500);
   text-decoration: underline;
 }
 .focus-mode__prose :deep(img) {
@@ -552,7 +552,7 @@ function fmtTime(iso: string): string {
   padding: 8px 12px;
 }
 .focus-mode__prose :deep(th) {
-  background: var(--surface-2, #f9fafb);
+  background: var(--surface-2);
 }
 
 /* Callout */
@@ -563,20 +563,20 @@ function fmtTime(iso: string): string {
   border-left: 3px solid;
 }
 .focus-mode__prose :deep(div[data-type="callout"][data-callout-type="info"]) {
-  background: var(--brand-50, #eef2fe);
-  border-color: var(--brand-default, #3b82f6);
+  background: var(--brand-50);
+  border-color: var(--brand-default);
 }
 .focus-mode__prose :deep(div[data-type="callout"][data-callout-type="warning"]) {
-  background: var(--warning-50, #fffbeb);
-  border-color: var(--warning-500, #f59e0b);
+  background: var(--warning-50);
+  border-color: var(--warning-500);
 }
 .focus-mode__prose :deep(div[data-type="callout"][data-callout-type="error"]) {
-  background: var(--danger-50, #fef2f2);
-  border-color: var(--danger-500, #ef4444);
+  background: var(--danger-50);
+  border-color: var(--danger-500);
 }
 .focus-mode__prose :deep(div[data-type="callout"][data-callout-type="success"]) {
-  background: var(--success-50, #ecfdf5);
-  border-color: var(--success-500, #10b981);
+  background: var(--success-50);
+  border-color: var(--success-500);
 }
 
 /* Task list */
@@ -605,13 +605,13 @@ function fmtTime(iso: string): string {
 .attr-label {
   font-size: 11px;
   font-weight: 600;
-  color: var(--text-tertiary, #9ca3af);
+  color: var(--text-tertiary);
   text-transform: uppercase;
   letter-spacing: 0.3px;
 }
 .attr-value {
   font-size: 14px;
-  color: var(--text-primary, #1f2937);
+  color: var(--text-primary);
   word-break: break-all;
 }
 
@@ -619,7 +619,7 @@ function fmtTime(iso: string): string {
 .focus-mode__section-title {
   font-size: 13px;
   font-weight: 600;
-  color: var(--text-secondary, #4b5563);
+  color: var(--text-secondary);
   margin: 0 0 8px;
 }
 
@@ -639,17 +639,17 @@ function fmtTime(iso: string): string {
   gap: 10px;
   font-size: 13px;
   padding: 4px 0;
-  border-bottom: 1px solid var(--border-subtle, #f3f4f6);
+  border-bottom: 1px solid var(--border-subtle);
 }
 .time-duration {
   font-weight: 600;
-  color: var(--brand-500, #3b82f6);
+  color: var(--brand-500);
 }
 .time-desc {
-  color: var(--text-primary, #1f2937);
+  color: var(--text-primary);
 }
 .time-date {
-  color: var(--text-tertiary, #9ca3af);
+  color: var(--text-tertiary);
   font-size: 12px;
 }
 
@@ -660,14 +660,14 @@ function fmtTime(iso: string): string {
   align-items: center;
   gap: 10px;
   padding: 4px 0;
-  border-bottom: 1px solid var(--border-subtle, #f3f4f6);
+  border-bottom: 1px solid var(--border-subtle);
   font-size: 13px;
 }
 .activity-action {
-  color: var(--text-primary, #1f2937);
+  color: var(--text-primary);
 }
 .activity-meta {
-  color: var(--text-tertiary, #9ca3af);
+  color: var(--text-tertiary);
   font-size: 12px;
   flex-shrink: 0;
 }
@@ -677,9 +677,9 @@ function fmtTime(iso: string): string {
   padding: 8px;
   text-align: center;
   font-size: 11px;
-  color: var(--text-tertiary, #9ca3af);
-  background: var(--surface-1, #fff);
-  border-top: 1px solid var(--border-subtle, #e5e7eb);
+  color: var(--text-tertiary);
+  background: var(--surface-1);
+  border-top: 1px solid var(--border-subtle);
   flex-shrink: 0;
 }
 .focus-mode__footer kbd {
@@ -687,7 +687,7 @@ function fmtTime(iso: string): string {
   padding: 2px 6px;
   font-family: var(--font-mono, monospace);
   font-size: 10px;
-  background: var(--surface-2, #f9fafb);
+  background: var(--surface-2);
   border: 1px solid var(--border-subtle);
   border-radius: 3px;
   margin: 0 2px;

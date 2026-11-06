@@ -21,6 +21,7 @@ import { useRoute } from "vue-router";
 import { issueApi, type Issue, type UpdateIssueInput } from "@/api/services/issue";
 import { workspaceApi } from "@/api/services/workspace";
 import { ApiError } from "@/api/client";
+import DynamicIcon from "@/components/DynamicIcon.vue";
 
 /** 虚拟滚动常量 */
 const ROW_HEIGHT = 37; // tbody 行高（padding 6*2 + line-height 13*1.5 ≈ 31.5，取 37 留余量）
@@ -365,7 +366,7 @@ onUnmounted(() => {
           {{ loading ? "刷新中..." : "刷新" }}
         </button>
         <div class="column-config">
-          <button class="toolbar-btn">列配置 ▾</button>
+          <button class="toolbar-btn">列配置 <DynamicIcon name="ChevronDown" :size="14" /></button>
           <div class="column-dropdown">
             <label
               v-for="col in columns"
@@ -485,8 +486,7 @@ onUnmounted(() => {
                       @keydown.enter="commitEdit"
                       @keydown.escape="cancelEdit"
                     />
-                  </template>
-                  <!-- 显示模式 -->
+                                    <!-- 显示模式 -->
                   <template v-else>
                     <span
                       v-if="col.key === 'identifier'"
@@ -516,7 +516,7 @@ onUnmounted(() => {
                     <span v-else>
                       {{ getCellValue(issue, col.key) || "—" }}
                     </span>
-                  </template>
+                  
                 </td>
               </tr>
               <!-- 空数据占位行 -->
@@ -555,14 +555,14 @@ onUnmounted(() => {
       </span>
     </div>
   </div>
-</template>
+
 
 <style scoped>
 .spreadsheet-view {
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: var(--color-bg, #fff);
+  background: var(--color-bg);
 }
 
 /* --- Toolbar --- */
@@ -571,14 +571,14 @@ onUnmounted(() => {
   align-items: center;
   justify-content: space-between;
   padding: 8px 16px;
-  border-bottom: 1px solid var(--color-border, #e5e7eb);
-  background: var(--color-bg-secondary, #f9fafb);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg-secondary);
   flex-shrink: 0;
 }
 
 .toolbar-left {
   font-size: 13px;
-  color: var(--color-text-secondary, #6b7280);
+  color: var(--color-text-secondary);
 }
 
 .toolbar-right {
@@ -588,15 +588,15 @@ onUnmounted(() => {
 
 .toolbar-btn {
   padding: 4px 12px;
-  border: 1px solid var(--color-border, #e5e7eb);
+  border: 1px solid var(--color-border);
   border-radius: 6px;
-  background: var(--color-bg, #fff);
+  background: var(--color-bg);
   font-size: 13px;
   cursor: pointer;
 }
 
 .toolbar-btn:hover {
-  background: var(--color-bg-hover, #f3f4f6);
+  background: var(--color-bg-hover);
 }
 
 .column-config {
@@ -610,8 +610,8 @@ onUnmounted(() => {
   right: 0;
   margin-top: 4px;
   padding: 8px;
-  background: var(--color-bg, #fff);
-  border: 1px solid var(--color-border, #e5e7eb);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   z-index: 100;
@@ -635,7 +635,7 @@ onUnmounted(() => {
 }
 
 .column-option:hover {
-  background: var(--color-bg-hover, #f3f4f6);
+  background: var(--color-bg-hover);
 }
 
 /* --- Table --- */
@@ -683,12 +683,12 @@ onUnmounted(() => {
 }
 
 thead th {
-  background: var(--color-bg-secondary, #f9fafb);
-  border-bottom: 2px solid var(--color-border, #e5e7eb);
+  background: var(--color-bg-secondary);
+  border-bottom: 2px solid var(--color-border);
   padding: 0;
   font-size: 12px;
   font-weight: 600;
-  color: var(--color-text-secondary, #6b7280);
+  color: var(--color-text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   user-select: none;
@@ -746,13 +746,13 @@ thead th {
 }
 
 .col-resizer:hover {
-  background: var(--color-primary, #3b82f6);
+  background: var(--color-primary);
 }
 
 /* --- Body --- */
 tbody td {
   padding: 6px 12px;
-  border-bottom: 1px solid var(--color-border-light, #f3f4f6);
+  border-bottom: 1px solid var(--color-border-light);
   font-size: 13px;
   line-height: 1.5;
   overflow: hidden;
@@ -765,35 +765,35 @@ tbody tr {
 }
 
 tbody tr:hover {
-  background: var(--color-bg-hover, #f9fafb);
+  background: var(--color-bg-hover);
 }
 
 tbody tr.row-selected {
-  background: var(--color-primary-light, #eff6ff);
+  background: var(--color-primary-light);
 }
 
 tbody tr.row-active {
-  outline: 2px solid var(--color-primary, #3b82f6);
+  outline: 2px solid var(--color-primary);
   outline-offset: -2px;
 }
 
 .col-select,
 .col-index {
   text-align: center;
-  color: var(--color-text-tertiary, #9ca3af);
+  color: var(--color-text-tertiary);
 }
 
 /* --- Cell Types --- */
 .cell-identifier {
   font-family: "SF Mono", "Fira Code", monospace;
   font-size: 12px;
-  color: var(--color-primary, #3b82f6);
+  color: var(--color-primary);
   font-weight: 500;
 }
 
 .cell-title {
   font-weight: 500;
-  color: var(--color-text, #111827);
+  color: var(--color-text);
 }
 
 .cell-priority {
@@ -804,17 +804,17 @@ tbody tr.row-active {
   font-weight: 500;
 }
 
-.priority-critical { background: #fef2f2; color: #dc2626; }
-.priority-high { background: #fff7ed; color: #ea580c; }
-.priority-medium { background: #fefce8; color: #ca8a04; }
-.priority-low { background: #f0fdf4; color: #16a34a; }
+.priority-critical { background: var(--danger-50); color: var(--danger-500); }
+.priority-high { background: var(--warning-50); color: var(--warning-500); }
+.priority-medium { background: var(--warning-50); color: var(--warning-500); }
+.priority-low { background: var(--success-50); color: var(--success-500); }
 
 .cell-type {
   display: inline-block;
   padding: 1px 8px;
   border-radius: 4px;
   font-size: 12px;
-  background: var(--color-bg-secondary, #f3f4f6);
+  background: var(--color-bg-secondary);
 }
 
 /* --- Editing --- */
@@ -829,11 +829,11 @@ tbody tr.row-active {
 .cell-input {
   width: 100%;
   padding: 6px 12px;
-  border: 2px solid var(--color-primary, #3b82f6);
+  border: 2px solid var(--color-primary);
   border-radius: 4px;
   font-size: 13px;
   outline: none;
-  background: var(--color-bg, #fff);
+  background: var(--color-bg);
   box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
 }
 
@@ -841,7 +841,7 @@ tbody tr.row-active {
 .empty-cell {
   text-align: center;
   padding: 32px 0;
-  color: var(--color-text-tertiary, #9ca3af);
+  color: var(--color-text-tertiary);
 }
 
 /* --- Empty --- */
@@ -851,23 +851,23 @@ tbody tr.row-active {
   align-items: center;
   justify-content: center;
   padding: 80px 20px;
-  color: var(--color-text-secondary, #6b7280);
+  color: var(--color-text-secondary);
   font-size: 15px;
 }
 
 .empty-hint {
   margin-top: 8px;
   font-size: 13px;
-  color: var(--color-text-tertiary, #9ca3af);
+  color: var(--color-text-tertiary);
 }
 
 /* --- Footer --- */
 .spreadsheet-footer {
   padding: 6px 16px;
-  border-top: 1px solid var(--color-border, #e5e7eb);
-  background: var(--color-bg-secondary, #f9fafb);
+  border-top: 1px solid var(--color-border);
+  background: var(--color-bg-secondary);
   font-size: 11px;
-  color: var(--color-text-tertiary, #9ca3af);
+  color: var(--color-text-tertiary);
   flex-shrink: 0;
 }
 

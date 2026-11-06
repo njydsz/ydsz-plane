@@ -231,6 +231,27 @@ const slashItems: SlashCommandItem[] = [
     },
   },
   {
+    id: "drawio",
+    label: "draw.io 图表",
+    icon: "◇",
+    description: "嵌入 draw.io 流程图/架构图",
+    category: "媒体",
+    execute: (editor) => {
+      const title = prompt("图表标题（可选）:")
+      editor.chain().focus().setDrawio({ title: title || "" }).run()
+    },
+  },
+  {
+    id: "database",
+    label: "Database 表格",
+    icon: "▦",
+    description: "嵌入页内数据库（类型化列 + 行数据）",
+    category: "布局",
+    execute: (editor) => {
+      editor.chain().focus().setDatabase({ title: "数据库" }).run()
+    },
+  },
+  {
     id: "work-item-embed",
     label: "工作项引用",
     icon: "📋",

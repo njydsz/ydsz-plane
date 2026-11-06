@@ -42,8 +42,8 @@ withDefaults(defineProps<{
 
 .app-badge--default { background: var(--surface-3); color: var(--text-secondary); }
 .app-badge--brand   { background: var(--brand-50); color: var(--brand-600); }
-.app-badge--success { background: rgba(15, 194, 123, 0.12); color: var(--success-500); }
-.app-badge--warning { background: rgba(245, 158, 11, 0.12); color: var(--warning-500); }
-.app-badge--danger  { background: rgba(220, 47, 47, 0.12); color: var(--danger-500); }
-.app-badge--info    { background: rgba(23, 190, 233, 0.12); color: var(--info-500); }
+.app-badge--success { background: var(--success-50); color: var(--success-500); }
+.app-badge--warning { background: var(--warning-50); color: var(--warning-500); }
+.app-badge--danger  { background: var(--danger-50); color: var(--danger-500); }
+.app-badge--info    { background: var(--info-50); color: var(--info-500); }
 </style>

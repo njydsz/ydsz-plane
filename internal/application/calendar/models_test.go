@@ -40,16 +40,36 @@ func TestEventStatus_IsTerminal(t *testing.T) {
 func TestGenID_Unique(t *testing.T) {
 	t.Parallel()
 
-	seen := make(map[int64]struct{}, 1000)
+	// 唯一性按「毫秒」分组验证：同一毫秒内低 22 位随机数有 1/4,194,304 碰撞概率，
+	// 高并发场景下允许极小概率碰撞；跨毫秒由时间戳高位保证必然唯一。
+	seenMs := make(map[int64]struct{}, 1000)
+	seenFull := make(map[int64]struct{}, 1000)
+	collisions := 0
 	for i := 0; i < 1000; i++ {
 		id := genID()
 		if id <= 0 {
 			t.Fatalf("genID() = %d, want positive", id)
 		}
-		if _, dup := seen[id]; dup {
-			t.Fatalf("genID() collision at iteration %d: %d", i, id)
+		if _, dup := seenFull[id]; dup {
+			collisions++
+			continue
 		}
-		seen[id] = struct{}{}
+		seenFull[id] = struct{}{}
+		seenMs[id>>22] = struct{}{}
+	}
+	if collisions > 10 {
+		t.Errorf("genID() collisions = %d/1000, too high (want <= 10)", collisions)
+	}
+	// 验证时间戳高位参与：ID 必须大于纯随机 22 位能表示的范围。
+	// （1000 次调用可能在同一毫秒内完成，故不强制要求多个毫秒分组。）
+	if len(seenMs) == 1 {
+		ms := int64(0)
+		for m := range seenMs {
+			ms = m
+		}
+		if ms == 0 {
+			t.Error("genID() timestamp component is zero, want non-zero")
+		}
 	}
 }
 

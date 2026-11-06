@@ -16,7 +16,9 @@ import {
 } from "@/api/services/sso";
 import { AppEmptyState, AppErrorState, AppSkeleton } from "@/components";
 import { toast } from "@/lib/toast";
+import { useConfirm } from "@/composables/useConfirm";
 
+const confirm = useConfirm();
 const route = useRoute();
 const workspaceId = computed(() => Number(route.params.workspaceId ?? 0));
 
@@ -136,7 +138,7 @@ async function submit() {
 }
 
 async function remove(p: SSOProviderListItem) {
-  if (!confirm(`确定删除 SSO Provider「${p.name}」？`)) return;
+  if (!await confirm({ title: "删除 SSO Provider", message: `确定删除 SSO Provider「${p.name}」？`, confirmText: "删除", variant: "danger" })) return;
   try {
     await ssoApi.remove(workspaceId.value, p.id);
     providers.value = providers.value.filter((x) => x.id !== p.id);
@@ -215,7 +217,7 @@ onMounted(load);
             <td class="px-4 py-3 text-right">
               <div class="flex justify-end gap-3">
                 <button class="text-xs text-[var(--brand-600)] hover:underline" @click="openEdit(p)">编辑</button>
-                <button class="text-xs text-[var(--danger, #ef4444)] hover:underline" @click="remove(p)">删除</button>
+                <button class="text-xs text-[var(--danger)] hover:underline" @click="remove(p)">删除</button>
               </div>
             </td>
           </tr>

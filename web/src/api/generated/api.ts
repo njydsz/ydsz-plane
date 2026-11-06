@@ -34,10 +34,28 @@ import type {
   DatajobDataJob,
   DeleteAdminDlqId200,
   DeleteAttachmentsIdParams,
+  DeleteCalendarEventsEventId200,
+  DeleteCollaborationSessions200,
+  DeleteCustomersId200,
+  DeleteDataJobsJobId200,
+  DeleteGrantRulesRuleId200,
+  DeleteIntegrationsId200,
+  DeleteMilestonesMilestoneId200,
+  DeleteMilestonesMilestoneIdWorkItemsWorkItemId200,
+  DeleteOauthAppsAppId200,
   DeletePagesPageId200,
   DeletePagesPageIdLinksLinkId200,
   DeletePagesPageIdSharesShareId200,
+  DeleteProjectCodeConfigsId200,
+  DeleteRecurringRulesRuleId200,
+  DeleteTeamspacesTeamspaceId200,
+  DeleteTeamspacesTeamspaceIdMembersUserId200,
+  DeleteTeamspacesTeamspaceIdProjectsProjectId200,
   DeleteTemplatesTemplateId200,
+  DeleteWorkItemTypesTypeId200,
+  DeleteWorkItemTypesTypeIdPropertiesPropId200,
+  DeleteWorkflowsWorkflowId200,
+  DeleteWorkflowsWorkflowIdTransitionsTransitionId200,
   DtoAcceptInvitationRequest,
   DtoAddProjectMemberRequest,
   DtoBatchResponse,
@@ -50,6 +68,10 @@ import type {
   DtoUpdateWorkspaceRequest,
   GetAdminDlq200,
   GetAdminDlqParams,
+  GetAdminLicense200,
+  GetAdminSettings200,
+  GetAdminStatus200,
+  GetAdminUsage200,
   GetAnalyticsDefectAgeParams,
   GetAnalyticsDefectsExportParams,
   GetAnalyticsDefectsParams,
@@ -59,12 +81,33 @@ import type {
   GetAutomation200,
   GetAutomationExecutionsParams,
   GetAutomationParams,
+  GetCalendarEvents200,
+  GetCalendarEventsEventId200,
+  GetCollaborationSessions200,
+  GetCollaborationVersion200,
   GetContentTemplates200,
+  GetCustomers200,
+  GetCustomersId200,
+  GetCustomersIdStats200,
+  GetCustomersSearch200,
   GetDashboardTemplatesParams,
+  GetDataJobs200,
+  GetDataJobsJobId200,
+  GetGrantRules200,
+  GetGrantRulesRuleId200,
+  GetImportsJobs200,
+  GetImportsJobsJobId200,
+  GetImportsSources200,
+  GetInitiatives200,
   GetIntakeChannels200,
   GetIntakeChannelsParams,
+  GetIntakeChannelsSlug200,
   GetIntakeIssues200,
   GetIntakeIssuesParams,
+  GetIntegrations200,
+  GetIntegrationsId200,
+  GetIntegrationsIdEvents200,
+  GetIntegrationsProviders200,
   GetIssueDependencies200,
   GetIssues200,
   GetIssuesExportParams,
@@ -90,17 +133,29 @@ import type {
   GetMetricsThroughputParams,
   GetMetricsVelocityParams,
   GetMetricsVelocityTrendParams,
+  GetMilestones200,
+  GetMilestonesMilestoneId200,
+  GetMilestonesMilestoneIdProgress200,
+  GetMilestonesMilestoneIdWorkItems200,
   GetModulesModuleIdIssues200,
   GetModulesParams,
   GetNotifications200,
   GetNotificationsParams,
   GetNotificationsUnreadCount200,
+  GetOauthApps200,
+  GetOauthAppsAppId200,
   GetPagesPageIdLinks200,
   GetPagesPageIdShares200,
   GetPagesPageIdVersions200,
+  GetProjectCodeConfigs200,
+  GetProjectCodeConfigsId200,
+  GetProjectCodeExportProjectId200,
+  GetProjectState200,
   GetProjectsProjectIdAiStatus200,
   GetPublicPagesToken200,
   GetPublicPagesTokenParams,
+  GetRecurringRules200,
+  GetRecurringRulesRuleId200,
   GetSearch200,
   GetSearchBookmarks200,
   GetSearchHistory200,
@@ -117,6 +172,12 @@ import type {
   GetSsoProviders200,
   GetStateTransitions200,
   GetStates200,
+  GetTeamspaces200,
+  GetTeamspacesTeamspaceId200,
+  GetTeamspacesTeamspaceIdMembers200,
+  GetTeamspacesTeamspaceIdProgress200,
+  GetTeamspacesTeamspaceIdProjects200,
+  GetTeamspacesTeamspaceIdWorkloads200,
   GetTemplates200,
   GetVersions200,
   GetVersionsDefects200,
@@ -130,6 +191,12 @@ import type {
   GetWebhooksParams,
   GetWebhooksWebhookIdLogs200,
   GetWebhooksWebhookIdLogsParams,
+  GetWorkItemTypes200,
+  GetWorkItemTypesTypeId200,
+  GetWorkItemTypesTypeIdProperties200,
+  GetWorkItemTypesTypeIdValuesWorkItemId200,
+  GetWorkflows200,
+  GetWorkflowsWorkflowId200,
   GetWorkloadHeatmapParams,
   GetWorkspacesWorkspaceIdAuditLogsParams,
   GetWorkspacesWorkspaceIdCalendarEvents200,
@@ -177,31 +244,102 @@ import type {
   PagesPage,
   PagesPageShare,
   PagesPageTemplate,
+  PatchCalendarEventsEventId200,
+  PatchCustomersId200,
+  PatchDataJobsJobIdProgress200,
+  PatchGrantRulesRuleId200,
+  PatchIntegrationsId200,
+  PatchMilestonesMilestoneId200,
+  PatchOauthAppsAppId200,
+  PatchRecurringRulesRuleId200,
+  PatchTeamspacesTeamspaceId200,
+  PatchWorkItemTypesTypeId200,
+  PatchWorkflowsWorkflowId200,
   PatchWorkspacesWorkspaceIdDataJobsJobIdProgressBody,
   PostAdminDlqCleanup200,
   PostAdminDlqIdRetry200,
+  PostAdminSettingsReset200,
+  PostAdminTestSmtp200,
   PostAttachmentsPresignedUpload200,
   PostAuthForgotPassword202,
   PostAutomationDryRun200,
+  PostCalendarEvents200,
+  PostCollaborationHeartbeat200,
+  PostCollaborationOperations200,
+  PostCollaborationSessions200,
+  PostCustomers200,
+  PostDataJobs200,
+  PostDataJobsJobIdCancel200,
+  PostDataJobsJobIdFail200,
+  PostDataJobsJobIdRun200,
+  PostDataJobsJobIdSuccess200,
+  PostGrantRules200,
+  PostGrantRulesEvaluate200,
+  PostGrantRulesRuleIdDisable200,
+  PostGrantRulesRuleIdEnable200,
+  PostImportsJobs200,
+  PostImportsJobsJobIdCsv200,
+  PostImportsJobsJobIdPlatform200,
+  PostInitiatives200,
+  PostIntakeIssues200,
+  PostIntakeTrack200,
+  PostIntegrations200,
+  PostIntegrationsIdDisconnect200,
+  PostIntegrationsIdPause200,
+  PostIntegrationsIdResume200,
+  PostIntegrationsIdSync200,
+  PostIntegrationsIdTest200,
   PostIssuesImport200,
   PostIssuesImportBody,
   PostIssuesImportPreview200,
   PostIssuesImportPreviewBody,
   PostIssuesIssueIdReviewDecision200,
   PostMetricsDeployments201,
+  PostMilestones200,
+  PostMilestonesMilestoneIdWorkItems200,
+  PostOauthApps200,
+  PostOauthAppsAppIdRotate200,
+  PostProjectCodeApply200,
+  PostProjectCodeConfigs200,
+  PostProjectCodeDiff200,
+  PostProjectCodeParse200,
+  PostRecurringRules200,
+  PostRecurringRulesRuleIdDisable200,
+  PostRecurringRulesRuleIdEnable200,
+  PostRecurringRulesRuleIdRunNow200,
   PostSearchReindex200,
   PostStateTransitions201,
+  PostTeamspaces200,
+  PostTeamspacesTeamspaceIdArchive200,
+  PostTeamspacesTeamspaceIdMembers200,
+  PostTeamspacesTeamspaceIdProjects200,
+  PostTeamspacesTeamspaceIdRestore200,
   PostVersionsVersionIdReleaseNotesRegenerate200,
+  PostViewsViewIdDuplicate200,
+  PostViewsViewIdFavorite200,
+  PostViewsViewIdPublic200,
   PostWebhooks201,
   PostWebhooksWebhookIdLogsLogIdRetry200,
   PostWebhooksWebhookIdTest200,
+  PostWorkItemTypes200,
+  PostWorkItemTypesTypeIdArchive200,
+  PostWorkItemTypesTypeIdProperties200,
+  PostWorkItemTypesTypeIdRestore200,
+  PostWorkflows200,
+  PostWorkflowsApprovalIdApprove200,
+  PostWorkflowsApprovalIdReject200,
+  PostWorkflowsWorkflowIdTransitions200,
+  PostWorkflowsWorkflowIdTransitionsTransitionIdValidate200,
   PostWorkspacesWorkspaceIdDataJobsJobIdFailBody,
   PostWorkspacesWorkspaceIdLogoBody,
   PreferenceSavedView,
   PreferenceViewPreference,
+  PutAdminSettings200,
   PutNotificationsIdArchive200,
   PutNotificationsIdRead200,
   PutNotificationsReadAll200,
+  PutProjectState200,
+  PutWorkItemTypesTypeIdValues200,
   PutWorkspacesWorkspaceIdRbacRolesRoleSlugPermissionsBody,
   RbacPermissionMatrix,
   SearchSearchBookmark,
@@ -743,6 +881,16 @@ export const getYdszPlaneAPI = () => {
       url: `/intake/issues`,
       method: "GET",
       params,
+    });
+  };
+
+  /**
+   * @summary intake POST /intake/issues
+   */
+  const postIntakeIssues = () => {
+    return customInstance<PostIntakeIssues200>({
+      url: `/intake/issues`,
+      method: "POST",
     });
   };
 
@@ -3541,6 +3689,1396 @@ JQL 示例: project:YD type:defect priority:high assignee:me()
     });
   };
 
+  /**
+   * @summary calendar GET /calendar/events
+   */
+  const getCalendarEvents = () => {
+    return customInstance<GetCalendarEvents200>({
+      url: `/calendar/events`,
+      method: "GET",
+    });
+  };
+
+  /**
+   * @summary calendar POST /calendar/events
+   */
+  const postCalendarEvents = () => {
+    return customInstance<PostCalendarEvents200>({
+      url: `/calendar/events`,
+      method: "POST",
+    });
+  };
+
+  /**
+   * @summary calendar GET /calendar/events/:event_id
+   */
+  const getCalendarEventsEventId = (eventId: number) => {
+    return customInstance<GetCalendarEventsEventId200>({
+      url: `/calendar/events/${eventId}`,
+      method: "GET",
+    });
+  };
+
+  /**
+   * @summary calendar PATCH /calendar/events/:event_id
+   */
+  const patchCalendarEventsEventId = (eventId: number) => {
+    return customInstance<PatchCalendarEventsEventId200>({
+      url: `/calendar/events/${eventId}`,
+      method: "PATCH",
+    });
+  };
+
+  /**
+   * @summary calendar DELETE /calendar/events/:event_id
+   */
+  const deleteCalendarEventsEventId = (eventId: number) => {
+    return customInstance<DeleteCalendarEventsEventId200>({
+      url: `/calendar/events/${eventId}`,
+      method: "DELETE",
+    });
+  };
+
+  /**
+   * @summary collaboration POST /collaboration/sessions
+   */
+  const postCollaborationSessions = () => {
+    return customInstance<PostCollaborationSessions200>({
+      url: `/collaboration/sessions`,
+      method: "POST",
+    });
+  };
+
+  /**
+   * @summary collaboration DELETE /collaboration/sessions
+   */
+  const deleteCollaborationSessions = () => {
+    return customInstance<DeleteCollaborationSessions200>({
+      url: `/collaboration/sessions`,
+      method: "DELETE",
+    });
+  };
+
+  /**
+   * @summary collaboration GET /collaboration/sessions
+   */
+  const getCollaborationSessions = () => {
+    return customInstance<GetCollaborationSessions200>({
+      url: `/collaboration/sessions`,
+      method: "GET",
+    });
+  };
+
+  /**
+   * @summary collaboration POST /collaboration/heartbeat
+   */
+  const postCollaborationHeartbeat = () => {
+    return customInstance<PostCollaborationHeartbeat200>({
+      url: `/collaboration/heartbeat`,
+      method: "POST",
+    });
+  };
+
+  /**
+   * @summary collaboration GET /collaboration/version
+   */
+  const getCollaborationVersion = () => {
+    return customInstance<GetCollaborationVersion200>({
+      url: `/collaboration/version`,
+      method: "GET",
+    });
+  };
+
+  /**
+   * @summary collaboration POST /collaboration/operations
+   */
+  const postCollaborationOperations = () => {
+    return customInstance<PostCollaborationOperations200>({
+      url: `/collaboration/operations`,
+      method: "POST",
+    });
+  };
+
+  /**
+   * @summary customer GET /customers
+   */
+  const getCustomers = () => {
+    return customInstance<GetCustomers200>({
+      url: `/customers`,
+      method: "GET",
+    });
+  };
+
+  /**
+   * @summary customer POST /customers
+   */
+  const postCustomers = () => {
+    return customInstance<PostCustomers200>({
+      url: `/customers`,
+      method: "POST",
+    });
+  };
+
+  /**
+   * @summary customer GET /customers/search
+   */
+  const getCustomersSearch = () => {
+    return customInstance<GetCustomersSearch200>({
+      url: `/customers/search`,
+      method: "GET",
+    });
+  };
+
+  /**
+   * @summary customer GET /customers/:id
+   */
+  const getCustomersId = (id: number) => {
+    return customInstance<GetCustomersId200>({
+      url: `/customers/${id}`,
+      method: "GET",
+    });
+  };
+
+  /**
+   * @summary customer PATCH /customers/:id
+   */
+  const patchCustomersId = (id: number) => {
+    return customInstance<PatchCustomersId200>({
+      url: `/customers/${id}`,
+      method: "PATCH",
+    });
+  };
+
+  /**
+   * @summary customer DELETE /customers/:id
+   */
+  const deleteCustomersId = (id: number) => {
+    return customInstance<DeleteCustomersId200>({
+      url: `/customers/${id}`,
+      method: "DELETE",
+    });
+  };
+
+  /**
+   * @summary customer GET /customers/:id/stats
+   */
+  const getCustomersIdStats = (id: number) => {
+    return customInstance<GetCustomersIdStats200>({
+      url: `/customers/${id}/stats`,
+      method: "GET",
+    });
+  };
+
+  /**
+   * @summary datajob GET /data-jobs
+   */
+  const getDataJobs = () => {
+    return customInstance<GetDataJobs200>({ url: `/data-jobs`, method: "GET" });
+  };
+
+  /**
+   * @summary datajob POST /data-jobs
+   */
+  const postDataJobs = () => {
+    return customInstance<PostDataJobs200>({
+      url: `/data-jobs`,
+      method: "POST",
+    });
+  };
+
+  /**
+   * @summary datajob GET /data-jobs/:job_id
+   */
+  const getDataJobsJobId = (jobId: number) => {
+    return customInstance<GetDataJobsJobId200>({
+      url: `/data-jobs/${jobId}`,
+      method: "GET",
+    });
+  };
+
+  /**
+   * @summary datajob DELETE /data-jobs/:job_id
+   */
+  const deleteDataJobsJobId = (jobId: number) => {
+    return customInstance<DeleteDataJobsJobId200>({
+      url: `/data-jobs/${jobId}`,
+      method: "DELETE",
+    });
+  };
+
+  /**
+   * @summary datajob PATCH /data-jobs/:job_id/progress
+   */
+  const patchDataJobsJobIdProgress = (jobId: number) => {
+    return customInstance<PatchDataJobsJobIdProgress200>({
+      url: `/data-jobs/${jobId}/progress`,
+      method: "PATCH",
+    });
+  };
+
+  /**
+   * @summary datajob POST /data-jobs/:job_id/run
+   */
+  const postDataJobsJobIdRun = (jobId: number) => {
+    return customInstance<PostDataJobsJobIdRun200>({
+      url: `/data-jobs/${jobId}/run`,
+      method: "POST",
+    });
+  };
+
+  /**
+   * @summary datajob POST /data-jobs/:job_id/success
+   */
+  const postDataJobsJobIdSuccess = (jobId: number) => {
+    return customInstance<PostDataJobsJobIdSuccess200>({
+      url: `/data-jobs/${jobId}/success`,
+      method: "POST",
+    });
+  };
+
+  /**
+   * @summary datajob POST /data-jobs/:job_id/fail
+   */
+  const postDataJobsJobIdFail = (jobId: number) => {
+    return customInstance<PostDataJobsJobIdFail200>({
+      url: `/data-jobs/${jobId}/fail`,
+      method: "POST",
+    });
+  };
+
+  /**
+   * @summary datajob POST /data-jobs/:job_id/cancel
+   */
+  const postDataJobsJobIdCancel = (jobId: number) => {
+    return customInstance<PostDataJobsJobIdCancel200>({
+      url: `/data-jobs/${jobId}/cancel`,
+      method: "POST",
+    });
+  };
+
+  /**
+   * @summary godmode GET /admin/settings
+   */
+  const getAdminSettings = () => {
+    return customInstance<GetAdminSettings200>({
+      url: `/admin/settings`,
+      method: "GET",
+    });
+  };
+
+  /**
+   * @summary godmode PUT /admin/settings
+   */
+  const putAdminSettings = () => {
+    return customInstance<PutAdminSettings200>({
+      url: `/admin/settings`,
+      method: "PUT",
+    });
+  };
+
+  /**
+   * @summary godmode POST /admin/settings/reset
+   */
+  const postAdminSettingsReset = () => {
+    return customInstance<PostAdminSettingsReset200>({
+      url: `/admin/settings/reset`,
+      method: "POST",
+    });
+  };
+
+  /**
+   * @summary godmode GET /admin/license
+   */
+  const getAdminLicense = () => {
+    return customInstance<GetAdminLicense200>({
+      url: `/admin/license`,
+      method: "GET",
+    });
+  };
+
+  /**
+   * @summary godmode GET /admin/status
+   */
+  const getAdminStatus = () => {
+    return customInstance<GetAdminStatus200>({
+      url: `/admin/status`,
+      method: "GET",
+    });
+  };
+
+  /**
+   * @summary godmode GET /admin/usage
+   */
+  const getAdminUsage = () => {
+    return customInstance<GetAdminUsage200>({
+      url: `/admin/usage`,
+      method: "GET",
+    });
+  };
+
+  /**
+   * @summary godmode POST /admin/test-smtp
+   */
+  const postAdminTestSmtp = () => {
+    return customInstance<PostAdminTestSmtp200>({
+      url: `/admin/test-smtp`,
+      method: "POST",
+    });
+  };
+
+  /**
+   * @summary grant GET /grant-rules
+   */
+  const getGrantRules = () => {
+    return customInstance<GetGrantRules200>({
+      url: `/grant-rules`,
+      method: "GET",
+    });
+  };
+
+  /**
+   * @summary grant POST /grant-rules
+   */
+  const postGrantRules = () => {
+    return customInstance<PostGrantRules200>({
+      url: `/grant-rules`,
+      method: "POST",
+    });
+  };
+
+  /**
+   * @summary grant GET /grant-rules/:rule_id
+   */
+  const getGrantRulesRuleId = (ruleId: number) => {
+    return customInstance<GetGrantRulesRuleId200>({
+      url: `/grant-rules/${ruleId}`,
+      method: "GET",
+    });
+  };
+
+  /**
+   * @summary grant PATCH /grant-rules/:rule_id
+   */
+  const patchGrantRulesRuleId = (ruleId: number) => {
+    return customInstance<PatchGrantRulesRuleId200>({
+      url: `/grant-rules/${ruleId}`,
+      method: "PATCH",
+    });
+  };
+
+  /**
+   * @summary grant DELETE /grant-rules/:rule_id
+   */
+  const deleteGrantRulesRuleId = (ruleId: number) => {
+    return customInstance<DeleteGrantRulesRuleId200>({
+      url: `/grant-rules/${ruleId}`,
+      method: "DELETE",
+    });
+  };
+
+  /**
+   * @summary grant POST /grant-rules/:rule_id/enable
+   */
+  const postGrantRulesRuleIdEnable = (ruleId: number) => {
+    return customInstance<PostGrantRulesRuleIdEnable200>({
+      url: `/grant-rules/${ruleId}/enable`,
+      method: "POST",
+    });
+  };
+
+  /**
+   * @summary grant POST /grant-rules/:rule_id/disable
+   */
+  const postGrantRulesRuleIdDisable = (ruleId: number) => {
+    return customInstance<PostGrantRulesRuleIdDisable200>({
+      url: `/grant-rules/${ruleId}/disable`,
+      method: "POST",
+    });
+  };
+
+  /**
+   * @summary grant POST /grant-rules/evaluate
+   */
+  const postGrantRulesEvaluate = () => {
+    return customInstance<PostGrantRulesEvaluate200>({
+      url: `/grant-rules/evaluate`,
+      method: "POST",
+    });
+  };
+
+  /**
+   * @summary importer GET /imports/jobs
+   */
+  const getImportsJobs = () => {
+    return customInstance<GetImportsJobs200>({
+      url: `/imports/jobs`,
+      method: "GET",
+    });
+  };
+
+  /**
+   * @summary importer POST /imports/jobs
+   */
+  const postImportsJobs = () => {
+    return customInstance<PostImportsJobs200>({
+      url: `/imports/jobs`,
+      method: "POST",
+    });
+  };
+
+  /**
+   * @summary importer GET /imports/jobs/:job_id
+   */
+  const getImportsJobsJobId = (jobId: number) => {
+    return customInstance<GetImportsJobsJobId200>({
+      url: `/imports/jobs/${jobId}`,
+      method: "GET",
+    });
+  };
+
+  /**
+   * @summary importer POST /imports/jobs/:job_id/csv
+   */
+  const postImportsJobsJobIdCsv = (jobId: number) => {
+    return customInstance<PostImportsJobsJobIdCsv200>({
+      url: `/imports/jobs/${jobId}/csv`,
+      method: "POST",
+    });
+  };
+
+  /**
+   * @summary importer POST /imports/jobs/:job_id/platform
+   */
+  const postImportsJobsJobIdPlatform = (jobId: number) => {
+    return customInstance<PostImportsJobsJobIdPlatform200>({
+      url: `/imports/jobs/${jobId}/platform`,
+      method: "POST",
+    });
+  };
+
+  /**
+   * @summary importer GET /imports/sources
+   */
+  const getImportsSources = () => {
+    return customInstance<GetImportsSources200>({
+      url: `/imports/sources`,
+      method: "GET",
+    });
+  };
+
+  /**
+   * @summary initiative GET /initiatives
+   */
+  const getInitiatives = () => {
+    return customInstance<GetInitiatives200>({
+      url: `/initiatives`,
+      method: "GET",
+    });
+  };
+
+  /**
+   * @summary initiative POST /initiatives
+   */
+  const postInitiatives = () => {
+    return customInstance<PostInitiatives200>({
+      url: `/initiatives`,
+      method: "POST",
+    });
+  };
+
+  /**
+   * @summary intake GET /intake/channels/:slug
+   */
+  const getIntakeChannelsSlug = (slug: string) => {
+    return customInstance<GetIntakeChannelsSlug200>({
+      url: `/intake/channels/${slug}`,
+      method: "GET",
+    });
+  };
+
+  /**
+   * @summary intake POST /intake/track
+   */
+  const postIntakeTrack = () => {
+    return customInstance<PostIntakeTrack200>({
+      url: `/intake/track`,
+      method: "POST",
+    });
+  };
+
+  /**
+   * @summary integration GET /integrations
+   */
+  const getIntegrations = () => {
+    return customInstance<GetIntegrations200>({
+      url: `/integrations`,
+      method: "GET",
+    });
+  };
+
+  /**
+   * @summary integration POST /integrations
+   */
+  const postIntegrations = () => {
+    return customInstance<PostIntegrations200>({
+      url: `/integrations`,
+      method: "POST",
+    });
+  };
+
+  /**
+   * @summary integration GET /integrations/providers
+   */
+  const getIntegrationsProviders = () => {
+    return customInstance<GetIntegrationsProviders200>({
+      url: `/integrations/providers`,
+      method: "GET",
+    });
+  };
+
+  /**
+   * @summary integration GET /integrations/:id
+   */
+  const getIntegrationsId = (id: number) => {
+    return customInstance<GetIntegrationsId200>({
+      url: `/integrations/${id}`,
+      method: "GET",
+    });
+  };
+
+  /**
+   * @summary integration PATCH /integrations/:id
+   */
+  const patchIntegrationsId = (id: number) => {
+    return customInstance<PatchIntegrationsId200>({
+      url: `/integrations/${id}`,
+      method: "PATCH",
+    });
+  };
+
+  /**
+   * @summary integration DELETE /integrations/:id
+   */
+  const deleteIntegrationsId = (id: number) => {
+    return customInstance<DeleteIntegrationsId200>({
+      url: `/integrations/${id}`,
+      method: "DELETE",
+    });
+  };
+
+  /**
+   * @summary integration POST /integrations/:id/test
+   */
+  const postIntegrationsIdTest = (id: number) => {
+    return customInstance<PostIntegrationsIdTest200>({
+      url: `/integrations/${id}/test`,
+      method: "POST",
+    });
+  };
+
+  /**
+   * @summary integration POST /integrations/:id/sync
+   */
+  const postIntegrationsIdSync = (id: number) => {
+    return customInstance<PostIntegrationsIdSync200>({
+      url: `/integrations/${id}/sync`,
+      method: "POST",
+    });
+  };
+
+  /**
+   * @summary integration POST /integrations/:id/pause
+   */
+  const postIntegrationsIdPause = (id: number) => {
+    return customInstance<PostIntegrationsIdPause200>({
+      url: `/integrations/${id}/pause`,
+      method: "POST",
+    });
+  };
+
+  /**
+   * @summary integration POST /integrations/:id/resume
+   */
+  const postIntegrationsIdResume = (id: number) => {
+    return customInstance<PostIntegrationsIdResume200>({
+      url: `/integrations/${id}/resume`,
+      method: "POST",
+    });
+  };
+
+  /**
+   * @summary integration POST /integrations/:id/disconnect
+   */
+  const postIntegrationsIdDisconnect = (id: number) => {
+    return customInstance<PostIntegrationsIdDisconnect200>({
+      url: `/integrations/${id}/disconnect`,
+      method: "POST",
+    });
+  };
+
+  /**
+   * @summary integration GET /integrations/:id/events
+   */
+  const getIntegrationsIdEvents = (id: number) => {
+    return customInstance<GetIntegrationsIdEvents200>({
+      url: `/integrations/${id}/events`,
+      method: "GET",
+    });
+  };
+
+  /**
+   * @summary milestone GET /milestones
+   */
+  const getMilestones = () => {
+    return customInstance<GetMilestones200>({
+      url: `/milestones`,
+      method: "GET",
+    });
+  };
+
+  /**
+   * @summary milestone POST /milestones
+   */
+  const postMilestones = () => {
+    return customInstance<PostMilestones200>({
+      url: `/milestones`,
+      method: "POST",
+    });
+  };
+
+  /**
+   * @summary milestone GET /milestones/:milestone_id
+   */
+  const getMilestonesMilestoneId = (milestoneId: number) => {
+    return customInstance<GetMilestonesMilestoneId200>({
+      url: `/milestones/${milestoneId}`,
+      method: "GET",
+    });
+  };
+
+  /**
+   * @summary milestone PATCH /milestones/:milestone_id
+   */
+  const patchMilestonesMilestoneId = (milestoneId: number) => {
+    return customInstance<PatchMilestonesMilestoneId200>({
+      url: `/milestones/${milestoneId}`,
+      method: "PATCH",
+    });
+  };
+
+  /**
+   * @summary milestone DELETE /milestones/:milestone_id
+   */
+  const deleteMilestonesMilestoneId = (milestoneId: number) => {
+    return customInstance<DeleteMilestonesMilestoneId200>({
+      url: `/milestones/${milestoneId}`,
+      method: "DELETE",
+    });
+  };
+
+  /**
+   * @summary milestone GET /milestones/:milestone_id/progress
+   */
+  const getMilestonesMilestoneIdProgress = (milestoneId: number) => {
+    return customInstance<GetMilestonesMilestoneIdProgress200>({
+      url: `/milestones/${milestoneId}/progress`,
+      method: "GET",
+    });
+  };
+
+  /**
+   * @summary milestone GET /milestones/:milestone_id/work-items
+   */
+  const getMilestonesMilestoneIdWorkItems = (milestoneId: number) => {
+    return customInstance<GetMilestonesMilestoneIdWorkItems200>({
+      url: `/milestones/${milestoneId}/work-items`,
+      method: "GET",
+    });
+  };
+
+  /**
+   * @summary milestone POST /milestones/:milestone_id/work-items
+   */
+  const postMilestonesMilestoneIdWorkItems = (milestoneId: number) => {
+    return customInstance<PostMilestonesMilestoneIdWorkItems200>({
+      url: `/milestones/${milestoneId}/work-items`,
+      method: "POST",
+    });
+  };
+
+  /**
+   * @summary milestone DELETE /milestones/:milestone_id/work-items/:work_item_id
+   */
+  const deleteMilestonesMilestoneIdWorkItemsWorkItemId = (
+    milestoneId: number,
+    workItemId: number,
+  ) => {
+    return customInstance<DeleteMilestonesMilestoneIdWorkItemsWorkItemId200>({
+      url: `/milestones/${milestoneId}/work-items/${workItemId}`,
+      method: "DELETE",
+    });
+  };
+
+  /**
+   * @summary oauthapp GET /oauth-apps
+   */
+  const getOauthApps = () => {
+    return customInstance<GetOauthApps200>({
+      url: `/oauth-apps`,
+      method: "GET",
+    });
+  };
+
+  /**
+   * @summary oauthapp POST /oauth-apps
+   */
+  const postOauthApps = () => {
+    return customInstance<PostOauthApps200>({
+      url: `/oauth-apps`,
+      method: "POST",
+    });
+  };
+
+  /**
+   * @summary oauthapp GET /oauth-apps/:app_id
+   */
+  const getOauthAppsAppId = (appId: number) => {
+    return customInstance<GetOauthAppsAppId200>({
+      url: `/oauth-apps/${appId}`,
+      method: "GET",
+    });
+  };
+
+  /**
+   * @summary oauthapp PATCH /oauth-apps/:app_id
+   */
+  const patchOauthAppsAppId = (appId: number) => {
+    return customInstance<PatchOauthAppsAppId200>({
+      url: `/oauth-apps/${appId}`,
+      method: "PATCH",
+    });
+  };
+
+  /**
+   * @summary oauthapp DELETE /oauth-apps/:app_id
+   */
+  const deleteOauthAppsAppId = (appId: number) => {
+    return customInstance<DeleteOauthAppsAppId200>({
+      url: `/oauth-apps/${appId}`,
+      method: "DELETE",
+    });
+  };
+
+  /**
+   * @summary oauthapp POST /oauth-apps/:app_id/rotate
+   */
+  const postOauthAppsAppIdRotate = (appId: number) => {
+    return customInstance<PostOauthAppsAppIdRotate200>({
+      url: `/oauth-apps/${appId}/rotate`,
+      method: "POST",
+    });
+  };
+
+  /**
+   * @summary projectcode GET /project-code/configs
+   */
+  const getProjectCodeConfigs = () => {
+    return customInstance<GetProjectCodeConfigs200>({
+      url: `/project-code/configs`,
+      method: "GET",
+    });
+  };
+
+  /**
+   * @summary projectcode POST /project-code/configs
+   */
+  const postProjectCodeConfigs = () => {
+    return customInstance<PostProjectCodeConfigs200>({
+      url: `/project-code/configs`,
+      method: "POST",
+    });
+  };
+
+  /**
+   * @summary projectcode GET /project-code/configs/:id
+   */
+  const getProjectCodeConfigsId = (id: number) => {
+    return customInstance<GetProjectCodeConfigsId200>({
+      url: `/project-code/configs/${id}`,
+      method: "GET",
+    });
+  };
+
+  /**
+   * @summary projectcode DELETE /project-code/configs/:id
+   */
+  const deleteProjectCodeConfigsId = (id: number) => {
+    return customInstance<DeleteProjectCodeConfigsId200>({
+      url: `/project-code/configs/${id}`,
+      method: "DELETE",
+    });
+  };
+
+  /**
+   * @summary projectcode POST /project-code/parse
+   */
+  const postProjectCodeParse = () => {
+    return customInstance<PostProjectCodeParse200>({
+      url: `/project-code/parse`,
+      method: "POST",
+    });
+  };
+
+  /**
+   * @summary projectcode POST /project-code/diff
+   */
+  const postProjectCodeDiff = () => {
+    return customInstance<PostProjectCodeDiff200>({
+      url: `/project-code/diff`,
+      method: "POST",
+    });
+  };
+
+  /**
+   * @summary projectcode POST /project-code/apply
+   */
+  const postProjectCodeApply = () => {
+    return customInstance<PostProjectCodeApply200>({
+      url: `/project-code/apply`,
+      method: "POST",
+    });
+  };
+
+  /**
+   * @summary projectcode GET /project-code/export/:project_id
+   */
+  const getProjectCodeExportProjectId = (projectId: number) => {
+    return customInstance<GetProjectCodeExportProjectId200>({
+      url: `/project-code/export/${projectId}`,
+      method: "GET",
+    });
+  };
+
+  /**
+   * @summary projectstate GET /project-state
+   */
+  const getProjectState = () => {
+    return customInstance<GetProjectState200>({
+      url: `/project-state`,
+      method: "GET",
+    });
+  };
+
+  /**
+   * @summary projectstate PUT /project-state
+   */
+  const putProjectState = () => {
+    return customInstance<PutProjectState200>({
+      url: `/project-state`,
+      method: "PUT",
+    });
+  };
+
+  /**
+   * @summary recurring GET /recurring-rules
+   */
+  const getRecurringRules = () => {
+    return customInstance<GetRecurringRules200>({
+      url: `/recurring-rules`,
+      method: "GET",
+    });
+  };
+
+  /**
+   * @summary recurring POST /recurring-rules
+   */
+  const postRecurringRules = () => {
+    return customInstance<PostRecurringRules200>({
+      url: `/recurring-rules`,
+      method: "POST",
+    });
+  };
+
+  /**
+   * @summary recurring GET /recurring-rules/:rule_id
+   */
+  const getRecurringRulesRuleId = (ruleId: number) => {
+    return customInstance<GetRecurringRulesRuleId200>({
+      url: `/recurring-rules/${ruleId}`,
+      method: "GET",
+    });
+  };
+
+  /**
+   * @summary recurring PATCH /recurring-rules/:rule_id
+   */
+  const patchRecurringRulesRuleId = (ruleId: number) => {
+    return customInstance<PatchRecurringRulesRuleId200>({
+      url: `/recurring-rules/${ruleId}`,
+      method: "PATCH",
+    });
+  };
+
+  /**
+   * @summary recurring DELETE /recurring-rules/:rule_id
+   */
+  const deleteRecurringRulesRuleId = (ruleId: number) => {
+    return customInstance<DeleteRecurringRulesRuleId200>({
+      url: `/recurring-rules/${ruleId}`,
+      method: "DELETE",
+    });
+  };
+
+  /**
+   * @summary recurring POST /recurring-rules/:rule_id/enable
+   */
+  const postRecurringRulesRuleIdEnable = (ruleId: number) => {
+    return customInstance<PostRecurringRulesRuleIdEnable200>({
+      url: `/recurring-rules/${ruleId}/enable`,
+      method: "POST",
+    });
+  };
+
+  /**
+   * @summary recurring POST /recurring-rules/:rule_id/disable
+   */
+  const postRecurringRulesRuleIdDisable = (ruleId: number) => {
+    return customInstance<PostRecurringRulesRuleIdDisable200>({
+      url: `/recurring-rules/${ruleId}/disable`,
+      method: "POST",
+    });
+  };
+
+  /**
+   * @summary recurring POST /recurring-rules/:rule_id/run-now
+   */
+  const postRecurringRulesRuleIdRunNow = (ruleId: number) => {
+    return customInstance<PostRecurringRulesRuleIdRunNow200>({
+      url: `/recurring-rules/${ruleId}/run-now`,
+      method: "POST",
+    });
+  };
+
+  /**
+   * @summary teamspace GET /teamspaces
+   */
+  const getTeamspaces = () => {
+    return customInstance<GetTeamspaces200>({
+      url: `/teamspaces`,
+      method: "GET",
+    });
+  };
+
+  /**
+   * @summary teamspace POST /teamspaces
+   */
+  const postTeamspaces = () => {
+    return customInstance<PostTeamspaces200>({
+      url: `/teamspaces`,
+      method: "POST",
+    });
+  };
+
+  /**
+   * @summary teamspace GET /teamspaces/:teamspace_id
+   */
+  const getTeamspacesTeamspaceId = (teamspaceId: number) => {
+    return customInstance<GetTeamspacesTeamspaceId200>({
+      url: `/teamspaces/${teamspaceId}`,
+      method: "GET",
+    });
+  };
+
+  /**
+   * @summary teamspace PATCH /teamspaces/:teamspace_id
+   */
+  const patchTeamspacesTeamspaceId = (teamspaceId: number) => {
+    return customInstance<PatchTeamspacesTeamspaceId200>({
+      url: `/teamspaces/${teamspaceId}`,
+      method: "PATCH",
+    });
+  };
+
+  /**
+   * @summary teamspace DELETE /teamspaces/:teamspace_id
+   */
+  const deleteTeamspacesTeamspaceId = (teamspaceId: number) => {
+    return customInstance<DeleteTeamspacesTeamspaceId200>({
+      url: `/teamspaces/${teamspaceId}`,
+      method: "DELETE",
+    });
+  };
+
+  /**
+   * @summary teamspace GET /teamspaces/:teamspace_id/members
+   */
+  const getTeamspacesTeamspaceIdMembers = (teamspaceId: number) => {
+    return customInstance<GetTeamspacesTeamspaceIdMembers200>({
+      url: `/teamspaces/${teamspaceId}/members`,
+      method: "GET",
+    });
+  };
+
+  /**
+   * @summary teamspace POST /teamspaces/:teamspace_id/members
+   */
+  const postTeamspacesTeamspaceIdMembers = (teamspaceId: number) => {
+    return customInstance<PostTeamspacesTeamspaceIdMembers200>({
+      url: `/teamspaces/${teamspaceId}/members`,
+      method: "POST",
+    });
+  };
+
+  /**
+   * @summary teamspace GET /teamspaces/:teamspace_id/projects
+   */
+  const getTeamspacesTeamspaceIdProjects = (teamspaceId: number) => {
+    return customInstance<GetTeamspacesTeamspaceIdProjects200>({
+      url: `/teamspaces/${teamspaceId}/projects`,
+      method: "GET",
+    });
+  };
+
+  /**
+   * @summary teamspace POST /teamspaces/:teamspace_id/projects
+   */
+  const postTeamspacesTeamspaceIdProjects = (teamspaceId: number) => {
+    return customInstance<PostTeamspacesTeamspaceIdProjects200>({
+      url: `/teamspaces/${teamspaceId}/projects`,
+      method: "POST",
+    });
+  };
+
+  /**
+   * @summary teamspace GET /teamspaces/:teamspace_id/progress
+   */
+  const getTeamspacesTeamspaceIdProgress = (teamspaceId: number) => {
+    return customInstance<GetTeamspacesTeamspaceIdProgress200>({
+      url: `/teamspaces/${teamspaceId}/progress`,
+      method: "GET",
+    });
+  };
+
+  /**
+   * @summary teamspace GET /teamspaces/:teamspace_id/workloads
+   */
+  const getTeamspacesTeamspaceIdWorkloads = (teamspaceId: number) => {
+    return customInstance<GetTeamspacesTeamspaceIdWorkloads200>({
+      url: `/teamspaces/${teamspaceId}/workloads`,
+      method: "GET",
+    });
+  };
+
+  /**
+   * @summary teamspace POST /teamspaces/:teamspace_id/archive
+   */
+  const postTeamspacesTeamspaceIdArchive = (teamspaceId: number) => {
+    return customInstance<PostTeamspacesTeamspaceIdArchive200>({
+      url: `/teamspaces/${teamspaceId}/archive`,
+      method: "POST",
+    });
+  };
+
+  /**
+   * @summary teamspace POST /teamspaces/:teamspace_id/restore
+   */
+  const postTeamspacesTeamspaceIdRestore = (teamspaceId: number) => {
+    return customInstance<PostTeamspacesTeamspaceIdRestore200>({
+      url: `/teamspaces/${teamspaceId}/restore`,
+      method: "POST",
+    });
+  };
+
+  /**
+   * @summary teamspace DELETE /teamspaces/:teamspace_id/members/:user_id
+   */
+  const deleteTeamspacesTeamspaceIdMembersUserId = (
+    teamspaceId: number,
+    userId: number,
+  ) => {
+    return customInstance<DeleteTeamspacesTeamspaceIdMembersUserId200>({
+      url: `/teamspaces/${teamspaceId}/members/${userId}`,
+      method: "DELETE",
+    });
+  };
+
+  /**
+   * @summary teamspace DELETE /teamspaces/:teamspace_id/projects/:project_id
+   */
+  const deleteTeamspacesTeamspaceIdProjectsProjectId = (
+    teamspaceId: number,
+    projectId: number,
+  ) => {
+    return customInstance<DeleteTeamspacesTeamspaceIdProjectsProjectId200>({
+      url: `/teamspaces/${teamspaceId}/projects/${projectId}`,
+      method: "DELETE",
+    });
+  };
+
+  /**
+   * @summary workflow GET /workflows
+   */
+  const getWorkflows = () => {
+    return customInstance<GetWorkflows200>({
+      url: `/workflows`,
+      method: "GET",
+    });
+  };
+
+  /**
+   * @summary workflow POST /workflows
+   */
+  const postWorkflows = () => {
+    return customInstance<PostWorkflows200>({
+      url: `/workflows`,
+      method: "POST",
+    });
+  };
+
+  /**
+   * @summary workflow GET /workflows/:workflow_id
+   */
+  const getWorkflowsWorkflowId = (workflowId: number) => {
+    return customInstance<GetWorkflowsWorkflowId200>({
+      url: `/workflows/${workflowId}`,
+      method: "GET",
+    });
+  };
+
+  /**
+   * @summary workflow PATCH /workflows/:workflow_id
+   */
+  const patchWorkflowsWorkflowId = (workflowId: number) => {
+    return customInstance<PatchWorkflowsWorkflowId200>({
+      url: `/workflows/${workflowId}`,
+      method: "PATCH",
+    });
+  };
+
+  /**
+   * @summary workflow DELETE /workflows/:workflow_id
+   */
+  const deleteWorkflowsWorkflowId = (workflowId: number) => {
+    return customInstance<DeleteWorkflowsWorkflowId200>({
+      url: `/workflows/${workflowId}`,
+      method: "DELETE",
+    });
+  };
+
+  /**
+   * @summary workflow POST /workflows/:workflow_id/transitions
+   */
+  const postWorkflowsWorkflowIdTransitions = (workflowId: number) => {
+    return customInstance<PostWorkflowsWorkflowIdTransitions200>({
+      url: `/workflows/${workflowId}/transitions`,
+      method: "POST",
+    });
+  };
+
+  /**
+   * @summary workflow DELETE /workflows/:workflow_id/transitions/:transition_id
+   */
+  const deleteWorkflowsWorkflowIdTransitionsTransitionId = (
+    workflowId: number,
+    transitionId: number,
+  ) => {
+    return customInstance<DeleteWorkflowsWorkflowIdTransitionsTransitionId200>({
+      url: `/workflows/${workflowId}/transitions/${transitionId}`,
+      method: "DELETE",
+    });
+  };
+
+  /**
+   * @summary workflow POST /workflows/:workflow_id/transitions/:transition_id/validate
+   */
+  const postWorkflowsWorkflowIdTransitionsTransitionIdValidate = (
+    workflowId: number,
+    transitionId: number,
+  ) => {
+    return customInstance<PostWorkflowsWorkflowIdTransitionsTransitionIdValidate200>(
+      {
+        url: `/workflows/${workflowId}/transitions/${transitionId}/validate`,
+        method: "POST",
+      },
+    );
+  };
+
+  /**
+   * @summary workflow POST /workflows/:approval_id/approve
+   */
+  const postWorkflowsApprovalIdApprove = (approvalId: number) => {
+    return customInstance<PostWorkflowsApprovalIdApprove200>({
+      url: `/workflows/${approvalId}/approve`,
+      method: "POST",
+    });
+  };
+
+  /**
+   * @summary workflow POST /workflows/:approval_id/reject
+   */
+  const postWorkflowsApprovalIdReject = (approvalId: number) => {
+    return customInstance<PostWorkflowsApprovalIdReject200>({
+      url: `/workflows/${approvalId}/reject`,
+      method: "POST",
+    });
+  };
+
+  /**
+   * @summary workitemtype GET /work-item-types
+   */
+  const getWorkItemTypes = () => {
+    return customInstance<GetWorkItemTypes200>({
+      url: `/work-item-types`,
+      method: "GET",
+    });
+  };
+
+  /**
+   * @summary workitemtype POST /work-item-types
+   */
+  const postWorkItemTypes = () => {
+    return customInstance<PostWorkItemTypes200>({
+      url: `/work-item-types`,
+      method: "POST",
+    });
+  };
+
+  /**
+   * @summary workitemtype GET /work-item-types/:type_id
+   */
+  const getWorkItemTypesTypeId = (typeId: string) => {
+    return customInstance<GetWorkItemTypesTypeId200>({
+      url: `/work-item-types/${typeId}`,
+      method: "GET",
+    });
+  };
+
+  /**
+   * @summary workitemtype PATCH /work-item-types/:type_id
+   */
+  const patchWorkItemTypesTypeId = (typeId: string) => {
+    return customInstance<PatchWorkItemTypesTypeId200>({
+      url: `/work-item-types/${typeId}`,
+      method: "PATCH",
+    });
+  };
+
+  /**
+   * @summary workitemtype DELETE /work-item-types/:type_id
+   */
+  const deleteWorkItemTypesTypeId = (typeId: string) => {
+    return customInstance<DeleteWorkItemTypesTypeId200>({
+      url: `/work-item-types/${typeId}`,
+      method: "DELETE",
+    });
+  };
+
+  /**
+   * @summary workitemtype GET /work-item-types/:type_id/properties
+   */
+  const getWorkItemTypesTypeIdProperties = (typeId: string) => {
+    return customInstance<GetWorkItemTypesTypeIdProperties200>({
+      url: `/work-item-types/${typeId}/properties`,
+      method: "GET",
+    });
+  };
+
+  /**
+   * @summary workitemtype POST /work-item-types/:type_id/properties
+   */
+  const postWorkItemTypesTypeIdProperties = (typeId: string) => {
+    return customInstance<PostWorkItemTypesTypeIdProperties200>({
+      url: `/work-item-types/${typeId}/properties`,
+      method: "POST",
+    });
+  };
+
+  /**
+   * @summary workitemtype GET /work-item-types/:type_id/values/:work_item_id
+   */
+  const getWorkItemTypesTypeIdValuesWorkItemId = (
+    typeId: string,
+    workItemId: number,
+  ) => {
+    return customInstance<GetWorkItemTypesTypeIdValuesWorkItemId200>({
+      url: `/work-item-types/${typeId}/values/${workItemId}`,
+      method: "GET",
+    });
+  };
+
+  /**
+   * @summary workitemtype POST /work-item-types/:type_id/archive
+   */
+  const postWorkItemTypesTypeIdArchive = (typeId: string) => {
+    return customInstance<PostWorkItemTypesTypeIdArchive200>({
+      url: `/work-item-types/${typeId}/archive`,
+      method: "POST",
+    });
+  };
+
+  /**
+   * @summary workitemtype POST /work-item-types/:type_id/restore
+   */
+  const postWorkItemTypesTypeIdRestore = (typeId: string) => {
+    return customInstance<PostWorkItemTypesTypeIdRestore200>({
+      url: `/work-item-types/${typeId}/restore`,
+      method: "POST",
+    });
+  };
+
+  /**
+   * @summary workitemtype DELETE /work-item-types/:type_id/properties/:prop_id
+   */
+  const deleteWorkItemTypesTypeIdPropertiesPropId = (
+    typeId: string,
+    propId: number,
+  ) => {
+    return customInstance<DeleteWorkItemTypesTypeIdPropertiesPropId200>({
+      url: `/work-item-types/${typeId}/properties/${propId}`,
+      method: "DELETE",
+    });
+  };
+
+  /**
+   * @summary workitemtype PUT /work-item-types/:type_id/values
+   */
+  const putWorkItemTypesTypeIdValues = (typeId: string) => {
+    return customInstance<PutWorkItemTypesTypeIdValues200>({
+      url: `/work-item-types/${typeId}/values`,
+      method: "PUT",
+    });
+  };
+
+  /**
+   * @summary workspaceview POST /views/:view_id/duplicate
+   */
+  const postViewsViewIdDuplicate = (viewId: number) => {
+    return customInstance<PostViewsViewIdDuplicate200>({
+      url: `/views/${viewId}/duplicate`,
+      method: "POST",
+    });
+  };
+
+  /**
+   * @summary workspaceview POST /views/:view_id/favorite
+   */
+  const postViewsViewIdFavorite = (viewId: number) => {
+    return customInstance<PostViewsViewIdFavorite200>({
+      url: `/views/${viewId}/favorite`,
+      method: "POST",
+    });
+  };
+
+  /**
+   * @summary workspaceview POST /views/:view_id/public
+   */
+  const postViewsViewIdPublic = (viewId: number) => {
+    return customInstance<PostViewsViewIdPublic200>({
+      url: `/views/${viewId}/public`,
+      method: "POST",
+    });
+  };
+
   return {
     getAdminDlq,
     deleteAdminDlqId,
@@ -3588,6 +5126,7 @@ JQL 示例: project:YD type:defect priority:high assignee:me()
     getIntakeChannelsChannelId,
     patchIntakeChannelsChannelId,
     getIntakeIssues,
+    postIntakeIssues,
     getIntakeIssuesIssueId,
     postIntakeIssuesIssueIdAccept,
     postIntakeIssuesIssueIdArchive,
@@ -3839,6 +5378,143 @@ JQL 示例: project:YD type:defect priority:high assignee:me()
     postWorkspacesWorkspaceIdDataJobsJobIdCancel,
     getWorkspacesWorkspaceIdRbacMatrix,
     putWorkspacesWorkspaceIdRbacRolesRoleSlugPermissions,
+    getCalendarEvents,
+    postCalendarEvents,
+    getCalendarEventsEventId,
+    patchCalendarEventsEventId,
+    deleteCalendarEventsEventId,
+    postCollaborationSessions,
+    deleteCollaborationSessions,
+    getCollaborationSessions,
+    postCollaborationHeartbeat,
+    getCollaborationVersion,
+    postCollaborationOperations,
+    getCustomers,
+    postCustomers,
+    getCustomersSearch,
+    getCustomersId,
+    patchCustomersId,
+    deleteCustomersId,
+    getCustomersIdStats,
+    getDataJobs,
+    postDataJobs,
+    getDataJobsJobId,
+    deleteDataJobsJobId,
+    patchDataJobsJobIdProgress,
+    postDataJobsJobIdRun,
+    postDataJobsJobIdSuccess,
+    postDataJobsJobIdFail,
+    postDataJobsJobIdCancel,
+    getAdminSettings,
+    putAdminSettings,
+    postAdminSettingsReset,
+    getAdminLicense,
+    getAdminStatus,
+    getAdminUsage,
+    postAdminTestSmtp,
+    getGrantRules,
+    postGrantRules,
+    getGrantRulesRuleId,
+    patchGrantRulesRuleId,
+    deleteGrantRulesRuleId,
+    postGrantRulesRuleIdEnable,
+    postGrantRulesRuleIdDisable,
+    postGrantRulesEvaluate,
+    getImportsJobs,
+    postImportsJobs,
+    getImportsJobsJobId,
+    postImportsJobsJobIdCsv,
+    postImportsJobsJobIdPlatform,
+    getImportsSources,
+    getInitiatives,
+    postInitiatives,
+    getIntakeChannelsSlug,
+    postIntakeTrack,
+    getIntegrations,
+    postIntegrations,
+    getIntegrationsProviders,
+    getIntegrationsId,
+    patchIntegrationsId,
+    deleteIntegrationsId,
+    postIntegrationsIdTest,
+    postIntegrationsIdSync,
+    postIntegrationsIdPause,
+    postIntegrationsIdResume,
+    postIntegrationsIdDisconnect,
+    getIntegrationsIdEvents,
+    getMilestones,
+    postMilestones,
+    getMilestonesMilestoneId,
+    patchMilestonesMilestoneId,
+    deleteMilestonesMilestoneId,
+    getMilestonesMilestoneIdProgress,
+    getMilestonesMilestoneIdWorkItems,
+    postMilestonesMilestoneIdWorkItems,
+    deleteMilestonesMilestoneIdWorkItemsWorkItemId,
+    getOauthApps,
+    postOauthApps,
+    getOauthAppsAppId,
+    patchOauthAppsAppId,
+    deleteOauthAppsAppId,
+    postOauthAppsAppIdRotate,
+    getProjectCodeConfigs,
+    postProjectCodeConfigs,
+    getProjectCodeConfigsId,
+    deleteProjectCodeConfigsId,
+    postProjectCodeParse,
+    postProjectCodeDiff,
+    postProjectCodeApply,
+    getProjectCodeExportProjectId,
+    getProjectState,
+    putProjectState,
+    getRecurringRules,
+    postRecurringRules,
+    getRecurringRulesRuleId,
+    patchRecurringRulesRuleId,
+    deleteRecurringRulesRuleId,
+    postRecurringRulesRuleIdEnable,
+    postRecurringRulesRuleIdDisable,
+    postRecurringRulesRuleIdRunNow,
+    getTeamspaces,
+    postTeamspaces,
+    getTeamspacesTeamspaceId,
+    patchTeamspacesTeamspaceId,
+    deleteTeamspacesTeamspaceId,
+    getTeamspacesTeamspaceIdMembers,
+    postTeamspacesTeamspaceIdMembers,
+    getTeamspacesTeamspaceIdProjects,
+    postTeamspacesTeamspaceIdProjects,
+    getTeamspacesTeamspaceIdProgress,
+    getTeamspacesTeamspaceIdWorkloads,
+    postTeamspacesTeamspaceIdArchive,
+    postTeamspacesTeamspaceIdRestore,
+    deleteTeamspacesTeamspaceIdMembersUserId,
+    deleteTeamspacesTeamspaceIdProjectsProjectId,
+    getWorkflows,
+    postWorkflows,
+    getWorkflowsWorkflowId,
+    patchWorkflowsWorkflowId,
+    deleteWorkflowsWorkflowId,
+    postWorkflowsWorkflowIdTransitions,
+    deleteWorkflowsWorkflowIdTransitionsTransitionId,
+    postWorkflowsWorkflowIdTransitionsTransitionIdValidate,
+    postWorkflowsApprovalIdApprove,
+    postWorkflowsApprovalIdReject,
+    getWorkItemTypes,
+    postWorkItemTypes,
+    getWorkItemTypesTypeId,
+    patchWorkItemTypesTypeId,
+    deleteWorkItemTypesTypeId,
+    getWorkItemTypesTypeIdProperties,
+    postWorkItemTypesTypeIdProperties,
+    getWorkItemTypesTypeIdValuesWorkItemId,
+    postWorkItemTypesTypeIdArchive,
+    postWorkItemTypesTypeIdRestore,
+    deleteWorkItemTypesTypeIdPropertiesPropId,
+    putWorkItemTypesTypeIdValues,
+    postViewsViewIdDuplicate,
+    postViewsViewIdFavorite,
+    postViewsViewIdPublic,
   };
 };
 export type GetAdminDlqResult = NonNullable<
@@ -4046,6 +5722,9 @@ export type PatchIntakeChannelsChannelIdResult = NonNullable<
 >;
 export type GetIntakeIssuesResult = NonNullable<
   Awaited<ReturnType<ReturnType<typeof getYdszPlaneAPI>["getIntakeIssues"]>>
+>;
+export type PostIntakeIssuesResult = NonNullable<
+  Awaited<ReturnType<ReturnType<typeof getYdszPlaneAPI>["postIntakeIssues"]>>
 >;
 export type GetIntakeIssuesIssueIdResult = NonNullable<
   Awaited<
@@ -5389,3 +7068,680 @@ export type PutWorkspacesWorkspaceIdRbacRolesRoleSlugPermissionsResult =
       >
     >
   >;
+export type GetCalendarEventsResult = NonNullable<
+  Awaited<ReturnType<ReturnType<typeof getYdszPlaneAPI>["getCalendarEvents"]>>
+>;
+export type PostCalendarEventsResult = NonNullable<
+  Awaited<ReturnType<ReturnType<typeof getYdszPlaneAPI>["postCalendarEvents"]>>
+>;
+export type GetCalendarEventsEventIdResult = NonNullable<
+  Awaited<
+    ReturnType<ReturnType<typeof getYdszPlaneAPI>["getCalendarEventsEventId"]>
+  >
+>;
+export type PatchCalendarEventsEventIdResult = NonNullable<
+  Awaited<
+    ReturnType<ReturnType<typeof getYdszPlaneAPI>["patchCalendarEventsEventId"]>
+  >
+>;
+export type DeleteCalendarEventsEventIdResult = NonNullable<
+  Awaited<
+    ReturnType<
+      ReturnType<typeof getYdszPlaneAPI>["deleteCalendarEventsEventId"]
+    >
+  >
+>;
+export type PostCollaborationSessionsResult = NonNullable<
+  Awaited<
+    ReturnType<ReturnType<typeof getYdszPlaneAPI>["postCollaborationSessions"]>
+  >
+>;
+export type DeleteCollaborationSessionsResult = NonNullable<
+  Awaited<
+    ReturnType<
+      ReturnType<typeof getYdszPlaneAPI>["deleteCollaborationSessions"]
+    >
+  >
+>;
+export type GetCollaborationSessionsResult = NonNullable<
+  Awaited<
+    ReturnType<ReturnType<typeof getYdszPlaneAPI>["getCollaborationSessions"]>
+  >
+>;
+export type PostCollaborationHeartbeatResult = NonNullable<
+  Awaited<
+    ReturnType<ReturnType<typeof getYdszPlaneAPI>["postCollaborationHeartbeat"]>
+  >
+>;
+export type GetCollaborationVersionResult = NonNullable<
+  Awaited<
+    ReturnType<ReturnType<typeof getYdszPlaneAPI>["getCollaborationVersion"]>
+  >
+>;
+export type PostCollaborationOperationsResult = NonNullable<
+  Awaited<
+    ReturnType<
+      ReturnType<typeof getYdszPlaneAPI>["postCollaborationOperations"]
+    >
+  >
+>;
+export type GetCustomersResult = NonNullable<
+  Awaited<ReturnType<ReturnType<typeof getYdszPlaneAPI>["getCustomers"]>>
+>;
+export type PostCustomersResult = NonNullable<
+  Awaited<ReturnType<ReturnType<typeof getYdszPlaneAPI>["postCustomers"]>>
+>;
+export type GetCustomersSearchResult = NonNullable<
+  Awaited<ReturnType<ReturnType<typeof getYdszPlaneAPI>["getCustomersSearch"]>>
+>;
+export type GetCustomersIdResult = NonNullable<
+  Awaited<ReturnType<ReturnType<typeof getYdszPlaneAPI>["getCustomersId"]>>
+>;
+export type PatchCustomersIdResult = NonNullable<
+  Awaited<ReturnType<ReturnType<typeof getYdszPlaneAPI>["patchCustomersId"]>>
+>;
+export type DeleteCustomersIdResult = NonNullable<
+  Awaited<ReturnType<ReturnType<typeof getYdszPlaneAPI>["deleteCustomersId"]>>
+>;
+export type GetCustomersIdStatsResult = NonNullable<
+  Awaited<ReturnType<ReturnType<typeof getYdszPlaneAPI>["getCustomersIdStats"]>>
+>;
+export type GetDataJobsResult = NonNullable<
+  Awaited<ReturnType<ReturnType<typeof getYdszPlaneAPI>["getDataJobs"]>>
+>;
+export type PostDataJobsResult = NonNullable<
+  Awaited<ReturnType<ReturnType<typeof getYdszPlaneAPI>["postDataJobs"]>>
+>;
+export type GetDataJobsJobIdResult = NonNullable<
+  Awaited<ReturnType<ReturnType<typeof getYdszPlaneAPI>["getDataJobsJobId"]>>
+>;
+export type DeleteDataJobsJobIdResult = NonNullable<
+  Awaited<ReturnType<ReturnType<typeof getYdszPlaneAPI>["deleteDataJobsJobId"]>>
+>;
+export type PatchDataJobsJobIdProgressResult = NonNullable<
+  Awaited<
+    ReturnType<ReturnType<typeof getYdszPlaneAPI>["patchDataJobsJobIdProgress"]>
+  >
+>;
+export type PostDataJobsJobIdRunResult = NonNullable<
+  Awaited<
+    ReturnType<ReturnType<typeof getYdszPlaneAPI>["postDataJobsJobIdRun"]>
+  >
+>;
+export type PostDataJobsJobIdSuccessResult = NonNullable<
+  Awaited<
+    ReturnType<ReturnType<typeof getYdszPlaneAPI>["postDataJobsJobIdSuccess"]>
+  >
+>;
+export type PostDataJobsJobIdFailResult = NonNullable<
+  Awaited<
+    ReturnType<ReturnType<typeof getYdszPlaneAPI>["postDataJobsJobIdFail"]>
+  >
+>;
+export type PostDataJobsJobIdCancelResult = NonNullable<
+  Awaited<
+    ReturnType<ReturnType<typeof getYdszPlaneAPI>["postDataJobsJobIdCancel"]>
+  >
+>;
+export type GetAdminSettingsResult = NonNullable<
+  Awaited<ReturnType<ReturnType<typeof getYdszPlaneAPI>["getAdminSettings"]>>
+>;
+export type PutAdminSettingsResult = NonNullable<
+  Awaited<ReturnType<ReturnType<typeof getYdszPlaneAPI>["putAdminSettings"]>>
+>;
+export type PostAdminSettingsResetResult = NonNullable<
+  Awaited<
+    ReturnType<ReturnType<typeof getYdszPlaneAPI>["postAdminSettingsReset"]>
+  >
+>;
+export type GetAdminLicenseResult = NonNullable<
+  Awaited<ReturnType<ReturnType<typeof getYdszPlaneAPI>["getAdminLicense"]>>
+>;
+export type GetAdminStatusResult = NonNullable<
+  Awaited<ReturnType<ReturnType<typeof getYdszPlaneAPI>["getAdminStatus"]>>
+>;
+export type GetAdminUsageResult = NonNullable<
+  Awaited<ReturnType<ReturnType<typeof getYdszPlaneAPI>["getAdminUsage"]>>
+>;
+export type PostAdminTestSmtpResult = NonNullable<
+  Awaited<ReturnType<ReturnType<typeof getYdszPlaneAPI>["postAdminTestSmtp"]>>
+>;
+export type GetGrantRulesResult = NonNullable<
+  Awaited<ReturnType<ReturnType<typeof getYdszPlaneAPI>["getGrantRules"]>>
+>;
+export type PostGrantRulesResult = NonNullable<
+  Awaited<ReturnType<ReturnType<typeof getYdszPlaneAPI>["postGrantRules"]>>
+>;
+export type GetGrantRulesRuleIdResult = NonNullable<
+  Awaited<ReturnType<ReturnType<typeof getYdszPlaneAPI>["getGrantRulesRuleId"]>>
+>;
+export type PatchGrantRulesRuleIdResult = NonNullable<
+  Awaited<
+    ReturnType<ReturnType<typeof getYdszPlaneAPI>["patchGrantRulesRuleId"]>
+  >
+>;
+export type DeleteGrantRulesRuleIdResult = NonNullable<
+  Awaited<
+    ReturnType<ReturnType<typeof getYdszPlaneAPI>["deleteGrantRulesRuleId"]>
+  >
+>;
+export type PostGrantRulesRuleIdEnableResult = NonNullable<
+  Awaited<
+    ReturnType<ReturnType<typeof getYdszPlaneAPI>["postGrantRulesRuleIdEnable"]>
+  >
+>;
+export type PostGrantRulesRuleIdDisableResult = NonNullable<
+  Awaited<
+    ReturnType<
+      ReturnType<typeof getYdszPlaneAPI>["postGrantRulesRuleIdDisable"]
+    >
+  >
+>;
+export type PostGrantRulesEvaluateResult = NonNullable<
+  Awaited<
+    ReturnType<ReturnType<typeof getYdszPlaneAPI>["postGrantRulesEvaluate"]>
+  >
+>;
+export type GetImportsJobsResult = NonNullable<
+  Awaited<ReturnType<ReturnType<typeof getYdszPlaneAPI>["getImportsJobs"]>>
+>;
+export type PostImportsJobsResult = NonNullable<
+  Awaited<ReturnType<ReturnType<typeof getYdszPlaneAPI>["postImportsJobs"]>>
+>;
+export type GetImportsJobsJobIdResult = NonNullable<
+  Awaited<ReturnType<ReturnType<typeof getYdszPlaneAPI>["getImportsJobsJobId"]>>
+>;
+export type PostImportsJobsJobIdCsvResult = NonNullable<
+  Awaited<
+    ReturnType<ReturnType<typeof getYdszPlaneAPI>["postImportsJobsJobIdCsv"]>
+  >
+>;
+export type PostImportsJobsJobIdPlatformResult = NonNullable<
+  Awaited<
+    ReturnType<
+      ReturnType<typeof getYdszPlaneAPI>["postImportsJobsJobIdPlatform"]
+    >
+  >
+>;
+export type GetImportsSourcesResult = NonNullable<
+  Awaited<ReturnType<ReturnType<typeof getYdszPlaneAPI>["getImportsSources"]>>
+>;
+export type GetInitiativesResult = NonNullable<
+  Awaited<ReturnType<ReturnType<typeof getYdszPlaneAPI>["getInitiatives"]>>
+>;
+export type PostInitiativesResult = NonNullable<
+  Awaited<ReturnType<ReturnType<typeof getYdszPlaneAPI>["postInitiatives"]>>
+>;
+export type GetIntakeChannelsSlugResult = NonNullable<
+  Awaited<
+    ReturnType<ReturnType<typeof getYdszPlaneAPI>["getIntakeChannelsSlug"]>
+  >
+>;
+export type PostIntakeTrackResult = NonNullable<
+  Awaited<ReturnType<ReturnType<typeof getYdszPlaneAPI>["postIntakeTrack"]>>
+>;
+export type GetIntegrationsResult = NonNullable<
+  Awaited<ReturnType<ReturnType<typeof getYdszPlaneAPI>["getIntegrations"]>>
+>;
+export type PostIntegrationsResult = NonNullable<
+  Awaited<ReturnType<ReturnType<typeof getYdszPlaneAPI>["postIntegrations"]>>
+>;
+export type GetIntegrationsProvidersResult = NonNullable<
+  Awaited<
+    ReturnType<ReturnType<typeof getYdszPlaneAPI>["getIntegrationsProviders"]>
+  >
+>;
+export type GetIntegrationsIdResult = NonNullable<
+  Awaited<ReturnType<ReturnType<typeof getYdszPlaneAPI>["getIntegrationsId"]>>
+>;
+export type PatchIntegrationsIdResult = NonNullable<
+  Awaited<ReturnType<ReturnType<typeof getYdszPlaneAPI>["patchIntegrationsId"]>>
+>;
+export type DeleteIntegrationsIdResult = NonNullable<
+  Awaited<
+    ReturnType<ReturnType<typeof getYdszPlaneAPI>["deleteIntegrationsId"]>
+  >
+>;
+export type PostIntegrationsIdTestResult = NonNullable<
+  Awaited<
+    ReturnType<ReturnType<typeof getYdszPlaneAPI>["postIntegrationsIdTest"]>
+  >
+>;
+export type PostIntegrationsIdSyncResult = NonNullable<
+  Awaited<
+    ReturnType<ReturnType<typeof getYdszPlaneAPI>["postIntegrationsIdSync"]>
+  >
+>;
+export type PostIntegrationsIdPauseResult = NonNullable<
+  Awaited<
+    ReturnType<ReturnType<typeof getYdszPlaneAPI>["postIntegrationsIdPause"]>
+  >
+>;
+export type PostIntegrationsIdResumeResult = NonNullable<
+  Awaited<
+    ReturnType<ReturnType<typeof getYdszPlaneAPI>["postIntegrationsIdResume"]>
+  >
+>;
+export type PostIntegrationsIdDisconnectResult = NonNullable<
+  Awaited<
+    ReturnType<
+      ReturnType<typeof getYdszPlaneAPI>["postIntegrationsIdDisconnect"]
+    >
+  >
+>;
+export type GetIntegrationsIdEventsResult = NonNullable<
+  Awaited<
+    ReturnType<ReturnType<typeof getYdszPlaneAPI>["getIntegrationsIdEvents"]>
+  >
+>;
+export type GetMilestonesResult = NonNullable<
+  Awaited<ReturnType<ReturnType<typeof getYdszPlaneAPI>["getMilestones"]>>
+>;
+export type PostMilestonesResult = NonNullable<
+  Awaited<ReturnType<ReturnType<typeof getYdszPlaneAPI>["postMilestones"]>>
+>;
+export type GetMilestonesMilestoneIdResult = NonNullable<
+  Awaited<
+    ReturnType<ReturnType<typeof getYdszPlaneAPI>["getMilestonesMilestoneId"]>
+  >
+>;
+export type PatchMilestonesMilestoneIdResult = NonNullable<
+  Awaited<
+    ReturnType<ReturnType<typeof getYdszPlaneAPI>["patchMilestonesMilestoneId"]>
+  >
+>;
+export type DeleteMilestonesMilestoneIdResult = NonNullable<
+  Awaited<
+    ReturnType<
+      ReturnType<typeof getYdszPlaneAPI>["deleteMilestonesMilestoneId"]
+    >
+  >
+>;
+export type GetMilestonesMilestoneIdProgressResult = NonNullable<
+  Awaited<
+    ReturnType<
+      ReturnType<typeof getYdszPlaneAPI>["getMilestonesMilestoneIdProgress"]
+    >
+  >
+>;
+export type GetMilestonesMilestoneIdWorkItemsResult = NonNullable<
+  Awaited<
+    ReturnType<
+      ReturnType<typeof getYdszPlaneAPI>["getMilestonesMilestoneIdWorkItems"]
+    >
+  >
+>;
+export type PostMilestonesMilestoneIdWorkItemsResult = NonNullable<
+  Awaited<
+    ReturnType<
+      ReturnType<typeof getYdszPlaneAPI>["postMilestonesMilestoneIdWorkItems"]
+    >
+  >
+>;
+export type DeleteMilestonesMilestoneIdWorkItemsWorkItemIdResult = NonNullable<
+  Awaited<
+    ReturnType<
+      ReturnType<
+        typeof getYdszPlaneAPI
+      >["deleteMilestonesMilestoneIdWorkItemsWorkItemId"]
+    >
+  >
+>;
+export type GetOauthAppsResult = NonNullable<
+  Awaited<ReturnType<ReturnType<typeof getYdszPlaneAPI>["getOauthApps"]>>
+>;
+export type PostOauthAppsResult = NonNullable<
+  Awaited<ReturnType<ReturnType<typeof getYdszPlaneAPI>["postOauthApps"]>>
+>;
+export type GetOauthAppsAppIdResult = NonNullable<
+  Awaited<ReturnType<ReturnType<typeof getYdszPlaneAPI>["getOauthAppsAppId"]>>
+>;
+export type PatchOauthAppsAppIdResult = NonNullable<
+  Awaited<ReturnType<ReturnType<typeof getYdszPlaneAPI>["patchOauthAppsAppId"]>>
+>;
+export type DeleteOauthAppsAppIdResult = NonNullable<
+  Awaited<
+    ReturnType<ReturnType<typeof getYdszPlaneAPI>["deleteOauthAppsAppId"]>
+  >
+>;
+export type PostOauthAppsAppIdRotateResult = NonNullable<
+  Awaited<
+    ReturnType<ReturnType<typeof getYdszPlaneAPI>["postOauthAppsAppIdRotate"]>
+  >
+>;
+export type GetProjectCodeConfigsResult = NonNullable<
+  Awaited<
+    ReturnType<ReturnType<typeof getYdszPlaneAPI>["getProjectCodeConfigs"]>
+  >
+>;
+export type PostProjectCodeConfigsResult = NonNullable<
+  Awaited<
+    ReturnType<ReturnType<typeof getYdszPlaneAPI>["postProjectCodeConfigs"]>
+  >
+>;
+export type GetProjectCodeConfigsIdResult = NonNullable<
+  Awaited<
+    ReturnType<ReturnType<typeof getYdszPlaneAPI>["getProjectCodeConfigsId"]>
+  >
+>;
+export type DeleteProjectCodeConfigsIdResult = NonNullable<
+  Awaited<
+    ReturnType<ReturnType<typeof getYdszPlaneAPI>["deleteProjectCodeConfigsId"]>
+  >
+>;
+export type PostProjectCodeParseResult = NonNullable<
+  Awaited<
+    ReturnType<ReturnType<typeof getYdszPlaneAPI>["postProjectCodeParse"]>
+  >
+>;
+export type PostProjectCodeDiffResult = NonNullable<
+  Awaited<ReturnType<ReturnType<typeof getYdszPlaneAPI>["postProjectCodeDiff"]>>
+>;
+export type PostProjectCodeApplyResult = NonNullable<
+  Awaited<
+    ReturnType<ReturnType<typeof getYdszPlaneAPI>["postProjectCodeApply"]>
+  >
+>;
+export type GetProjectCodeExportProjectIdResult = NonNullable<
+  Awaited<
+    ReturnType<
+      ReturnType<typeof getYdszPlaneAPI>["getProjectCodeExportProjectId"]
+    >
+  >
+>;
+export type GetProjectStateResult = NonNullable<
+  Awaited<ReturnType<ReturnType<typeof getYdszPlaneAPI>["getProjectState"]>>
+>;
+export type PutProjectStateResult = NonNullable<
+  Awaited<ReturnType<ReturnType<typeof getYdszPlaneAPI>["putProjectState"]>>
+>;
+export type GetRecurringRulesResult = NonNullable<
+  Awaited<ReturnType<ReturnType<typeof getYdszPlaneAPI>["getRecurringRules"]>>
+>;
+export type PostRecurringRulesResult = NonNullable<
+  Awaited<ReturnType<ReturnType<typeof getYdszPlaneAPI>["postRecurringRules"]>>
+>;
+export type GetRecurringRulesRuleIdResult = NonNullable<
+  Awaited<
+    ReturnType<ReturnType<typeof getYdszPlaneAPI>["getRecurringRulesRuleId"]>
+  >
+>;
+export type PatchRecurringRulesRuleIdResult = NonNullable<
+  Awaited<
+    ReturnType<ReturnType<typeof getYdszPlaneAPI>["patchRecurringRulesRuleId"]>
+  >
+>;
+export type DeleteRecurringRulesRuleIdResult = NonNullable<
+  Awaited<
+    ReturnType<ReturnType<typeof getYdszPlaneAPI>["deleteRecurringRulesRuleId"]>
+  >
+>;
+export type PostRecurringRulesRuleIdEnableResult = NonNullable<
+  Awaited<
+    ReturnType<
+      ReturnType<typeof getYdszPlaneAPI>["postRecurringRulesRuleIdEnable"]
+    >
+  >
+>;
+export type PostRecurringRulesRuleIdDisableResult = NonNullable<
+  Awaited<
+    ReturnType<
+      ReturnType<typeof getYdszPlaneAPI>["postRecurringRulesRuleIdDisable"]
+    >
+  >
+>;
+export type PostRecurringRulesRuleIdRunNowResult = NonNullable<
+  Awaited<
+    ReturnType<
+      ReturnType<typeof getYdszPlaneAPI>["postRecurringRulesRuleIdRunNow"]
+    >
+  >
+>;
+export type GetTeamspacesResult = NonNullable<
+  Awaited<ReturnType<ReturnType<typeof getYdszPlaneAPI>["getTeamspaces"]>>
+>;
+export type PostTeamspacesResult = NonNullable<
+  Awaited<ReturnType<ReturnType<typeof getYdszPlaneAPI>["postTeamspaces"]>>
+>;
+export type GetTeamspacesTeamspaceIdResult = NonNullable<
+  Awaited<
+    ReturnType<ReturnType<typeof getYdszPlaneAPI>["getTeamspacesTeamspaceId"]>
+  >
+>;
+export type PatchTeamspacesTeamspaceIdResult = NonNullable<
+  Awaited<
+    ReturnType<ReturnType<typeof getYdszPlaneAPI>["patchTeamspacesTeamspaceId"]>
+  >
+>;
+export type DeleteTeamspacesTeamspaceIdResult = NonNullable<
+  Awaited<
+    ReturnType<
+      ReturnType<typeof getYdszPlaneAPI>["deleteTeamspacesTeamspaceId"]
+    >
+  >
+>;
+export type GetTeamspacesTeamspaceIdMembersResult = NonNullable<
+  Awaited<
+    ReturnType<
+      ReturnType<typeof getYdszPlaneAPI>["getTeamspacesTeamspaceIdMembers"]
+    >
+  >
+>;
+export type PostTeamspacesTeamspaceIdMembersResult = NonNullable<
+  Awaited<
+    ReturnType<
+      ReturnType<typeof getYdszPlaneAPI>["postTeamspacesTeamspaceIdMembers"]
+    >
+  >
+>;
+export type GetTeamspacesTeamspaceIdProjectsResult = NonNullable<
+  Awaited<
+    ReturnType<
+      ReturnType<typeof getYdszPlaneAPI>["getTeamspacesTeamspaceIdProjects"]
+    >
+  >
+>;
+export type PostTeamspacesTeamspaceIdProjectsResult = NonNullable<
+  Awaited<
+    ReturnType<
+      ReturnType<typeof getYdszPlaneAPI>["postTeamspacesTeamspaceIdProjects"]
+    >
+  >
+>;
+export type GetTeamspacesTeamspaceIdProgressResult = NonNullable<
+  Awaited<
+    ReturnType<
+      ReturnType<typeof getYdszPlaneAPI>["getTeamspacesTeamspaceIdProgress"]
+    >
+  >
+>;
+export type GetTeamspacesTeamspaceIdWorkloadsResult = NonNullable<
+  Awaited<
+    ReturnType<
+      ReturnType<typeof getYdszPlaneAPI>["getTeamspacesTeamspaceIdWorkloads"]
+    >
+  >
+>;
+export type PostTeamspacesTeamspaceIdArchiveResult = NonNullable<
+  Awaited<
+    ReturnType<
+      ReturnType<typeof getYdszPlaneAPI>["postTeamspacesTeamspaceIdArchive"]
+    >
+  >
+>;
+export type PostTeamspacesTeamspaceIdRestoreResult = NonNullable<
+  Awaited<
+    ReturnType<
+      ReturnType<typeof getYdszPlaneAPI>["postTeamspacesTeamspaceIdRestore"]
+    >
+  >
+>;
+export type DeleteTeamspacesTeamspaceIdMembersUserIdResult = NonNullable<
+  Awaited<
+    ReturnType<
+      ReturnType<
+        typeof getYdszPlaneAPI
+      >["deleteTeamspacesTeamspaceIdMembersUserId"]
+    >
+  >
+>;
+export type DeleteTeamspacesTeamspaceIdProjectsProjectIdResult = NonNullable<
+  Awaited<
+    ReturnType<
+      ReturnType<
+        typeof getYdszPlaneAPI
+      >["deleteTeamspacesTeamspaceIdProjectsProjectId"]
+    >
+  >
+>;
+export type GetWorkflowsResult = NonNullable<
+  Awaited<ReturnType<ReturnType<typeof getYdszPlaneAPI>["getWorkflows"]>>
+>;
+export type PostWorkflowsResult = NonNullable<
+  Awaited<ReturnType<ReturnType<typeof getYdszPlaneAPI>["postWorkflows"]>>
+>;
+export type GetWorkflowsWorkflowIdResult = NonNullable<
+  Awaited<
+    ReturnType<ReturnType<typeof getYdszPlaneAPI>["getWorkflowsWorkflowId"]>
+  >
+>;
+export type PatchWorkflowsWorkflowIdResult = NonNullable<
+  Awaited<
+    ReturnType<ReturnType<typeof getYdszPlaneAPI>["patchWorkflowsWorkflowId"]>
+  >
+>;
+export type DeleteWorkflowsWorkflowIdResult = NonNullable<
+  Awaited<
+    ReturnType<ReturnType<typeof getYdszPlaneAPI>["deleteWorkflowsWorkflowId"]>
+  >
+>;
+export type PostWorkflowsWorkflowIdTransitionsResult = NonNullable<
+  Awaited<
+    ReturnType<
+      ReturnType<typeof getYdszPlaneAPI>["postWorkflowsWorkflowIdTransitions"]
+    >
+  >
+>;
+export type DeleteWorkflowsWorkflowIdTransitionsTransitionIdResult =
+  NonNullable<
+    Awaited<
+      ReturnType<
+        ReturnType<
+          typeof getYdszPlaneAPI
+        >["deleteWorkflowsWorkflowIdTransitionsTransitionId"]
+      >
+    >
+  >;
+export type PostWorkflowsWorkflowIdTransitionsTransitionIdValidateResult =
+  NonNullable<
+    Awaited<
+      ReturnType<
+        ReturnType<
+          typeof getYdszPlaneAPI
+        >["postWorkflowsWorkflowIdTransitionsTransitionIdValidate"]
+      >
+    >
+  >;
+export type PostWorkflowsApprovalIdApproveResult = NonNullable<
+  Awaited<
+    ReturnType<
+      ReturnType<typeof getYdszPlaneAPI>["postWorkflowsApprovalIdApprove"]
+    >
+  >
+>;
+export type PostWorkflowsApprovalIdRejectResult = NonNullable<
+  Awaited<
+    ReturnType<
+      ReturnType<typeof getYdszPlaneAPI>["postWorkflowsApprovalIdReject"]
+    >
+  >
+>;
+export type GetWorkItemTypesResult = NonNullable<
+  Awaited<ReturnType<ReturnType<typeof getYdszPlaneAPI>["getWorkItemTypes"]>>
+>;
+export type PostWorkItemTypesResult = NonNullable<
+  Awaited<ReturnType<ReturnType<typeof getYdszPlaneAPI>["postWorkItemTypes"]>>
+>;
+export type GetWorkItemTypesTypeIdResult = NonNullable<
+  Awaited<
+    ReturnType<ReturnType<typeof getYdszPlaneAPI>["getWorkItemTypesTypeId"]>
+  >
+>;
+export type PatchWorkItemTypesTypeIdResult = NonNullable<
+  Awaited<
+    ReturnType<ReturnType<typeof getYdszPlaneAPI>["patchWorkItemTypesTypeId"]>
+  >
+>;
+export type DeleteWorkItemTypesTypeIdResult = NonNullable<
+  Awaited<
+    ReturnType<ReturnType<typeof getYdszPlaneAPI>["deleteWorkItemTypesTypeId"]>
+  >
+>;
+export type GetWorkItemTypesTypeIdPropertiesResult = NonNullable<
+  Awaited<
+    ReturnType<
+      ReturnType<typeof getYdszPlaneAPI>["getWorkItemTypesTypeIdProperties"]
+    >
+  >
+>;
+export type PostWorkItemTypesTypeIdPropertiesResult = NonNullable<
+  Awaited<
+    ReturnType<
+      ReturnType<typeof getYdszPlaneAPI>["postWorkItemTypesTypeIdProperties"]
+    >
+  >
+>;
+export type GetWorkItemTypesTypeIdValuesWorkItemIdResult = NonNullable<
+  Awaited<
+    ReturnType<
+      ReturnType<
+        typeof getYdszPlaneAPI
+      >["getWorkItemTypesTypeIdValuesWorkItemId"]
+    >
+  >
+>;
+export type PostWorkItemTypesTypeIdArchiveResult = NonNullable<
+  Awaited<
+    ReturnType<
+      ReturnType<typeof getYdszPlaneAPI>["postWorkItemTypesTypeIdArchive"]
+    >
+  >
+>;
+export type PostWorkItemTypesTypeIdRestoreResult = NonNullable<
+  Awaited<
+    ReturnType<
+      ReturnType<typeof getYdszPlaneAPI>["postWorkItemTypesTypeIdRestore"]
+    >
+  >
+>;
+export type DeleteWorkItemTypesTypeIdPropertiesPropIdResult = NonNullable<
+  Awaited<
+    ReturnType<
+      ReturnType<
+        typeof getYdszPlaneAPI
+      >["deleteWorkItemTypesTypeIdPropertiesPropId"]
+    >
+  >
+>;
+export type PutWorkItemTypesTypeIdValuesResult = NonNullable<
+  Awaited<
+    ReturnType<
+      ReturnType<typeof getYdszPlaneAPI>["putWorkItemTypesTypeIdValues"]
+    >
+  >
+>;
+export type PostViewsViewIdDuplicateResult = NonNullable<
+  Awaited<
+    ReturnType<ReturnType<typeof getYdszPlaneAPI>["postViewsViewIdDuplicate"]>
+  >
+>;
+export type PostViewsViewIdFavoriteResult = NonNullable<
+  Awaited<
+    ReturnType<ReturnType<typeof getYdszPlaneAPI>["postViewsViewIdFavorite"]>
+  >
+>;
+export type PostViewsViewIdPublicResult = NonNullable<
+  Awaited<
+    ReturnType<ReturnType<typeof getYdszPlaneAPI>["postViewsViewIdPublic"]>
+  >
+>;

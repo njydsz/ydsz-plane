@@ -14,7 +14,9 @@ import {
 } from "@/api/services/estimatePoints";
 import { AppEmptyState, AppErrorState, AppLoadingState } from "@/components";
 import { toast } from "@/lib/toast";
+import { useConfirm } from "@/composables/useConfirm";
 
+const confirm = useConfirm();
 const route = useRoute();
 const workspaceId = Number(route.params.workspaceId);
 const projectId = Number(route.params.projectId);
@@ -26,7 +28,7 @@ const error = ref("");
 // 创建
 const showCreate = ref(false);
 const createForm = ref({ name: "", description: "", is_default: false });
-const createPointDefs = ref<EstimatePointDef[]>([{ label: "1", value: 1, color: "#22c55e" }]);
+const createPointDefs = ref<EstimatePointDef[]>([{ label: "1", value: 1, color: "var(--success-500)" }]);
 const creating = ref(false);
 
 // 编辑
@@ -49,7 +51,7 @@ async function load() {
 }
 
 function addPointDef(target: { value: EstimatePointDef[] }) {
-  target.value.push({ label: "", value: target.value.length + 1, color: "#3b82f6" });
+  target.value.push({ label: "", value: target.value.length + 1, color: "var(--brand-500)" });
 }
 
 function removePointDef(target: { value: EstimatePointDef[] }, idx: number) {
@@ -59,7 +61,7 @@ function removePointDef(target: { value: EstimatePointDef[] }, idx: number) {
 
 function resetCreateForm() {
   createForm.value = { name: "", description: "", is_default: false };
-  createPointDefs.value = [{ label: "1", value: 1, color: "#22c55e" }];
+  createPointDefs.value = [{ label: "1", value: 1, color: "var(--success-500)" }];
 }
 
 async function doCreate() {
@@ -99,7 +101,7 @@ function startEdit(p: EstimatePoint) {
   };
   editPointDefs.value = p.points?.length
     ? JSON.parse(JSON.stringify(p.points))
-    : [{ label: "1", value: 1, color: "#22c55e" }];
+    : [{ label: "1", value: 1, color: "var(--success-500)" }];
 }
 
 async function saveEdit(p: EstimatePoint) {
@@ -130,7 +132,7 @@ async function remove(p: EstimatePoint) {
     toast.warning("默认估算点数无法删除");
     return;
   }
-  if (!confirm(`确定删除「${p.name}」？`)) return;
+  if (!await confirm({ title: "删除估算点", message: `确定删除「${p.name}」？`, confirmText: "删除", variant: "danger" })) return;
   try {
     await estimatePointApi.remove(workspaceId, projectId, p.id);
     toast.success("已删除");

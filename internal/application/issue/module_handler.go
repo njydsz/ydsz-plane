@@ -57,13 +57,14 @@ type createModuleRequest struct {
 }
 
 type updateModuleRequest struct {
-	Name        *string  `json:"name" binding:"omitempty,max=120"`
-	Description *string  `json:"description"`
-	LeadID      *int64   `json:"lead_id"`
-	Status      *string  `json:"status" binding:"omitempty,oneof=active completed archived"`
-	StartDate   *string  `json:"start_date"`
-	TargetDate  *string  `json:"target_date"`
-	SortOrder   *float64 `json:"sort_order"`
+	Name           *string  `json:"name" binding:"omitempty,max=120"`
+	Description    *string  `json:"description"`
+	LeadID         *int64   `json:"lead_id"`
+	Status         *string  `json:"status" binding:"omitempty,oneof=active completed archived"`
+	WorkflowStatus *string  `json:"workflow_status" binding:"omitempty,oneof=backlog planned in_progress paused completed cancelled"`
+	StartDate      *string  `json:"start_date"`
+	TargetDate     *string  `json:"target_date"`
+	SortOrder      *float64 `json:"sort_order"`
 }
 
 type assignIssuesRequest struct {
@@ -174,7 +175,7 @@ func (h *ModuleHandler) updateModule(c *gin.Context) {
 		ID: extractModuleID(c), WorkspaceID: extractWsID(c),
 		ProjectID: extractProjectID(c),
 		Name:      req.Name, Description: req.Description, LeadID: req.LeadID,
-		Status: req.Status, SortOrder: req.SortOrder,
+		Status: req.Status, WorkflowStatus: req.WorkflowStatus, SortOrder: req.SortOrder,
 	}
 	if req.StartDate != nil {
 		if d := parseDate(*req.StartDate); !d.IsZero() {

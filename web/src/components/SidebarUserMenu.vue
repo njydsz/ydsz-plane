@@ -18,6 +18,7 @@ import { useRouter } from "vue-router";
 import { useAuthStore } from "@/stores/auth";
 import { useWorkspaceStore } from "@/stores/workspace";
 import ThemeToggle from "@/components/ThemeToggle.vue";
+import DynamicIcon from "@/components/DynamicIcon.vue";
 
 const auth = useAuthStore();
 const wsStore = useWorkspaceStore();
@@ -34,6 +35,17 @@ const triggerRef = ref<HTMLElement | null>(null);
 const displayName = computed(() => auth.user?.display_name ?? "");
 const initial = computed(() => (displayName.value.charAt(0) || "?").toUpperCase());
 const wsId = computed(() => wsStore.currentId);
+
+/** 是否展示「实例管理」入口。
+ *  当前 UserBrief 未携带角色字段，无法在前端准确判断实例管理员，
+ *  因此先对所有登录用户展示，由后端 /api/v1/admin/* 做实例管理员鉴权
+ *  （非实例管理员访问会拿到 403）。 */
+const isAdmin = computed(() => auth.isAuthenticated);
+
+function goToGodMode() {
+  close();
+  router.push({ name: "admin-god-mode" });
+}
 
 function toggle() {
   open.value = !open.value;
@@ -75,7 +87,7 @@ onBeforeUnmount(() => document.removeEventListener("mousedown", onClickOutside))
         <span class="user-menu__name">{{ displayName }}</span>
         <span class="user-menu__email">{{ auth.user?.email ?? "" }}</span>
       </span>
-      <span class="user-menu__caret" :class="{ 'is-open': open }">▾</span>
+      <span class="user-menu__caret" :class="{ 'is-open': open }"><DynamicIcon name="ChevronDown" :size="14" /></span>
     </button>
 
     <div v-if="open" class="user-menu__dropdown" role="menu">
@@ -86,6 +98,16 @@ onBeforeUnmount(() => document.removeEventListener("mousedown", onClickOutside))
           <div class="user-menu__email">{{ auth.user?.email ?? "" }}</div>
         </div>
       </div>
+      <div v-if="isAdmin" class="user-menu__divider" />
+      <button
+        v-if="isAdmin"
+        class="user-menu__item"
+        role="menuitem"
+        @click="goToGodMode"
+      >
+        <span class="user-menu__item-icon">🛡️</span>
+        <span class="user-menu__item-label">{{ $t('menu.godMode') }}</span>
+      </button>
       <div class="user-menu__divider" />
       <button class="user-menu__item" role="menuitem" @click="goToProfile">
         <span class="user-menu__item-icon">👤</span>

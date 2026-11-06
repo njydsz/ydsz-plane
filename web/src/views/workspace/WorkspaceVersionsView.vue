@@ -12,7 +12,7 @@ import { useRoute, useRouter } from "vue-router";
 import { workspaceApi, type Project } from "@/api/services/workspace";
 import { dashboardApi, type ProjectCompareItem } from "@/api/services/dashboard";
 import { versionApi, type CreateVersionInput } from "@/api/services/version";
-import { AppButton, AppEmptyState, AppErrorState, AppModal, AppSkeleton } from "@/components";
+import { AppButton, AppEmptyState, AppErrorState, AppModal, AppPageContainer, AppSkeleton } from "@/components";
 
 interface ProjectCard extends Project {
   compare?: ProjectCompareItem;
@@ -21,6 +21,10 @@ interface ProjectCard extends Project {
 const route = useRoute();
 const router = useRouter();
 const workspaceId = computed(() => Number(route.params.workspaceId ?? 0));
+
+function navigateToProject(projectId: number) {
+  router.push(`/${workspaceId.value}/projects/${projectId}`);
+}
 
 const loading = ref(true);
 const error = ref("");
@@ -132,7 +136,8 @@ onMounted(load);
 </script>
 
 <template>
-  <div class="space-y-6">
+  <AppPageContainer>
+    <div class="space-y-6">
     <div class="flex items-center justify-between">
       <div>
         <h1 class="text-2xl font-bold tracking-tight">版本</h1>
@@ -172,7 +177,8 @@ onMounted(load);
           <div
             v-for="p in projects"
             :key="p.id"
-            class="flex flex-col rounded-md border border-[var(--border-subtle)] bg-[var(--surface-1)] p-4 transition hover:border-[var(--brand-500)]"
+            class="flex cursor-pointer flex-col rounded-md border border-[var(--border-subtle)] bg-[var(--surface-1)] p-4 transition hover:border-[var(--brand-500)] hover:shadow-md"
+            @click="navigateToProject(p.id)"
           >
             <div class="flex items-start justify-between gap-2">
               <div class="min-w-0">
@@ -213,6 +219,7 @@ onMounted(load);
               <router-link
                 v-else
                 :to="`/${workspaceId}/projects/${p.id}/versions`"
+                @click.stop
                 class="inline-flex items-center gap-1 rounded-md bg-[var(--bg-accent-primary)] px-3 py-1.5 text-sm font-medium text-white hover:bg-[var(--bg-accent-primary-hover)] active:bg-[var(--bg-accent-primary-active)] disabled:opacity-50"
               >
                 版本 <span aria-hidden="true">→</span>
@@ -298,10 +305,10 @@ onMounted(load);
       <template #footer>
         <AppButton variant="secondary" size="sm" @click="closeCreateModal">取消</AppButton>
         <AppButton variant="primary" size="sm" :loading="creating" @click="submitCreate">创建</AppButton>
-      </template>
-    </AppModal>
-  </div>
-</template>
+          </AppModal>
+    </div>
+  </AppPageContainer>
+
 
 <style scoped>
 /* 复用 VersionListView 中 create-form 的样式 */

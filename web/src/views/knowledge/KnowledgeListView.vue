@@ -12,8 +12,10 @@ import { useRoute, useRouter } from "vue-router";
 
 import { knowledgeApi, type KnowledgePage, type KnowledgeSpace, type SpacePermission } from "@/api/services/knowledge";
 import { toast } from "@/lib/toast";
-import { AppEmptyState, AppErrorState, AppModal } from "@/components";
+import { AppButton, AppEmptyState, AppErrorState, AppModal, AppPageContainer, DynamicIcon } from "@/components";
+import { useConfirm } from "@/composables/useConfirm";
 
+const confirm = useConfirm();
 const route = useRoute();
 const router = useRouter();
 
@@ -127,7 +129,7 @@ async function createSpace() {
 }
 
 async function deleteSpace(sp: KnowledgeSpace) {
-  if (!window.confirm(`确定删除空间「${sp.name}」？该空间下所有文档将被一并删除。`)) return;
+  if (!await confirm({ title: "删除空间", message: `确定删除空间「${sp.name}」？该空间下所有文档将被一并删除。`, confirmText: "删除", variant: "danger" })) return;
   try {
     await knowledgeApi.deleteSpace(workspaceId.value, sp.id);
     spaces.value = spaces.value.filter((s) => s.id !== sp.id);
@@ -176,14 +178,15 @@ onMounted(load);
 </script>
 
 <template>
-  <div class="knowledge-list">
+  <AppPageContainer>
+    <div class="knowledge-list">
     <header class="knowledge-list__header">
       <div>
         <h1>{{ $t("knowledge.title") }}</h1>
         <p class="hint">团队文档与知识沉淀 — 支持无限层级文档树、版本历史与需求/任务/缺陷关联</p>
       </div>
       <div class="knowledge-list__header-right">
-        <button class="btn btn--primary" @click="openCreate">＋ {{ $t("knowledge.newSpace") }}</button>
+        <AppButton @click="openCreate"><DynamicIcon name="Plus" :size="14" /> {{ $t("knowledge.newSpace") }}</AppButton>
       </div>
     </header>
 
@@ -195,10 +198,12 @@ onMounted(load);
         :placeholder="$t('knowledge.searchPlaceholder')"
         @keydown.enter="runSearch"
       />
-      <button class="btn btn--primary" :disabled="searching" @click="runSearch">
+      <AppButton :disabled="searching" @click="runSearch">
         {{ searching ? $t("common.loading") : $t("knowledge.search") }}
-      </button>
-      <button v-if="searchKeyword" class="btn" @click="clearSearch">{{ $t("common.clear") }}</button>
+      </AppButton>
+      <AppButton v-if="searchKeyword" variant="secondary" @click="clearSearch">
+        {{ $t("common.clear") }}
+      </AppButton>
     </div>
 
     <!-- 搜索结果 -->
@@ -234,7 +239,7 @@ onMounted(load);
       :title="$t('knowledge.empty')"
       :description="$t('knowledge.emptyDesc')"
     >
-      <button class="btn btn--primary" @click="openCreate">＋ {{ $t("knowledge.newSpace") }}</button>
+      <AppButton @click="openCreate"><DynamicIcon name="Plus" :size="14" /> {{ $t("knowledge.newSpace") }}</AppButton>
     </AppEmptyState>
 
     <div v-else class="knowledge-list__grid">
@@ -312,15 +317,14 @@ onMounted(load);
         </label>
       </div>
       <template #footer>
-        <button class="btn" @click="closeCreate">{{ $t("common.cancel") }}</button>
-        <button class="btn btn--primary" :disabled="creating" @click="createSpace">
+        <AppButton variant="secondary" @click="closeCreate">{{ $t("common.cancel") }}</AppButton>
+        <AppButton :loading="creating" :disabled="creating" @click="createSpace">
           {{ creating ? $t("common.loading") : $t("knowledge.createSpace") }}
-        </button>
+        </AppButton>
       </template>
     </AppModal>
-  </div>
-</template>
-
+    </div>
+  </AppPageContainer>
 <style scoped>
 .knowledge-list__header {
   display: flex;
@@ -548,41 +552,6 @@ onMounted(load);
   font-size: 13px;
   color: var(--text-secondary);
   cursor: pointer;
-}
-
-/* ---- 按钮（与项目其他视图对齐） ---- */
-.btn {
-  padding: 8px 16px;
-  font-size: 13px;
-  font-family: inherit;
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-sm);
-  background: var(--surface-1);
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.btn:hover {
-  border-color: var(--brand-500);
-  color: var(--brand-600);
-}
-
-.btn--primary {
-  background: var(--brand-500);
-  border-color: var(--brand-500);
-  color: var(--text-on-brand);
-  font-weight: 500;
-}
-
-.btn--primary:hover {
-  background: var(--brand-600);
-  color: var(--text-on-brand);
-}
-
-.btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
 }
 
 /* ---- 全文检索 ---- */

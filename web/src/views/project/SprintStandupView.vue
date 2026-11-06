@@ -12,7 +12,7 @@ import { useRoute, useRouter } from "vue-router";
 
 import { sprintApi, type Sprint, type SprintIssueView } from "@/api/services/sprint";
 import { workspaceApi } from "@/api/services/workspace";
-import { AppLoadingState, AppErrorState, AppEmptyState } from "@/components";
+import { AppButton, AppLoadingState, AppErrorState, AppEmptyState } from "@/components";
 
 const route = useRoute();
 const router = useRouter();
@@ -193,7 +193,7 @@ onMounted(load);
     <AppLoadingState v-if="loading" />
     <AppErrorState v-else-if="error" :message="error" @retry="load" />
     <AppEmptyState v-else-if="!sprint || issues.length === 0" title="该迭代暂无需求/任务/缺陷" description="前往排期规划页添加需求/任务/缺陷">
-      <button class="btn btn-secondary" @click="router.push(`/${workspaceId}/projects/${projectId}/sprints/planning`)">前往排期规划</button>
+      <AppButton variant="secondary" @click="router.push(`/${workspaceId}/projects/${projectId}/sprints/planning`)">前往排期规划</AppButton>
     </AppEmptyState>
 
     <!-- 三栏分组视图 -->
@@ -224,12 +224,12 @@ onMounted(load);
           </div>
           <div v-if="expandedIds.has(iss.issue_id)" class="card-detail">
             <p class="hint">点击前往需求/任务/缺陷详情页更新状态</p>
-            <button
-              class="btn btn-sm btn-primary"
+            <AppButton
+              size="sm"
               @click.stop="router.push(`/${workspaceId}/projects/${projectId}/issues/${iss.issue_id}`)"
             >
               打开详情
-            </button>
+            </AppButton>
           </div>
         </div>
       </div>
@@ -438,17 +438,4 @@ onMounted(load);
   50% { opacity: 0.8; }
 }
 
-/* ------------------------------------------------------------------ */
-/* Buttons                                                              */
-/* ------------------------------------------------------------------ */
-.btn {
-  font-size: 13px; font-weight: 500; padding: 6px 14px;
-  border-radius: var(--radius-sm); border: 1px solid var(--border-subtle);
-  cursor: pointer; transition: background 0.15s;
-}
-.btn-primary { background: var(--brand-500); color: #fff; border-color: var(--brand-500); }
-.btn-primary:hover { background: var(--brand-600); }
-.btn-secondary { background: var(--surface-2); color: var(--text-primary); }
-.btn-secondary:hover { background: var(--surface-3); }
-.btn-sm { font-size: 11px; padding: 4px 10px; }
 </style>

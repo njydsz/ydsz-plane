@@ -17,7 +17,9 @@ import { WIDGET_COMPONENTS, WIDGET_NAME_MAP } from "@/components/dashboard/widge
 import DashWidgetCard from "@/components/dashboard/DashWidgetCard.vue";
 import EmptyStateWidget from "@/components/dashboard/EmptyStateWidget.vue";
 import { toast } from "@/lib/toast";
+import { useConfirm } from "@/composables/useConfirm";
 
+const confirm = useConfirm();
 const route = useRoute();
 const wsStore = useWorkspaceStore();
 
@@ -382,7 +384,7 @@ async function handleAddWidget() {
 
 async function handleRemove(widgetId: number) {
   if (!wsId.value) return;
-  if (!confirm("确定要删除这个 widget 吗？")) return;
+  if (!await confirm({ title: "删除组件", message: "确定要删除这个 widget 吗？", confirmText: "删除", variant: "danger" })) return;
   try {
     await dashboardApi.deleteWidget(wsId.value, projectId.value, widgetId);
     toast.success("Widget 已删除");
@@ -606,8 +608,6 @@ onMounted(() => {
       </template>
     </AppModal>
   </div>
-</template>
-
 <style scoped>
 .dashboard {
   display: flex;
@@ -622,7 +622,7 @@ onMounted(() => {
   position: fixed;
   inset: 0;
   z-index: 1000;
-  background: var(--surface-1, #fff);
+  background: var(--surface-1);
   padding: 16px 24px 80px;
   overflow-y: auto;
 }
@@ -645,13 +645,13 @@ onMounted(() => {
 .dashboard__title {
   font-size: 20px;
   font-weight: 600;
-  color: var(--text-primary, #1f2937);
+  color: var(--text-primary);
   margin: 0;
 }
 
 .dashboard__time-range {
   display: flex;
-  border: 1px solid var(--border-default, #dfe2e6);
+  border: 1px solid var(--border-default);
   border-radius: var(--radius-sm, 6px);
   overflow: hidden;
 }
@@ -660,20 +660,20 @@ onMounted(() => {
   padding: 5px 12px;
   font-size: 12px;
   font-family: inherit;
-  background: var(--surface-1, #fff);
+  background: var(--surface-1);
   border: none;
-  color: var(--text-tertiary, #9ca3af);
+  color: var(--text-tertiary);
   cursor: pointer;
   transition: background 0.15s, color 0.15s;
 }
 
 .time-btn:hover {
-  background: var(--surface-2, #f7f8f9);
-  color: var(--text-primary, #1f2937);
+  background: var(--surface-2);
+  color: var(--text-primary);
 }
 
 .time-btn--active {
-  background: var(--brand-500, #3f63f1);
+  background: var(--brand-500);
   color: var(--text-on-brand);
 }
 
@@ -687,9 +687,9 @@ onMounted(() => {
   padding: 7px 14px;
   font-size: 13px;
   font-family: inherit;
-  background: var(--brand-500, #3f63f1);
+  background: var(--brand-500);
   color: var(--text-on-brand);
-  border: 1px solid var(--brand-500, #3f63f1);
+  border: 1px solid var(--brand-500);
   border-radius: var(--radius-sm, 6px);
   cursor: pointer;
   transition: background 0.15s;
@@ -697,7 +697,7 @@ onMounted(() => {
 }
 
 .action-btn:hover {
-  background: var(--brand-600, #2f4fd0);
+  background: var(--brand-600);
 }
 
 .action-btn:disabled {
@@ -706,13 +706,13 @@ onMounted(() => {
 }
 
 .action-btn--ghost {
-  background: var(--surface-1, #fff);
-  color: var(--text-secondary, #4b5563);
-  border-color: var(--border-default, #dfe2e6);
+  background: var(--surface-1);
+  color: var(--text-secondary);
+  border-color: var(--border-default);
 }
 
 .action-btn--ghost:hover {
-  background: var(--surface-2, #f7f8f9);
+  background: var(--surface-2);
 }
 
 /* Template dropdown */
@@ -724,8 +724,8 @@ onMounted(() => {
   position: absolute;
   top: calc(100% + 4px);
   right: 0;
-  background: var(--surface-1, #fff);
-  border: 1px solid var(--border-default, #dfe2e6);
+  background: var(--surface-1);
+  border: 1px solid var(--border-default);
   border-radius: var(--radius-sm, 6px);
   box-shadow: var(--shadow-popover);
   z-index: 50;
@@ -743,11 +743,11 @@ onMounted(() => {
   border: none;
   text-align: left;
   cursor: pointer;
-  color: var(--text-secondary, #4b5563);
+  color: var(--text-secondary);
 }
 
 .template-dropdown__item:hover:not(:disabled) {
-  background: var(--surface-2, #f7f8f9);
+  background: var(--surface-2);
 }
 
 .template-dropdown__item:disabled {
@@ -765,9 +765,9 @@ onMounted(() => {
   gap: 6px;
   font-size: 12px;
   font-weight: 500;
-  color: var(--brand-500, #3f63f1);
-  background: var(--surface-1, #fff);
-  border: 1px solid var(--border-subtle, #e5e7eb);
+  color: var(--brand-500);
+  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm, 6px);
   padding: 5px 12px;
   z-index: 60;
@@ -778,7 +778,7 @@ onMounted(() => {
   content: "";
   width: 10px;
   height: 10px;
-  border: 2px solid var(--brand-500, #3f63f1);
+  border: 2px solid var(--brand-500);
   border-top-color: transparent;
   border-radius: 50%;
   animation: dashboard-spin 0.7s linear infinite;
@@ -813,8 +813,8 @@ onMounted(() => {
   background-image: linear-gradient(
     to right,
     transparent calc(100% / 12 - 1px),
-    var(--border-subtle, #e5e7eb) calc(100% / 12 - 1px),
-    var(--border-subtle, #e5e7eb) calc(100% / 12),
+    var(--border-subtle) calc(100% / 12 - 1px),
+    var(--border-subtle) calc(100% / 12),
     transparent calc(100% / 12)
   );
   background-size: calc(100% + 12px) 100%;
@@ -835,9 +835,9 @@ onMounted(() => {
 }
 
 .grid-cell--drag-over {
-  outline: 2px dashed var(--brand-500, #3f63f1);
+  outline: 2px dashed var(--brand-500);
   outline-offset: -2px;
-  background-color: color-mix(in srgb, var(--brand-500, #3f63f1) 6%, transparent);
+  background-color: color-mix(in srgb, var(--brand-500) 6%, transparent);
   border-radius: var(--radius-md, 8px);
 }
 
@@ -847,7 +847,7 @@ onMounted(() => {
 
 /* ===== Empty state ===== */
 .dashboard__empty {
-  border: 1px dashed var(--border-default, #dfe2e6);
+  border: 1px dashed var(--border-default);
   border-radius: var(--radius-lg, 12px);
 }
 
@@ -859,7 +859,7 @@ onMounted(() => {
   width: 48px;
   height: 48px;
   border-radius: 50%;
-  background: var(--brand-500, #3f63f1);
+  background: var(--brand-500);
   color: var(--text-on-brand);
   border: none;
   font-size: 24px;
@@ -884,7 +884,7 @@ onMounted(() => {
 .add-widget-modal__label {
   font-size: 12px;
   font-weight: 500;
-  color: var(--text-secondary, #4b5563);
+  color: var(--text-secondary);
   margin: 0;
 }
 
@@ -898,27 +898,27 @@ onMounted(() => {
   display: flex;
   align-items: center;
   padding: 10px 12px;
-  border: 1px solid var(--border-subtle, #e5e7eb);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm, 6px);
-  background: var(--surface-1, #fff);
+  background: var(--surface-1);
   cursor: pointer;
   transition: border-color 0.15s, background 0.15s;
 }
 
 .widget-type-card:hover {
-  border-color: var(--brand-500, #3f63f1);
-  background: var(--brand-50, #eef2fe);
+  border-color: var(--brand-500);
+  background: var(--brand-50);
 }
 
 .widget-type-card--active {
-  border-color: var(--brand-500, #3f63f1);
-  background: var(--brand-50, #eef2fe);
-  box-shadow: inset 0 0 0 2px var(--brand-500, #3f63f1);
+  border-color: var(--brand-500);
+  background: var(--brand-50);
+  box-shadow: inset 0 0 0 2px var(--brand-500);
 }
 
 .widget-type-card__label {
   font-size: 13px;
-  color: var(--text-primary, #1f2937);
+  color: var(--text-primary);
 }
 
 .add-widget-modal__custom-title {
@@ -929,18 +929,18 @@ onMounted(() => {
 
 .add-widget-modal__input {
   padding: 8px 10px;
-  border: 1px solid var(--border-default, #dfe2e6);
+  border: 1px solid var(--border-default);
   border-radius: var(--radius-sm, 6px);
   font-size: 13px;
   font-family: inherit;
-  color: var(--text-primary, #1f2937);
-  background: var(--surface-1, #fff);
+  color: var(--text-primary);
+  background: var(--surface-1);
   outline: none;
 }
 
 .add-widget-modal__input:focus {
-  border-color: var(--brand-500, #3f63f1);
-  box-shadow: 0 0 0 3px var(--brand-50, #eef2fe);
+  border-color: var(--brand-500);
+  box-shadow: 0 0 0 3px var(--brand-50);
 }
 
 /* ===== 响应式 ===== */

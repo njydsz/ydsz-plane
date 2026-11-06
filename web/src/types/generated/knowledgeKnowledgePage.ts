@@ -30,4 +30,5 @@ export interface KnowledgeKnowledgePage {
   version?: number;
   view_count?: number;
   workspace_id?: number;
+  deleted_at?: string;
 }

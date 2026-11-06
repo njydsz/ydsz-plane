@@ -21,4 +21,7 @@ export interface AutomationRuleExecution {
   trigger_event_id?: number;
   via_automation?: boolean;
   workspace_id?: number;
+  rule_name?: string;
+  trigger_event?: string;
+  actions_executed?: string[];
 }

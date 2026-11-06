@@ -10,8 +10,10 @@ import { useRoute } from "vue-router";
 
 import { workspaceApi, type Member } from "@/api/services/workspace";
 import { ApiError } from "@/api/client";
-import { AppLoadingState, AppErrorState } from "@/components";
+import { AppButton, AppLoadingState, AppErrorState } from "@/components";
+import { useConfirm } from "@/composables/useConfirm";
 
+const confirm = useConfirm();
 const route = useRoute();
 const workspaceId = Number(route.params.workspaceId);
 const projectId = Number(route.params.projectId);
@@ -103,7 +105,7 @@ async function changeRole(userId: number, role: string) {
 }
 
 async function removeMember(userId: number, name: string) {
-  if (!confirm(`确认将「${name}」移出项目？`)) return;
+  if (!await confirm({ title: "移除成员", message: `确认将「${name}」移出项目？`, confirmText: "移除", variant: "danger" })) return;
   try {
     const ws = await workspaceApi.get(workspaceId);
     await workspaceApi.removeProjectMember(ws.id, projectId, userId);
@@ -134,13 +136,13 @@ onMounted(loadMembers);
             共 {{ members.length }} 名成员。
           </p>
         </div>
-        <button
+        <AppButton
           v-if="canManage"
-          class="btn btn--primary btn--sm"
+          size="sm"
           @click="showAddForm = !showAddForm"
         >
           {{ showAddForm ? "取消" : "添加成员" }}
-        </button>
+        </AppButton>
       </div>
 
       <!-- 添加成员面板 -->
@@ -161,13 +163,14 @@ onMounted(loadMembers);
             <option value="member">成员</option>
             <option value="admin">管理员</option>
           </select>
-          <button
-            class="btn btn--primary btn--sm"
+          <AppButton
+            size="sm"
+            :loading="adding"
             :disabled="!newMemberUserId || adding"
             @click="addMember"
           >
             {{ adding ? "添加中..." : "确认添加" }}
-          </button>
+          </AppButton>
         </div>
       </section>
 
@@ -201,13 +204,15 @@ onMounted(loadMembers);
               <option value="member">成员</option>
               <option value="admin">管理员</option>
             </select>
-            <button
+            <AppButton
               v-if="canManage"
-              class="btn btn--ghost btn--xs btn--danger"
+              size="sm"
+              variant="ghost"
+              class="btn--ghost-danger"
               @click="removeMember(m.id, displayName(m))"
             >
 移除
-</button>
+</AppButton>
           </div>
         </div>
         <p v-if="members.length === 0" class="panel__desc">
@@ -345,29 +350,9 @@ onMounted(loadMembers);
   color: var(--text-secondary);
 }
 
-.btn {
-  border: none;
-  border-radius: var(--radius-sm);
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.btn--primary {
-  background: var(--brand-500);
-  color: #fff;
-}
-.btn--primary:hover { background: var(--brand-600); }
-.btn--primary:disabled { opacity: 0.6; cursor: not-allowed; }
-
-.btn--sm { padding: 6px 12px; font-size: 13px; }
-.btn--xs { padding: 4px 8px; font-size: 12px; }
-
-.btn--ghost {
-  background: transparent;
-}
-.btn--danger { color: var(--danger-500); }
-.btn--danger:hover { background: var(--danger-50); }
+/* ghost + 危险色组合（移除成员），AppButton 无对应组合，保留辅助类 */
+.btn--ghost-danger { color: var(--danger-500); }
+.btn--ghost-danger:hover { background: var(--danger-50); }
 
 .msg.error { color: var(--danger-500); font-size: 13px; margin: 0 0 10px; }
 </style>

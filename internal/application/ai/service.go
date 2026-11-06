@@ -34,6 +34,8 @@ import (
 	"sync"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/njydsz/ydsz-plane/internal/infrastructure/llm"
 )
 
 // --- Service ---
@@ -43,6 +45,8 @@ type Service struct {
 	db       *pgxpool.Pool
 	enabled  bool
 	provider LLMProvider
+	// llm 可选；注入后写作类功能走真实模型，未注入时退回规则引擎。
+	llm *llm.Client
 
 	// 规则引擎缓存
 	mu        sync.RWMutex
@@ -76,6 +80,11 @@ func (s *Service) Status() map[string]any {
 }
 
 // NewService 创建 AI 服务。
+// SetLLMClient 注入 LLM 客户端（写作类功能将优先使用真实模型）。
+func (s *Service) SetLLMClient(client *llm.Client) {
+	s.llm = client
+}
+
 func NewService(db *pgxpool.Pool, cfg Config) *Service {
 	svc := &Service{
 		db:      db,
@@ -204,12 +213,12 @@ func (s *Service) DetectDuplicates(ctx context.Context, projectID int64, title, 
 
 	// 查询相似工作项（使用 PG FTS）
 	rows, err := s.db.Query(ctx, `
-		SELECT id, identifier, name,
-		       ts_rank(search_tsv, to_tsquery('simple', $1)) AS similarity
-		FROM (SELECT id, public_id, workspace_id, project_id, sequence_id, 'requirement'::text AS type_code, parent_id, depth, name, description_json, description_html, description_stripped, state_id, priority, NULL::smallint AS severity, NULL::text AS found_phase, NULL::text AS root_cause_category, NULL::bigint AS verifier_id, NULL::jsonb AS environment, NULL::jsonb AS reproduce_steps, NULL::text AS category, NULL::numeric AS actual_effort, NULL::numeric AS remaining_effort, NULL::text AS delay_reason, source, point, sprint_id, progress, start_date, target_date, completed_at, is_draft, sort_order, version, version_id, NULL::bigint AS found_version_id, NULL::bigint AS fix_version_id, created_by, created_at, updated_at, deleted FROM requirement WHERE deleted = false UNION ALL SELECT id, public_id, workspace_id, project_id, sequence_id, 'task'::text, parent_id, depth, name, description_json, description_html, description_stripped, state_id, priority, NULL::smallint, NULL::text, NULL::text, NULL::bigint, NULL::jsonb, NULL::jsonb, category, actual_effort, remaining_effort, delay_reason, NULL::text, point, sprint_id, progress, start_date, target_date, completed_at, is_draft, sort_order, version, version_id, NULL::bigint AS found_version_id, NULL::bigint AS fix_version_id, created_by, created_at, updated_at, deleted FROM task WHERE deleted = false UNION ALL SELECT id, public_id, workspace_id, project_id, sequence_id, 'defect'::text, parent_id, depth, name, description_json, description_html, description_stripped, state_id, priority, severity, found_phase, root_cause_category, verifier_id, environment, reproduce_steps, NULL::text, NULL::numeric, NULL::numeric, NULL::text, NULL::text, point, sprint_id, progress, start_date, target_date, completed_at, is_draft, sort_order, version, version_id, found_version_id, fix_version_id, created_by, created_at, updated_at, deleted FROM defect WHERE deleted = false) AS w
-		WHERE project_id = $2
-		  AND deleted = false
-		  AND search_tsv @@ to_tsquery('simple', $1)
+			SELECT id, identifier, name,
+			       ts_rank(to_tsvector('simple', coalesce(name, '') || ' ' || coalesce(description_stripped, '')), to_tsquery('simple', $1)) AS similarity
+			FROM (SELECT id, public_id AS identifier, workspace_id, project_id, sequence_id, 'requirement'::text AS type_code, parent_id, depth, name, description_stripped, state_id, priority, NULL::smallint AS severity, NULL::text AS found_phase, NULL::text AS root_cause_category, NULL::bigint AS verifier_id, NULL::jsonb AS environment, NULL::jsonb AS reproduce_steps, NULL::text AS category, NULL::numeric AS actual_effort, NULL::numeric AS remaining_effort, NULL::text AS delay_reason, source, point, sprint_id, progress, start_date, target_date, completed_at, is_draft, sort_order, version, version_id, NULL::bigint AS found_version_id, NULL::bigint AS fix_version_id, created_by, created_at, updated_at, deleted FROM requirement WHERE deleted = false UNION ALL SELECT id, public_id AS identifier, workspace_id, project_id, sequence_id, 'task'::text, parent_id, depth, name, description_stripped, state_id, priority, NULL::smallint, NULL::text, NULL::text, NULL::bigint, NULL::jsonb, NULL::jsonb, category, actual_effort, remaining_effort, delay_reason, NULL::text, point, sprint_id, progress, start_date, target_date, completed_at, is_draft, sort_order, version, version_id, NULL::bigint AS found_version_id, NULL::bigint AS fix_version_id, created_by, created_at, updated_at, deleted FROM task WHERE deleted = false UNION ALL SELECT id, public_id AS identifier, workspace_id, project_id, sequence_id, 'defect'::text, parent_id, depth, name, description_stripped, state_id, priority, severity, found_phase, root_cause_category, verifier_id, environment, reproduce_steps, NULL::text, NULL::numeric, NULL::numeric, NULL::text, NULL::text, point, sprint_id, progress, start_date, target_date, completed_at, is_draft, sort_order, version, version_id, found_version_id, fix_version_id, created_by, created_at, updated_at, deleted FROM defect WHERE deleted = false) AS w
+			WHERE project_id = $2
+			  AND deleted = false
+			  AND to_tsvector('simple', coalesce(name, '') || ' ' || coalesce(description_stripped, '')) @@ to_tsquery('simple', $1)
 		ORDER BY similarity DESC
 		LIMIT 5`, searchTerms, projectID)
 	if err != nil {
@@ -399,12 +408,38 @@ type WritingAssistResult struct {
 //
 // LLM 模式（需配置 Provider）:
 //   - 调用 LLM 生成高质量续写
-func (s *Service) WritingAssist(_ context.Context, in WritingAssistInput) (*WritingAssistResult, error) {
+func (s *Service) WritingAssist(ctx context.Context, in WritingAssistInput) (*WritingAssistResult, error) {
 	if in.MaxTokens <= 0 {
 		in.MaxTokens = 120
 	}
 	if in.Language == "" {
 		in.Language = "zh"
+	}
+
+	// 优先调用真实 LLM
+	if s.llm != nil && s.llm.IsEnabled() {
+		lang := "中文"
+		if in.Language == "en" {
+			lang = "English"
+		}
+		resp, err := s.llm.Complete(ctx, llm.Request{
+			Messages: []llm.Message{
+				{Role: llm.RoleSystem, Content: fmt.Sprintf(
+					"你是一位专业的技术写作助手。请基于上下文续写内容，使用%s输出，保持风格一致，不要重复已有内容，控制在 %d token 以内。",
+					lang, in.MaxTokens)},
+				{Role: llm.RoleUser, Content: in.FullText + "\n\n[需要续写的起点] " + in.Context},
+			},
+			Temperature: 0.7,
+			MaxTokens:   in.MaxTokens,
+		})
+		if err == nil {
+			return &WritingAssistResult{
+				Text:       strings.TrimSpace(resp.Content),
+				Confidence: 0.9,
+				Model:      resp.Model,
+			}, nil
+		}
+		// LLM 失败时退回规则引擎（不向用户暴露失败）
 	}
 
 	// 规则引擎兜底：启发式续写
@@ -440,9 +475,47 @@ type RewriteResult struct {
 //   - concise: 精简（去除冗余修饰，保留核心信息）
 //   - fluent: 流畅化（调整语序、消除断裂句）
 //   - expand: 扩写（添加过渡句、补充说明细节）
-func (s *Service) RewriteText(_ context.Context, in RewriteInput) (*RewriteResult, error) {
+func (s *Service) RewriteText(ctx context.Context, in RewriteInput) (*RewriteResult, error) {
 	if in.Language == "" {
 		in.Language = detectLanguage(in.Text)
+
+		// 优先调用真实 LLM
+		if s.llm != nil && s.llm.IsEnabled() {
+			styleDesc := map[string]string{
+				"formal":  "更正式、规范的书面语",
+				"concise": "更精简、去除冗余",
+				"fluent":  "更流畅、自然",
+				"expand":  "在保持原意基础上适当扩写补充细节",
+			}
+			desc, ok := styleDesc[in.Style]
+			if !ok {
+				desc = "优化表达"
+			}
+			lang := "中文"
+			if in.Language == "en" {
+				lang = "English"
+			}
+			resp, err := s.llm.Complete(ctx, llm.Request{
+				Messages: []llm.Message{
+					{Role: llm.RoleSystem, Content: fmt.Sprintf(
+						"你是技术写作专家。请将用户提供的文本改写为%s，使用%s输出。只输出改写后的文本，不要附加解释或引号。",
+						desc, lang)},
+					{Role: llm.RoleUser, Content: in.Text},
+				},
+				Temperature: 0.5,
+				MaxTokens:   1024,
+			})
+			if err == nil {
+				out := strings.TrimSpace(resp.Content)
+				return &RewriteResult{
+					Text:        out,
+					Changes:     []string{"使用 LLM 进行了风格改写"},
+					OriginalLen: len(in.Text),
+					NewLen:      len(out),
+					Model:       resp.Model,
+				}, nil
+			}
+		}
 	}
 
 	result := &RewriteResult{
@@ -476,7 +549,7 @@ type GrammarIssue struct {
 // FixGrammarResult 纠错结果。
 type FixGrammarResult struct {
 	FixedText string         `json:"fixed_text"` // 修正后全文
-	Issues    []GrammarIssue `json:"w"`          // 发现的问题列表
+	Issues    []GrammarIssue `json:"issues"`     // 发现的问题列表
 	Model     string         `json:"model"`      // rule-engine
 }
 
@@ -485,9 +558,35 @@ type FixGrammarResult struct {
 // 规则引擎检测:
 //   - 中文：的地得混用、标点符号全半角、常见错别字
 //   - 英文：基础拼写、主谓一致、冠词用法
-func (s *Service) FixGrammar(_ context.Context, in FixGrammarInput) (*FixGrammarResult, error) {
+func (s *Service) FixGrammar(ctx context.Context, in FixGrammarInput) (*FixGrammarResult, error) {
 	if in.Language == "" {
 		in.Language = detectLanguage(in.Text)
+	}
+
+	// 优先调用真实 LLM
+	if s.llm != nil && s.llm.IsEnabled() {
+		lang := "中文"
+		if in.Language == "en" {
+			lang = "English"
+		}
+		resp, err := s.llm.Complete(ctx, llm.Request{
+			Messages: []llm.Message{
+				{Role: llm.RoleSystem, Content: fmt.Sprintf(
+					"你是语法校对专家。请修正用户文本中的语法、拼写、标点错误，使用%s输出。只输出修正后的文本，不要附加解释。",
+					lang)},
+				{Role: llm.RoleUser, Content: in.Text},
+			},
+			Temperature: 0.3,
+			MaxTokens:   1024,
+		})
+		if err == nil {
+			return &FixGrammarResult{
+				Model: resp.Model,
+				Issues: []GrammarIssue{{Offset: 0, Length: len(in.Text), Original: in.Text,
+					Replacement: strings.TrimSpace(resp.Content), Reason: "已由 LLM 完成语法校对"}},
+				FixedText: strings.TrimSpace(resp.Content),
+			}, nil
+		}
 	}
 
 	result := &FixGrammarResult{
@@ -875,7 +974,7 @@ func (s *Service) calculateExpertiseScore(ctx context.Context, userID, projectID
 
 	// 查询成员最近 50 个工作项的标题
 	rows, err := s.db.Query(ctx, `
-		SELECT name FROM (SELECT id, public_id, workspace_id, project_id, sequence_id, 'requirement'::text AS type_code, parent_id, depth, name, description_json, description_html, description_stripped, state_id, priority, NULL::smallint AS severity, NULL::text AS found_phase, NULL::text AS root_cause_category, NULL::bigint AS verifier_id, NULL::jsonb AS environment, NULL::jsonb AS reproduce_steps, NULL::text AS category, NULL::numeric AS actual_effort, NULL::numeric AS remaining_effort, NULL::text AS delay_reason, source, point, sprint_id, progress, start_date, target_date, completed_at, is_draft, sort_order, version, version_id, NULL::bigint AS found_version_id, NULL::bigint AS fix_version_id, created_by, created_at, updated_at, deleted FROM requirement WHERE deleted = false UNION ALL SELECT id, public_id, workspace_id, project_id, sequence_id, 'task'::text, parent_id, depth, name, description_json, description_html, description_stripped, state_id, priority, NULL::smallint, NULL::text, NULL::text, NULL::bigint, NULL::jsonb, NULL::jsonb, category, actual_effort, remaining_effort, delay_reason, NULL::text, point, sprint_id, progress, start_date, target_date, completed_at, is_draft, sort_order, version, version_id, NULL::bigint AS found_version_id, NULL::bigint AS fix_version_id, created_by, created_at, updated_at, deleted FROM task WHERE deleted = false UNION ALL SELECT id, public_id, workspace_id, project_id, sequence_id, 'defect'::text, parent_id, depth, name, description_json, description_html, description_stripped, state_id, priority, severity, found_phase, root_cause_category, verifier_id, environment, reproduce_steps, NULL::text, NULL::numeric, NULL::numeric, NULL::text, NULL::text, point, sprint_id, progress, start_date, target_date, completed_at, is_draft, sort_order, version, version_id, found_version_id, fix_version_id, created_by, created_at, updated_at, deleted FROM defect WHERE deleted = false) AS w
+		SELECT name FROM (SELECT id, public_id AS identifier, workspace_id, project_id, sequence_id, 'requirement'::text AS type_code, parent_id, depth, name, description_json, description_html, description_stripped, state_id, priority, NULL::smallint AS severity, NULL::text AS found_phase, NULL::text AS root_cause_category, NULL::bigint AS verifier_id, NULL::jsonb AS environment, NULL::jsonb AS reproduce_steps, NULL::text AS category, NULL::numeric AS actual_effort, NULL::numeric AS remaining_effort, NULL::text AS delay_reason, source, point, sprint_id, progress, start_date, target_date, completed_at, is_draft, sort_order, version, version_id, NULL::bigint AS found_version_id, NULL::bigint AS fix_version_id, created_by, created_at, updated_at, deleted FROM requirement WHERE deleted = false UNION ALL SELECT id, public_id AS identifier, workspace_id, project_id, sequence_id, 'task'::text, parent_id, depth, name, description_json, description_html, description_stripped, state_id, priority, NULL::smallint, NULL::text, NULL::text, NULL::bigint, NULL::jsonb, NULL::jsonb, category, actual_effort, remaining_effort, delay_reason, NULL::text, point, sprint_id, progress, start_date, target_date, completed_at, is_draft, sort_order, version, version_id, NULL::bigint AS found_version_id, NULL::bigint AS fix_version_id, created_by, created_at, updated_at, deleted FROM task WHERE deleted = false UNION ALL SELECT id, public_id AS identifier, workspace_id, project_id, sequence_id, 'defect'::text, parent_id, depth, name, description_json, description_html, description_stripped, state_id, priority, severity, found_phase, root_cause_category, verifier_id, environment, reproduce_steps, NULL::text, NULL::numeric, NULL::numeric, NULL::text, NULL::text, point, sprint_id, progress, start_date, target_date, completed_at, is_draft, sort_order, version, version_id, found_version_id, fix_version_id, created_by, created_at, updated_at, deleted FROM defect WHERE deleted = false) AS w
 		WHERE project_id = $1
 		  AND id IN (SELECT issue_id FROM (SELECT task_id AS issue_id, user_id FROM task_assignees UNION ALL SELECT requirement_id, user_id FROM requirement_assignees UNION ALL SELECT defect_id, user_id FROM defect_assignees) WHERE user_id = $2)
 		  AND deleted = false
@@ -915,7 +1014,7 @@ func (s *Service) calculateLoadScore(ctx context.Context, userID, projectID int6
 	var count int
 	err := s.db.QueryRow(ctx, `
 		SELECT COUNT(*)
-		FROM (SELECT id, public_id, workspace_id, project_id, sequence_id, 'requirement'::text AS type_code, parent_id, depth, name, description_json, description_html, description_stripped, state_id, priority, NULL::smallint AS severity, NULL::text AS found_phase, NULL::text AS root_cause_category, NULL::bigint AS verifier_id, NULL::jsonb AS environment, NULL::jsonb AS reproduce_steps, NULL::text AS category, NULL::numeric AS actual_effort, NULL::numeric AS remaining_effort, NULL::text AS delay_reason, source, point, sprint_id, progress, start_date, target_date, completed_at, is_draft, sort_order, version, version_id, NULL::bigint AS found_version_id, NULL::bigint AS fix_version_id, created_by, created_at, updated_at, deleted FROM requirement WHERE deleted = false UNION ALL SELECT id, public_id, workspace_id, project_id, sequence_id, 'task'::text, parent_id, depth, name, description_json, description_html, description_stripped, state_id, priority, NULL::smallint, NULL::text, NULL::text, NULL::bigint, NULL::jsonb, NULL::jsonb, category, actual_effort, remaining_effort, delay_reason, NULL::text, point, sprint_id, progress, start_date, target_date, completed_at, is_draft, sort_order, version, version_id, NULL::bigint AS found_version_id, NULL::bigint AS fix_version_id, created_by, created_at, updated_at, deleted FROM task WHERE deleted = false UNION ALL SELECT id, public_id, workspace_id, project_id, sequence_id, 'defect'::text, parent_id, depth, name, description_json, description_html, description_stripped, state_id, priority, severity, found_phase, root_cause_category, verifier_id, environment, reproduce_steps, NULL::text, NULL::numeric, NULL::numeric, NULL::text, NULL::text, point, sprint_id, progress, start_date, target_date, completed_at, is_draft, sort_order, version, version_id, found_version_id, fix_version_id, created_by, created_at, updated_at, deleted FROM defect WHERE deleted = false) AS w i
+		FROM (SELECT id, public_id AS identifier, workspace_id, project_id, sequence_id, 'requirement'::text AS type_code, parent_id, depth, name, description_json, description_html, description_stripped, state_id, priority, NULL::smallint AS severity, NULL::text AS found_phase, NULL::text AS root_cause_category, NULL::bigint AS verifier_id, NULL::jsonb AS environment, NULL::jsonb AS reproduce_steps, NULL::text AS category, NULL::numeric AS actual_effort, NULL::numeric AS remaining_effort, NULL::text AS delay_reason, source, point, sprint_id, progress, start_date, target_date, completed_at, is_draft, sort_order, version, version_id, NULL::bigint AS found_version_id, NULL::bigint AS fix_version_id, created_by, created_at, updated_at, deleted FROM requirement WHERE deleted = false UNION ALL SELECT id, public_id AS identifier, workspace_id, project_id, sequence_id, 'task'::text, parent_id, depth, name, description_json, description_html, description_stripped, state_id, priority, NULL::smallint, NULL::text, NULL::text, NULL::bigint, NULL::jsonb, NULL::jsonb, category, actual_effort, remaining_effort, delay_reason, NULL::text, point, sprint_id, progress, start_date, target_date, completed_at, is_draft, sort_order, version, version_id, NULL::bigint AS found_version_id, NULL::bigint AS fix_version_id, created_by, created_at, updated_at, deleted FROM task WHERE deleted = false UNION ALL SELECT id, public_id AS identifier, workspace_id, project_id, sequence_id, 'defect'::text, parent_id, depth, name, description_json, description_html, description_stripped, state_id, priority, severity, found_phase, root_cause_category, verifier_id, environment, reproduce_steps, NULL::text, NULL::numeric, NULL::numeric, NULL::text, NULL::text, point, sprint_id, progress, start_date, target_date, completed_at, is_draft, sort_order, version, version_id, found_version_id, fix_version_id, created_by, created_at, updated_at, deleted FROM defect WHERE deleted = false) AS i
 		JOIN (SELECT task_id AS issue_id, user_id FROM task_assignees UNION ALL SELECT requirement_id, user_id FROM requirement_assignees UNION ALL SELECT defect_id, user_id FROM defect_assignees) ia ON ia.issue_id = i.id AND ia.user_id = $1
 		JOIN states st ON st.id = i.state_id
 		WHERE i.project_id = $2

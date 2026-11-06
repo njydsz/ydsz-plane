@@ -7,7 +7,7 @@ import { computed, onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
 
 import { versionApi, type DeliveryReport, type Version, type SprintRef } from "@/api/services/version";
-import { AppBadge, AppButton, AppLoadingState, AppErrorState, ProgressBar } from "@/components";
+import { AppBadge, AppButton, AppErrorState, AppLoadingState, AppPageContainer, ProgressBar } from "@/components";
 
 const route = useRoute();
 
@@ -80,7 +80,9 @@ onMounted(load);
 </script>
 
 <template>
-  <div class="delivery-report" :class="{ 'delivery-report--print': printMode }">
+  
+  <AppPageContainer max="900px">
+    <div class="delivery-report" :class="{ 'delivery-report--print': printMode }">
     <!-- Loading -->
     <AppLoadingState v-if="loading" text="正在加载交付报告..." />
 
@@ -272,12 +274,15 @@ onMounted(load);
         </p>
       </footer>
     </template>
+  
+    </div>
+  </AppPageContainer>
   </div>
-</template>
+
 
 <style scoped>
 .delivery-report {
-  max-width: 900px;
+  
 }
 
 /* ---- header ---- */

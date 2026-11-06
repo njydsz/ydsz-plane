@@ -96,10 +96,10 @@ onMounted(load);
           </div>
           <div class="flex gap-2">
             <button class="text-xs text-[var(--brand-600)]" @click="retry(item)">重试</button>
-            <button class="text-xs text-[var(--danger, #ef4444)]" @click="remove(item)">清理</button>
+            <button class="text-xs text-[var(--danger)]" @click="remove(item)">清理</button>
           </div>
         </div>
-        <div class="mt-1 text-xs text-[var(--danger, #ef4444)]">{{ item.error_reason }}</div>
+        <div class="mt-1 text-xs text-[var(--danger)]">{{ item.error_reason }}</div>
         <pre class="mt-2 overflow-x-auto rounded bg-[var(--surface-2)] p-2 text-xs text-[var(--text-secondary)]">{{ truncate(JSON.stringify(item.payload, null, 2)) }}</pre>
       </div>
     </div>

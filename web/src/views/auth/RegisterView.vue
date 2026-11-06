@@ -227,7 +227,7 @@ async function onSubmit() {
 }
 
 .field input.error:focus {
-  box-shadow: 0 0 0 3px rgba(220, 47, 47, 0.12);
+  box-shadow: 0 0 0 3px var(--danger-50);
 }
 
 .field__error {

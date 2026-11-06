@@ -137,8 +137,8 @@ const option = computed<EChartsOption>(() => {
         subtext: "启动迭代后将自动生成每日快照",
         left: "center",
         top: "center",
-        textStyle: { color: "#999", fontSize: 14, fontWeight: "normal" as const },
-        subtextStyle: { color: "#bbb", fontSize: 12 },
+        textStyle: { color: "var(--text-tertiary)", fontSize: 14, fontWeight: "normal" as const },
+        subtextStyle: { color: "var(--text-tertiary)", fontSize: 12 },
       },
       grid: { show: false },
     };
@@ -155,8 +155,8 @@ const option = computed<EChartsOption>(() => {
         markLine: {
           silent: true,
           symbol: "none",
-          lineStyle: { type: "solid", color: "#52c41a", width: 1.5 },
-          label: { show: true, formatter: "启动", color: "#52c41a", fontSize: 11 },
+          lineStyle: { type: "solid", color: "var(--success-500)", width: 1.5 },
+          label: { show: true, formatter: "启动", color: "var(--success-500)", fontSize: 11 },
           data: [{ xAxis: startIdx }],
         },
       });
@@ -171,8 +171,8 @@ const option = computed<EChartsOption>(() => {
         markLine: {
           silent: true,
           symbol: "none",
-          lineStyle: { type: "dashed", color: "#ff4d4f", width: 1.5 },
-          label: { show: true, formatter: "截止", color: "#ff4d4f", fontSize: 11 },
+          lineStyle: { type: "dashed", color: "var(--danger-500)", width: 1.5 },
+          label: { show: true, formatter: "截止", color: "var(--danger-500)", fontSize: 11 },
           data: [{ xAxis: endIdx }],
         },
       });
@@ -184,11 +184,11 @@ const option = computed<EChartsOption>(() => {
   return {
     tooltip: {
       trigger: "axis",
-      axisPointer: { type: "cross", crossStyle: { color: "#999" } },
+      axisPointer: { type: "cross", crossStyle: { color: "var(--text-tertiary)" } },
       backgroundColor: "rgba(255,255,255,0.95)",
-      borderColor: "#e8e8e8",
+      borderColor: "var(--border-subtle)",
       borderWidth: 1,
-      textStyle: { color: "#333", fontSize: 12 },
+      textStyle: { color: "var(--text-primary)", fontSize: 12 },
       formatter: (params: unknown) => {
         const items = params as Array<{
           axisValue: string;
@@ -209,7 +209,7 @@ const option = computed<EChartsOption>(() => {
     legend: {
       data: ["理想线", "剩余点数", "已完成点数"],
       bottom: 0,
-      textStyle: { fontSize: 12, color: "#666" },
+      textStyle: { fontSize: 12, color: "var(--text-secondary)" },
       itemWidth: 18,
       itemHeight: 10,
     },
@@ -224,16 +224,16 @@ const option = computed<EChartsOption>(() => {
       type: "category",
       data: dates,
       boundaryGap: false,
-      axisLabel: { fontSize: 10, color: "#999", rotate: props.points.length > 15 ? 45 : 0 },
-      axisLine: { lineStyle: { color: "#e8e8e8" } },
+      axisLabel: { fontSize: 10, color: "var(--text-tertiary)", rotate: props.points.length > 15 ? 45 : 0 },
+      axisLine: { lineStyle: { color: "var(--border-subtle)" } },
       axisTick: { show: false },
     },
     yAxis: {
       type: "value",
       name: "故事点 (pt)",
-      nameTextStyle: { fontSize: 11, color: "#999" },
-      axisLabel: { fontSize: 10, color: "#999" },
-      splitLine: { lineStyle: { color: "#f0f0f0", type: "dashed" } },
+      nameTextStyle: { fontSize: 11, color: "var(--text-tertiary)" },
+      axisLabel: { fontSize: 10, color: "var(--text-tertiary)" },
+      splitLine: { lineStyle: { color: "var(--border-subtle)", type: "dashed" } },
       minInterval: 1,
     },
     dataZoom: enableZoom
@@ -245,9 +245,9 @@ const option = computed<EChartsOption>(() => {
             height: 20,
             bottom: 30,
             borderColor: "transparent",
-            backgroundColor: "#f5f5f5",
+            backgroundColor: "var(--border-subtle)",
             fillerColor: "rgba(24,144,255,0.15)",
-            handleStyle: { color: "#1890ff" },
+            handleStyle: { color: "var(--brand-500)" },
             textStyle: { fontSize: 10 },
           },
         ]
@@ -257,8 +257,8 @@ const option = computed<EChartsOption>(() => {
         name: "理想线",
         type: "line",
         data: idealData,
-        lineStyle: { color: "#faad14", type: "dashed", width: 1.5 },
-        itemStyle: { color: "#faad14" },
+        lineStyle: { color: "var(--warning-500)", type: "dashed", width: 1.5 },
+        itemStyle: { color: "var(--warning-500)" },
         symbol: "none",
         smooth: false,
       },
@@ -266,8 +266,8 @@ const option = computed<EChartsOption>(() => {
         name: "剩余点数",
         type: "line",
         data: remainingData,
-        lineStyle: { color: "#1890ff", width: 2.5 },
-        itemStyle: { color: "#1890ff" },
+        lineStyle: { color: "var(--brand-500)", width: 2.5 },
+        itemStyle: { color: "var(--brand-500)" },
         symbol: "circle",
         symbolSize: 5,
         smooth: false,
@@ -289,8 +289,8 @@ const option = computed<EChartsOption>(() => {
         name: "已完成点数",
         type: "line",
         data: doneData,
-        lineStyle: { color: "#52c41a", width: 2.5 },
-        itemStyle: { color: "#52c41a" },
+        lineStyle: { color: "var(--success-500)", width: 2.5 },
+        itemStyle: { color: "var(--success-500)" },
         symbol: "diamond",
         symbolSize: 5,
         smooth: false,
@@ -334,9 +334,9 @@ defineExpose({ chartRef });
 <style scoped>
 .burndown-chart {
   position: relative;
-  background: var(--surface-1, #fff);
+  background: var(--surface-1);
   border-radius: var(--radius-md, 8px);
-  border: 1px solid var(--border-subtle, #f0f0f0);
+  border: 1px solid var(--border-subtle);
   overflow: hidden;
 }
 

@@ -12,6 +12,7 @@
  *   @close: 关闭事件
  */
 import { onMounted, onUnmounted, watch } from "vue";
+import DynamicIcon from "./DynamicIcon.vue";
 
 const props = withDefaults(defineProps<{
   visible: boolean;
@@ -51,7 +52,7 @@ onUnmounted(() => {
           <slot name="header">
             <h2 class="app-modal__title">{{ title }}</h2>
           </slot>
-          <button class="app-modal__close" aria-label="关闭" @click="emit('close')">&times;</button>
+          <button class="app-modal__close" aria-label="关闭" @click="emit('close')"><DynamicIcon name="X" :size="18" /></button>
         </header>
         <div class="app-modal__body">
           <slot />

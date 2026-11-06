@@ -13,7 +13,9 @@ import {
 } from "@/api/services/intake";
 import { AppEmptyState, AppErrorState, AppSkeleton } from "@/components";
 import { toast } from "@/lib/toast";
+import { useConfirm } from "@/composables/useConfirm";
 
+const confirm = useConfirm();
 const route = useRoute();
 const workspaceId = computed(() => Number(route.params.workspaceId ?? 0));
 
@@ -90,7 +92,7 @@ async function toggleChannel(ch: IntakeChannel) {
 }
 
 async function removeChannel(ch: IntakeChannel) {
-  if (!confirm(`确定删除渠道「${ch.name}」？相关工单将保留。`)) return;
+  if (!await confirm({ title: "删除渠道", message: `确定删除渠道「${ch.name}」？相关工单将保留。`, confirmText: "删除", variant: "danger" })) return;
   try {
     await intakeApi.removeChannel(workspaceId.value, ch.id);
     toast.success("渠道已删除");
@@ -214,7 +216,7 @@ onMounted(load);
                 <span class="rounded bg-[var(--bg-secondary)] px-1.5 py-0.5 text-xs text-[var(--text-tertiary)]">{{ ch.slug }}</span>
                 <span
                   class="rounded px-1.5 py-0.5 text-xs"
-                  :class="ch.is_active ? 'bg-[var(--success-bg,#e6f7ee)] text-[var(--success,#16a34a)]' : 'bg-[var(--bg-secondary)] text-[var(--text-tertiary)]'"
+                  :class="ch.is_active ? 'bg-[var(--success-bg)] text-[var(--success)]' : 'bg-[var(--bg-secondary)] text-[var(--text-tertiary)]'"
                 >{{ ch.is_active ? "启用中" : "已停用" }}</span>
               </div>
               <p class="mt-0.5 truncate text-xs text-[var(--text-tertiary)]">
@@ -224,7 +226,7 @@ onMounted(load);
             <div class="flex shrink-0 items-center gap-2">
               <button class="text-xs text-[var(--text-secondary)] hover:text-[var(--brand-600)]" title="复制公开链接" @click="copyLink(ch)">复制链接</button>
               <button class="text-xs text-[var(--text-secondary)] hover:text-[var(--brand-600)]" title="启停" @click="toggleChannel(ch)">{{ ch.is_active ? "停用" : "启用" }}</button>
-              <button class="text-xs text-[var(--danger,#ef4444)] hover:text-[var(--danger)]" @click="removeChannel(ch)">删除</button>
+              <button class="text-xs text-[var(--danger)] hover:text-[var(--danger)]" @click="removeChannel(ch)">删除</button>
             </div>
           </div>
         </div>
@@ -258,8 +260,8 @@ onMounted(load);
                 <span
                   class="rounded px-1.5 py-0.5 text-xs"
                   :class="{
-                    'bg-[var(--warning-bg,#fef3c7)] text-[var(--warning,#d97706)]': it.status === 'open',
-                    'bg-[var(--success-bg,#e6f7ee)] text-[var(--success,#16a34a)]': it.status === 'accepted',
+                    'bg-[var(--warning-bg)] text-[var(--warning)]': it.status === 'open',
+                    'bg-[var(--success-bg)] text-[var(--success)]': it.status === 'accepted',
                     'bg-[var(--bg-secondary)] text-[var(--text-tertiary)]': it.status === 'rejected' || it.status === 'archived',
                   }"
                 >{{ STATUS_TEXT[it.status] }}</span>
@@ -276,7 +278,7 @@ onMounted(load);
 
     <!-- 工单详情抽屉 -->
     <div v-if="showDetail && detail" class="fixed inset-0 z-50 flex justify-end bg-black/30" @click.self="showDetail = false">
-      <div class="h-full w-full max-w-md space-y-4 overflow-y-auto bg-[var(--color-background-primary,#fff)] p-6 shadow-xl">
+      <div class="h-full w-full max-w-md space-y-4 overflow-y-auto bg-[var(--color-background-primary)] p-6 shadow-xl">
         <div class="flex items-start justify-between">
           <div>
             <h3 class="text-lg font-semibold">{{ detail.name }}</h3>
@@ -315,8 +317,7 @@ onMounted(load);
               <option :value="5">5-建议</option>
             </select>
             <input v-model="promoteForm.found_phase" class="w-full rounded-md border border-[var(--border-subtle)] px-2 py-2 text-sm" placeholder="发现阶段，如：内测" />
-          </template>
-          <div class="flex gap-2">
+                    <div class="flex gap-2">
             <button class="flex-1 rounded-md bg-[var(--brand-600)] px-3 py-2 text-sm text-white hover:bg-[var(--brand-700)]" @click="promote">确认转正</button>
             <button class="rounded-md border border-[var(--border-subtle)] px-3 py-2 text-sm" @click="showPromote = false">取消</button>
           </div>
@@ -324,10 +325,10 @@ onMounted(load);
 
         <div class="flex flex-wrap gap-2 pt-2">
           <template v-if="detail.status === 'open'">
-            <button class="rounded-md bg-[var(--success,#16a34a)] px-3 py-2 text-sm text-white" @click="flow(detail, 'accept')">接受</button>
-            <button class="rounded-md bg-[var(--danger,#ef4444)] px-3 py-2 text-sm text-white" @click="flow(detail, 'reject')">拒绝</button>
+            <button class="rounded-md bg-[var(--success)] px-3 py-2 text-sm text-white" @click="flow(detail, 'accept')">接受</button>
+            <button class="rounded-md bg-[var(--danger)] px-3 py-2 text-sm text-white" @click="flow(detail, 'reject')">拒绝</button>
             <button class="rounded-md border border-[var(--border-subtle)] px-3 py-2 text-sm" @click="flow(detail, 'archive')">归档</button>
-          </template>
+          
           <button
             v-if="detail.status === 'accepted' && !detail.linked_entity_id"
             class="rounded-md bg-[var(--brand-600)] px-3 py-2 text-sm text-white"
@@ -340,4 +341,4 @@ onMounted(load);
       </div>
     </div>
   </div>
-</template>
+

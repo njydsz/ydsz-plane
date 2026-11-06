@@ -110,3 +110,97 @@ func TestSplitSQLStatements_EmptyInput(t *testing.T) {
 		}
 	}
 }
+
+// TestListVersionedFiles_SameVersionMultipleFiles 验证同版本号下多个文件
+// 全部被识别且去重键互不相同。
+//
+// 背景：仓库中 V26.11.03 版本号下有 19 个迁移文件（不同开发者并行提交），
+// 若以版本号为去重键会导致「执行第一个后其余全部被跳过」。
+func TestListVersionedFiles_SameVersionMultipleFiles(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	sqlDir := filepath.Join(dir, "sql")
+	if err := os.MkdirAll(sqlDir, 0o755); err != nil {
+		t.Fatalf("mkdir sql: %v", err)
+	}
+	names := []string{
+		"V26.11.03__ai_agent.sql",
+		"V26.11.03__page_comment.sql",
+		"V26.11.03__workflow.sql",
+		"V26.11.03__work_item_type.sql",
+	}
+	for _, n := range names {
+		if err := os.WriteFile(filepath.Join(sqlDir, n), []byte("-- test\n"), 0o644); err != nil {
+			t.Fatalf("write %s: %v", n, err)
+		}
+	}
+
+	files, err := listVersionedFiles(sqlDir)
+	if err != nil {
+		t.Fatalf("listVersionedFiles: %v", err)
+	}
+	if len(files) != len(names) {
+		t.Fatalf("got %d files, want %d", len(files), len(names))
+	}
+
+	// 去重键必须唯一。
+	keys := make(map[string]struct{}, len(files))
+	for _, f := range files {
+		if _, dup := keys[f.Key]; dup {
+			t.Errorf("duplicate dedup key: %q", f.Key)
+		}
+		keys[f.Key] = struct{}{}
+		// 版本号一致。
+		if f.Version != "V26.11.03" {
+			t.Errorf("Version = %q, want V26.11.03", f.Version)
+		}
+	}
+
+	// 描述各不相同。
+	descs := make(map[string]struct{}, len(files))
+	for _, f := range files {
+		descs[f.Desc] = struct{}{}
+	}
+	if len(descs) != len(names) {
+		t.Errorf("expected %d distinct descriptions, got %d", len(names), len(descs))
+	}
+}
+
+// TestVersionedFile_KeyFormat 验证去重键与版本记录格式的对应关系。
+//
+// runVersioned 写入 ydsz_schema_version.version 的值是 "<version>__<desc>"，
+// 与文件名（去 .sql 后缀）完全一致，因此去重键可直接用于幂等判断。
+func TestVersionedFile_KeyFormat(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	sqlDir := filepath.Join(dir, "sql")
+	if err := os.MkdirAll(sqlDir, 0o755); err != nil {
+		t.Fatalf("mkdir sql: %v", err)
+	}
+	const name = "V26.11.03__drop_unused_tables.sql"
+	if err := os.WriteFile(filepath.Join(sqlDir, name), []byte("-- test\n"), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	files, err := listVersionedFiles(sqlDir)
+	if err != nil {
+		t.Fatalf("listVersionedFiles: %v", err)
+	}
+	if len(files) != 1 {
+		t.Fatalf("got %d files, want 1", len(files))
+	}
+
+	f := files[0]
+	// 去重键 = 文件名去掉 .sql。
+	wantKey := "V26.11.03__drop_unused_tables"
+	if f.Key != wantKey {
+		t.Errorf("Key = %q, want %q", f.Key, wantKey)
+	}
+	// 写入 DB 的记录值 = "<version>__<desc>"，与 Key 一致。
+	recordValue := f.Version + "__" + f.Desc
+	if recordValue != f.Key {
+		t.Errorf("record value %q != key %q", recordValue, f.Key)
+	}
+}

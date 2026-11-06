@@ -16,4 +16,5 @@ export interface PagesPageShare {
   project_id?: number;
   token?: string;
   workspace_id?: number;
+  has_password?: boolean;
 }

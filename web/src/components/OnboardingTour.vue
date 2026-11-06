@@ -15,6 +15,8 @@
  *   - 首次进入与后续进入均可展示
  */
 import { computed, ref } from "vue";
+import AppButton from "./AppButton.vue";
+import DynamicIcon from "./DynamicIcon.vue";
 
 const props = defineProps<{
   workspaceId: string;
@@ -127,7 +129,7 @@ defineExpose({ hasCompleted });
     <div class="onboarding-tour__backdrop" @click="skip" />
     <div class="onboarding-tour__card">
       <!-- 关闭按钮 -->
-      <button class="onboarding-tour__close" title="跳过引导" @click="skip">✕</button>
+        <button class="onboarding-tour__close" title="跳过引导" @click="skip"><DynamicIcon name="X" :size="16" /></button>
 
       <!-- 进度指示 -->
       <div class="onboarding-tour__progress">
@@ -146,26 +148,26 @@ defineExpose({ hasCompleted });
 
       <!-- 操作区 -->
       <div class="onboarding-tour__actions">
-        <button
+        <AppButton
           v-if="!isFirstStep"
-          class="btn btn--ghost"
+          variant="secondary"
           @click="prevStep"
         >
           上一步
-        </button>
-        <button
-          class="btn btn--primary"
+        </AppButton>
+        <AppButton
           @click="nextStep"
         >
           {{ step.action || "下一步" }}
-        </button>
-        <button
+        </AppButton>
+        <AppButton
           v-if="!isLastStep"
-          class="btn btn--text"
+          variant="ghost"
+          size="sm"
           @click="skip"
         >
           跳过引导
-        </button>
+        </AppButton>
       </div>
     </div>
   </div>
@@ -264,42 +266,5 @@ defineExpose({ hasCompleted });
   justify-content: center;
   gap: 10px;
   flex-wrap: wrap;
-}
-.btn--ghost {
-  padding: 6px 14px;
-  border: 1px solid var(--border-default);
-  background: transparent;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  font-size: 13px;
-  color: var(--txt-primary);
-  font-family: inherit;
-}
-.btn--primary {
-  padding: 7px 20px;
-  background: var(--brand-500);
-  color: #fff;
-  border: none;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  font-size: 13px;
-  font-family: inherit;
-  font-weight: 500;
-}
-.btn--primary:hover {
-  background: var(--brand-600);
-}
-.btn--text {
-  padding: 6px 10px;
-  background: none;
-  border: none;
-  color: var(--txt-tertiary);
-  cursor: pointer;
-  font-size: 12px;
-  font-family: inherit;
-}
-.btn--text:hover {
-  color: var(--txt-primary);
-  text-decoration: underline;
 }
 </style>

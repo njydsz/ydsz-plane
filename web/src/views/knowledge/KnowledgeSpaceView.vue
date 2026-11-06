@@ -23,9 +23,11 @@ import { searchApi } from "@/api/services/search";
 import { renderMarkdown } from "@/lib/markdown";
 import { toast } from "@/lib/toast";
 import KnowledgePageTreeNode from "./KnowledgePageTreeNode.vue";
-import { AppEmptyState, AppErrorState } from "@/components";
+import { AppButton, AppEmptyState, AppErrorState, DynamicIcon } from "@/components";
 import InlineEdit from "@/components/InlineEdit.vue";
+import { useConfirm } from "@/composables/useConfirm";
 
+const confirm = useConfirm();
 const route = useRoute();
 const router = useRouter();
 
@@ -223,7 +225,7 @@ async function renamePage(node: KnowledgePage | null, title: string) {
 }
 
 async function deletePage(node: KnowledgePageNode) {
-  if (!window.confirm(`确定删除文档「${node.title}」？其子文档也会一并删除。`)) return;
+  if (!await confirm({ title: "删除文档", message: `确定删除文档「${node.title}」？其子文档也会一并删除。`, confirmText: "删除", variant: "danger" })) return;
   try {
     await knowledgeApi.deletePage(workspaceId.value, spaceId.value, node.id);
     tree.value = removeNodeById(tree.value, node.id);
@@ -267,12 +269,13 @@ async function savePage() {
 async function changeStatus(status: PageStatus) {
   const page = currentPage.value;
   if (!page || page.status === status) return;
-  const confirms: Partial<Record<PageStatus, string>> = {
-    published: `确定发布文档「${page.title}」？`,
-    archived: `确定归档文档「${page.title}」？归档后仅可浏览。`,
-    draft: `确定将文档「${page.title}」转为草稿？`,
+  const confirms: Partial<Record<PageStatus, { title: string; message: string }>> = {
+    published: { title: "发布文档", message: `确定发布文档「${page.title}」？` },
+    archived: { title: "归档文档", message: `确定归档文档「${page.title}」？归档后仅可浏览。` },
+    draft: { title: "转为草稿", message: `确定将文档「${page.title}」转为草稿？` },
   };
-  if (confirms[status] && !window.confirm(confirms[status])) return;
+  const action = confirms[status];
+  if (action && !await confirm({ ...action, confirmText: "确定" })) return;
   try {
     const updated = await knowledgeApi.updatePage(
       workspaceId.value, spaceId.value, page.id,
@@ -300,7 +303,7 @@ function closeVersionPreview() {
 async function revertToVersion(v: KnowledgePageVersion) {
   const page = currentPage.value;
   if (!page) return;
-  if (!window.confirm(`确定回滚到版本 v${v.version}？当前未保存的更改将丢失。`)) return;
+  if (!await confirm({ title: "回滚版本", message: `确定回滚到版本 v${v.version}？当前未保存的更改将丢失。`, confirmText: "回滚", variant: "danger" })) return;
   try {
     const updated = await knowledgeApi.revertVersion(
       workspaceId.value, spaceId.value, page.id, v.version,
@@ -341,7 +344,7 @@ async function addRelation() {
 
 async function removeRelation(rel: KnowledgePageRelation) {
   const page = currentPage.value;
-  if (!page || !window.confirm("确定删除该关联？")) return;
+  if (!page || !await confirm({ title: "删除关联", message: "确定删除该关联？", confirmText: "删除", variant: "danger" })) return;
   try {
     await knowledgeApi.removeRelation(workspaceId.value, spaceId.value, page.id, rel.id);
     relations.value = relations.value.filter((r) => r.id !== rel.id);
@@ -417,7 +420,7 @@ onMounted(load);
           <p v-if="space?.description" class="hint">{{ space.description }}</p>
           <p v-else class="hint">/{{ space?.slug ?? "" }} · {{ space?.default_permission ?? "" }}</p>
         </div>
-        <button class="btn btn--primary" @click="createPage(null)">＋ {{ $t("knowledge.newDoc") }}</button>
+        <AppButton @click="createPage(null)"><DynamicIcon name="Plus" :size="14" /> {{ $t("knowledge.newDoc") }}</AppButton>
       </header>
 
       <div class="knowledge-space__body">
@@ -425,7 +428,7 @@ onMounted(load);
         <aside class="knowledge-space__tree">
           <div class="tree-header">
             <span class="tree-header__title">{{ $t("knowledge.docTree") }}</span>
-            <button class="tree-header__add" title="新建根文档" @click="createPage(null)">＋</button>
+            <button class="tree-header__add" title="新建根文档" @click="createPage(null)"><DynamicIcon name="Plus" :size="14" /></button>
           </div>
           <div v-if="tree.length === 0 && !loading" class="tree-empty">
             <AppEmptyState
@@ -458,7 +461,7 @@ onMounted(load);
             :title="$t('knowledge.selectDoc')"
             :description="$t('knowledge.selectDocDesc')"
           >
-            <button class="btn btn--primary" @click="createPage(null)">＋ {{ $t("knowledge.newDoc") }}</button>
+            <AppButton @click="createPage(null)"><DynamicIcon name="Plus" :size="14" /> {{ $t("knowledge.newDoc") }}</AppButton>
           </AppEmptyState>
 
           <div v-else class="doc">
@@ -487,7 +490,7 @@ onMounted(load);
                 · {{ fmtTime(viewingVersion.created_at) }}
                 <template v-if="viewingVersion.change_summary"> · {{ viewingVersion.change_summary }}</template>
               </span>
-              <button class="btn btn--sm" @click="closeVersionPreview">返回编辑</button>
+              <AppButton size="sm" variant="secondary" @click="closeVersionPreview">返回编辑</AppButton>
             </div>
 
             <!-- 编辑 / 预览切换 -->
@@ -515,22 +518,24 @@ onMounted(load);
                   placeholder="变更摘要（可选，将记录到版本历史）"
                   :disabled="!!viewingVersion"
                 />
-                <button
-                  class="btn btn--primary btn--sm"
+                <AppButton
+                  size="sm"
+                  :loading="saving"
                   :disabled="saving || !!viewingVersion"
                   @click="savePage"
                 >
                   {{ saving ? $t("knowledge.saving") : $t("knowledge.save") }}
-                </button>
-                <button
+                </AppButton>
+                <AppButton
                   v-for="act in statusActions"
                   :key="act.status"
-                  class="btn btn--sm"
+                  size="sm"
+                  variant="secondary"
                   :disabled="!!viewingVersion"
                   @click="changeStatus(act.status)"
                 >
                   {{ act.icon }} {{ act.label }}
-                </button>
+                </AppButton>
               </div>
             </div>
 
@@ -564,14 +569,15 @@ onMounted(load);
                   <span class="version-item__time">{{ fmtTime(v.created_at) }}</span>
                   <span class="version-item__summary">{{ v.change_summary || "—" }}</span>
                   <span v-if="v.version === currentPage.version" class="version-item__current-tag">当前</span>
-                  <button class="btn btn--sm btn--ghost" @click="viewVersion(v)">{{ $t("knowledge.view") }}</button>
-                  <button
-                    class="btn btn--sm btn--ghost"
+                  <AppButton size="sm" variant="ghost" @click="viewVersion(v)">{{ $t("knowledge.view") }}</AppButton>
+                  <AppButton
+                    size="sm"
+                    variant="ghost"
                     :disabled="v.version === currentPage.version"
                     @click="revertToVersion(v)"
                   >
                     {{ $t("knowledge.revert") }}
-                  </button>
+                  </AppButton>
                 </div>
               </div>
             </div>
@@ -588,9 +594,9 @@ onMounted(load);
                   style="width: 180px"
                   @keydown.enter="addRelation"
                 />
-                <button class="btn btn--sm btn--primary" :disabled="addingRelation" @click="addRelation">
+                <AppButton size="sm" :disabled="addingRelation" @click="addRelation">
                   {{ $t("knowledge.addLink") }}
-                </button>
+                </AppButton>
               </div>
               <div v-if="relationsLoading" class="text-muted links-state">加载中...</div>
               <div v-else-if="relations.length === 0" class="text-muted links-state">
@@ -605,17 +611,14 @@ onMounted(load);
                     @click="openIssue(rel.issue_id)"
                   >#{{ rel.issue_id }}</a>
                   <span class="link-item__time">{{ fmtTime(rel.created_at) }}</span>
-                  <button class="btn btn--sm btn--ghost link-item__remove" @click="removeRelation(rel)">✕</button>
+                  <AppButton size="sm" variant="ghost" class="link-item__remove" @click="removeRelation(rel)"><DynamicIcon name="X" :size="14" /></AppButton>
                 </div>
               </div>
             </div>
           </div>
         </main>
       </div>
-    </template>
-  </div>
-</template>
-
+      </div>
 <style scoped>
 .knowledge-space__header {
   display: flex;
@@ -753,13 +756,13 @@ onMounted(load);
 }
 
 .status-badge--published {
-  background: var(--success-50, #e6f4ea);
-  color: var(--success-600, #1e8e3e);
+  background: var(--success-50);
+  color: var(--success-600);
 }
 
 .status-badge--archived {
-  background: var(--warning-50, #fef7e0);
-  color: var(--warning-600, #b06000);
+  background: var(--warning-50);
+  color: var(--warning-600);
 }
 
 .doc__version {
@@ -776,10 +779,10 @@ onMounted(load);
   gap: 8px;
   padding: 8px 12px;
   margin-bottom: 12px;
-  border: 1px solid var(--warning-300, #f0c36d);
+  border: 1px solid var(--warning-300);
   border-radius: var(--radius-sm);
-  background: var(--warning-50, #fef7e0);
-  color: var(--warning-700, #7a4f01);
+  background: var(--warning-50);
+  color: var(--warning-700);
   font-size: 12px;
 }
 
@@ -899,7 +902,7 @@ onMounted(load);
 .doc__preview :deep(blockquote) {
   margin: 0.8em 0;
   padding: 4px 14px;
-  border-left: 3px solid var(--brand-300, #9ec5ff);
+  border-left: 3px solid var(--brand-300);
   color: var(--text-tertiary);
   background: var(--surface-2);
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
@@ -1005,8 +1008,8 @@ onMounted(load);
   font-size: 10px;
   padding: 1px 6px;
   border-radius: 999px;
-  background: var(--success-50, #e6f4ea);
-  color: var(--success-600, #1e8e3e);
+  background: var(--success-50);
+  color: var(--success-600);
 }
 
 .links-add {
@@ -1066,53 +1069,6 @@ onMounted(load);
 
 .link-item:hover .link-item__remove {
   opacity: 1;
-}
-
-/* ---- 按钮 ---- */
-.btn {
-  padding: 8px 16px;
-  font-size: 13px;
-  font-family: inherit;
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-sm);
-  background: var(--surface-1);
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.btn:hover {
-  border-color: var(--brand-500);
-  color: var(--brand-600);
-}
-
-.btn--primary {
-  background: var(--brand-500);
-  border-color: var(--brand-500);
-  color: var(--text-on-brand);
-  font-weight: 500;
-}
-
-.btn--primary:hover {
-  background: var(--brand-600);
-  color: var(--text-on-brand);
-}
-
-.btn--sm {
-  padding: 4px 10px;
-  font-size: 12px;
-}
-
-.btn--ghost {
-  background: none;
-  border: none;
-  color: var(--brand-500);
-  padding: 2px 4px;
-}
-
-.btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
 }
 
 .form-input {

@@ -59,6 +59,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
@@ -72,30 +73,50 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/njydsz/ydsz-plane/internal/application/ai"
+	"github.com/njydsz/ydsz-plane/internal/application/aiagent"
 	"github.com/njydsz/ydsz-plane/internal/application/apitoken"
 	"github.com/njydsz/ydsz-plane/internal/application/attachment"
 	"github.com/njydsz/ydsz-plane/internal/application/auth"
 	"github.com/njydsz/ydsz-plane/internal/application/automation"
-	"github.com/njydsz/ydsz-plane/internal/application/dashboard"
-	"github.com/njydsz/ydsz-plane/internal/application/dlq"
 	"github.com/njydsz/ydsz-plane/internal/application/calendar"
+	"github.com/njydsz/ydsz-plane/internal/application/collaboration"
+	"github.com/njydsz/ydsz-plane/internal/application/customer"
+	"github.com/njydsz/ydsz-plane/internal/application/dashboard"
 	"github.com/njydsz/ydsz-plane/internal/application/datajob"
+	"github.com/njydsz/ydsz-plane/internal/application/dlq"
+	"github.com/njydsz/ydsz-plane/internal/application/godmode"
+	"github.com/njydsz/ydsz-plane/internal/application/grant"
+	"github.com/njydsz/ydsz-plane/internal/application/importer"
 	"github.com/njydsz/ydsz-plane/internal/application/initiative"
 	"github.com/njydsz/ydsz-plane/internal/application/intake"
+	"github.com/njydsz/ydsz-plane/internal/application/integration"
 	"github.com/njydsz/ydsz-plane/internal/application/issue"
 	"github.com/njydsz/ydsz-plane/internal/application/knowledge"
+	"github.com/njydsz/ydsz-plane/internal/application/mcpserver"
 	"github.com/njydsz/ydsz-plane/internal/application/metrics"
+	"github.com/njydsz/ydsz-plane/internal/application/milestone"
 	notif "github.com/njydsz/ydsz-plane/internal/application/notification"
+	"github.com/njydsz/ydsz-plane/internal/application/oauthapp"
+	"github.com/njydsz/ydsz-plane/internal/application/pagecomment"
 	"github.com/njydsz/ydsz-plane/internal/application/pages"
+	"github.com/njydsz/ydsz-plane/internal/application/pql"
 	"github.com/njydsz/ydsz-plane/internal/application/preference"
+	"github.com/njydsz/ydsz-plane/internal/application/projectcode"
+	"github.com/njydsz/ydsz-plane/internal/application/projectstate"
+	"github.com/njydsz/ydsz-plane/internal/application/recurring"
 	"github.com/njydsz/ydsz-plane/internal/application/search"
 	"github.com/njydsz/ydsz-plane/internal/application/sprint"
+	"github.com/njydsz/ydsz-plane/internal/application/teamspace"
 	"github.com/njydsz/ydsz-plane/internal/application/version"
 	"github.com/njydsz/ydsz-plane/internal/application/webhook"
 	"github.com/njydsz/ydsz-plane/internal/application/workbench"
+	"github.com/njydsz/ydsz-plane/internal/application/workflow"
+	"github.com/njydsz/ydsz-plane/internal/application/workitemtype"
 	"github.com/njydsz/ydsz-plane/internal/application/workspace"
+	"github.com/njydsz/ydsz-plane/internal/application/workspaceview"
 	"github.com/njydsz/ydsz-plane/internal/config"
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/cache"
+	"github.com/njydsz/ydsz-plane/internal/infrastructure/llm"
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/mail"
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/persistence"
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/storage"
@@ -103,7 +124,38 @@ import (
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/ws"
 	httpapi "github.com/njydsz/ydsz-plane/internal/interfaces/http"
 	"github.com/njydsz/ydsz-plane/internal/rbac"
+	"github.com/njydsz/ydsz-plane/pkg/errs"
 )
+
+// recurringIssueCreator 把 recurring.WorkItemTemplate 翻译为 issue.CreateIssueInput，
+// 实现 recurring.WorkItemCreator 接口。用于重复规则自动生成工作项。
+type recurringIssueCreator struct {
+	issueSvc *issue.Service
+}
+
+// CreateWorkItem 按模板创建单一工作项（缺陷类型需额外字段时由调用方在规则中避免）。
+func (a recurringIssueCreator) CreateWorkItem(ctx context.Context, in recurring.WorkItemTemplate) error {
+	tc := issue.IssueTypeCode(in.TypeCode)
+	if tc == "defect" {
+		// 缺陷必须提供 severity / found_phase，重复规则暂不支持自动生成缺陷，
+		// 通过校验错误显式拒绝而非生成非法数据。
+		return errs.ErrValidation.WithDetails(errs.FieldDetail{Field: "work_item_type", Reason: "重复规则暂不支持自动生成缺陷"})
+	}
+	priority := issue.IssuePriority(in.Priority)
+	_, err := a.issueSvc.Create(ctx, issue.CreateIssueInput{
+		WorkspaceID:     in.WorkspaceID,
+		ProjectID:       in.ProjectID,
+		TypeCode:        tc,
+		Name:            in.Name,
+		DescriptionHTML: in.DescriptionHTML,
+		StateID:         in.StateID,
+		Priority:        priority,
+		Assignees:       in.Assignees,
+		Labels:          in.Labels,
+		CreatedBy:       in.CreatedBy,
+	})
+	return err
+}
 
 func main() {
 	if err := run(); err != nil {
@@ -254,7 +306,42 @@ func run() error {
 	activitySvc := issue.NewActivityService(pool.Pool)
 	timeLogSvc := issue.NewTimeLogService(pool.Pool)
 	relationSvc := issue.NewRelationService(pool.Pool)
+	// ---------- AI Agent（含 LLM 网关） ----------
+	aiAgentSvc := aiagent.NewService(pool.Pool)
+	llmPrimary, llmFallback, llmOK := llm.LoadFromEnv()
+	llmClient := llm.NewClient(llmPrimary, llmFallback, llmOK)
+	aiAgentRunSvc := aiagent.NewRunService(pool.Pool)
+	aiAgentHandler := aiagent.NewHandler(&aiagent.HandlerDeps{
+		Svc:    aiAgentSvc,
+		LLM:    aiagent.NewLLMBridge(llmClient, pool.Pool, aiagent.NewWorkspaceToolProvider(pool.Pool)),
+		RunSvc: aiAgentRunSvc,
+	})
+
+	// Agent 触发器钩子（mention / assignment / event / schedule）
+	triggerDispatcher := aiagent.NewTriggerDispatcher(aiAgentSvc, aiAgentRunSvc,
+		aiagent.NewLLMBridge(llmClient, pool.Pool, aiagent.NewWorkspaceToolProvider(pool.Pool)))
+	triggerHook := aiagent.NewTriggerHook(triggerDispatcher)
+	// 注入工作项事件触发（创建/状态变更）
+	issueSvc.SetAgentTrigger(triggerHook)
+
+	// ---------- 导入（Jira/Linear/Asana/CSV） ----------
+	importerSvc := importer.NewService(pool.Pool)
+	importerHandler := importer.NewHandler(&importer.HandlerDeps{Svc: importerSvc})
+
+	// ---------- 条件授权（ABAC） ----------
+	grantSvc := grant.NewService(pool.Pool)
+	grantHandler := grant.NewHandler(&grant.HandlerDeps{Svc: grantSvc})
+
+	// ---------- God Mode 实例管理 ----------
+	godModeSvc := godmode.NewService()
+	godModeHandler := godmode.NewHandler(&godmode.HandlerDeps{Svc: godModeSvc})
+	if !llmOK {
+		slog.Warn("llm not configured; ai-agent chat will return a configuration notice",
+			"hint", "set YDSZ_LLM_API_BASE / YDSZ_LLM_API_KEY / YDSZ_LLM_MODEL")
+	}
+
 	commentSvc := issue.NewCommentService(pool.Pool)
+	commentSvc.SetAgentTrigger(triggerHook)
 	contentTplSvc := issue.NewContentTemplateService(pool.Pool)
 	issueHandler := issue.NewIssueHandler(&issue.HandlerDeps{
 		IssueSvc:        issueSvc,
@@ -426,6 +513,72 @@ func run() error {
 	initiativeSvc := initiative.NewService(pool.Pool)
 	initiativeHandler := initiative.NewHandler(&initiative.HandlerDeps{Svc: initiativeSvc})
 
+	// ---------- Workflow 工作流与审批 ----------
+	workflowSvc := workflow.NewService(pool.Pool)
+	workflowHandler := workflow.NewHandler(&workflow.HandlerDeps{Svc: workflowSvc})
+
+	// ---------- Teamspace 团队空间 ----------
+	teamspaceSvc := teamspace.NewService(pool.Pool)
+	teamspaceHandler := teamspace.NewHandler(&teamspace.HandlerDeps{Svc: teamspaceSvc})
+
+	// ---------- ProjectState 项目状态与更新 ----------
+	projectStateSvc := projectstate.NewService(pool.Pool)
+	projectStateHandler := projectstate.NewHandler(&projectstate.HandlerDeps{Svc: projectStateSvc})
+
+	// ---------- Projects-as-Code（YAML 定义项目） ----------
+	projectCodeSvc := projectcode.NewService(pool.Pool)
+	projectCodeHandler := projectcode.NewHandler(&projectcode.HandlerDeps{Svc: projectCodeSvc})
+
+	// ---------- Collaboration 实时协作 ----------
+	collabSvc := collaboration.NewService(pool.Pool)
+	collabHandler := collaboration.NewHandler(&collaboration.HandlerDeps{Svc: collabSvc})
+
+	// ---------- PQL 查询语言 ----------
+	pqlSvc := pql.NewService()
+	pqlHandler := pql.NewHandler(pqlSvc)
+
+	// ---------- Customer 客户管理（CRM） ----------
+	customerSvc := customer.NewService(pool.Pool)
+	customerHandler := customer.NewHandler(&customer.HandlerDeps{Svc: customerSvc})
+
+	// ---------- Work Item Type 自定义工作项类型 ----------
+	workItemTypeSvc := workitemtype.NewService(pool.Pool)
+	workItemTypeHandler := workitemtype.NewHandler(&workitemtype.HandlerDeps{Svc: workItemTypeSvc})
+
+	// ---------- Page Comment 页面评论（页面级 / 行内评论） ----------
+	pageCommentSvc := pagecomment.NewService(pool.Pool)
+	pageCommentHandler := pagecomment.NewHandler(&pagecomment.HandlerDeps{Svc: pageCommentSvc})
+
+	// ---------- Recurring 重复工作项（cron 模板自动生成） ----------
+	// 通过适配器把 recurring 的 WorkItemTemplate 投影转发到 issue.Service.Create，
+	// 避免 recurring 包直接依赖 issue 包的编译期耦合。
+	recurringSvc := recurring.NewService(pool.Pool).WithWorkItemCreator(recurringIssueCreator{issueSvc: issueSvc})
+	recurringHandler := recurring.NewHandler(&recurring.HandlerDeps{Svc: recurringSvc})
+
+	// ---------- Milestone 里程碑 ----------
+	milestoneSvc := milestone.NewService(pool.Pool)
+	milestoneHandler := milestone.NewHandler(&milestone.HandlerDeps{Svc: milestoneSvc})
+
+	// ---------- Workspace View 工作空间视图 ----------
+	workspaceViewSvc := workspaceview.NewService(pool.Pool)
+	workspaceViewHandler := workspaceview.NewHandler(&workspaceview.HandlerDeps{Svc: workspaceViewSvc})
+
+	// ---------- Integration 集成（Marketplace + 第三方连接器） ----------
+	// 凭证加密密钥来源：YDSZ_INTEGRATION_SECRET_KEY（32 字节）。
+	// 未配置时服务降级为明文存储（仅开发/测试；生产必须配置，见 credentials.go 说明）。
+	integrationCipher, cipherErr := integration.NewCredentialCipher()
+	if cipherErr != nil {
+		log.Warn("integration: credential cipher not configured (credentials will be stored in plaintext): "+cipherErr.Error(),
+			zap.String("hint", "set YDSZ_INTEGRATION_SECRET_KEY env (32 bytes) to enable encryption"))
+		integrationCipher = nil
+	}
+	integrationSvc := integration.NewService(pool.Pool, integrationCipher)
+	integrationHandler := integration.NewHandler(&integration.HandlerDeps{Svc: integrationSvc})
+
+	// ---------- OAuth 应用与授权（开发者应用 + OAuth2 端点） ----------
+	oauthAppSvc := oauthapp.NewService(pool.Pool)
+	oauthAppHandler := oauthapp.NewHandler(&oauthapp.HandlerDeps{Svc: oauthAppSvc})
+
 	// ---------- HTTP Engine ----------
 	engine := httpapi.NewEngine(&httpapi.Deps{
 		Cfg:              cfg,
@@ -448,11 +601,11 @@ func run() error {
 		AuditSvc:         auditSvc,
 		Mail:             mailSvc,
 		// Issue domain
-		IssueSvc:     issueSvc,
-		StateSvc:     stateSvc,
-		ActivitySvc:  activitySvc,
-		TimeLogSvc:   timeLogSvc,
-		IssueHandler: issueHandler,
+		IssueSvc:             issueSvc,
+		StateSvc:             stateSvc,
+		ActivitySvc:          activitySvc,
+		TimeLogSvc:           timeLogSvc,
+		IssueHandler:         issueHandler,
 		LabelHandler:         labelHandler,
 		ModuleHandler:        moduleHandler,
 		EstimatePointHandler: estimatePointHandler,
@@ -497,6 +650,21 @@ func run() error {
 		OIDCService: oidcService,
 		// Storage 客户端（Logo 上传等）
 		Storage: stClient,
+		// 自定义工作项类型域
+		WorkItemTypeHandler: workItemTypeHandler,
+		// 客户管理域（CRM：客户记录 + 客户请求）
+		CustomerHandler: customerHandler,
+		// 页面评论域（页面级 / 行内评论、线程、表情回应）
+		PageCommentHandler: pageCommentHandler,
+		// P2 增强域
+		RecurringHandler:     recurringHandler,
+		MilestoneHandler:     milestoneHandler,
+		WorkspaceViewHandler: workspaceViewHandler,
+		// 集成域（Marketplace + GitHub/GitLab/Slack/Sentry 连接器）
+		IntegrationHandler: integrationHandler,
+		// OAuth 应用与授权域（开发者应用 + OAuth2 端点）
+		OAuthAppHandler: oauthAppHandler,
+		OAuthAppSvc:     oauthAppSvc,
 	})
 
 	// 注册需求/任务/缺陷路由（必须在 NewEngine 之后）
@@ -730,11 +898,160 @@ func run() error {
 
 	// 注册倡议路由（工作空间级：读 workspace:read / 写 project:update）
 	httpapi.RegisterInitiativeRoutes(engine, &httpapi.Deps{
+		Auth:              authSvc,
+		PrincipalParser:   parsePrincipal,
+		WorkspaceStore:    wsStore,
+		RBACStore:         rbacStore,
+		InitiativeHandler: initiativeHandler,
+	})
+
+	// 注册工作流与审批路由（项目级配置 + 工作空间级审批待办）
+	httpapi.RegisterWorkflowRoutes(engine, &httpapi.Deps{
+		Auth:            authSvc,
+		PrincipalParser: parsePrincipal,
+		WorkspaceStore:  wsStore,
+		RBACStore:       rbacStore,
+		WorkflowHandler: workflowHandler,
+	})
+
+	// 注册团队空间路由
+	httpapi.RegisterTeamspaceRoutes(engine, &httpapi.Deps{
 		Auth:             authSvc,
 		PrincipalParser:  parsePrincipal,
 		WorkspaceStore:   wsStore,
 		RBACStore:        rbacStore,
-		InitiativeHandler: initiativeHandler,
+		TeamspaceHandler: teamspaceHandler,
+	})
+
+	// 注册实时协作路由
+	httpapi.RegisterCollaborationRoutes(engine, &httpapi.Deps{
+		Auth:                 authSvc,
+		PrincipalParser:      parsePrincipal,
+		WorkspaceStore:       wsStore,
+		RBACStore:            rbacStore,
+		CollaborationHandler: collabHandler,
+	})
+
+	// 注册 PQL 查询语言路由
+	httpapi.RegisterPQLRoutes(engine, &httpapi.Deps{
+		Auth:            authSvc,
+		PrincipalParser: parsePrincipal,
+		WorkspaceStore:  wsStore,
+		RBACStore:       rbacStore,
+		PQLHandler:      pqlHandler,
+	})
+
+	// 注册 AI Agent 路由
+	httpapi.RegisterAIAgentRoutes(engine, &httpapi.Deps{
+		Auth:            authSvc,
+		PrincipalParser: parsePrincipal,
+		WorkspaceStore:  wsStore,
+		RBACStore:       rbacStore,
+		AIAgentHandler:  aiAgentHandler,
+		GodModeHandler:  godModeHandler,
+		GrantHandler:    grantHandler,
+		ImporterHandler: importerHandler,
+	})
+
+	// 注册 MCP Server 路由（AI 客户端通过标准 MCP 协议接入）
+	mcpHandler := mcpserver.NewHandler(fmt.Sprintf("http://127.0.0.1:%d", cfg.Server.Port), func(raw string) (int64, bool) {
+		p, err := apiTokenSvc.ResolvePrincipal(context.Background(), raw)
+		if err != nil {
+			return 0, false
+		}
+		return p.UserID, true
+	})
+	mcpHandler.Register(engine)
+
+	// 注册项目状态与更新路由
+	httpapi.RegisterProjectStateRoutes(engine, &httpapi.Deps{
+		Auth:                authSvc,
+		PrincipalParser:     parsePrincipal,
+		WorkspaceStore:      wsStore,
+		RBACStore:           rbacStore,
+		ProjectStateHandler: projectStateHandler,
+	})
+
+	// 注册 Projects-as-Code 路由（YAML 定义项目）
+	httpapi.RegisterProjectCodeRoutes(engine, &httpapi.Deps{
+		Auth:               authSvc,
+		PrincipalParser:    parsePrincipal,
+		WorkspaceStore:     wsStore,
+		RBACStore:          rbacStore,
+		ProjectCodeHandler: projectCodeHandler,
+	})
+
+	// 注册客户管理路由（工作空间级：读 customer:read / 写 customer:manage）
+	httpapi.RegisterCustomerRoutes(engine, &httpapi.Deps{
+		Auth:            authSvc,
+		PrincipalParser: parsePrincipal,
+		WorkspaceStore:  wsStore,
+		RBACStore:       rbacStore,
+		CustomerHandler: customerHandler,
+	})
+
+	// 注册自定义工作项类型路由（项目级）
+	httpapi.RegisterWorkItemTypesRoutes(engine, &httpapi.Deps{
+		Auth:                authSvc,
+		PrincipalParser:     parsePrincipal,
+		WorkspaceStore:      wsStore,
+		RBACStore:           rbacStore,
+		WorkItemTypeHandler: workItemTypeHandler,
+	})
+
+	// 注册页面评论路由（工作空间级：读 workspace:read / 写 comment:moderate）
+	httpapi.RegisterPageCommentRoutes(engine, &httpapi.Deps{
+		Auth:               authSvc,
+		PrincipalParser:    parsePrincipal,
+		WorkspaceStore:     wsStore,
+		RBACStore:          rbacStore,
+		PageCommentHandler: pageCommentHandler,
+	})
+
+	// 注册重复工作项规则路由（项目级）
+	httpapi.RegisterRecurringRoutes(engine, &httpapi.Deps{
+		Auth:             authSvc,
+		PrincipalParser:  parsePrincipal,
+		WorkspaceStore:   wsStore,
+		RBACStore:        rbacStore,
+		RecurringHandler: recurringHandler,
+	})
+
+	// 注册里程碑路由（项目级）
+	httpapi.RegisterMilestoneRoutes(engine, &httpapi.Deps{
+		Auth:             authSvc,
+		PrincipalParser:  parsePrincipal,
+		WorkspaceStore:   wsStore,
+		RBACStore:        rbacStore,
+		MilestoneHandler: milestoneHandler,
+	})
+
+	// 注册工作空间视图路由（工作空间级）
+	httpapi.RegisterWorkspaceViewRoutes(engine, &httpapi.Deps{
+		Auth:                 authSvc,
+		PrincipalParser:      parsePrincipal,
+		WorkspaceStore:       wsStore,
+		RBACStore:            rbacStore,
+		WorkspaceViewHandler: workspaceViewHandler,
+	})
+
+	// 注册集成管理路由（工作空间级：读 workspace:read / 写 workspace:update）
+	httpapi.RegisterIntegrationRoutes(engine, &httpapi.Deps{
+		Auth:               authSvc,
+		PrincipalParser:    parsePrincipal,
+		WorkspaceStore:     wsStore,
+		RBACStore:          rbacStore,
+		IntegrationHandler: integrationHandler,
+	})
+
+	// 注册 OAuth 应用与授权路由（应用管理 + OAuth2 端点）
+	httpapi.RegisterOAuthAppRoutes(engine, &httpapi.Deps{
+		Auth:            authSvc,
+		PrincipalParser: parsePrincipal,
+		WorkspaceStore:  wsStore,
+		RBACStore:       rbacStore,
+		OAuthAppHandler: oauthAppHandler,
+		OAuthAppSvc:     oauthAppSvc,
 	})
 
 	errCh := make(chan error, 1)

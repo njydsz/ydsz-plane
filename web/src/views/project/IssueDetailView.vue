@@ -15,13 +15,16 @@ import { useAuthStore } from "@/stores/auth";
 import { useWorkspaceStore } from "@/stores/workspace";
 import RichTextEditor from "@/components/RichTextEditor.vue";
 import CommentList from "@/components/CommentList.vue";
+import ApprovalPanel from "@/components/ApprovalPanel.vue";
 import AttachmentUploader from "@/components/AttachmentUploader.vue";
 import RelationPanel from "./RelationPanel.vue";
 import ReviewPanel from "@/components/ReviewPanel.vue";
 import IssueCreateModal from "./IssueCreateModal.vue";
-import { AppLoadingState, AppErrorState, AppEmptyState, IssueSocialBar } from "@/components";
+import { AppButton, AppLoadingState, AppErrorState, AppEmptyState, IssueSocialBar, DynamicIcon } from "@/components";
 import { useTranslation } from "@/composables/useTranslation";
+import { useConfirm } from "@/composables/useConfirm";
 
+const confirm = useConfirm();
 const props = defineProps<{
   workspaceId: number;
   projectId: number;
@@ -46,6 +49,9 @@ const canEditIssue = computed(() => {
 });
 
 const canTransition = computed(() => wsStore.hasPermission("issue:transition"));
+
+/** 当前工作项类型（审批域需要区分 requirement/task/defect） */
+const issueType = computed(() => issue.value?.type_code ?? "task");
 
 const ws = ref<Workspace | null>(null);
 const issue = ref<Issue | null>(null);
@@ -244,7 +250,7 @@ function formatSubIssueState(stateId: number): string {
 }
 
 function formatSubIssueColor(stateId: number): string {
-  return states.value.find((s) => s.id === stateId)?.color ?? "#8DA2C2";
+  return states.value.find((s) => s.id === stateId)?.color ?? "var(--brand-200)";
 }
 
 function navigateToIssue(issueId: number) {
@@ -290,7 +296,7 @@ async function doTransition(toStateId: number) {
 }
 
 async function doDelete() {
-  if (!ws.value || !confirm("确定要归档该需求/任务/缺陷吗？")) return;
+  if (!ws.value || !await confirm({ title: "归档工作项", message: "确定要归档该需求/任务/缺陷吗？", confirmText: "归档", variant: "danger" })) return;
   try {
     await issueApi.deleteIssue(ws.value.id, props.projectId, props.issueId);
     toast.success("需求/任务/缺陷已归档");
@@ -310,7 +316,7 @@ function stateName(stateId: number): string {
 }
 
 function stateColor(stateId: number): string {
-  return states.value.find((s) => s.id === stateId)?.color ?? "#8DA2C2";
+  return states.value.find((s) => s.id === stateId)?.color ?? "var(--brand-200)";
 }
 
 function typeLabel(type: string): string {
@@ -396,7 +402,7 @@ async function submitTimeLog() {
 
 async function deleteTimeLog(logId: number) {
   if (!ws.value) return;
-  if (!window.confirm("确定删除该条工时记录吗？")) return;
+  if (!await confirm({ title: "删除工时记录", message: "确定删除该条工时记录吗？", confirmText: "删除", variant: "danger" })) return;
   try {
     await issueApi.deleteTimeLog(ws.value.id, props.projectId, props.issueId, logId);
     toast.success("工时记录已删除");
@@ -560,16 +566,17 @@ onMounted(() => {
 <template>
   <div class="issue-detail">
     <header class="issue-detail__header">
-      <button class="btn btn--ghost" @click="goBack">{{ t('view.detail.backToBoard') }}</button>
+      <AppButton variant="ghost" @click="goBack">{{ t('view.detail.backToBoard') }}</AppButton>
       <div class="issue-detail__actions">
-        <button
+        <AppButton
           v-if="issue && issue.type_code === 'requirement' && canEditIssue"
-          class="btn btn--sm"
+          size="sm"
+          variant="secondary"
           @click="showDefectModal = true"
         >
           {{ t('view.detail.offerDefect') }}
-        </button>
-        <button v-if="canEditIssue" class="btn btn--danger" @click="doDelete">{{ t('view.detail.deleteBtn') }}</button>
+        </AppButton>
+        <AppButton v-if="canEditIssue" variant="danger" @click="doDelete">{{ t('view.detail.deleteBtn') }}</AppButton>
       </div>
     </header>
 
@@ -580,7 +587,7 @@ onMounted(() => {
       :title="t('view.detail.notFoundTitle')"
       :description="t('view.detail.notFoundDesc')"
     >
-      <button class="btn btn--ghost" @click="goBack">{{ t('view.detail.backToBoard') }}</button>
+      <AppButton variant="ghost" @click="goBack">{{ t('view.detail.backToBoard') }}</AppButton>
     </AppEmptyState>
 
     <div v-else class="issue-detail__body">
@@ -588,10 +595,10 @@ onMounted(() => {
         <div class="issue-detail__identifier">{{ issue.identifier }}</div>
         <div v-if="editField === 'name'" class="edit-row">
           <input v-model="editValue" class="edit-input" autofocus @keydown.enter="saveEdit" @keydown.escape="cancelEdit" />
-          <button class="btn btn--sm btn--primary" :disabled="editSaving || !editValue.trim()" @click="saveEdit">
+          <AppButton size="sm" :loading="editSaving" :disabled="editSaving || !editValue.trim()" @click="saveEdit">
             {{ editSaving ? t('view.detail.saving') : t('common.save') }}
-          </button>
-          <button class="btn btn--sm" :disabled="editSaving" @click="cancelEdit">{{ t('common.cancel') }}</button>
+          </AppButton>
+          <AppButton size="sm" variant="secondary" :disabled="editSaving" @click="cancelEdit">{{ t('common.cancel') }}</AppButton>
           <span v-if="editError" class="form-error">{{ editError }}</span>
         </div>
         <h1
@@ -620,7 +627,7 @@ onMounted(() => {
               <option value="low">{{ t('issue.priority.low') }}</option>
               <option value="none">{{ t('view.placeholder.priority') }}</option>
             </select>
-            <button class="btn btn--sm" :disabled="editSaving" @click="cancelEdit">{{ t('common.cancel') }}</button>
+            <AppButton size="sm" variant="secondary" :disabled="editSaving" @click="cancelEdit">{{ t('common.cancel') }}</AppButton>
           </span>
           <span
             v-else-if="canEditIssue"
@@ -656,7 +663,7 @@ onMounted(() => {
                 <option value="external">外部因素</option>
                 <option value="other">其他</option>
               </select>
-              <button class="btn btn--sm" :disabled="editSaving" @click="cancelEdit">{{ t('common.cancel') }}</button>
+              <AppButton size="sm" variant="secondary" :disabled="editSaving" @click="cancelEdit">{{ t('common.cancel') }}</AppButton>
             </span>
             <span
               v-else-if="canEditIssue"
@@ -687,7 +694,7 @@ onMounted(() => {
           <div class="section-head">
             <h3>{{ t('common.description') }}</h3>
             <div v-if="!editingDesc && canEditIssue" class="section-head__actions">
-              <button class="btn btn--sm btn--ghost" @click="startEditDesc">{{ t('common.edit') }}</button>
+              <AppButton size="sm" variant="ghost" @click="startEditDesc">{{ t('common.edit') }}</AppButton>
             </div>
           </div>
           <!-- 编辑模式：TipTap 富文本编辑器 -->
@@ -703,8 +710,8 @@ onMounted(() => {
               @paste-image="handleDescPasteImage"
             />
             <div class="edit-row__actions">
-              <button class="btn btn--sm btn--primary" :disabled="descSaving" @click="saveDesc">{{ descSaving ? t('view.detail.saving') : t('common.save') }}</button>
-              <button class="btn btn--sm" :disabled="descSaving" @click="cancelEditDesc">{{ t('common.cancel') }}</button>
+              <AppButton size="sm" :loading="descSaving" :disabled="descSaving" @click="saveDesc">{{ descSaving ? t('view.detail.saving') : t('common.save') }}</AppButton>
+              <AppButton size="sm" variant="secondary" :disabled="descSaving" @click="cancelEditDesc">{{ t('common.cancel') }}</AppButton>
               <span v-if="descError" class="form-error">{{ descError }}</span>
             </div>
           </div>
@@ -753,8 +760,8 @@ onMounted(() => {
                     @keydown.escape="cancelEdit"
                   ></textarea>
                   <div class="edit-row__actions">
-                    <button class="btn btn--sm btn--primary" :disabled="editSaving" @click="saveEdit">{{ editSaving ? t('view.detail.saving') : t('common.save') }}</button>
-                    <button class="btn btn--sm" :disabled="editSaving" @click="cancelEdit">{{ t('common.cancel') }}</button>
+                    <AppButton size="sm" :loading="editSaving" :disabled="editSaving" @click="saveEdit">{{ editSaving ? t('view.detail.saving') : t('common.save') }}</AppButton>
+                    <AppButton size="sm" variant="secondary" :disabled="editSaving" @click="cancelEdit">{{ t('common.cancel') }}</AppButton>
                     <span v-if="editError" class="form-error">{{ editError }}</span>
                   </div>
                 </div>
@@ -786,8 +793,8 @@ onMounted(() => {
                     @keydown.escape="cancelEdit"
                   ></textarea>
                   <div class="edit-row__actions">
-                    <button class="btn btn--sm btn--primary" :disabled="editSaving" @click="saveEdit">{{ editSaving ? t('view.detail.saving') : t('common.save') }}</button>
-                    <button class="btn btn--sm" :disabled="editSaving" @click="cancelEdit">{{ t('common.cancel') }}</button>
+                    <AppButton size="sm" :loading="editSaving" :disabled="editSaving" @click="saveEdit">{{ editSaving ? t('view.detail.saving') : t('common.save') }}</AppButton>
+                    <AppButton size="sm" variant="secondary" :disabled="editSaving" @click="cancelEdit">{{ t('common.cancel') }}</AppButton>
                     <span v-if="editError" class="form-error">{{ editError }}</span>
                   </div>
                 </div>
@@ -825,8 +832,8 @@ onMounted(() => {
                     <option value="other">其他</option>
                     <option value="">未分类</option>
                   </select>
-                  <button class="btn btn--sm btn--primary" :disabled="editSaving" @click="saveEdit">{{ editSaving ? t('view.detail.saving') : t('common.save') }}</button>
-                  <button class="btn btn--sm" :disabled="editSaving" @click="cancelEdit">{{ t('common.cancel') }}</button>
+                  <AppButton size="sm" :loading="editSaving" :disabled="editSaving" @click="saveEdit">{{ editSaving ? t('view.detail.saving') : t('common.save') }}</AppButton>
+                  <AppButton size="sm" variant="secondary" :disabled="editSaving" @click="cancelEdit">{{ t('common.cancel') }}</AppButton>
                 </div>
                 <div
                   v-else-if="canEditIssue"
@@ -836,7 +843,7 @@ onMounted(() => {
                   <span v-if="issue.root_cause_category">
                     {{ ({ code_defect: "代码缺陷", design_defect: "设计缺陷", environment: "环境问题", data: "数据问题", requirement: "需求理解偏差", test_omission: "测试遗漏", documentation: "文档缺陷", other: "其他" } as Record<string, string>)[issue.root_cause_category] ?? issue.root_cause_category }}
                   </span>
-                  <span v-else class="add-btn" title="设置根因分类">＋</span>
+                  <span v-else class="add-btn" title="设置根因分类"><DynamicIcon name="Plus" :size="14" /></span>
                   <span class="edit-hint">✎</span>
                 </div>
                 <span v-else>{{ issue.root_cause_category ? ({ code_defect: "代码缺陷", design_defect: "设计缺陷", environment: "环境问题", data: "数据问题", requirement: "需求理解偏差", test_omission: "测试遗漏", documentation: "文档缺陷", other: "其他" } as Record<string, string>)[issue.root_cause_category] ?? issue.root_cause_category : '—' }}</span>
@@ -854,8 +861,8 @@ onMounted(() => {
                       {{ v.name }} ({{ v.semver }})
                     </option>
                   </select>
-                  <button class="btn btn--sm btn--primary" :disabled="editSaving" @click="saveEdit">{{ editSaving ? t('view.detail.saving') : t('common.save') }}</button>
-                  <button class="btn btn--sm" :disabled="editSaving" @click="cancelEdit">{{ t('common.cancel') }}</button>
+                  <AppButton size="sm" :loading="editSaving" :disabled="editSaving" @click="saveEdit">{{ editSaving ? t('view.detail.saving') : t('common.save') }}</AppButton>
+                  <AppButton size="sm" variant="secondary" :disabled="editSaving" @click="cancelEdit">{{ t('common.cancel') }}</AppButton>
                 </div>
                 <div
                   v-else-if="canEditIssue"
@@ -865,7 +872,7 @@ onMounted(() => {
                   <template v-if="issue.found_version_id">
                     {{ versions.find(v => v.id === issue?.found_version_id)?.name ?? '—' }}
                   </template>
-                  <span v-else class="add-btn" title="设置发现版本">＋</span>
+                  <span v-else class="add-btn" title="设置发现版本"><DynamicIcon name="Plus" :size="14" /></span>
                   <span class="edit-hint">✎</span>
                 </div>
                 <span v-else>{{ issue?.found_version_id ? versions.find(v => v.id === issue?.found_version_id)?.name ?? `#${issue?.found_version_id}` : '—' }}</span>
@@ -883,8 +890,8 @@ onMounted(() => {
                       {{ v.name }} ({{ v.semver }})
                     </option>
                   </select>
-                  <button class="btn btn--sm btn--primary" :disabled="editSaving" @click="saveEdit">{{ editSaving ? t('view.detail.saving') : t('common.save') }}</button>
-                  <button class="btn btn--sm" :disabled="editSaving" @click="cancelEdit">{{ t('common.cancel') }}</button>
+                  <AppButton size="sm" :loading="editSaving" :disabled="editSaving" @click="saveEdit">{{ editSaving ? t('view.detail.saving') : t('common.save') }}</AppButton>
+                  <AppButton size="sm" variant="secondary" :disabled="editSaving" @click="cancelEdit">{{ t('common.cancel') }}</AppButton>
                 </div>
                 <div
                   v-else-if="canEditIssue"
@@ -894,7 +901,7 @@ onMounted(() => {
                   <template v-if="issue.fix_version_id">
                     {{ versions.find(v => v.id === issue?.fix_version_id)?.name ?? '—' }}
                   </template>
-                  <span v-else class="add-btn" title="设置修复版本">＋</span>
+                  <span v-else class="add-btn" title="设置修复版本"><DynamicIcon name="Plus" :size="14" /></span>
                   <span class="edit-hint">✎</span>
                 </div>
                 <span v-else>{{ issue?.fix_version_id ? versions.find(v => v.id === issue?.fix_version_id)?.name ?? `#${issue?.fix_version_id}` : '—' }}</span>
@@ -912,8 +919,8 @@ onMounted(() => {
                       {{ m.display_name ?? m.email }}
                     </option>
                   </select>
-                  <button class="btn btn--sm btn--primary" :disabled="editSaving" @click="saveEdit">{{ editSaving ? t('view.detail.saving') : t('common.save') }}</button>
-                  <button class="btn btn--sm" :disabled="editSaving" @click="cancelEdit">{{ t('common.cancel') }}</button>
+                  <AppButton size="sm" :loading="editSaving" :disabled="editSaving" @click="saveEdit">{{ editSaving ? t('view.detail.saving') : t('common.save') }}</AppButton>
+                  <AppButton size="sm" variant="secondary" :disabled="editSaving" @click="cancelEdit">{{ t('common.cancel') }}</AppButton>
                 </div>
                 <div
                   v-else-if="canEditIssue"
@@ -923,7 +930,7 @@ onMounted(() => {
                   <template v-if="issue.verifier_id">
                     {{ members.find(m => m.id === issue?.verifier_id)?.display_name ?? members.find(m => m.id === issue?.verifier_id)?.email ?? `用户 #${issue?.verifier_id}` }}
                   </template>
-                  <span v-else class="add-btn" title="设置验证人">＋</span>
+                  <span v-else class="add-btn" title="设置验证人"><DynamicIcon name="Plus" :size="14" /></span>
                   <span class="edit-hint">✎</span>
                 </div>
                 <span v-else>{{ issue?.verifier_id ? members.find(m => m.id === issue?.verifier_id)?.display_name ?? `用户 #${issue?.verifier_id}` : '—' }}</span>
@@ -940,20 +947,29 @@ onMounted(() => {
           :issue-id="props.issueId"
         />
 
+        <!-- 工作流审批 -->
+        <ApprovalPanel
+          v-if="ws"
+          :workspace-id="ws.id"
+          :project-id="props.projectId"
+          :issue-id="props.issueId"
+          :work-item-type="issueType"
+        />
+
         <!-- 流转操作（仅拥有 issue:transition 权限的用户可见） -->
         <div v-if="canTransition" class="issue-detail__section">
           <h3>{{ t('view.detail.stateTransition') }}</h3>
           <div v-if="transitionError" class="form-error">{{ transitionError }}</div>
           <div class="issue-detail__transitions">
-            <button
+            <AppButton
               v-for="st in availableTransitions"
               :key="st.id"
-              class="btn btn--state"
+              variant="secondary"
               :style="{ borderColor: st.color, color: st.color }"
               @click="doTransition(st.id)"
             >
               → {{ st.name }}
-            </button>
+            </AppButton>
           </div>
         </div>
       </div>
@@ -987,9 +1003,9 @@ onMounted(() => {
           </span>
         </div>
 
-        <button v-if="!showTimeLogForm" class="btn btn--sm btn--outline" @click="showTimeLogForm = true">
+        <AppButton v-if="!showTimeLogForm" size="sm" class="btn--outline" @click="showTimeLogForm = true">
           {{ t('view.detail.logTime') }}
-        </button>
+        </AppButton>
 
         <!-- 工时记录表单 -->
         <div v-if="showTimeLogForm" class="timelog-form">
@@ -1015,10 +1031,10 @@ onMounted(() => {
             rows="2"
           ></textarea>
           <div class="timelog-form__actions">
-            <button class="btn btn--sm" :disabled="timeLogSubmitting" @click="showTimeLogForm = false">{{ t('common.cancel') }}</button>
-            <button class="btn btn--sm btn--primary" :disabled="timeLogSubmitting" @click="submitTimeLog">
+            <AppButton size="sm" variant="secondary" :disabled="timeLogSubmitting" @click="showTimeLogForm = false">{{ t('common.cancel') }}</AppButton>
+            <AppButton size="sm" :loading="timeLogSubmitting" :disabled="timeLogSubmitting" @click="submitTimeLog">
               {{ timeLogSubmitting ? t('view.detail.saving') : t('common.save') }}
-            </button>
+            </AppButton>
           </div>
         </div>
 
@@ -1031,7 +1047,7 @@ onMounted(() => {
               <span class="timelog-item__duration">{{ fmtDuration(tl.duration_minutes) }}</span>
             </div>
             <div v-if="tl.description" class="timelog-item__desc">{{ tl.description }}</div>
-            <button class="timelog-item__delete" :title="t('view.detail.deleteTimeLogTitle')" @click="deleteTimeLog(tl.id)">✕</button>
+            <button class="timelog-item__delete" :title="t('view.detail.deleteTimeLogTitle')" @click="deleteTimeLog(tl.id)"><DynamicIcon name="X" :size="14" /></button>
           </div>
         </div>
         <div v-else-if="!showTimeLogForm" class="text-muted">{{ t('view.detail.noTimeLogs') }}</div>
@@ -1040,13 +1056,14 @@ onMounted(() => {
         <div class="sub-issues-section" style="margin-top: 24px">
           <div class="sub-issues-header">
             <h3>{{ t('view.detail.subIssuesSection') }}</h3>
-            <button
+            <AppButton
               v-if="canEditIssue"
-              class="btn btn--sm btn--outline"
+              size="sm"
+              class="btn--outline"
               @click="openSubIssue(props.issueId)"
             >
               {{ t('view.detail.addSubIssue') }}
-            </button>
+            </AppButton>
           </div>
 
           <div v-if="subIssuesLoading" class="text-muted">{{ t('view.detail.loadingSubIssues') }}</div>
@@ -1078,13 +1095,14 @@ onMounted(() => {
                 {{ child.name }}
               </div>
               <div class="sub-issue-node__actions">
-                <button
+                <AppButton
                   v-if="canEditIssue"
-                  class="btn btn--sm btn--ghost"
+                  size="sm"
+                  variant="ghost"
                   @click="openSubIssue(child.id)"
                 >
-                  ＋ 子项
-                </button>
+                  <DynamicIcon name="Plus" :size="14" /> 子项
+                </AppButton>
               </div>
 
               <!-- 孙级（第二层），懒加载渲染 -->
@@ -1128,13 +1146,14 @@ onMounted(() => {
                     {{ gc.name }}
                   </div>
                   <div class="sub-issue-node__actions">
-                    <button
+                    <AppButton
                       v-if="canEditIssue"
-                      class="btn btn--sm btn--ghost"
+                      size="sm"
+                      variant="ghost"
                       @click="openSubIssue(gc.id)"
                     >
-                      ＋ 子项
-                    </button>
+                      <DynamicIcon name="Plus" :size="14" /> 子项
+                    </AppButton>
                   </div>
 
                   <!-- 曾孙级（第三层，叶子节点不再展开） -->
@@ -1220,7 +1239,7 @@ onMounted(() => {
       @created="showSubIssueModal = false; loadSubIssues()"
     />
   </div>
-</template>
+
 
 <style scoped>
 .issue-detail__header {
@@ -1358,7 +1377,7 @@ onMounted(() => {
 }
 
 .delay-reason--required {
-  color: var(--danger-500, #e5484d);
+  color: var(--danger-500);
   font-size: 11px;
   margin-left: 4px;
 }
@@ -1450,34 +1469,6 @@ onMounted(() => {
 
 .form-error { color: var(--danger-500); font-size: 12px; margin-bottom: 8px; }
 
-.btn {
-  padding: 6px 12px;
-  border-radius: var(--radius-sm);
-  font-size: 12px;
-  cursor: pointer;
-  border: 1px solid var(--border-default);
-  background: var(--surface-1);
-  color: var(--text-secondary);
-}
-
-.btn--ghost {
-  background: none;
-  border: none;
-  color: var(--brand-500);
-  padding: 4px 0;
-}
-
-.btn--danger {
-  background: var(--danger-50);
-  border-color: var(--danger-200);
-  color: var(--danger-600);
-}
-
-.btn--state {
-  background: var(--surface-1);
-  font-weight: 500;
-}
-
 .activity-timeline {
   display: flex;
   flex-direction: column;
@@ -1532,48 +1523,18 @@ onMounted(() => {
   font-weight: 400;
 }
 
-.btn--sm {
-  padding: 4px 10px;
-  font-size: 12px;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  border: 1px solid var(--border-default);
-  background: var(--surface-1);
-  color: var(--text-secondary);
-  font-family: inherit;
-}
-
-.btn--sm:hover:not(:disabled) {
-  background: var(--surface-3);
-}
-
+/* 虚线 outline 风格（工时/子项入口），AppButton 无对应 variant，保留辅助类 */
 .btn--outline {
-  border: 1px dashed var(--border-strong);
-  background: none;
-  color: var(--text-tertiary);
+  border: 1px dashed var(--border-strong) !important;
+  background: none !important;
+  color: var(--text-tertiary) !important;
   width: 100%;
   text-align: center;
 }
 
 .btn--outline:hover {
-  border-color: var(--brand-500);
-  color: var(--brand-500);
-}
-
-.btn--primary {
-  background: var(--brand-500);
-  color: var(--text-on-brand);
-  border-color: var(--brand-500);
-}
-
-.btn--primary:hover:not(:disabled) {
-  background: var(--brand-600);
-}
-
-.btn:disabled,
-.btn--sm:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+  border-color: var(--brand-500) !important;
+  color: var(--brand-500) !important;
 }
 
 .timelog-form {
@@ -1877,7 +1838,7 @@ onMounted(() => {
   .issue-detail__sidebar {
     width: 100% !important;
     border-left: none !important;
-    border-top: 1px solid var(--border-subtle, #e4e4e7);
+    border-top: 1px solid var(--border-subtle);
     margin-top: 16px;
     padding-top: 16px;
   }

@@ -145,8 +145,9 @@ const versionStateTable = "ydsz_schema_version"
 // versionedFile 描述一个版本化迁移文件。
 type versionedFile struct {
 	Path    string // 文件完整路径
-	Version string // 版本号，如 "V26.11.03"
+	Version string // 版本号，如 "V26.11.03"（仅用于排序）
 	Desc    string // 描述，如 "drop_unused_tables"
+	Key     string // 去重键（文件名），保证同版本号的多个文件都能执行
 }
 
 // runVersioned 执行 V<ver>__<desc>.sql 命名的版本化迁移。
@@ -191,7 +192,7 @@ func versionedUp(dbURL string) error {
 
 	pending := make([]versionedFile, 0, len(files))
 	for _, f := range files {
-		if _, done := applied[f.Version]; !done {
+		if _, done := applied[f.Key]; !done {
 			pending = append(pending, f)
 		}
 	}
@@ -227,7 +228,7 @@ func versionedUp(dbURL string) error {
 		}
 		if _, err := tx.Exec(ctx,
 			"INSERT INTO "+versionStateTable+" (version, description, applied_at) VALUES ($1, $2, now())",
-			f.Version, f.Desc); err != nil {
+			f.Version+"__"+f.Desc, f.Path); err != nil {
 			_ = tx.Rollback(ctx)
 			return fmt.Errorf("record %s: %w", f.Version, err)
 		}
@@ -241,6 +242,9 @@ func versionedUp(dbURL string) error {
 }
 
 // showVersionedVersion 输出已执行的版本化迁移。
+//
+// 由于同一版本号可能对应多个迁移文件（如 V26.11.03 下有 19 个），
+// 这里按版本号分组统计，输出「最后应用的版本号 + 该版本下的文件数 + 总文件数」。
 func showVersionedVersion(dbURL string) error {
 	ctx := context.Background()
 	pool, err := persistence.NewPool(ctx, dbURL, 4)
@@ -257,12 +261,24 @@ func showVersionedVersion(dbURL string) error {
 		fmt.Println("version=none (no versioned migrations applied)")
 		return nil
 	}
-	versions := make([]string, 0, len(applied))
-	for v := range applied {
+
+	// 记录键格式为 "<version>__<desc>"，提取版本号分组。
+	byVersion := make(map[string]int)
+	for key := range applied {
+		ver := key
+		if idx := strings.Index(key, "__"); idx > 0 {
+			ver = key[:idx]
+		}
+		byVersion[ver]++
+	}
+	versions := make([]string, 0, len(byVersion))
+	for v := range byVersion {
 		versions = append(versions, v)
 	}
 	sort.Strings(versions)
-	fmt.Printf("version=%s applied=%d\n", versions[len(versions)-1], len(versions))
+	last := versions[len(versions)-1]
+	fmt.Printf("version=%s files_in_version=%d total_files=%d\n",
+		last, byVersion[last], len(applied))
 	return nil
 }
 
@@ -318,7 +334,10 @@ func listVersionedFiles(dir string) ([]versionedFile, error) {
 		if len(parts) == 2 {
 			desc = parts[1]
 		}
-		out = append(out, versionedFile{Path: m, Version: version, Desc: desc})
+		// Key 必须与写入 ydsz_schema_version 的记录值格式一致（<ver>__<desc>），
+		// 因此使用去掉 .sql 后缀的文件名，而非完整文件名。
+		stem := strings.TrimSuffix(base, ".sql")
+		out = append(out, versionedFile{Path: m, Version: version, Desc: desc, Key: stem})
 	}
 	// 版本号格式统一（V26.11.03），字符串排序即等价于时间排序。
 	sort.Slice(out, func(i, j int) bool { return out[i].Version < out[j].Version })

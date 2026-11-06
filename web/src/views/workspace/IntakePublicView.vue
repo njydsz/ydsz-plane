@@ -119,7 +119,7 @@ loadChannel();
       <AppErrorState v-else-if="channelError" :message="channelError" />
 
       <div v-else-if="submitted" class="space-y-4 rounded-xl border border-[var(--border-subtle)] p-6 text-center">
-        <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[var(--success-bg,#e6f7ee)] text-2xl">✓</div>
+        <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[var(--success-bg)] text-2xl">✓</div>
         <h2 class="text-lg font-semibold">提交成功</h2>
         <p class="text-sm text-[var(--text-tertiary)]">请保存您的跟踪号，用于查询处理进度：</p>
         <p class="rounded-md bg-[var(--bg-secondary)] py-2 font-mono text-lg font-semibold text-[var(--brand-600)]">{{ submitted.tracking_id }}</p>
@@ -159,7 +159,7 @@ loadChannel();
           <label class="text-xs text-[var(--text-tertiary)]">联系邮箱 *</label>
           <input v-model="form.submitter_email" type="email" class="mt-1 w-full rounded-md border border-[var(--border-subtle)] px-3 py-2 text-sm" placeholder="用于查询处理进度" />
         </div>
-        <p v-if="submitError" class="text-sm text-[var(--danger,#ef4444)]">{{ submitError }}</p>
+        <p v-if="submitError" class="text-sm text-[var(--danger)]">{{ submitError }}</p>
         <button
           :disabled="submitting"
           class="w-full rounded-md bg-[var(--brand-600)] px-4 py-2.5 text-sm font-medium text-white hover:bg-[var(--brand-700)] disabled:opacity-50"
@@ -181,7 +181,7 @@ loadChannel();
           <label class="text-xs text-[var(--text-tertiary)]">提交邮箱</label>
           <input v-model="trackForm.submitter_email" type="email" class="mt-1 w-full rounded-md border border-[var(--border-subtle)] px-3 py-2 text-sm" placeholder="提交时填写的邮箱" />
         </div>
-        <p v-if="trackError" class="text-sm text-[var(--danger,#ef4444)]">{{ trackError }}</p>
+        <p v-if="trackError" class="text-sm text-[var(--danger)]">{{ trackError }}</p>
         <button :disabled="tracking" class="w-full rounded-md bg-[var(--brand-600)] px-4 py-2.5 text-sm font-medium text-white hover:bg-[var(--brand-700)] disabled:opacity-50">
           {{ tracking ? "查询中…" : "查询进度" }}
         </button>
@@ -193,8 +193,8 @@ loadChannel();
           <span
             class="rounded px-1.5 py-0.5 text-xs"
             :class="{
-              'bg-[var(--warning-bg,#fef3c7)] text-[var(--warning,#d97706)]': trackResult.status === 'open',
-              'bg-[var(--success-bg,#e6f7ee)] text-[var(--success,#16a34a)]': trackResult.status === 'accepted',
+              'bg-[var(--warning-bg)] text-[var(--warning)]': trackResult.status === 'open',
+              'bg-[var(--success-bg)] text-[var(--success)]': trackResult.status === 'accepted',
               'bg-[var(--bg-secondary)] text-[var(--text-tertiary)]': trackResult.status === 'rejected' || trackResult.status === 'archived',
             }"
           >{{ STATUS_TEXT[trackResult.status] }}</span>
@@ -207,6 +207,5 @@ loadChannel();
       </div>
 
       <RouterLink to="/login" class="mt-4 block text-center text-xs text-[var(--text-tertiary)] hover:text-[var(--brand-600)]">返回登录 →</RouterLink>
-    </template>
-  </div>
-</template>
+      </div>
+

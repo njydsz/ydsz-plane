@@ -2,6 +2,9 @@
  * CommandPalette (⌘K) — 全局命令面板。
  * 提供 Jump / Create / Search 三类命令源，支持模糊过滤、键盘导航、分组展示。
  */
+<script setup lang="ts">
+import DynamicIcon from "@/components/DynamicIcon.vue";
+</script>
 <template>
   <Teleport to="body">
     <Transition name="cp-overlay">
@@ -10,9 +13,7 @@
           <!-- 输入区 -->
           <div class="cp-input-wrap">
             <kbd class="cp-input-kbd">⌘K</kbd>
-            <svg class="cp-search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
-            </svg>
+            <DynamicIcon name="Search" :size="18" class="cp-search-icon" />
             <input
               ref="inputRef"
               v-model="query"
@@ -124,7 +125,7 @@
                     @click="goTo('sprint', item)"
                     @mousemove="selectItem('search', offsetSprint + idx)"
                   >
-                    <span class="cp-item-icon" style="background: var(--extended-color-purple-50, #f3e8ff);">🏃</span>
+                    <span class="cp-item-icon" style="background: var(--extended-color-purple-50);">🏃</span>
                     <!-- eslint-disable-next-line vue/no-v-html -- highlight 由服务端 ts_headline 生成，内容已转义 -->
                     <span class="cp-item-label" v-html="item.highlight || item.name" />
                     <span class="cp-item-meta">{{ item.project_name }}</span>
@@ -142,7 +143,7 @@
                     @click="goTo('version', item)"
                     @mousemove="selectItem('search', offsetVersion + idx)"
                   >
-                    <span class="cp-item-icon" style="background: var(--extended-color-emerald-50, #ecfdf5);">🚀</span>
+                    <span class="cp-item-icon" style="background: var(--extended-color-emerald-50);">🚀</span>
                     <!-- eslint-disable-next-line vue/no-v-html -- highlight 由服务端 ts_headline 生成，内容已转义 -->
                     <span class="cp-item-label" v-html="item.highlight || item.name" />
                     <span class="cp-item-meta">{{ item.project_name }}</span>
@@ -160,7 +161,7 @@
                     @click="goTo('project', item)"
                     @mousemove="selectItem('search', offsetProject + idx)"
                   >
-                    <span class="cp-item-icon" style="background: var(--extended-color-indigo-50, #eef2ff);">📁</span>
+                    <span class="cp-item-icon" style="background: var(--extended-color-indigo-50);">📁</span>
                     <!-- eslint-disable-next-line vue/no-v-html -- highlight 由服务端 ts_headline 生成，内容已转义 -->
                     <span class="cp-item-label" v-html="item.highlight || item.name" />
                     <span class="cp-item-meta">{{ item.identifier ?? '项目' }}</span>
@@ -269,7 +270,7 @@ const commandGroups = computed<CommandGroupDef[]>(() => {
           id: "go-home",
           label: "工作台",
           icon: "🏠",
-          iconBg: "var(--brand-50, #eef2fe)",
+          iconBg: "var(--brand-50)",
           action: () => router.push(`/${wsId}`),
         },
         {
@@ -291,14 +292,14 @@ const commandGroups = computed<CommandGroupDef[]>(() => {
           id: "go-notifications",
           label: "通知中心",
           icon: "🔔",
-          iconBg: "var(--amber-50, #fffbeb)",
+          iconBg: "var(--amber-50)",
           action: () => router.push(`/${wsId}/notifications`),
         },
         {
           id: "go-workbench",
           label: "我的工作台",
           icon: "📋",
-          iconBg: "var(--extended-color-indigo-50, #eef2fe)",
+          iconBg: "var(--extended-color-indigo-50)",
           action: () => router.push(`/${wsId}/workbench`),
         },
         {
@@ -320,14 +321,14 @@ const commandGroups = computed<CommandGroupDef[]>(() => {
         { id: "pj-dashboard", label: "项目仪表盘", icon: "📊", iconBg: "var(--brand-50)", action: () => router.push(`/${wsId}/projects/${projectId}/dashboard`) },
         { id: "pj-board", label: "看板视图", icon: "🗂️", iconBg: "var(--brand-50)", action: () => router.push(`/${wsId}/projects/${projectId}/board`) },
         { id: "pj-list", label: "列表视图", icon: "📃", iconBg: "var(--brand-50)", action: () => router.push(`/${wsId}/projects/${projectId}/list`) },
-        { id: "pj-sprints", label: "迭代列表", icon: "🏃", iconBg: "var(--extended-color-purple-50, #f3e8ff)", action: () => router.push(`/${wsId}/projects/${projectId}/sprints`) },
-        { id: "pj-versions", label: "版本管理", icon: "🏷️", iconBg: "var(--extended-color-emerald-50, #ecfdf5)", action: () => router.push(`/${wsId}/projects/${projectId}/versions`) },
-        { id: "pj-pages", label: "项目文档", icon: "📄", iconBg: "var(--amber-50, #fffbeb)", action: () => router.push(`/${wsId}/projects/${projectId}/pages`) },
-        { id: "pj-gantt", label: "甘特图", icon: "📈", iconBg: "var(--extended-color-indigo-50, #eef2fe)", action: () => router.push(`/${wsId}/projects/${projectId}/gantt`) },
+        { id: "pj-sprints", label: "迭代列表", icon: "🏃", iconBg: "var(--extended-color-purple-50)", action: () => router.push(`/${wsId}/projects/${projectId}/sprints`) },
+        { id: "pj-versions", label: "版本管理", icon: "🏷️", iconBg: "var(--extended-color-emerald-50)", action: () => router.push(`/${wsId}/projects/${projectId}/versions`) },
+        { id: "pj-pages", label: "项目文档", icon: "📄", iconBg: "var(--amber-50)", action: () => router.push(`/${wsId}/projects/${projectId}/pages`) },
+        { id: "pj-gantt", label: "甘特图", icon: "📈", iconBg: "var(--extended-color-indigo-50)", action: () => router.push(`/${wsId}/projects/${projectId}/gantt`) },
         { id: "pj-calendar", label: "日历视图", icon: "📅", iconBg: "var(--brand-50)", action: () => router.push(`/${wsId}/projects/${projectId}/calendar`) },
-        { id: "pj-metrics", label: "效能度量", icon: "📉", iconBg: "var(--extended-color-cyan-50, #ecfeff)", action: () => router.push(`/${wsId}/projects/${projectId}/metrics`) },
-        { id: "pj-analytics", label: "缺陷分析", icon: "🐞", iconBg: "var(--danger-50, #fef2f2)", action: () => router.push(`/${wsId}/projects/${projectId}/analytics`) },
-        { id: "pj-automation", label: "自动化规则", icon: "🤖", iconBg: "var(--extended-color-purple-50, #f3e8ff)", action: () => router.push(`/${wsId}/projects/${projectId}/automation`) },
+        { id: "pj-metrics", label: "效能度量", icon: "📉", iconBg: "var(--extended-color-cyan-50)", action: () => router.push(`/${wsId}/projects/${projectId}/metrics`) },
+        { id: "pj-analytics", label: "缺陷分析", icon: "🐞", iconBg: "var(--danger-50)", action: () => router.push(`/${wsId}/projects/${projectId}/analytics`) },
+        { id: "pj-automation", label: "自动化规则", icon: "🤖", iconBg: "var(--extended-color-purple-50)", action: () => router.push(`/${wsId}/projects/${projectId}/automation`) },
         { id: "pj-settings", label: "项目设置", icon: "⚙️", iconBg: "var(--neutral-200)", action: () => router.push(`/${wsId}/projects/${projectId}/settings`) },
       ],
     })
@@ -355,14 +356,14 @@ const commandGroups = computed<CommandGroupDef[]>(() => {
         id: "create-project",
         label: "创建项目",
         icon: "📂",
-        iconBg: "var(--extended-color-emerald-50, #ecfdf5)",
+        iconBg: "var(--extended-color-emerald-50)",
         action: () => window.dispatchEvent(new CustomEvent("command:create-project")),
       },
       {
         id: "create-sprint",
         label: "创建迭代",
         icon: "🏃",
-        iconBg: "var(--extended-color-purple-50, #f3e8ff)",
+        iconBg: "var(--extended-color-purple-50)",
         action: () => window.dispatchEvent(new CustomEvent("command:create-sprint")),
       },
     ],
@@ -374,8 +375,8 @@ const commandGroups = computed<CommandGroupDef[]>(() => {
     commands: [
       { id: "st-webhooks", label: "Webhook 集成", icon: "🔗", iconBg: "var(--neutral-200)", action: () => router.push(`/${wsId}/settings/webhooks`) },
       { id: "st-notifications", label: "通知偏好", icon: "🔔", iconBg: "var(--brand-50)", action: () => router.push(`/${wsId}/settings/notifications`) },
-      { id: "st-audit", label: "审计日志", icon: "🛡️", iconBg: "var(--extended-color-indigo-50, #eef2fe)", action: () => router.push(`/${wsId}/audit-logs`) },
-      { id: "st-apikeys", label: "API Token", icon: "🗝️", iconBg: "var(--danger-50, #fef2f2)", action: () => router.push({ path: `/${wsId}/settings`, query: { tab: "api-tokens" } }) },
+      { id: "st-audit", label: "审计日志", icon: "🛡️", iconBg: "var(--extended-color-indigo-50)", action: () => router.push(`/${wsId}/audit-logs`) },
+      { id: "st-apikeys", label: "API Token", icon: "🗝️", iconBg: "var(--danger-50)", action: () => router.push({ path: `/${wsId}/settings`, query: { tab: "api-tokens" } }) },
     ],
   })
 
@@ -742,7 +743,7 @@ onUnmounted(() => {
   max-height: 70vh;
   display: flex;
   flex-direction: column;
-  background: var(--bg-surface-1, #fff);
+  background: var(--bg-surface-1);
   border-radius: var(--radius-lg, 12px);
   box-shadow: var(--shadow-overlay-200);
   border: 1px solid var(--border-subtle);
@@ -827,7 +828,7 @@ onUnmounted(() => {
 
 .cp-item:hover,
 .cp-item--selected {
-  background: var(--bg-accent-subtle, var(--brand-50, #eef2fe));
+  background: var(--bg-accent-subtle, var(--brand-50));
 }
 
 .cp-item-icon {

@@ -17,7 +17,7 @@ import { wsClient } from "@/lib/ws-client";
 import { useAuthStore } from "@/stores/auth";
 import IssueCreateModal from "./IssueCreateModal.vue";
 import IssueFilter from "./IssueFilter.vue";
-import { AppErrorState, AppEmptyState, InlineEdit, InlineSelectEdit, AppSkeleton } from "@/components";
+import { AppButton, AppErrorState, AppEmptyState, InlineEdit, InlineSelectEdit, AppSkeleton } from "@/components";
 import { useTranslation } from "@/composables/useTranslation";
 import {
   type FilterState,
@@ -387,7 +387,7 @@ function handleRemoteIssueUpdate(data: { project_id?: number; issue_id?: number;
             {{ t('view.header.list') }}
           </router-link>
         </div>
-        <button class="btn btn--primary" @click="showCreateModal = true">{{ t('view.kanban.createBtn') }}</button>
+        <AppButton @click="showCreateModal = true">{{ t('view.kanban.createBtn') }}</AppButton>
       </div>
     </header>
 
@@ -403,7 +403,7 @@ function handleRemoteIssueUpdate(data: { project_id?: number; issue_id?: number;
     <AppSkeleton v-if="loading" variant="board" :cols="issueStore.states.length || 4" />
     <AppErrorState v-else-if="error" :message="error" @retry="load" />
     <AppEmptyState v-else-if="issueStore.issues.length === 0" icon="📋" :title="t('common.noData')" :description="t('view.kanban.createBtn')">
-      <button class="btn btn--primary" @click="showCreateModal = true">{{ t('view.kanban.createBtn') }}</button>
+      <AppButton @click="showCreateModal = true">{{ t('view.kanban.createBtn') }}</AppButton>
     </AppEmptyState>
 
     <div v-else class="kanban__board" :style="{ '--column-width': columnWidth + 'px' }">
@@ -505,8 +505,6 @@ function handleRemoteIssueUpdate(data: { project_id?: number; issue_id?: number;
       @created="load"
     />
   </div>
-</template>
-
 <style scoped>
 .kanban__header {
   display: flex;
@@ -555,22 +553,6 @@ function handleRemoteIssueUpdate(data: { project_id?: number; issue_id?: number;
 .view-tab.is-active {
   background: var(--brand-500);
   color: var(--text-on-brand);
-}
-
-.btn--primary {
-  padding: 8px 16px;
-  background: var(--brand-500);
-  color: var(--text-on-brand);
-  border: none;
-  border-radius: var(--radius-sm);
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  font-family: inherit;
-  white-space: nowrap;
-}
-.btn--primary:hover {
-  background: var(--brand-600);
 }
 
 .loading, .error {

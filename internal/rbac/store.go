@@ -78,6 +78,8 @@ var authPermissionCodes = []string{
 	auth.PermPagesManage,
 	auth.PermIntakeRead,
 	auth.PermIntakeManage,
+	auth.PermCustomerRead,
+	auth.PermCustomerManage,
 	auth.PermKnowledgeRead,
 	auth.PermKnowledgeManage,
 	auth.PermCommentModerate,

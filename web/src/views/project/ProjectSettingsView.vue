@@ -9,9 +9,11 @@ import { useRoute, useRouter } from "vue-router";
 
 import { workspaceApi, type Project } from "@/api/services/workspace";
 import { ApiError } from "@/api/client";
-import { AppLoadingState, AppErrorState } from "@/components";
+import { AppButton, AppLoadingState, AppErrorState } from "@/components";
 import { useWorkspaceStore } from "@/stores/workspace";
+import { useConfirm } from "@/composables/useConfirm";
 
+const confirm = useConfirm();
 const route = useRoute();
 const router = useRouter();
 const workspaceId = Number(route.params.workspaceId);
@@ -35,7 +37,7 @@ const form = reactive({
   name: "",
   description: "",
   network: "public",
-  color: "#3f63f1",
+  color: "var(--brand-500)",
   coverImageUrl: "",
   modules: {
     sprint: true,
@@ -61,8 +63,8 @@ const networkOptions = [
 ];
 
 const colorPresets = [
-  "#3f63f1", "#0fc27b", "#f59e0b", "#dc2f2f",
-  "#8b5cf6", "#ec4899", "#06b6d4", "#84cc16",
+  "var(--brand-500)", "var(--success-500)", "var(--warning-500)", "var(--danger-500)",
+  "var(--brand-500)", "var(--brand-500)", "var(--info-500)", "var(--success-500)",
 ];
 
 async function loadProject() {
@@ -75,7 +77,7 @@ async function loadProject() {
     form.name = project.value.name;
     form.description = project.value.description ?? "";
     form.network = project.value.network ?? "public";
-    form.color = project.value.color ?? "#3f63f1";
+    form.color = project.value.color ?? "var(--brand-500)";
     form.coverImageUrl = project.value.cover_image_url ?? "";
     if (project.value.modules) {
       moduleToggles.sprint = project.value.modules.sprint;
@@ -124,10 +126,12 @@ async function save() {
 
 // === Danger Zone: 归档 & 删除 ===
 async function archiveProject() {
-  if (!window.confirm(
-    "确定要归档该项目？\n\n" +
-    "项目归档后将从项目列表中隐藏，但成员仍可通过链接访问内容，且随时可恢复。"
-  )) return;
+  if (!await confirm({
+    title: "归档项目",
+    message: "确定要归档该项目？\n\n项目归档后将从项目列表中隐藏，但成员仍可通过链接访问内容，且随时可恢复。",
+    confirmText: "归档",
+    variant: "danger",
+  })) return;
   archiveLoading.value = true;
   try {
     const ws = await workspaceApi.get(workspaceId);
@@ -298,7 +302,7 @@ onMounted(loadProject);
           <div v-else class="cover-preview__placeholder">暂无封面图</div>
         </div>
         <div class="cover-actions">
-          <button class="btn btn--secondary" type="button" @click="form.coverImageUrl = ''">清除封面</button>
+          <AppButton variant="secondary" type="button" @click="form.coverImageUrl = ''">清除封面</AppButton>
         </div>
       </div>
     </section>
@@ -336,9 +340,9 @@ onMounted(loadProject);
     <div class="actions" style="margin-top: 20px">
       <p v-if="saveError" class="msg error">{{ saveError }}</p>
       <p v-if="saveSuccess" class="msg success">{{ saveSuccess }}</p>
-      <button class="btn btn--primary" :disabled="saving" @click="save">
+      <AppButton :loading="saving" :disabled="saving" @click="save">
         {{ saving ? "保存中..." : "保存所有变更" }}
-      </button>
+      </AppButton>
     </div>
 
     <!-- ========== 危险操作 Danger Zone ========== -->
@@ -351,13 +355,14 @@ onMounted(loadProject);
           <strong>归档项目</strong>
           <p>项目归档后将从列表中隐藏，但成员仍可通过链接访问。随时可恢复。</p>
         </div>
-        <button
-          class="btn btn--danger"
+        <AppButton
+          variant="danger"
+          :loading="archiveLoading"
           :disabled="!canManage || archiveLoading"
           @click="archiveProject"
         >
           {{ archiveLoading ? "归档中..." : "归档" }}
-        </button>
+        </AppButton>
       </div>
 
       <div class="danger-row">
@@ -365,13 +370,13 @@ onMounted(loadProject);
           <strong>永久删除</strong>
           <p>项目及其所有需求/任务/缺陷、文档等将被永久删除，<strong>不可恢复</strong>。</p>
         </div>
-        <button
-          class="btn btn--danger"
+        <AppButton
+          variant="danger"
           :disabled="!canManage || deleteLoading"
           @click="openDeleteModal"
         >
           永久删除
-        </button>
+        </AppButton>
       </div>
     </section>
   </div>
@@ -413,16 +418,17 @@ onMounted(loadProject);
         />
       </div>
       <div class="modal-dialog__footer">
-        <button class="btn" :disabled="deleteLoading" @click="closeDeleteModal">
+        <AppButton variant="secondary" :disabled="deleteLoading" @click="closeDeleteModal">
           取消
-        </button>
-        <button
-          class="btn btn--danger"
+        </AppButton>
+        <AppButton
+          variant="danger"
+          :loading="deleteLoading"
           :disabled="deleteConfirmInput !== project?.name || deleteLoading"
           @click="confirmDelete"
         >
           {{ deleteLoading ? "删除中..." : "确认永久删除" }}
-        </button>
+        </AppButton>
       </div>
     </div>
   </div>
@@ -629,33 +635,6 @@ onMounted(loadProject);
 .msg.error { color: var(--danger-500); }
 .msg.success { color: var(--success-500); }
 
-.btn {
-  padding: 8px 16px;
-  border-radius: var(--radius-sm);
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  border: 1px solid var(--border-default);
-  background: var(--surface-1);
-  color: var(--text-secondary);
-  align-self: flex-start;
-}
-
-.btn--primary {
-  background: var(--brand-500);
-  border-color: var(--brand-500);
-  color: var(--text-on-brand);
-}
-
-.btn--primary:hover:not(:disabled) {
-  background: var(--brand-600);
-}
-
-.btn--primary:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
 /* ===== Toggle Grid ===== */
 .toggle-grid {
   display: flex;
@@ -784,16 +763,6 @@ onMounted(loadProject);
   gap: 8px;
 }
 
-.btn--secondary {
-  background: var(--surface-2);
-  border-color: var(--border-default);
-  color: var(--text-secondary);
-}
-
-.btn--secondary:hover {
-  background: var(--surface-3);
-}
-
 @media (max-width: 600px) {
   .form-grid {
     grid-template-columns: 1fr;
@@ -812,7 +781,7 @@ onMounted(loadProject);
 .settings-section__title {
   font-size: 15px;
   font-weight: 600;
-  color: var(--danger-600, #dc2f2f);
+  color: var(--danger-600);
   margin: 0 0 4px;
 }
 
@@ -852,22 +821,7 @@ onMounted(loadProject);
   margin: 0;
 }
 
-.btn--danger {
-  background: var(--danger-500, #dc2f2f);
-  border-color: var(--danger-500, #dc2f2f);
-  color: #fff;
-  flex-shrink: 0;
-}
-
-.btn--danger:hover:not(:disabled) {
-  background: var(--danger-600, #b91c1c);
-  border-color: var(--danger-600, #b91c1c);
-}
-
-.btn--danger:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
+.danger-row .app-btn { flex-shrink: 0; }
 
 /* ===== Delete Confirm Modal ===== */
 .modal-overlay {
@@ -894,7 +848,7 @@ onMounted(loadProject);
 .modal-dialog__title {
   font-size: 16px;
   font-weight: 600;
-  color: var(--danger-600, #dc2f2f);
+  color: var(--danger-600);
   margin: 0;
   padding: 18px 20px 12px;
 }
@@ -931,7 +885,7 @@ onMounted(loadProject);
   border-radius: 3px;
   font-size: 12px;
   font-family: var(--font-mono);
-  color: var(--danger-600, #dc2f2f);
+  color: var(--danger-600);
 }
 
 .modal-dialog__input {
@@ -948,7 +902,7 @@ onMounted(loadProject);
 }
 
 .modal-dialog__input:focus {
-  border-color: var(--danger-500, #dc2f2f);
+  border-color: var(--danger-500);
   box-shadow: 0 0 0 3px var(--danger-50, rgba(220, 47, 47, 0.08));
 }
 

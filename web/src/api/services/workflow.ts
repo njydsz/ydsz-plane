@@ -182,7 +182,13 @@ export const workflowApi = {
   /** 提交审批（发起一次状态流转审批） */
   submitApproval: (
     workspaceId: number | string,
-    data: { transition_id: number; work_item_id: number; work_item_type: string },
+    data: {
+      transition_id: number;
+      work_item_id: number;
+      work_item_type: string;
+      approver_id: number;
+      comment?: string;
+    },
   ) =>
     wrap<WorkflowApproval>(http.post(`/workspaces/${workspaceId}/approvals`, data)),
 

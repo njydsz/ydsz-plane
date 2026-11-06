@@ -6,12 +6,13 @@
  * 支持 loading 状态（常驻不自动关闭，带 spinner 动画）。
  */
 import { toasts, dismiss, type ToastItem } from "@/lib/toast";
+import DynamicIcon from "./DynamicIcon.vue";
 
 const icons: Record<ToastItem["type"], string> = {
-  success: "✓",
-  error: "✕",
-  info: "ℹ",
-  warning: "!",
+  success: "Check",
+  error: "X",
+  info: "Info",
+  warning: "AlertTriangle",
   loading: "",
 };
 
@@ -40,7 +41,7 @@ function label(type: ToastItem["type"]): string {
         <!-- loading 类型使用 spinner -->
         <span v-if="t.type === 'loading'" class="toast__spinner" aria-hidden="true" />
         <!-- 普通类型使用图标 -->
-        <span v-else class="toast__icon">{{ icons[t.type] }}</span>
+        <span v-else class="toast__icon"><DynamicIcon :name="icons[t.type]" :size="16" /></span>
 
         <div class="toast__body">
           <span class="toast__label">{{ label(t.type) }}</span>
@@ -82,23 +83,23 @@ function label(type: ToastItem["type"]): string {
   max-width: 380px;
   padding: 10px 12px;
   border-radius: var(--radius-md, 8px);
-  background: var(--surface-1, #fff);
-  border: 1px solid var(--border-default, #d1d5db);
+  background: var(--surface-1);
+  border: 1px solid var(--border-default);
   box-shadow: var(--shadow-popover, 0 4px 16px rgba(0, 0, 0, 0.1));
 }
 
-.toast--success { border-left: 3px solid var(--success-500, #16a34a); }
-.toast--error   { border-left: 3px solid var(--danger-500, #ef4444); }
-.toast--info    { border-left: 3px solid var(--brand-500, #3b82f6); }
-.toast--warning { border-left: 3px solid var(--warning-500, #f59e0b); }
-.toast--loading { border-left: 3px solid var(--brand-default, #3b82f6); }
+.toast--success { border-left: 3px solid var(--success-500); }
+.toast--error   { border-left: 3px solid var(--danger-500); }
+.toast--info    { border-left: 3px solid var(--brand-500); }
+.toast--warning { border-left: 3px solid var(--warning-500); }
+.toast--loading { border-left: 3px solid var(--brand-default); }
 
 .toast__spinner {
   flex-shrink: 0;
   width: 18px;
   height: 18px;
-  border: 2px solid var(--border-subtle, #e5e7eb);
-  border-top-color: var(--brand-default, #3b82f6);
+  border: 2px solid var(--border-subtle);
+  border-top-color: var(--brand-default);
   border-radius: 50%;
   animation: toast-spin 0.65s linear infinite;
   margin-top: 1px;
@@ -117,14 +118,14 @@ function label(type: ToastItem["type"]): string {
   align-items: center;
   justify-content: center;
   font-size: 12px;
-  color: #fff;
+  color: var(--text-on-color);
   margin-top: 1px;
 }
 
-.toast--success .toast__icon { background: var(--success-500, #16a34a); }
-.toast--error   .toast__icon { background: var(--danger-500, #ef4444); }
-.toast--info    .toast__icon { background: var(--brand-500, #3b82f6); }
-.toast--warning .toast__icon { background: var(--warning-500, #f59e0b); }
+.toast--success .toast__icon { background: var(--success-500); }
+.toast--error   .toast__icon { background: var(--danger-500); }
+.toast--info    .toast__icon { background: var(--brand-500); }
+.toast--warning .toast__icon { background: var(--warning-500); }
 
 .toast__body {
   flex: 1;
@@ -137,14 +138,14 @@ function label(type: ToastItem["type"]): string {
 .toast__label {
   font-size: 11px;
   font-weight: 600;
-  color: var(--text-tertiary, #9ca3af);
+  color: var(--text-tertiary);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
 
 .toast__message {
   font-size: 13px;
-  color: var(--text-primary, #1f2937);
+  color: var(--text-primary);
   line-height: 1.45;
   word-break: break-word;
 }
@@ -155,13 +156,13 @@ function label(type: ToastItem["type"]): string {
   padding: 0 2px;
   font-size: 15px;
   line-height: 1;
-  color: var(--text-tertiary, #9ca3af);
+  color: var(--text-tertiary);
   cursor: pointer;
   flex-shrink: 0;
 }
 
 .toast__close:hover {
-  color: var(--text-primary, #1f2937);
+  color: var(--text-primary);
 }
 
 /* 过渡动画 */

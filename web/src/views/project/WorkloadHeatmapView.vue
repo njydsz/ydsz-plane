@@ -1,5 +1,7 @@
 <template>
-  <div class="workload-heatmap">
+  
+  <AppPageContainer max="1200px">
+    <div class="workload-heatmap">
     <!-- 页头 -->
     <div class="wh-header">
       <div class="wh-header__left">
@@ -146,7 +148,9 @@
         </div>
       </div>
     </div>
-  </div>
+  
+    </div>
+  </AppPageContainer>
 </template>
 
 <script setup lang="ts">
@@ -325,13 +329,14 @@ onMounted(() => {
   initDateRange();
   loadData();
 });
+import { AppPageContainer } from "@/components";
 </script>
 
 <style scoped>
 .workload-heatmap {
   padding: 24px;
-  max-width: 1200px;
-  margin: 0 auto;
+  
+  
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
 }
 
@@ -555,19 +560,19 @@ onMounted(() => {
 
 /* Heatmap cell levels */
 .wh-cell--level-0 {
-  background: var(--heat-0, #ebedf0);
+  background: var(--heat-0);
 }
 .wh-cell--level-1 {
-  background: var(--heat-1, #9be9a8);
+  background: var(--heat-1);
 }
 .wh-cell--level-2 {
-  background: var(--heat-2, #40c463);
+  background: var(--heat-2);
 }
 .wh-cell--level-3 {
-  background: var(--heat-3, #30a14e);
+  background: var(--heat-3);
 }
 .wh-cell--level-4 {
-  background: var(--heat-4, #216e39);
+  background: var(--heat-4);
 }
 
 /* ---- Legend ---- */
@@ -628,16 +633,16 @@ onMounted(() => {
   flex-shrink: 0;
 }
 .wh-ranking__rank--top1 {
-  background: #ffd700;
-  color: #7a5800;
+  background: var(--warning-500);
+  color: var(--warning-50);
 }
 .wh-ranking__rank--top2 {
-  background: #c0c0c0;
-  color: #4a4a4a;
+  background: var(--surface-3);
+  color: var(--text-secondary);
 }
 .wh-ranking__rank--top3 {
-  background: #cd7f32;
-  color: #fff;
+  background: var(--warning-500);
+  color: var(--text-on-color);
 }
 .wh-ranking__name {
   width: 60px;

@@ -8,17 +8,18 @@
  * （/:wsId/projects/:projectId/analytics）。
  */
 import { computed, onMounted, ref } from "vue";
-import { useRoute } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 
 import { workspaceApi, type Project } from "@/api/services/workspace";
 import { dashboardApi, type ProjectCompareItem } from "@/api/services/dashboard";
-import { AppEmptyState, AppErrorState, AppSkeleton } from "@/components";
+import { AppEmptyState, AppErrorState, AppSkeleton, AppPageContainer } from "@/components";
 
 interface ProjectCard extends Project {
   compare?: ProjectCompareItem;
 }
 
 const route = useRoute();
+const router = useRouter();
 const workspaceId = computed(() => Number(route.params.workspaceId ?? 0));
 
 const loading = ref(true);
@@ -56,11 +57,16 @@ function percent(n: number | undefined): number {
   return Math.round(Math.max(0, Math.min(1, n)) * 100);
 }
 
+function navigateToProject(projectId: number) {
+  router.push(`/${workspaceId.value}/projects/${projectId}`);
+}
+
 onMounted(load);
 </script>
 
 <template>
-  <div class="space-y-6">
+  <AppPageContainer>
+    <div class="space-y-6">
     <div class="flex items-center justify-between">
       <div>
         <h1 class="text-2xl font-bold tracking-tight">报表</h1>
@@ -99,7 +105,8 @@ onMounted(load);
           <div
             v-for="p in projects"
             :key="p.id"
-            class="flex flex-col rounded-md border border-[var(--border-subtle)] bg-[var(--surface-1)] p-4 transition hover:border-[var(--brand-500)]"
+            class="flex cursor-pointer flex-col rounded-md border border-[var(--border-subtle)] bg-[var(--surface-1)] p-4 transition hover:border-[var(--brand-500)] hover:shadow-md"
+            @click="navigateToProject(p.id)"
           >
             <div class="flex items-start justify-between gap-2">
               <div class="min-w-0">
@@ -142,6 +149,7 @@ onMounted(load);
             <div class="mt-4 border-t border-[var(--border-subtle)] pt-3">
               <router-link
                 :to="`/${workspaceId}/projects/${p.id}/analytics`"
+                @click.stop
                 class="inline-flex items-center gap-1 rounded-md bg-[var(--bg-accent-primary)] px-3 py-1.5 text-sm font-medium text-white hover:bg-[var(--bg-accent-primary-hover)] active:bg-[var(--bg-accent-primary-active)] disabled:opacity-50"
               >
                 报表 <span aria-hidden="true">→</span>
@@ -151,5 +159,5 @@ onMounted(load);
         </div>
       </section>
     </template>
-  </div>
-</template>
+    </div>
+  </AppPageContainer>

@@ -13,8 +13,11 @@
  */
 import { onMounted, ref } from "vue";
 import { attachmentApi, type Attachment } from "@/api/services/attachment";
+import DynamicIcon from "./DynamicIcon.vue";
 import { toast } from "@/lib/toast";
+import { useConfirm } from "@/composables/useConfirm";
 
+const confirm = useConfirm();
 const props = defineProps<{
   workspaceId: number;
   projectId: number;
@@ -141,7 +144,7 @@ function putWithProgress(url: string, file: File): Promise<boolean> {
 }
 
 async function handleDelete(att: Attachment) {
-  if (!confirm(`确定删除附件「${att.file_name}」？`)) return;
+  if (!await confirm({ title: "删除附件", message: `确定删除附件「${att.file_name}」？`, confirmText: "删除", variant: "danger" })) return;
   try {
     // 优先使用附件自身的 entity_type，回退到 props.entityType（兼容 "issue" 别名）
     const entityType = att.entity_type || props.entityType;
@@ -242,7 +245,7 @@ onMounted(loadAttachments);
           title="删除附件"
           @click="handleDelete(att)"
         >
-          ✕
+          <DynamicIcon name="X" :size="14" />
         </button>
       </div>
     </div>
@@ -255,7 +258,7 @@ onMounted(loadAttachments);
 }
 
 .attachment-uploader__dropzone {
-  border: 1px dashed var(--border-strong, #d1d5db);
+  border: 1px dashed var(--border-strong);
   border-radius: var(--radius-md, 8px);
   padding: 14px;
   text-align: center;
@@ -265,7 +268,7 @@ onMounted(loadAttachments);
 
 .attachment-uploader__dropzone:hover,
 .attachment-uploader__dropzone--dragging {
-  border-color: var(--brand-500, #3b82f6);
+  border-color: var(--brand-500);
   background: var(--brand-50, rgba(59,130,246,0.04));
 }
 
@@ -275,33 +278,33 @@ onMounted(loadAttachments);
 
 .attachment-uploader__text {
   font-size: 12px;
-  color: var(--text-tertiary, #9ca3af);
+  color: var(--text-tertiary);
 }
 
 .attachment-uploader__error {
   margin-top: 8px;
   font-size: 12px;
-  color: var(--danger-500, #ef4444);
+  color: var(--danger-500);
 }
 
 .attachment-uploader__progress {
   margin-top: 6px;
   height: 4px;
   border-radius: 2px;
-  background: var(--border-subtle, #e5e7eb);
+  background: var(--border-subtle);
   overflow: hidden;
 }
 
 .attachment-uploader__progress-bar {
   height: 100%;
-  background: var(--brand-500, #3b82f6);
+  background: var(--brand-500);
   transition: width 0.2s ease;
 }
 
 .attachment-uploader__muted {
   margin-top: 8px;
   font-size: 12px;
-  color: var(--text-tertiary, #9ca3af);
+  color: var(--text-tertiary);
 }
 
 .attachment-uploader__list {
@@ -316,9 +319,9 @@ onMounted(loadAttachments);
   align-items: center;
   gap: 10px;
   padding: 8px 10px;
-  border: 1px solid var(--border-subtle, #e5e7eb);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm, 6px);
-  background: var(--surface-2, #f9fafb);
+  background: var(--surface-2);
 }
 
 .attachment-uploader__preview {
@@ -348,7 +351,7 @@ onMounted(loadAttachments);
 .attachment-uploader__name {
   display: block;
   font-size: 13px;
-  color: var(--text-primary, #1f2937);
+  color: var(--text-primary);
   text-decoration: none;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -356,12 +359,12 @@ onMounted(loadAttachments);
 }
 
 .attachment-uploader__name:hover {
-  color: var(--brand-500, #3b82f6);
+  color: var(--brand-500);
 }
 
 .attachment-uploader__size {
   font-size: 11px;
-  color: var(--text-tertiary, #9ca3af);
+  color: var(--text-tertiary);
 }
 
 .attachment-uploader__delete {
@@ -369,12 +372,12 @@ onMounted(loadAttachments);
   border: none;
   padding: 4px 6px;
   font-size: 12px;
-  color: var(--text-tertiary, #9ca3af);
+  color: var(--text-tertiary);
   cursor: pointer;
   flex-shrink: 0;
 }
 
 .attachment-uploader__delete:hover {
-  color: var(--danger-500, #ef4444);
+  color: var(--danger-500);
 }
 </style>

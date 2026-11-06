@@ -1,0 +1,34 @@
+{
+  "name": "ydsz-plane",
+  "version": "0.1.0",
+  "description": "Official TypeScript SDK for Ydsz Plane — 开源项目管理平台",
+  "keywords": ["ydsz", "plane", "project-management", "api", "sdk"],
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": ["dist", "README.md"],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/njydsz/ydsz-plane.git",
+    "directory": "sdk/node"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0"
+  }
+}

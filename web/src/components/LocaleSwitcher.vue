@@ -42,24 +42,24 @@ function switchTo(locale: SupportedLocale) {
   align-items: center;
   gap: 4px;
   padding: 4px 8px;
-  border: 1px solid var(--color-border, #e5e7eb);
+  border: 1px solid var(--color-border);
   border-radius: 6px;
   background: transparent;
-  color: var(--color-text-secondary, #6b7280);
+  color: var(--color-text-secondary);
   cursor: pointer;
   font-size: 13px;
   transition: all 0.2s;
 }
 
 .locale-btn:hover {
-  background: var(--color-bg-hover, #f3f4f6);
-  color: var(--color-text, #111827);
+  background: var(--color-bg-hover);
+  color: var(--color-text);
 }
 
 .locale-btn.active {
-  border-color: var(--color-primary, #3b82f6);
-  background: var(--color-primary-light, #eff6ff);
-  color: var(--color-primary, #3b82f6);
+  border-color: var(--color-primary);
+  background: var(--color-primary-light);
+  color: var(--color-primary);
 }
 
 .locale-flag {

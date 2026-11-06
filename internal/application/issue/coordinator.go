@@ -152,6 +152,13 @@ type Service struct {
 	Requirement *RequirementService
 	Defect      *DefectService
 	stateSvc    *StateService
+	// agentTrigger 可选的 Agent 触发钩子（工作项事件触发）
+	agentTrigger AgentTriggerSink
+}
+
+// SetAgentTrigger 注入 Agent 触发钩子。
+func (s *Service) SetAgentTrigger(sink AgentTriggerSink) {
+	s.agentTrigger = sink
 }
 
 // NewService 构造协调器。
@@ -187,6 +194,7 @@ func (s *Service) Create(ctx context.Context, in CreateIssueInput) (*Issue, erro
 			return nil, err
 		}
 		success = true
+		s.triggerCreated(ctx, in.WorkspaceID, in.ProjectID, created.ID, string(in.TypeCode), created.Name, "", in.CreatedBy)
 		return taskToIssue(created), nil
 	case TypeRequirement:
 		created, err := s.Requirement.Create(ctx, CreateRequirementInput{
@@ -200,6 +208,7 @@ func (s *Service) Create(ctx context.Context, in CreateIssueInput) (*Issue, erro
 			return nil, err
 		}
 		success = true
+		s.triggerCreated(ctx, in.WorkspaceID, in.ProjectID, created.ID, string(in.TypeCode), created.Name, "", in.CreatedBy)
 		return requirementToIssue(created), nil
 	case TypeDefect:
 		if in.Severity == nil || in.FoundPhase == nil {
@@ -218,6 +227,7 @@ func (s *Service) Create(ctx context.Context, in CreateIssueInput) (*Issue, erro
 			return nil, err
 		}
 		success = true
+		s.triggerCreated(ctx, in.WorkspaceID, in.ProjectID, created.ID, string(in.TypeCode), created.Name, "", in.CreatedBy)
 		return defectToIssue(created), nil
 	}
 	return nil, errs.ErrValidation.WithDetails(errs.FieldDetail{Field: "type_code", Reason: "无效的工作项类型"})
@@ -355,6 +365,31 @@ func (s *Service) Restore(ctx context.Context, wsID, issueID int64) error {
 }
 
 // Transition 执行状态流转。
+// stateNameOf 读取状态名称（用于触发上下文）。
+func stateNameOf(ctx context.Context, db *pgxpool.Pool, stateID int64) string {
+	var name string
+	if err := db.QueryRow(ctx, `SELECT name FROM states WHERE id = $1`, stateID).Scan(&name); err != nil {
+		return ""
+	}
+	return name
+}
+
+// triggerCreated 触发 Agent（工作项创建事件）。
+func (s *Service) triggerCreated(ctx context.Context, workspaceID, projectID, issueID int64, issueType, title, description string, actorID int64) {
+	if s.agentTrigger == nil || !s.agentTrigger.IsEnabled() {
+		return
+	}
+	s.agentTrigger.OnWorkItemCreated(ctx, workspaceID, projectID, issueID, issueType, title, description, actorID)
+}
+
+// triggerStateChanged 触发 Agent（状态变更事件）。
+func (s *Service) triggerStateChanged(ctx context.Context, workspaceID, projectID, issueID int64, issueType, stateName string, actorID int64) {
+	if s.agentTrigger == nil || !s.agentTrigger.IsEnabled() {
+		return
+	}
+	s.agentTrigger.OnStateChanged(ctx, workspaceID, projectID, issueID, issueType, stateName, actorID)
+}
+
 func (s *Service) Transition(ctx context.Context, wsID, projectID, issueID, toStateID, userID int64) (*Issue, error) {
 	start := time.Now()
 	var success bool
@@ -371,6 +406,7 @@ func (s *Service) Transition(ctx context.Context, wsID, projectID, issueID, toSt
 			return nil, err
 		}
 		success = true
+		s.triggerStateChanged(ctx, wsID, projectID, issueID, string(TypeTask), stateNameOf(ctx, s.db, toStateID), userID)
 		return taskToIssue(t), nil
 	case TypeRequirement:
 		r, err := s.Requirement.Transition(ctx, wsID, projectID, issueID, toStateID, userID)
@@ -378,6 +414,7 @@ func (s *Service) Transition(ctx context.Context, wsID, projectID, issueID, toSt
 			return nil, err
 		}
 		success = true
+		s.triggerStateChanged(ctx, wsID, projectID, issueID, string(TypeRequirement), stateNameOf(ctx, s.db, toStateID), userID)
 		return requirementToIssue(r), nil
 	case TypeDefect:
 		d, err := s.Defect.Transition(ctx, wsID, projectID, issueID, toStateID, userID)
@@ -385,6 +422,7 @@ func (s *Service) Transition(ctx context.Context, wsID, projectID, issueID, toSt
 			return nil, err
 		}
 		success = true
+		s.triggerStateChanged(ctx, wsID, projectID, issueID, string(TypeDefect), stateNameOf(ctx, s.db, toStateID), userID)
 		return defectToIssue(d), nil
 	}
 	return nil, errs.ErrNotFound
@@ -870,9 +908,9 @@ func coordinatorWithTx(ctx context.Context, db *pgxpool.Pool, wsID int64, fn fun
 // IssueTypeCode 对应表名常量 — 白名单，防止 SQL 注入。
 // 所有动态表名必须从此常量映射中取用，禁止硬编码或外部输入。
 const (
-	TableTask         = "task"
-	TableRequirement  = "requirement"
-	TableDefect       = "defect"
+	TableTask        = "task"
+	TableRequirement = "requirement"
+	TableDefect      = "defect"
 )
 
 // tableRegistry 是白名单映射：IssueTypeCode → 表名。

@@ -24,8 +24,11 @@ import {
   type AddTransitionRequest,
 } from "@/api/services/stateMachine";
 import { useWorkspaceStore } from "@/stores/workspace";
-import { AppLoadingState, AppErrorState, AppEmptyState } from "@/components";
+import { AppEmptyState, AppErrorState, AppLoadingState, AppPageContainer } from "@/components";
 import { toast } from "@/lib/toast";
+import { useConfirm } from "@/composables/useConfirm";
+
+const confirm = useConfirm();
 
 /* ------------------------------------------------------------------ */
 /* Workspace context                                                   */
@@ -64,7 +67,7 @@ const stateFormSaving = ref(false);
 const stateForm = ref<CreateStateRequest & { name: string }>({
   name: '',
   group: 'backlog',
-  color: '#8DA2C2',
+  color: 'var(--brand-200)',
   sequence: 65535,
   is_default: false,
   applicable_types: ['all'],
@@ -74,7 +77,7 @@ function resetStateForm() {
   stateForm.value = {
     name: '',
     group: 'backlog',
-    color: '#8DA2C2',
+    color: 'var(--brand-200)',
     sequence: 65535,
     is_default: false,
     applicable_types: ['all'],
@@ -124,7 +127,7 @@ async function saveState() {
 
 async function deleteState(st: State) {
   if (!wsId.value) return;
-  if (!confirm(`确认删除状态「${st.name}」？此操作不可恢复。`)) return;
+  if (!await confirm({ title: "删除状态", message: `确认删除状态「${st.name}」？此操作不可恢复。`, confirmText: "删除", variant: "danger" })) return;
   try {
     await stateMachineApi.deleteState(wsId.value, projectId.value, st.id);
     toast.success('状态已删除');
@@ -190,7 +193,7 @@ async function saveTransition() {
 
 async function removeTransition(rule: TransitionRule) {
   if (!wsId.value) return;
-  if (!confirm(`确认删除流转规则「${rule.from_state_name || rule.from_state_id} → ${rule.to_state_name || rule.to_state_id}」？`)) return;
+  if (!await confirm({ title: "删除流转规则", message: `确认删除流转规则「${rule.from_state_name || rule.from_state_id} → ${rule.to_state_name || rule.to_state_id}」？`, confirmText: "删除", variant: "danger" })) return;
   try {
     await stateMachineApi.removeTransition(wsId.value, projectId.value, rule.id);
     toast.success('流转规则已删除');
@@ -286,7 +289,9 @@ const requiredFieldOptions = [
 </script>
 
 <template>
-  <div class="sm-config">
+  
+  <AppPageContainer max="1200px">
+    <div class="sm-config">
     <!-- 页头 -->
     <header class="sm-config__header">
       <div>
@@ -512,13 +517,109 @@ const requiredFieldOptions = [
         </div>
       </div>
     </Teleport>
+  
+    </div>
+  </AppPageContainer>
+    <!-- 状态表单弹窗 -->
+    <Teleport to="body">
+      <div v-if="showStateForm" class="sm-modal" @click.self="showStateForm = false">
+        <div class="sm-modal__panel">
+          <h2 class="sm-modal__title">{{ editingState ? '编辑状态' : '新建状态' }}</h2>
+          <form class="sm-form" @submit.prevent="saveState">
+            <label class="sm-form__field">
+              <span class="sm-form__label">状态名称 *</span>
+              <input v-model="stateForm.name" class="sm-input" placeholder="如：In Review" required />
+            </label>
+            <label class="sm-form__field">
+              <span class="sm-form__label">状态分组</span>
+              <select v-model="stateForm.group" class="sm-select">
+                <option v-for="opt in groupOptions" :key="opt.value" :value="opt.value">
+                  {{ opt.label }}
+                </option>
+              </select>
+            </label>
+            <label class="sm-form__field">
+              <span class="sm-form__label">颜色</span>
+              <input v-model="stateForm.color" type="color" class="sm-input sm-input--color" />
+            </label>
+            <label class="sm-form__field">
+              <span class="sm-form__label">排序值</span>
+              <input v-model.number="stateForm.sequence" type="number" class="sm-input" step="1000" />
+            </label>
+            <label class="sm-form__field">
+              <span class="sm-form__label">适用需求/任务/缺陷类型</span>
+              <select v-model="stateForm.applicable_types" class="sm-select" multiple>
+                <option v-for="opt in typeCodeOptions" :key="opt.value" :value="opt.value">
+                  {{ opt.label }}
+                </option>
+              </select>
+            </label>
+            <label class="sm-form__field sm-form__field--checkbox">
+              <input v-model="stateForm.is_default" type="checkbox" />
+              <span>设为默认状态</span>
+            </label>
+            <div class="sm-modal__actions">
+              <button type="button" class="sm-btn sm-btn--ghost" @click="showStateForm = false">取消</button>
+              <button type="submit" class="sm-btn sm-btn--primary" :disabled="stateFormSaving">
+                {{ stateFormSaving ? '保存中...' : '保存' }}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- 流转规则表单弹窗 -->
+    <Teleport to="body">
+      <div v-if="showTransitionForm" class="sm-modal" @click.self="showTransitionForm = false">
+        <div class="sm-modal__panel">
+          <h2 class="sm-modal__title">添加流转规则</h2>
+          <form class="sm-form" @submit.prevent="saveTransition">
+            <label class="sm-form__field">
+              <span class="sm-form__label">起始状态 *</span>
+              <select v-model.number="transitionForm.from_state_id" class="sm-select">
+                <option v-for="st in states" :key="st.id" :value="st.id">{{ st.name }}</option>
+              </select>
+            </label>
+            <label class="sm-form__field">
+              <span class="sm-form__label">目标状态 *</span>
+              <select v-model.number="transitionForm.to_state_id" class="sm-select">
+                <option v-for="st in states" :key="st.id" :value="st.id">{{ st.name }}</option>
+              </select>
+            </label>
+            <label class="sm-form__field">
+              <span class="sm-form__label">适用需求/任务/缺陷类型</span>
+              <select v-model="transitionForm.type_code" class="sm-select">
+                <option v-for="opt in typeCodeOptions" :key="opt.value" :value="opt.value">
+                  {{ opt.label }}
+                </option>
+              </select>
+            </label>
+            <label class="sm-form__field">
+              <span class="sm-form__label">必填字段（可选）</span>
+              <select v-model="transitionForm.required_fields" class="sm-select" multiple>
+                <option v-for="opt in requiredFieldOptions" :key="opt.value" :value="opt.value">
+                  {{ opt.label }}
+                </option>
+              </select>
+            </label>
+            <div class="sm-modal__actions">
+              <button type="button" class="sm-btn sm-btn--ghost" @click="showTransitionForm = false">取消</button>
+              <button type="submit" class="sm-btn sm-btn--primary" :disabled="transitionFormSaving">
+                {{ transitionFormSaving ? '添加中...' : '添加' }}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </Teleport>
   </div>
-</template>
+
 
 <style scoped>
 .sm-config {
-  max-width: 1200px;
-  margin: 0 auto;
+  
+  
   padding: 24px;
 }
 

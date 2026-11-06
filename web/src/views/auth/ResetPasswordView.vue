@@ -211,7 +211,7 @@ async function onSubmit() {
 }
 
 .field input.error:focus {
-  box-shadow: 0 0 0 3px rgba(220, 47, 47, 0.12);
+  box-shadow: 0 0 0 3px var(--danger-50);
 }
 
 .field__error {
@@ -265,7 +265,7 @@ async function onSubmit() {
   width: 48px;
   height: 48px;
   border-radius: 50%;
-  background: rgba(15, 194, 123, 0.12);
+  background: var(--success-50);
   color: var(--success-500);
   font-size: 24px;
   margin-bottom: 12px;

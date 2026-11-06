@@ -21,7 +21,9 @@ import {
 import { workspaceApi, type Member } from "@/api/services/workspace";
 import { AppEmptyState, AppErrorState, AppSkeleton } from "@/components";
 import { toast } from "@/lib/toast";
+import { useConfirm } from "@/composables/useConfirm";
 
+const confirm = useConfirm();
 const route = useRoute();
 const workspaceId = computed(() => Number(route.params.workspaceId ?? 0));
 
@@ -118,7 +120,7 @@ async function changeRole(m: Member, role: string) {
 }
 
 async function removeMember(m: Member) {
-  if (!confirm(`确定移除成员 ${m.display_name || m.email}？`)) return;
+  if (!await confirm({ title: "移除成员", message: `确定移除成员 ${m.display_name || m.email}？`, confirmText: "移除", variant: "danger" })) return;
   try {
     await workspaceApi.removeMember(workspaceId.value, m.id);
     await load();
@@ -233,7 +235,7 @@ onMounted(load);
                 </select>
               </td>
               <td class="px-4 py-2.5">
-                <button class="text-xs text-[var(--danger, #ef4444)]" @click="removeMember(m)">移除</button>
+                <button class="text-xs text-[var(--danger)]" @click="removeMember(m)">移除</button>
               </td>
             </tr>
           </tbody>
@@ -277,8 +279,7 @@ onMounted(load);
             >
               {{ saving ? "保存中…" : "保存" }}
             </button>
-          </template>
-        </div>
+                  </div>
       </div>
 
       <div class="space-y-4">
@@ -339,4 +340,4 @@ onMounted(load);
       </div>
     </section>
   </div>
-</template>
+

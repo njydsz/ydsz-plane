@@ -45,6 +45,8 @@ const props = withDefaults(
     workspaceId?: number | string
     /** 项目 ID（AI 功能所需上下文） */
     projectId?: number | string
+    /** 远程协作者光标（0-1 相对位置） */
+    remoteCursors?: Array<{ userId: number; name: string; color: string; anchorRatio: number; headRatio: number }>
   }>(),
   {
     contentHtml: "",
@@ -57,6 +59,7 @@ const props = withDefaults(
     compact: false,
     workspaceId: undefined,
     projectId: undefined,
+    remoteCursors: () => [],
   },
 )
 
@@ -64,6 +67,7 @@ const emit = defineEmits<{
   "update:contentHtml": [value: string]
   "update:contentJson": [value: string]
   "paste-image": [file: File]
+  cursor: [anchorRatio: number, headRatio: number]
 }>()
 
 /* ---- 配置 mention 扩展的 suggestion ---- */
@@ -127,6 +131,13 @@ const editor = useEditor({
     const json = ed.getJSON()
     emit("update:contentHtml", html)
     emit("update:contentJson", JSON.stringify(json))
+  },
+  onSelectionUpdate({ editor: ed }) {
+    // 将光标位置归一化为 0-1（相对文档高度），便于跨分辨率对齐
+    const { state } = ed
+    const { from, to } = state.selection
+    const docSize = state.doc.content.size || 1
+    emit("cursor", from / docSize, to / docSize)
   },
 })
 
@@ -1027,13 +1038,27 @@ defineExpose({ editor })
       </div>
     </div>
 
-    <!-- 编辑区域 -->
-    <EditorContent
-      :editor="editor"
-      class="rich-editor__content"
-      :style="{ minHeight: variant === 'compact' ? '40px' : variant === 'comment' ? '80px' : minHeight }"
-      @input="handleEditorInput"
-    />
+    <!-- 编辑区域（含远程协作者光标） -->
+    <div class="rich-editor__content-wrap">
+      <EditorContent
+        :editor="editor"
+        class="rich-editor__content"
+        :style="{ minHeight: variant === 'compact' ? '40px' : variant === 'comment' ? '80px' : minHeight }"
+        @input="handleEditorInput"
+        @selectionupdate="emit('cursor', $event.detail?.state ? $event.detail.state.selection.from / ($event.detail.state.doc.content.size || 1) : 0, 0)"
+      />
+      <!-- 远程协作者光标 -->
+      <div
+        v-for="c in remoteCursors"
+        :key="c.userId"
+        class="rich-editor__remote-cursor"
+        :style="{ top: (c.headRatio * 100) + '%', borderLeftColor: c.color }"
+      >
+        <span class="rich-editor__remote-cursor-label" :style="{ background: c.color }">
+          {{ c.name }}
+        </span>
+      </div>
+    </div>
     <!-- AI 改写风格选择 -->
     <div v-if="rewriteStylePickerOpen" class="rich-editor__ai-modal">
       <div class="rich-editor__ai-modal-backdrop" @click="rewriteStylePickerOpen = false" />
@@ -1108,16 +1133,16 @@ defineExpose({ editor })
 
 <style scoped>
 .rich-editor {
-  border: 1px solid var(--border-default, #d1d5db);
+  border: 1px solid var(--border-default);
   border-radius: var(--radius-md, 8px);
-  background: var(--bg-surface-1, var(--surface-1, #fff));
+  background: var(--bg-surface-1, var(--surface-1));
   overflow: hidden;
   position: relative;
   transition: border-color 0.15s;
 }
 
 .rich-editor:focus-within {
-  border-color: var(--border-accent-strong, var(--brand-500, #3b82f6));
+  border-color: var(--border-accent-strong, var(--brand-500));
   box-shadow: 0 0 0 3px var(--bg-accent-subtle, var(--brand-50, rgba(59, 130, 246, 0.1)));
 }
 
@@ -1134,7 +1159,33 @@ defineExpose({ editor })
   border-radius: 8px;
 }
 
-.rich-editor--comment .rich-editor__content {
+.rich-editor--comment .rich-editor__content-wrap {
+  position: relative;
+}
+
+.rich-editor__remote-cursor {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  border-left: 2px solid var(--accent);
+  pointer-events: none;
+  z-index: 5;
+  transition: top 0.12s ease-out;
+}
+
+.rich-editor__remote-cursor-label {
+  position: absolute;
+  top: -18px;
+  left: 0;
+  padding: 1px 6px;
+  font-size: 10px;
+  color: var(--text-on-color);
+  border-radius: 3px;
+  white-space: nowrap;
+}
+
+.rich-editor__content {
   padding: 10px 12px;
 }
 
@@ -1145,7 +1196,33 @@ defineExpose({ editor })
   box-shadow: none;
 }
 
-.rich-editor--compact .rich-editor__content {
+.rich-editor--compact .rich-editor__content-wrap {
+  position: relative;
+}
+
+.rich-editor__remote-cursor {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  border-left: 2px solid var(--accent);
+  pointer-events: none;
+  z-index: 5;
+  transition: top 0.12s ease-out;
+}
+
+.rich-editor__remote-cursor-label {
+  position: absolute;
+  top: -18px;
+  left: 0;
+  padding: 1px 6px;
+  font-size: 10px;
+  color: var(--text-on-color);
+  border-radius: 3px;
+  white-space: nowrap;
+}
+
+.rich-editor__content {
   padding: 6px 0;
 }
 
@@ -1160,8 +1237,8 @@ defineExpose({ editor })
   align-items: center;
   gap: 2px;
   padding: 6px 8px;
-  background: var(--bg-surface-2, var(--surface-2, #f9fafb));
-  border-bottom: 1px solid var(--border-subtle, #e5e7eb);
+  background: var(--bg-surface-2, var(--surface-2));
+  border-bottom: 1px solid var(--border-subtle);
   flex-wrap: wrap;
 }
 
@@ -1180,7 +1257,7 @@ defineExpose({ editor })
   padding: 0 5px;
   font-size: 12px;
   font-weight: 600;
-  color: var(--txt-secondary, var(--text-secondary, #4b5563));
+  color: var(--txt-secondary, var(--text-secondary));
   background: none;
   border: 1px solid transparent;
   border-radius: var(--radius-sm, 4px);
@@ -1190,18 +1267,18 @@ defineExpose({ editor })
 }
 
 .rich-editor__btn:hover {
-  background: var(--bg-layer-3-hover, var(--surface-3, #f3f4f6));
-  border-color: var(--border-default, #d1d5db);
+  background: var(--bg-layer-3-hover, var(--surface-3));
+  border-color: var(--border-default);
 }
 
 .rich-editor__btn--active {
   background: var(--bg-accent-subtle, var(--brand-50, rgba(59, 130, 246, 0.08)));
-  color: var(--txt-accent-primary, var(--brand-500, #3b82f6));
-  border-color: var(--border-accent-subtle, var(--brand-200, #bfdbfe));
+  color: var(--txt-accent-primary, var(--brand-500));
+  border-color: var(--border-accent-subtle, var(--brand-200));
 }
 
 .rich-editor__btn--danger {
-  color: var(--danger-500, #ef4444);
+  color: var(--danger-500);
 }
 
 .rich-editor__btn--danger:hover {
@@ -1212,7 +1289,7 @@ defineExpose({ editor })
 .rich-editor__divider {
   width: 1px;
   height: 18px;
-  background: var(--border-subtle, #e5e7eb);
+  background: var(--border-subtle);
   margin: 0 4px;
 }
 
@@ -1258,7 +1335,7 @@ defineExpose({ editor })
 
 .rich-editor__slash-item:hover,
 .rich-editor__slash-item--selected {
-  background: var(--bg-accent-subtle, var(--brand-50, #eef2fe));
+  background: var(--bg-accent-subtle, var(--brand-50));
 }
 
 .rich-editor__slash-icon {
@@ -1311,6 +1388,32 @@ defineExpose({ editor })
 }
 
 /* ---- Content ---- */
+.rich-editor__content-wrap {
+  position: relative;
+}
+
+.rich-editor__remote-cursor {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  border-left: 2px solid var(--accent);
+  pointer-events: none;
+  z-index: 5;
+  transition: top 0.12s ease-out;
+}
+
+.rich-editor__remote-cursor-label {
+  position: absolute;
+  top: -18px;
+  left: 0;
+  padding: 1px 6px;
+  font-size: 10px;
+  color: var(--text-on-color);
+  border-radius: 3px;
+  white-space: nowrap;
+}
+
 .rich-editor__content {
   padding: 12px;
 }
@@ -1319,10 +1422,36 @@ defineExpose({ editor })
   outline: none;
   font-size: 14px;
   line-height: 1.6;
-  color: var(--txt-primary, var(--text-primary, #1f2937));
+  color: var(--txt-primary, var(--text-primary));
 }
 
-.rich-editor--readonly .rich-editor__content {
+.rich-editor--readonly .rich-editor__content-wrap {
+  position: relative;
+}
+
+.rich-editor__remote-cursor {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  border-left: 2px solid var(--accent);
+  pointer-events: none;
+  z-index: 5;
+  transition: top 0.12s ease-out;
+}
+
+.rich-editor__remote-cursor-label {
+  position: absolute;
+  top: -18px;
+  left: 0;
+  padding: 1px 6px;
+  font-size: 10px;
+  color: var(--text-on-color);
+  border-radius: 3px;
+  white-space: nowrap;
+}
+
+.rich-editor__content {
   padding: 0;
 }
 
@@ -1362,14 +1491,14 @@ defineExpose({ editor })
 }
 
 .rich-editor__content :deep(.ProseMirror blockquote) {
-  border-left: 3px solid var(--border-accent-subtle, var(--brand-200, #bfdbfe));
+  border-left: 3px solid var(--border-accent-subtle, var(--brand-200));
   padding-left: 12px;
   margin: 8px 0;
   color: var(--txt-secondary);
 }
 
 .rich-editor__content :deep(.ProseMirror code) {
-  background: var(--bg-layer-3, var(--surface-3, #f3f4f6));
+  background: var(--bg-layer-3, var(--surface-3));
   padding: 2px 6px;
   border-radius: 4px;
   font-size: 13px;
@@ -1377,7 +1506,7 @@ defineExpose({ editor })
 }
 
 .rich-editor__content :deep(.ProseMirror pre) {
-  background: var(--bg-layer-2, #f8fafc);
+  background: var(--bg-layer-2);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm, 6px);
   padding: 12px;
@@ -1393,7 +1522,7 @@ defineExpose({ editor })
 }
 
 .rich-editor__content :deep(.ProseMirror a) {
-  color: var(--txt-accent-primary, var(--brand-500, #3b82f6));
+  color: var(--txt-accent-primary, var(--brand-500));
   text-decoration: underline;
 }
 
@@ -1422,7 +1551,7 @@ defineExpose({ editor })
 .rich-editor__content :deep(.ProseMirror p.is-editor-empty:first-child::before) {
   content: attr(data-placeholder);
   float: left;
-  color: var(--txt-placeholder, var(--text-tertiary, #9ca3af));
+  color: var(--txt-placeholder, var(--text-tertiary));
   pointer-events: none;
   height: 0;
 }
@@ -1430,7 +1559,7 @@ defineExpose({ editor })
 /* Mention */
 .rich-editor__content :deep(.ProseMirror .mention) {
   background: var(--bg-accent-subtle, var(--brand-50));
-  color: var(--txt-accent-secondary, var(--brand-600, #2563eb));
+  color: var(--txt-accent-secondary, var(--brand-600));
   padding: 1px 4px;
   border-radius: 3px;
   font-weight: 500;
@@ -1456,23 +1585,23 @@ defineExpose({ editor })
 }
 
 .rich-editor__content :deep(.ProseMirror div[data-type="callout"][data-callout-type="info"]) {
-  background: var(--brand-50, #eef2fe);
-  border-color: var(--brand-default, #3b82f6);
+  background: var(--brand-50);
+  border-color: var(--brand-default);
 }
 
 .rich-editor__content :deep(.ProseMirror div[data-type="callout"][data-callout-type="warning"]) {
-  background: var(--warning-50, #fffbeb);
-  border-color: var(--warning-500, #f59e0b);
+  background: var(--warning-50);
+  border-color: var(--warning-500);
 }
 
 .rich-editor__content :deep(.ProseMirror div[data-type="callout"][data-callout-type="error"]) {
-  background: var(--danger-50, #fef2f2);
-  border-color: var(--danger-500, #ef4444);
+  background: var(--danger-50);
+  border-color: var(--danger-500);
 }
 
 .rich-editor__content :deep(.ProseMirror div[data-type="callout"][data-callout-type="success"]) {
-  background: var(--success-50, #ecfdf5);
-  border-color: var(--success-500, #10b981);
+  background: var(--success-50);
+  border-color: var(--success-500);
 }
 
 /* Columns */
@@ -1492,7 +1621,7 @@ defineExpose({ editor })
 }
 
 .rich-editor__content :deep(.ProseMirror div[data-type="columns"] div[data-type="column"]:focus-within) {
-  border-color: var(--border-accent-subtle, var(--brand-200, #bfdbfe));
+  border-color: var(--border-accent-subtle, var(--brand-200));
   box-shadow: 0 0 0 2px var(--bg-accent-subtle, rgba(59, 130, 246, 0.08));
 }
 
@@ -1564,7 +1693,7 @@ defineExpose({ editor })
   background: var(--bg-surface-2);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm, 6px);
-  color: var(--txt-accent-primary, var(--brand-500, #3b82f6));
+  color: var(--txt-accent-primary, var(--brand-500));
   cursor: pointer;
 }
 
@@ -1573,10 +1702,57 @@ defineExpose({ editor })
   border-color: var(--border-accent-subtle);
 }
 
+/* draw.io */
+.rich-editor__content :deep(.ProseMirror div[data-type="drawio"]) {
+  margin: 8px 0;
+  border: 1px dashed var(--border-accent-subtle, var(--brand-200));
+  border-radius: var(--radius-md, 8px);
+  background: var(--bg-surface-2);
+  padding: 20px;
+  text-align: center;
+  color: var(--txt-tertiary);
+  font-size: 13px;
+}
+
+.rich-editor__content :deep(.ProseMirror div[data-type="drawio"] iframe) {
+  width: 100%;
+  height: 420px;
+  border: none;
+  border-radius: var(--radius-sm, 6px);
+}
+
+/* Database */
+.rich-editor__content :deep(.ProseMirror div[data-type="database"]) {
+  margin: 8px 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md, 8px);
+  overflow: hidden;
+  background: var(--bg-surface);
+}
+
+.rich-editor__content :deep(.ProseMirror div[data-type="database"] table) {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.rich-editor__content :deep(.ProseMirror div[data-type="database"] th),
+.rich-editor__content :deep(.ProseMirror div[data-type="database"] td) {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border-subtle);
+  border-right: 1px solid var(--border-subtle);
+  text-align: left;
+}
+
+.rich-editor__content :deep(.ProseMirror div[data-type="database"] th) {
+  background: var(--bg-surface-2);
+  font-weight: 600;
+}
+
 /* Drag Indicator */
 .rich-editor__content :deep(.ProseMirror .drag-indicator) {
   height: 2px;
-  background: var(--brand-500, #3b82f6);
+  background: var(--brand-500);
   margin: 0;
   border-radius: 1px;
 }
@@ -1689,7 +1865,7 @@ defineExpose({ editor })
 }
 
 .rich-editor__emoji-item:hover {
-  background: var(--bg-surface-3, var(--surface-3, #f3f4f6));
+  background: var(--bg-surface-3, var(--surface-3));
 }
 
 /* ---- AI Modals ---- */
@@ -1860,7 +2036,7 @@ defineExpose({ editor })
 }
 .rich-editor__ai-btn--primary {
   background: var(--brand-500);
-  color: #fff;
+  color: var(--text-on-color);
   border-color: var(--brand-500);
 }
 .rich-editor__ai-btn--primary:hover {

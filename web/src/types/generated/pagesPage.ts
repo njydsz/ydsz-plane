@@ -24,4 +24,5 @@ export interface PagesPage {
   updated_at?: string;
   version?: number;
   workspace_id?: number;
+  deleted_at?: string;
 }

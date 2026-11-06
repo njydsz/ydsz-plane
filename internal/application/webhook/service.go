@@ -96,15 +96,18 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*Webhook, erro
 // GetByID 查询单条 Webhook 订阅（不返回 secret；供内部/日志使用）。
 func (s *Service) GetByID(ctx context.Context, workspaceID, webhookID int64) (*Webhook, error) {
 	var w Webhook
+	var failureCount int
 	err := s.db.QueryRow(ctx, `
-		SELECT id, workspace_id, project_id, name, target_url, '' AS secret, events, is_active,
-			last_error, last_triggered, last_status, unhealthy_at, created_by, created_at, updated_at
-		FROM webhooks WHERE id = $1 AND workspace_id = $2`,
+		SELECT w.id, w.workspace_id, w.project_id, w.name, w.target_url, '' AS secret, w.events, w.is_active,
+			w.status, w.last_error, w.last_triggered, w.last_status, w.unhealthy_at,
+			w.created_by, w.created_at, w.updated_at,
+			(SELECT COUNT(*) FROM webhook_logs l WHERE l.webhook_id = w.id AND l.status = 'failed')
+		FROM webhooks w WHERE w.id = $1 AND w.workspace_id = $2`,
 		webhookID, workspaceID,
 	).Scan(
 		&w.ID, &w.WorkspaceID, &w.ProjectID, &w.Name, &w.TargetURL, &w.Secret,
-		&w.Events, &w.IsActive, &w.LastError, &w.LastTriggered, &w.LastStatus,
-		&w.UnhealthyAt, &w.CreatedBy, &w.CreatedAt, &w.UpdatedAt,
+		&w.Events, &w.IsActive, &w.Status, &w.LastError, &w.LastTriggered, &w.LastStatus,
+		&w.UnhealthyAt, &w.CreatedBy, &w.CreatedAt, &w.UpdatedAt, &failureCount,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -112,6 +115,7 @@ func (s *Service) GetByID(ctx context.Context, workspaceID, webhookID int64) (*W
 		}
 		return nil, fmt.Errorf("webhook.GetByID: %w", err)
 	}
+	w.FailureCount = failureCount
 	return &w, nil
 }
 
@@ -199,11 +203,13 @@ func (s *Service) List(ctx context.Context, input ListInput) (*ListResult, error
 		return nil, fmt.Errorf("webhook.List count: %w", err)
 	}
 
-	// 查询
+	// 查询：聚合最近一次失败投递时间，用于计算 failure_count 语义（此处返回累计失败次数）
 	query := fmt.Sprintf(`
-		SELECT id, workspace_id, project_id, name, target_url, '' AS secret, events, is_active,
-			last_error, last_triggered, last_status, unhealthy_at, created_by, created_at, updated_at
-		FROM webhooks %s ORDER BY id DESC LIMIT $%d OFFSET $%d`, where, argIdx, argIdx+1)
+		SELECT w.id, w.workspace_id, w.project_id, w.name, w.target_url, '' AS secret, w.events, w.is_active,
+			w.status, w.last_error, w.last_triggered, w.last_status, w.unhealthy_at,
+			w.created_by, w.created_at, w.updated_at,
+			(SELECT COUNT(*) FROM webhook_logs l WHERE l.webhook_id = w.id AND l.status = 'failed')
+		FROM webhooks %s ORDER BY w.id DESC LIMIT $%d OFFSET $%d`, where, argIdx, argIdx+1)
 	rows, err := s.db.Query(ctx, query, append(args, input.Limit, input.Offset)...)
 	if err != nil {
 		return nil, fmt.Errorf("webhook.List: %w", err)
@@ -213,13 +219,15 @@ func (s *Service) List(ctx context.Context, input ListInput) (*ListResult, error
 	var items []Webhook
 	for rows.Next() {
 		var w Webhook
+		var failureCount int
 		if err := rows.Scan(
 			&w.ID, &w.WorkspaceID, &w.ProjectID, &w.Name, &w.TargetURL, &w.Secret,
-			&w.Events, &w.IsActive, &w.LastError, &w.LastTriggered, &w.LastStatus,
-			&w.UnhealthyAt, &w.CreatedBy, &w.CreatedAt, &w.UpdatedAt,
+			&w.Events, &w.IsActive, &w.Status, &w.LastError, &w.LastTriggered, &w.LastStatus,
+			&w.UnhealthyAt, &w.CreatedBy, &w.CreatedAt, &w.UpdatedAt, &failureCount,
 		); err != nil {
 			return nil, fmt.Errorf("webhook.List scan: %w", err)
 		}
+		w.FailureCount = failureCount
 		items = append(items, w)
 	}
 	return &ListResult{Items: items, Total: total}, nil

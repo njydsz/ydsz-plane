@@ -92,8 +92,8 @@ function severityLabel(severity: RiskAlert["severity"]): string {
 .alert-card {
   padding: 12px;
   border-radius: var(--radius-sm, 6px);
-  border: 1px solid var(--border-subtle, #e5e7eb);
-  background: var(--surface-1, #fff);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-1);
   transition: opacity 0.2s;
 }
 
@@ -102,23 +102,23 @@ function severityLabel(severity: RiskAlert["severity"]): string {
 }
 
 .alert-card--critical {
-  border-left: 3px solid var(--danger-500, #dc2f2f);
+  border-left: 3px solid var(--danger-500);
 }
 
 .alert-card--high {
-  border-left: 3px solid var(--warning-500, #f59e0b);
+  border-left: 3px solid var(--warning-500);
 }
 
 .alert-card--medium {
-  border-left: 3px solid var(--priority-medium, #f7c948);
+  border-left: 3px solid var(--priority-medium);
 }
 
 .alert-card--low {
-  border-left: 3px solid var(--info-500, #17bee9);
+  border-left: 3px solid var(--info-500);
 }
 
 .alert-card--info {
-  border-left: 3px solid var(--text-tertiary, #9ca3af);
+  border-left: 3px solid var(--text-tertiary);
 }
 
 .alert-card__header {
@@ -137,77 +137,77 @@ function severityLabel(severity: RiskAlert["severity"]): string {
 }
 
 .severity-badge--critical {
-  background: var(--danger-50, #fef2f2);
-  color: var(--danger-600, #dc2626);
+  background: var(--danger-50);
+  color: var(--danger-600);
 }
 
 .severity-badge--high {
-  background: var(--warning-50, #fffbeb);
-  color: var(--warning-600, #d97706);
+  background: var(--warning-50);
+  color: var(--warning-600);
 }
 
 .severity-badge--medium {
-  background: #fefce8;
-  color: #ca8a04;
+  background: var(--warning-50);
+  color: var(--warning-500);
 }
 
 .severity-badge--low {
-  background: #ecfeff;
-  color: #0891b2;
+  background: var(--info-50);
+  color: var(--info-500);
 }
 
 .severity-badge--info {
-  background: var(--surface-3, #eef0f2);
-  color: var(--text-tertiary, #9ca3af);
+  background: var(--surface-3);
+  color: var(--text-tertiary);
 }
 
 .alert-card__title {
   font-size: 13px;
   font-weight: 500;
-  color: var(--text-primary, #1f2937);
+  color: var(--text-primary);
   flex: 1;
 }
 
 .alert-card__resolve {
   flex-shrink: 0;
   background: none;
-  border: 1px solid var(--border-default, #dfe2e6);
+  border: 1px solid var(--border-default);
   border-radius: var(--radius-sm, 6px);
   padding: 2px 10px;
   font-size: 11px;
-  color: var(--text-secondary, #4b5563);
+  color: var(--text-secondary);
   cursor: pointer;
   font-family: inherit;
   transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
 
 .alert-card__resolve:hover {
-  background: var(--success-50, #f0fdf4);
-  border-color: var(--success-500, #0fc27b);
-  color: var(--success-600, #15803d);
+  background: var(--success-50);
+  border-color: var(--success-500);
+  color: var(--success-600);
 }
 
 .alert-card__resolved-tag {
   font-size: 11px;
-  color: var(--text-tertiary, #9ca3af);
+  color: var(--text-tertiary);
 }
 
 .alert-card__desc {
   margin: 4px 0;
   font-size: 12px;
-  color: var(--text-secondary, #4b5563);
+  color: var(--text-secondary);
   line-height: 1.5;
 }
 
 .alert-card__time {
   font-size: 11px;
-  color: var(--text-tertiary, #9ca3af);
+  color: var(--text-tertiary);
 }
 
 .risk-alerts__empty {
   padding: 24px 0;
   text-align: center;
-  color: var(--text-tertiary, #9ca3af);
+  color: var(--text-tertiary);
   font-size: 13px;
 }
 </style>

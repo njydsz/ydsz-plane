@@ -34,7 +34,7 @@ import {
   type VelocityResult,
   type WeeklyThroughput,
 } from "@/api/services/metrics";
-import { AppLoadingState, AppErrorState, AppCard, AppBadge } from "@/components";
+import { AppBadge, AppCard, AppErrorState, AppLoadingState, AppPageContainer } from "@/components";
 import { useWorkspaceContext } from "@/composables/useWorkspaceContext";
 
 /* ---- ECharts 按需注册（tree-shaking） ---- */
@@ -188,11 +188,11 @@ const cfdOption = computed<EChartsOption>(() => {
   const points = cfd.value ?? [];
   const dates = points.map((p) => p.date);
   const series = [
-    { name: "已完成", key: "done" as const, color: "#10B981" },
-    { name: "进行中", key: "in_progress" as const, color: "#F59E0B" },
-    { name: "待办", key: "todo" as const, color: "#A2B8D8" },
-    { name: "积压", key: "backlog" as const, color: "#8DA2C2" },
-    { name: "已取消", key: "cancelled" as const, color: "#9CA3AF" },
+    { name: "已完成", key: "done" as const, color: "var(--success-500)" },
+    { name: "进行中", key: "in_progress" as const, color: "var(--warning-500)" },
+    { name: "待办", key: "todo" as const, color: "var(--brand-200)" },
+    { name: "积压", key: "backlog" as const, color: "var(--brand-200)" },
+    { name: "已取消", key: "cancelled" as const, color: "var(--text-tertiary)" },
   ];
   return {
     backgroundColor: "transparent",
@@ -223,10 +223,10 @@ const controlChartOption = computed<EChartsOption>(() => {
   const days = cc.points.map((p) => p.date);
   const ma = cc.moving_avg_7d.map((m) => m.value);
   const lines = [
-    { label: `P50 ${cc.p50.toFixed(1)}d`, value: cc.p50, color: "#3B82F6" },
-    { label: `P85 ${cc.p85.toFixed(1)}d`, value: cc.p85, color: "#8B5CF6" },
-    { label: `P95 ${cc.p95.toFixed(1)}d`, value: cc.p95, color: "#EF4444" },
-    { label: `UCL ${cc.upper_control_limit.toFixed(1)}d`, value: cc.upper_control_limit, color: "#F97316" },
+    { label: `P50 ${cc.p50.toFixed(1)}d`, value: cc.p50, color: "var(--brand-500)" },
+    { label: `P85 ${cc.p85.toFixed(1)}d`, value: cc.p85, color: "var(--brand-500)" },
+    { label: `P95 ${cc.p95.toFixed(1)}d`, value: cc.p95, color: "var(--danger-500)" },
+    { label: `UCL ${cc.upper_control_limit.toFixed(1)}d`, value: cc.upper_control_limit, color: "var(--warning-500)" },
   ];
   return {
     backgroundColor: "transparent",
@@ -244,7 +244,7 @@ const controlChartOption = computed<EChartsOption>(() => {
         name: "需求/任务/缺陷前置时间",
         type: "scatter",
         symbolSize: 7,
-        itemStyle: { color: "#94A3B8", opacity: 0.75 },
+        itemStyle: { color: "var(--text-tertiary)", opacity: 0.75 },
         data: cc.points.map((p, i) => [days[i], p.lead_days]),
       },
       {
@@ -252,7 +252,7 @@ const controlChartOption = computed<EChartsOption>(() => {
         type: "line",
         smooth: true,
         showSymbol: false,
-        lineStyle: { width: 2, color: "#F59E0B" },
+        lineStyle: { width: 2, color: "var(--warning-500)" },
         data: ma,
         z: 3,
       },
@@ -291,7 +291,7 @@ const throughputOption = computed<EChartsOption>(() => {
         name: "完成需求数",
         type: "bar",
         barMaxWidth: 28,
-        itemStyle: { color: "#3B82F6", borderRadius: [4, 4, 0, 0] },
+        itemStyle: { color: "var(--brand-500)", borderRadius: [4, 4, 0, 0] },
         data: rows.map((r) => r.completed),
       },
       {
@@ -300,8 +300,8 @@ const throughputOption = computed<EChartsOption>(() => {
         yAxisIndex: 1,
         smooth: true,
         showSymbol: false,
-        lineStyle: { width: 2, color: "#F59E0B" },
-        itemStyle: { color: "#F59E0B" },
+        lineStyle: { width: 2, color: "var(--warning-500)" },
+        itemStyle: { color: "var(--warning-500)" },
         data: rows.map((r) => r.points),
       },
     ],
@@ -310,10 +310,13 @@ const throughputOption = computed<EChartsOption>(() => {
 </script>
 
 <template>
+  
   <AppLoadingState v-if="loading" text="加载效能指标..." />
   <AppErrorState v-else-if="error" :message="error" @retry="load" />
 
-  <div v-else class="metrics-dashboard">
+  
+  <AppPageContainer max="1100px">
+    <div v-else class="metrics-dashboard">
     <header class="metrics-dashboard__header">
       <h1>效能度量</h1>
       <p class="subtitle">项目 DORA 指标与效能全景（近 90 天窗口）</p>
@@ -445,13 +448,16 @@ const throughputOption = computed<EChartsOption>(() => {
       </AppCard>
     </section>
     </template>
+  
+    </div>
+  </AppPageContainer>
   </div>
-</template>
+
 
 <style scoped>
 .metrics-dashboard {
-  max-width: 1100px;
-  margin: 0 auto;
+  
+  
 }
 
 .metrics-dashboard__header {

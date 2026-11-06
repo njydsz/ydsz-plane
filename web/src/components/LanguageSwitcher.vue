@@ -20,6 +20,7 @@ import {
   setLocale,
   type SupportedLocale,
 } from "@/locales";
+import DynamicIcon from "@/components/DynamicIcon.vue";
 
 const props = withDefaults(
   defineProps<{
@@ -91,17 +92,13 @@ onUnmounted(() => document.removeEventListener("mousedown", onClickOutside));
       <span v-if="props.variant === 'dropdown'" class="lang-flag">{{ currentFlag }}</span>
       <span v-if="props.variant === 'dropdown'" class="lang-label">{{ currentLabel }}</span>
       <span v-if="props.variant === 'icon'" class="lang-icon" title="{{ currentLabel }}">{{ currentFlag }}</span>
-      <svg
+      <DynamicIcon
         v-if="props.variant === 'dropdown'"
         class="lang-chevron"
         :class="{ 'lang-chevron--open': open }"
-        width="12"
-        height="12"
-        viewBox="0 0 12 12"
-        fill="none"
-      >
-        <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
-      </svg>
+        name="ChevronDown"
+        :size="12"
+      />
     </button>
 
     <transition name="lang-fade">
@@ -117,16 +114,12 @@ onUnmounted(() => document.removeEventListener("mousedown", onClickOutside));
         >
           <span class="lang-flag">{{ opt.flag }}</span>
           <span class="lang-option__label">{{ opt.label }}</span>
-          <svg
+          <DynamicIcon
             v-if="opt.code === currentLocale"
             class="lang-option__check"
-            width="14"
-            height="14"
-            viewBox="0 0 14 14"
-            fill="none"
-          >
-            <path d="M3 7L6 10L11 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
-          </svg>
+            name="Check"
+            :size="14"
+          />
         </li>
       </ul>
     </transition>
@@ -149,7 +142,7 @@ onUnmounted(() => document.removeEventListener("mousedown", onClickOutside));
   border: 1px solid transparent;
   border-radius: var(--radius-sm, 6px);
   background: transparent;
-  color: var(--text-secondary, #687076);
+  color: var(--text-secondary);
   cursor: pointer;
   transition: background 0.15s, border-color 0.15s;
   min-height: 44px;
@@ -157,8 +150,8 @@ onUnmounted(() => document.removeEventListener("mousedown", onClickOutside));
 }
 
 .lang-switcher__trigger:hover {
-  background: var(--surface-2, #f4f4f5);
-  border-color: var(--border-default, #e4e4e7);
+  background: var(--surface-2);
+  border-color: var(--border-default);
 }
 
 .lang-switcher__trigger--icon {
@@ -199,9 +192,9 @@ onUnmounted(() => document.removeEventListener("mousedown", onClickOutside));
   padding: 4px;
   margin: 0;
   list-style: none;
-  border: 1px solid var(--border-subtle, #e4e4e7);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md, 8px);
-  background: var(--surface-1, #ffffff);
+  background: var(--surface-1);
   box-shadow: var(--shadow-card, 0 4px 12px rgba(0, 0, 0, 0.08));
 }
 
@@ -214,15 +207,15 @@ onUnmounted(() => document.removeEventListener("mousedown", onClickOutside));
   border-radius: 4px;
   cursor: pointer;
   transition: background 0.12s;
-  color: var(--text-primary, #18181b);
+  color: var(--text-primary);
 }
 
 .lang-option:hover {
-  background: var(--surface-2, #f4f4f5);
+  background: var(--surface-2);
 }
 
 .lang-option--active {
-  color: var(--brand-600, #2563eb);
+  color: var(--brand-600);
   font-weight: 500;
 }
 
@@ -231,7 +224,7 @@ onUnmounted(() => document.removeEventListener("mousedown", onClickOutside));
 }
 
 .lang-option__check {
-  color: var(--brand-500, #3b82f6);
+  color: var(--brand-500);
 }
 
 .lang-fade-enter-active,

@@ -77,22 +77,22 @@ async function toggleWatch() {
   align-items: center;
   gap: 5px;
   padding: 4px 10px;
-  border: 1px solid var(--border-subtle, #e5e7eb);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm, 6px);
-  background: var(--bg-surface-1, #fff);
-  color: var(--txt-secondary, #6b7280);
+  background: var(--bg-surface-1);
+  color: var(--txt-secondary);
   font-size: 12px;
   cursor: pointer;
   transition: all 0.15s;
 }
 .watch-btn:hover:not(:disabled) {
-  border-color: var(--brand-300, #93c5fd);
-  color: var(--brand-600, #2563eb);
+  border-color: var(--brand-300);
+  color: var(--brand-600);
 }
 .watch-btn--active {
-  border-color: var(--brand-400, #60a5fa);
-  background: var(--brand-50, #eff6ff);
-  color: var(--brand-600, #2563eb);
+  border-color: var(--brand-400);
+  background: var(--brand-50);
+  color: var(--brand-600);
 }
 .watch-btn:disabled {
   cursor: not-allowed;
