@@ -2,9 +2,6 @@
  * CommandPalette (⌘K) — 全局命令面板。
  * 提供 Jump / Create / Search 三类命令源，支持模糊过滤、键盘导航、分组展示。
  */
-<script setup lang="ts">
-import DynamicIcon from "@/components/DynamicIcon.vue";
-</script>
 <template>
   <Teleport to="body">
     <Transition name="cp-overlay">

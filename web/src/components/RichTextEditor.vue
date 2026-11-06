@@ -27,6 +27,8 @@ import {
 import { computed, onBeforeUnmount, onMounted, onUnmounted, ref, watch } from "vue"
 import Mention from "@tiptap/extension-mention"
 import { aiApi } from "@/api/services/ai"
+import { useYjsCollab } from "@/composables/useYjsCollab"
+import { useAiStream } from "@/composables/useAiStream"
 import { toast, dismiss } from "@/lib/toast"
 
 const props = withDefaults(
@@ -47,6 +49,10 @@ const props = withDefaults(
     projectId?: number | string
     /** 远程协作者光标（0-1 相对位置） */
     remoteCursors?: Array<{ userId: number; name: string; color: string; anchorRatio: number; headRatio: number }>
+    /** CRDT 协同文档 ID（设置后启用实时共编） */
+    collabDocId?: string
+    /** 当前用户（CRDT awareness） */
+    collabUser?: { id: number; name: string; color: string }
   }>(),
   {
     contentHtml: "",
@@ -60,6 +66,8 @@ const props = withDefaults(
     workspaceId: undefined,
     projectId: undefined,
     remoteCursors: () => [],
+    collabDocId: undefined,
+    collabUser: undefined,
   },
 )
 
@@ -366,6 +374,7 @@ const toolbarGroups = computed(() => {
     ["alignLeft", "alignCenter", "alignRight"],
     ["calloutInfo", "calloutWarning", "calloutError", "calloutSuccess"],
     ["link", "image", "table"],
+    ["aiAssist", "aiRewrite", "aiGrammar"],
     ["columns2", "columns3", "tabs"],
     ["video", "embed", "pageLink", "workItemEmbed"],
   ]
@@ -505,6 +514,9 @@ function replaceSelection(text: string) {
 }
 
 /** AI 续写处理 */
+/** 流式 AI 实例 */
+const aiStream = useAiStream()
+
 async function onAIAssist() {
   if (!editor.value || !workspaceReady.value) {
     toast.warning("AI 功能暂不可用")
@@ -515,21 +527,40 @@ async function onAIAssist() {
   const fullText = getPlainText()
   const lang = detectLanguage(fullText)
 
-  const loadingToast = toast.loading("AI 正在思考...")
+  closeSlashMenu()
+  aiStreamStreaming.value = true
+  let inserted = false
+
   try {
-    const result = await aiApi.assist(wsIdForAI.value!, projIdForAI.value!, {
-      context, full_text: fullText, language: lang,
+    await aiStream.start({
+      task: "assist",
+      context,
+      full_text: fullText,
+      language: lang,
+      max_tokens: 512,
+    }, {
+      onDelta: (text) => {
+        if (!inserted) {
+          // 首个增量到达时插入光标位置，后续追加
+          insertTextAtCursor(text)
+          inserted = true
+        } else {
+          insertTextAtCursor(text)
+        }
+      },
+      onDone: () => {
+        aiStreamStreaming.value = false
+        toast.success("续写完成")
+      },
+      onError: () => {
+        aiStreamStreaming.value = false
+        toast.error("AI 续写失败，请稍后再试")
+      },
     })
-    dismiss(loadingToast)
-    if (result.text) {
-      insertTextAtCursor(result.text)
-      toast.success("续写已插入")
-    }
   } catch {
-    dismiss(loadingToast)
+    aiStreamStreaming.value = false
     toast.error("AI 续写失败，请稍后再试")
   }
-  closeSlashMenu()
 }
 
 /** AI 改写处理 — 弹出风格选择 */
@@ -551,26 +582,34 @@ function onAIRewrite() {
   closeSlashMenu()
 }
 
-/** 执行改写（风格选择后） */
+/** 执行改写（流式） */
 async function executeRewrite(style: string) {
   if (!pendingRewriteText.value) return
   rewriteStylePickerOpen.value = false
 
-  const loadingToast = toast.loading("AI 正在改写...")
+  const source = pendingRewriteText.value
+  rewriteOriginalText.value = source
+  rewriteResultText.value = ""
+  showRewriteResult.value = true
+  aiStreamStreaming.value = true
+
   try {
-    const result = await aiApi.rewrite(wsIdForAI.value!, projIdForAI.value!, {
-      text: pendingRewriteText.value,
+    await aiStream.start({
+      task: "rewrite",
+      full_text: source,
       style: style as "formal" | "concise" | "fluent" | "expand",
-      language: detectLanguage(pendingRewriteText.value),
+      language: detectLanguage(source),
+      max_tokens: 1024,
+    }, {
+      onDelta: (text) => { rewriteResultText.value += text },
+      onDone: () => { aiStreamStreaming.value = false },
+      onError: () => {
+        aiStreamStreaming.value = false
+        toast.error("AI 改写失败")
+      },
     })
-    dismiss(loadingToast)
-    if (result.text) {
-      showRewriteResult.value = true
-      rewriteOriginalText.value = pendingRewriteText.value
-      rewriteResultText.value = result.text
-    }
   } catch {
-    dismiss(loadingToast)
+    aiStreamStreaming.value = false
     toast.error("AI 改写失败")
   }
   pendingRewriteText.value = null
@@ -639,6 +678,8 @@ const projIdForAI = computed(() => props.projectId)
 
 /* ---- AI 浮层状态 ---- */
 const rewriteStylePickerOpen = ref(false)
+/** AI 流式生成中 */
+const aiStreamStreaming = ref(false)
 const pendingRewriteText = ref<string | null>(null)
 const showRewriteResult = ref(false)
 const rewriteOriginalText = ref<string | null>(null)
@@ -646,6 +687,30 @@ const rewriteResultText = ref<string | null>(null)
 const showGrammarResult = ref(false)
 const grammarIssues = ref<Awaited<ReturnType<typeof aiApi.fixGrammar>>["issues"]>([])
 const grammarFixedText = ref<string | null>(null)
+
+/** 触发 AI 续写 */
+function triggerAIAssist() {
+  window.dispatchEvent(new CustomEvent("rich-editor:ai-assist"))
+}
+
+/** 触发 AI 语法校对 */
+function triggerAIGrammar() {
+  window.dispatchEvent(new CustomEvent("rich-editor:ai-fix-grammar"))
+}
+
+/** AI 改写点击：选中内容或提示 */
+function onAIRewriteClick() {
+  const ed = editor.value
+  if (!ed) return
+  const { from, to } = ed.state.selection
+  const selected = ed.state.doc.textBetween(from, to, "\n")
+  if (selected.trim()) {
+    pendingRewriteText.value = selected
+    rewriteStylePickerOpen.value = true
+  } else {
+    window.dispatchEvent(new CustomEvent("rich-editor:ai-rewrite"))
+  }
+}
 
 onMounted(() => {
   // slash-command 插件派发 window 级事件
@@ -678,7 +743,17 @@ function updateAIContext() {
 
 watch(() => [props.workspaceId, props.projectId], updateAIContext)
 
-defineExpose({ editor })
+/** CRDT 实时共编（可选） */
+const crdt = props.collabDocId && props.collabUser
+  ? useYjsCollab({
+      docID: props.collabDocId,
+      getEditor: () => editor.value,
+      user: props.collabUser,
+      enabled: true,
+    })
+  : null
+
+defineExpose({ editor, crdt })
 </script>
 
 <template>
@@ -908,6 +983,32 @@ defineExpose({ editor })
             @click="insertTable"
           >
             ⊞
+          </button>
+
+          <!-- AI 写作 -->
+          <button
+            v-else-if="action === 'aiAssist'"
+            class="rich-editor__btn"
+            title="AI 续写（基于上下文生成）"
+            @click="triggerAIAssist"
+          >
+            ✦
+          </button>
+          <button
+            v-else-if="action === 'aiRewrite'"
+            class="rich-editor__btn"
+            title="AI 改写（选中内容换种表达）"
+            @click="onAIRewriteClick"
+          >
+            ⟳
+          </button>
+          <button
+            v-else-if="action === 'aiGrammar'"
+            class="rich-editor__btn"
+            title="AI 语法校对"
+            @click="triggerAIGrammar"
+          >
+            ✓
           </button>
 
           <!-- 布局: 列/标签页 -->

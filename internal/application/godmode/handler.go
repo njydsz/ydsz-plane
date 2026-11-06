@@ -16,6 +16,8 @@ import (
 // HandlerDeps handler 依赖。
 type HandlerDeps struct {
 	Svc *Service
+	// Telemetry 可选的遥测上报器。
+	Telemetry *TelemetryReporter
 }
 
 // Handler Gin handler 集合。
@@ -36,6 +38,7 @@ func (h *Handler) Register(r *gin.RouterGroup) {
 	g.GET("/status", h.GetStatus)
 	g.GET("/usage", h.GetUsage)
 	g.POST("/test-smtp", h.TestSMTP)
+	g.POST("/telemetry/report", h.ReportTelemetry)
 }
 
 // IsInstanceAdmin 实例管理员判定。
@@ -190,10 +193,31 @@ func (h *Handler) TestSMTP(c *gin.Context) {
 		c.JSON(http.StatusUnprocessableEntity, gin.H{"ok": false, "message": "SMTP 未配置或未启用"})
 		return
 	}
-	// 实际发送由 notification 服务承担；此处返回配置校验结果
+
+	msg := MailMessage{
+		From:    settings.SMTP.FromEmail,
+		To:      []string{body.To},
+		Subject: "[Ydsz Plane] SMTP 配置测试",
+		Body:    "这是一封来自 Ydsz Plane 实例管理面板的测试邮件。\n\n如果你收到此邮件，说明 SMTP 配置正确。",
+		HTML: "<p>这是一封来自 <strong>Ydsz Plane</strong> 实例管理面板的测试邮件。</p>" +
+			"<p>如果你收到此邮件，说明 SMTP 配置正确。</p>",
+	}
+	if err := SendEmail(settings.SMTP, msg); err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"ok":      false,
+			"message": "SMTP 发送失败：" + err.Error(),
+			"config": gin.H{
+				"host":       settings.SMTP.Host,
+				"port":       settings.SMTP.Port,
+				"use_tls":    settings.SMTP.UseTLS,
+				"from_email": settings.SMTP.FromEmail,
+			},
+		})
+		return
+	}
 	c.JSON(http.StatusOK, gin.H{
 		"ok":      true,
-		"message": "SMTP 配置校验通过（实际发送请通过通知服务验证）",
+		"message": "测试邮件已发送，请查收",
 		"config": gin.H{
 			"host":       settings.SMTP.Host,
 			"port":       settings.SMTP.Port,
@@ -201,4 +225,28 @@ func (h *Handler) TestSMTP(c *gin.Context) {
 			"from_email": settings.SMTP.FromEmail,
 		},
 	})
+}
+
+// ReportTelemetry godoc
+//
+//	@Summary		立即上报遥测
+//	@Tags			god-mode
+//	@Produce		json
+//	@Success		200	{object}	map[string]any
+//	@Router			/admin/telemetry/report [post]
+func (h *Handler) ReportTelemetry(c *gin.Context) {
+	settings := h.d.Svc.GetSettings()
+	if !settings.Telemetry.Enabled {
+		c.JSON(http.StatusUnprocessableEntity, gin.H{"ok": false, "message": "遥测未启用"})
+		return
+	}
+	if h.d.Telemetry == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"ok": false, "message": "遥测上报器未配置"})
+		return
+	}
+	if err := h.d.Telemetry.Report(c.Request.Context()); err != nil {
+		c.JSON(http.StatusOK, gin.H{"ok": false, "message": "上报失败：" + err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"ok": true, "message": "遥测已上报"})
 }

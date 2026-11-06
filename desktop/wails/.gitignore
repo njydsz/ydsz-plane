@@ -1,0 +1,19 @@
+# 签名凭证（切勿提交）
+.signing.env
+build/certs/*.pfx
+build/certs/*.pem
+build/certs/*.key
+build/certs/*.p12
+*.pfx
+*.p12
+*.key
+
+# 构建产物
+bin/
+frontend/dist/
+
+# 依赖
+frontend/node_modules/
+
+# 日志
+*.log

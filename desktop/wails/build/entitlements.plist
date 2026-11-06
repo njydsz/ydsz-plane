@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- 允许 WebView 加载网络内容（WKWebView 需要） -->
+    <key>com.apple.security.network.client</key>
+    <true/>
+
+    <!-- 允许访问用户选择的文件（文件拖放/选择） -->
+    <key>com.apple.security.files.user-selected.read-write</key>
+    <true/>
+
+    <!-- 允许访问下载目录（导出功能） -->
+    <key>com.apple.security.files.downloads.read-write</key>
+    <true/>
+
+    <!-- 关闭库验证（Wails/Go 动态链接需要） -->
+    <key>com.apple.security.cs.disable-library-validation</key>
+    <true/>
+
+    <!-- 允许调试（开发模式；发布时应移除） -->
+    <key>com.apple.security.get-task-allow</key>
+    <false/>
+
+    <!-- 硬编码运行时（启用 Hardened Runtime，公证必需） -->
+    <key>com.apple.security.cs.allow-jit</key>
+    <false/>
+</dict>
+</plist>

@@ -354,7 +354,7 @@ onUnmounted(() => {
           {{ issues.length }} 条记录
           <template v-if="selectedIds.size > 0">
             · 已选 {{ selectedIds.size }} 项
-          </template></span></div></div></div></template>
+          </template>
         </span>
       </div>
       <div class="toolbar-right">
@@ -486,6 +486,7 @@ onUnmounted(() => {
                       @keydown.enter="commitEdit"
                       @keydown.escape="cancelEdit"
                     />
+                  </template>
                                     <!-- 显示模式 -->
                   <template v-else>
                     <span
@@ -516,7 +517,7 @@ onUnmounted(() => {
                     <span v-else>
                       {{ getCellValue(issue, col.key) || "—" }}
                     </span>
-                  
+                  </template>
                 </td>
               </tr>
               <!-- 空数据占位行 -->
@@ -555,7 +556,7 @@ onUnmounted(() => {
       </span>
     </div>
   </div>
-
+</template>
 
 <style scoped>
 .spreadsheet-view {

@@ -93,6 +93,8 @@ import {
   FileUp,
   FileSpreadsheet,
   Hash,
+  Store,
+  Download,
 } from "@lucide/vue";
 import { computed } from "vue";
 
@@ -195,6 +197,8 @@ const iconMap: Record<string, (typeof LayoutDashboard)> = {
   FileUp,
   FileSpreadsheet,
   Hash,
+  Store,
+  Download,
 };
 
 const IconComponent = computed(() => iconMap[props.name] ?? Settings);

@@ -2,9 +2,6 @@
  * GlobalSearch — 全局搜索弹层组件（⌘K）。
  * 工作空间内全文搜索，支持键盘导航、分组展示，服务端 ts_headline 高亮。
  */
-<script setup lang="ts">
-import DynamicIcon from "@/components/DynamicIcon.vue";
-</script>
 <template>
   <Teleport to="body">
     <div v-if="open" class="search-overlay" @click.self="close">

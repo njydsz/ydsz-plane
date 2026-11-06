@@ -16,6 +16,7 @@ import { embedExtensions } from "./embed"
 import DragHandle from "./drag-handle"
 import Drawio from "./drawio"
 import Database from "./database"
+import Video from "./video"
 
 /**
  * 完整编辑器扩展集 — 用于 Issue 描述、文档编辑等富文本场景
@@ -35,6 +36,7 @@ export function completeExtensions(placeholder = "输入内容...") {
     ...embedExtensions,
     Drawio,
     Database,
+    Video,
     DragHandle,
     SlashCommand,
   ]

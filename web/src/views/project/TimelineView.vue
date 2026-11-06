@@ -518,13 +518,13 @@ const uniqueAssignees = computed(() => {
         <div ref="chartEl" class="gantt-chart"></div>
       </div>
     </template>
-</div>
-</template>
 
     <div class="footer-hint">
       提示: ↑↓ 导航 · Enter 打开详情 · 滚轮缩放 · 拖拽平移
     </div>
   </div>
+</template>
+
 <style scoped>
 .timeline-view {
   display: flex;

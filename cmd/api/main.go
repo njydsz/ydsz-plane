@@ -83,6 +83,7 @@ import (
 	"github.com/njydsz/ydsz-plane/internal/application/customer"
 	"github.com/njydsz/ydsz-plane/internal/application/dashboard"
 	"github.com/njydsz/ydsz-plane/internal/application/datajob"
+	"github.com/njydsz/ydsz-plane/internal/application/dlp"
 	"github.com/njydsz/ydsz-plane/internal/application/dlq"
 	"github.com/njydsz/ydsz-plane/internal/application/godmode"
 	"github.com/njydsz/ydsz-plane/internal/application/grant"
@@ -92,6 +93,7 @@ import (
 	"github.com/njydsz/ydsz-plane/internal/application/integration"
 	"github.com/njydsz/ydsz-plane/internal/application/issue"
 	"github.com/njydsz/ydsz-plane/internal/application/knowledge"
+	"github.com/njydsz/ydsz-plane/internal/application/marketplace"
 	"github.com/njydsz/ydsz-plane/internal/application/mcpserver"
 	"github.com/njydsz/ydsz-plane/internal/application/metrics"
 	"github.com/njydsz/ydsz-plane/internal/application/milestone"
@@ -116,6 +118,7 @@ import (
 	"github.com/njydsz/ydsz-plane/internal/application/workspaceview"
 	"github.com/njydsz/ydsz-plane/internal/config"
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/cache"
+	"github.com/njydsz/ydsz-plane/internal/infrastructure/crdt"
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/llm"
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/mail"
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/persistence"
@@ -325,6 +328,34 @@ func run() error {
 	issueSvc.SetAgentTrigger(triggerHook)
 
 	// ---------- 导入（Jira/Linear/Asana/CSV） ----------
+	// ---------- 应用商店 ----------
+	marketplaceSvc := marketplace.NewService(pool.Pool)
+	marketplaceHandler := marketplace.NewHandler(&marketplace.HandlerDeps{Svc: marketplaceSvc})
+	if err := marketplaceSvc.SeedIfEmpty(context.Background()); err != nil {
+		slog.Warn("marketplace seed failed", "err", err)
+	}
+
+	// ---------- DLP 敏感数据扫描 ----------
+	dlpSvc := dlp.NewService(pool.Pool)
+	dlpHandler := dlp.NewHandler(&dlp.HandlerDeps{Svc: dlpSvc})
+
+	// ---------- CRDT 协同（含 Redis 跨节点广播） ----------
+	crdtStore := crdt.NewPGStore(pool.Pool)
+	crdtHub := crdt.NewHubWithStore(crdtStore, 0, 0) // 0 = 不限流（由网关层控制）
+	// 多节点部署时启用 Redis 广播：同一文档的更新会同步到其他节点
+	if cfg.Redis.Addr != "" {
+		if redisClient, rerr := cache.NewClient(context.Background(), cfg.Redis.Addr, cfg.Redis.Password, cfg.Redis.DB); rerr == nil {
+			hostname, _ := os.Hostname()
+			nodeID := fmt.Sprintf("%s-%d", hostname, cfg.Server.Port)
+			broadcaster := crdt.NewRedisBroadcaster(redisClient, nodeID)
+			crdtHub.WithRedisBroadcaster(broadcaster)
+			broadcaster.StartDynamic(context.Background())
+			slog.Info("crdt redis broadcaster enabled", "node", nodeID)
+		} else {
+			slog.Warn("crdt redis broadcaster disabled", "err", rerr)
+		}
+	}
+
 	importerSvc := importer.NewService(pool.Pool)
 	importerHandler := importer.NewHandler(&importer.HandlerDeps{Svc: importerSvc})
 
@@ -943,14 +974,17 @@ func run() error {
 
 	// 注册 AI Agent 路由
 	httpapi.RegisterAIAgentRoutes(engine, &httpapi.Deps{
-		Auth:            authSvc,
-		PrincipalParser: parsePrincipal,
-		WorkspaceStore:  wsStore,
-		RBACStore:       rbacStore,
-		AIAgentHandler:  aiAgentHandler,
-		GodModeHandler:  godModeHandler,
-		GrantHandler:    grantHandler,
-		ImporterHandler: importerHandler,
+		Auth:               authSvc,
+		PrincipalParser:    parsePrincipal,
+		WorkspaceStore:     wsStore,
+		RBACStore:          rbacStore,
+		AIAgentHandler:     aiAgentHandler,
+		GodModeHandler:     godModeHandler,
+		GrantHandler:       grantHandler,
+		ImporterHandler:    importerHandler,
+		MarketplaceHandler: marketplaceHandler,
+		CRDTHub:            crdtHub,
+		DLPHandler:         dlpHandler,
 	})
 
 	// 注册 MCP Server 路由（AI 客户端通过标准 MCP 协议接入）

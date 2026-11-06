@@ -310,13 +310,10 @@ const throughputOption = computed<EChartsOption>(() => {
 </script>
 
 <template>
-  
   <AppLoadingState v-if="loading" text="加载效能指标..." />
   <AppErrorState v-else-if="error" :message="error" @retry="load" />
-
-  
-  <AppPageContainer max="1100px">
-    <div v-else class="metrics-dashboard">
+  <AppPageContainer v-else max="1100px">
+    <div class="metrics-dashboard">
     <header class="metrics-dashboard__header">
       <h1>效能度量</h1>
       <p class="subtitle">项目 DORA 指标与效能全景（近 90 天窗口）</p>

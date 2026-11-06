@@ -719,10 +719,11 @@ const isCurrentPageAllSelected = computed(() => {
       <span class="batch-bar__info">
         <template v-if="crossPageSelectedCount > 0">
           <strong>{{ $tc('issue.batch.selected', totalSelectedCount) }}</strong> ({{ $tc('issue.batch.crossPageCount', crossPageSelectedCount) }})
-        </template></span></div></div></template>
+        </template>
         <template v-else>
           <strong>{{ $tc('issue.batch.selected', totalSelectedCount) }}</strong>
-              </span>
+        </template>
+      </span>
       <select
 class="batch-select" @change="(e: Event) => {
         const v = Number((e.target as HTMLSelectElement).value)
@@ -888,7 +889,7 @@ class="batch-select" @change="(e: Event) => {
                   <span class="priority-text" :class="`pri-${iss.priority}`">
                     {{ priorityLabel(iss.priority) }}
                   </span>
-                
+                </template>
               </InlineSelectEdit>
             </td>
             <td v-if="visibleColumns.some(c => c.key === 'state')">
@@ -905,7 +906,7 @@ class="batch-select" @change="(e: Event) => {
                   >
                     {{ stateMap[iss.state_id]?.name ?? iss.state_id }}
                   </span>
-                
+                </template>
               </InlineSelectEdit>
             </td>
             <td v-if="visibleColumns.some(c => c.key === 'severity')" class="td-severity">
@@ -957,7 +958,7 @@ class="batch-select" @change="(e: Event) => {
 {{ p }}
 </button>
           <span v-else-if="p === 4 || p === totalPages - 3" class="page-ellipsis">...</span>
-        
+        </template>
 
         <button
           class="page-btn"
@@ -1038,7 +1039,7 @@ class="batch-select" @change="(e: Event) => {
       @imported="onImported"
     />
   </div>
-
+</template>
 
 <style scoped>
 .list-view__header {

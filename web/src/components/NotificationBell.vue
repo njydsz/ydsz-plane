@@ -2,10 +2,6 @@
  * NotificationBell — 通知铃铛组件。
  * 未读计数 badge + 下拉面板（最多 10 条）+ 30s 轮询 + 主题感知。
  */
-<script setup lang="ts">
-import DynamicIcon from "@/components/DynamicIcon.vue";
-</script>
-
 <template>
   <div class="notification-bell">
     <!-- 铃铛按钮 -->

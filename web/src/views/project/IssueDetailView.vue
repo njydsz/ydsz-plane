@@ -1241,6 +1241,8 @@ onMounted(() => {
   </div>
 
 
+</template>
+
 <style scoped>
 .issue-detail__header {
   display: flex;

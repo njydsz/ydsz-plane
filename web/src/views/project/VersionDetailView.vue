@@ -537,8 +537,8 @@ onMounted(async () => {
   
     </div>
   </AppPageContainer>
-  </div>
 
+</template>
 
 <style scoped>
 .version-detail {

@@ -1,6 +1,7 @@
 /** 应用根组件：挂载路由视图，并全局注入命令面板、快捷键帮助面板与消息提示。 */
 <script setup lang="ts">
 import { onMounted, ref, watch } from "vue";
+import { initDesktop, isDesktop, notify as desktopNotify } from "@/lib/desktop";
 import { useRoute, useRouter } from "vue-router";
 
 import CommandPalette from "@/components/CommandPalette.vue";
@@ -128,9 +129,22 @@ function emitQuickCreate() {
 }
 
 // 全局挂载：供 WorkspaceListView 跨路由也能触发
-onMounted(() => {
+onMounted(async () => {
+  // 初始化桌面壳桥接（Wails v3）；浏览器环境下自动降级
+  await initDesktop();
   checkOnboarding();
 });
+
+// 桌面壳下的原生通知桥接：将应用内通知转发到系统通知
+watch(
+  () => route.fullPath,
+  () => {
+    if (isDesktop.value) {
+      desktopNotify("Ydsz Plane", "页面已切换");
+    }
+  },
+  { immediate: false },
+);
 </script>
 
 <template>

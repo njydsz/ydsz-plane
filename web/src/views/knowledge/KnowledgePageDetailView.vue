@@ -343,6 +343,26 @@ onMounted(() => {
   loadVersions();
   loadRelations();
 });
+
+// 保留既有实现（模板暂未引用）
+defineExpose({
+  EditorContent,
+  PageCommentThread,
+  DynamicIcon,
+  renderMarkdown,
+  canModerateComment,
+  selectForDiff,
+  startDiff,
+  exitDiff,
+  diffResult,
+  viewVersion,
+  revertToVersion,
+  activeTab,
+  searchIssues,
+  addRelation,
+  removeRelation,
+  fmtTime,
+});
 </script>
 
 <template>

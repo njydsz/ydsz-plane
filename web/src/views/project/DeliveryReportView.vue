@@ -277,8 +277,8 @@ onMounted(load);
   
     </div>
   </AppPageContainer>
-  </div>
 
+</template>
 
 <style scoped>
 .delivery-report {

@@ -325,7 +325,7 @@ function openSprint(sp: Sprint) {
 
           <template #footer>
             <div v-if="backlog.length === 0" class="empty">Backlog 为空</div>
-          </template></VueDraggable></section></div></div></template>
+          </template>
         </VueDraggable>
       </section>
 
@@ -415,7 +415,8 @@ function openSprint(sp: Sprint) {
             <div v-if="sprintIssues.length === 0" class="empty">
               拖拽需求/任务/缺陷到此迭代中
             </div>
-                  </VueDraggable>
+          </template>
+        </VueDraggable>
 
         <div v-if="!selectedSprint" class="panel-body">
           <div class="empty">请先选择或创建一个迭代</div>
@@ -429,7 +430,7 @@ function openSprint(sp: Sprint) {
       </section>
     </div>
   </div>
-
+</template>
 
 <style scoped>
 .header {

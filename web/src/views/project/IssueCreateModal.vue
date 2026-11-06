@@ -636,6 +636,8 @@ function cancel() {
       </div>
     </div>
   </Teleport>
+</template>
+
 <style scoped>
 /* ===== Overlay ===== */
 .modal-overlay {

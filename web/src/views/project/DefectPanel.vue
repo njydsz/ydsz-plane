@@ -206,7 +206,7 @@ onMounted(load);
     </template>
 </div>
 </template>
-  </div>
+
 <style scoped>
 .defect-panel {
   font-size: 13px;

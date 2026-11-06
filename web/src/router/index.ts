@@ -95,8 +95,7 @@ const router = createRouter({
       component: () => import("@/views/settings/ProfileView.vue"),
     },
     // God Mode 实例管理（实例级，非工作空间作用域；后端校验实例管理员权限）
-    // TEMP-DISABLED: GodMode 结构待修复
-      // { path: "/admin", name: "admin-god-mode", component: () => import("@/views/admin/GodModeView.vue") },
+    { path: "/admin", name: "admin-god-mode", component: () => import("@/views/admin/GodModeView.vue") },
     {
       path: "/",
       component: () => import("@/layouts/WorkspaceLayout.vue"),
@@ -246,6 +245,13 @@ const router = createRouter({
             id: Number(route.params.id),
           }),
         },
+        // 工作空间级敏感数据扫描
+        {
+          path: ":workspaceId(\d+)/dlp",
+          name: "workspace-dlp",
+          component: () => import("@/views/workspace/DlpScanView.vue"),
+          props: (route) => ({ workspaceId: Number(route.params.workspaceId) }),
+        },
         // 工作空间级团队空间列表
         {
           path: ":workspaceId(\\d+)/teamspaces",
@@ -334,6 +340,13 @@ const router = createRouter({
           path: ":workspaceId(\\d+)/integrations",
           name: "workspace-integrations",
           component: () => import("@/views/workspace/IntegrationsView.vue"),
+          props: (route) => ({ workspaceId: Number(route.params.workspaceId) }),
+        },
+        // 应用商店（Marketplace：应用/导入器/模板/集成目录 + 安装 + 评分）
+        {
+          path: ":workspaceId(\\d+)/marketplace",
+          name: "workspace-marketplace",
+          component: () => import("@/views/workspace/MarketplaceView.vue"),
           props: (route) => ({ workspaceId: Number(route.params.workspaceId) }),
         },
         // AI Agent（Plane AI 风格：Agent 管理 + 会话）

@@ -33,6 +33,7 @@ import {
 } from "@/components";
 import { useCollaboration } from "@/composables/useCollaboration";
 import { useWorkspaceStore } from "@/stores/workspace";
+import { useAuthStore } from "@/stores/auth";
 import { toast } from "@/lib/toast";
 import { useConfirm } from "@/composables/useConfirm";
 
@@ -55,6 +56,15 @@ const collaboration = useCollaboration({
 });
 
 const projectId = computed(() => Number(route.params.projectId));
+
+/** 当前用户（CRDT awareness 用） */
+const auth = useAuthStore();
+const currentUserForCollab = computed(() => ({
+  id: Number(auth.user?.id ?? 0),
+  name: auth.user?.display_name || auth.user?.email || "匿名",
+  color: "",
+}));
+
 const loading = ref(true);
 const error = ref("");
 
@@ -683,6 +693,8 @@ onMounted(load);
             :min-height="'40vh'"
             placeholder="开始撰写文档..."
             :remote-cursors="collaboration.remoteCursors.value"
+            :collab-doc-id="currentPageId ? `project_page:${currentPageId}` : undefined"
+            :collab-user="currentUserForCollab"
             @update:content-html="onEditorUpdate"
             @cursor="collaboration.broadcastCursor"
           />
@@ -852,7 +864,7 @@ onMounted(load);
       <AppButton variant="secondary" @click="closeShareModal">关闭</AppButton>
       </template>
       </AppModal>
-
+</template>
 
 <style scoped>
 .pages__header {

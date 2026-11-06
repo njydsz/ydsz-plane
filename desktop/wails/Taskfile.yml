@@ -1,0 +1,165 @@
+# Wails v3 构建任务
+# 使用：task build / task dev / task build:windows / task build:macos / task build:linux
+
+version: '3'
+
+vars:
+  APP_NAME: ydsz-plane
+  VERSION: 0.1.0
+
+tasks:
+  default:
+    cmds:
+      - task: build
+
+  # ---- 前端 ----
+
+  frontend:install:
+    desc: 安装前端依赖
+    dir: frontend
+    cmds:
+      - pnpm install
+
+  frontend:link:
+    desc: 链接主前端目录（开发用软链）
+    cmds:
+      - cmd: |
+          if [ "{{OS}}" = "windows" ]; then
+            rmdir /s /q frontend 2>nul & mklink /J frontend "..\..\web"
+          else
+            rm -rf frontend && ln -s ../../web frontend
+          fi
+        platforms: [windows, darwin, linux]
+
+  frontend:build:
+    desc: 构建前端
+    dir: frontend
+    cmds:
+      - pnpm build
+
+  # ---- 构建 ----
+
+  build:
+    desc: 构建当前平台
+    deps: [frontend:build]
+    cmds:
+      - wails3 build -clean
+
+  build:windows:
+    desc: 构建 Windows (amd64)
+    deps: [frontend:build]
+    cmds:
+      - wails3 build -platform windows/amd64 -clean
+
+  build:windows:arm64:
+    desc: 构建 Windows (arm64)
+    deps: [frontend:build]
+    cmds:
+      - wails3 build -platform windows/arm64 -clean
+
+  build:macos:
+    desc: 构建 macOS (universal)
+    deps: [frontend:build]
+    cmds:
+      - wails3 build -platform darwin/universal -clean
+
+  build:linux:
+    desc: 构建 Linux (amd64)
+    deps: [frontend:build]
+    cmds:
+      - wails3 build -platform linux/amd64 -clean
+
+  # ---- 开发 ----
+
+  dev:
+    desc: 开发模式（热重载）
+    cmds:
+      - wails3 dev
+
+  dev:frontend:
+    desc: 仅启动前端开发服务器
+    dir: frontend
+    cmds:
+      - pnpm dev
+
+  # ---- 签名与公证 ----
+
+  sign:env:
+    desc: 检查签名环境变量（不输出敏感值）
+    cmds:
+      - cmd: |
+          if [ ! -f ".signing.env" ]; then
+            echo "未找到 .signing.env，从 .signing.env.example 复制"
+            cp .signing.env.example .signing.env
+            echo "请编辑 .signing.env 并填写真实凭证"
+          fi
+          echo "签名环境检查完成"
+        platforms: [darwin, linux]
+      - cmd: |
+          if (-not (Test-Path ".signing.env")) {
+            Copy-Item ".signing.env.example" ".signing.env"
+            Write-Host "请编辑 .signing.env 并填写真实凭证"
+          }
+          Write-Host "签名环境检查完成"
+        platforms: [windows]
+
+  sign:macos:
+    desc: 签名并公证 macOS 应用
+    dir: desktop/wails
+    deps: [build:macos]
+    cmds:
+      - bash scripts/sign-macos.sh "bin/{{.APP_NAME}}.app" --notary
+
+  sign:windows:
+    desc: 签名 Windows 应用
+    dir: desktop/wails
+    deps: [build:windows]
+    cmds:
+      - pwsh -File scripts/sign-windows.ps1 -TargetPath "bin/{{.APP_NAME}}.exe"
+
+  sign:verify:
+    desc: 验证签名
+    dir: desktop/wails
+    cmds:
+      - bash scripts/verify-signing.sh "bin/{{.APP_NAME}}"
+
+  package:windows:signed:
+    desc: 构建并签名 Windows 安装程序
+    deps: [package:windows]
+    cmds:
+      - pwsh -File scripts/sign-windows.ps1 -TargetPath "bin/{{.APP_NAME}}-{{.VERSION}}-windows-amd64.exe"
+      - bash scripts/verify-signing.sh "bin/{{.APP_NAME}}-{{.VERSION}}-windows-amd64.exe"
+
+  package:macos:signed:
+    desc: 构建并签名公证 macOS 应用
+    deps: [package:macos]
+    cmds:
+      - bash scripts/sign-macos.sh "bin/{{.APP_NAME}}-{{.VERSION}}-macos-universal.app" --notary
+      - bash scripts/verify-signing.sh "bin/{{.APP_NAME}}-{{.VERSION}}-macos-universal.app"
+
+  # ---- 打包 ----
+
+  package:windows:
+    desc: 打包 Windows 安装程序（NSIS）
+    deps: [build:windows]
+    cmds:
+      - wails3 build -platform windows/amd64 -clean -o "{{.APP_NAME}}-{{.VERSION}}-windows-amd64.exe"
+
+  package:macos:
+    desc: 打包 macOS 应用
+    deps: [build:macos]
+    cmds:
+      - wails3 build -platform darwin/universal -clean -o "{{.APP_NAME}}-{{.VERSION}}-macos-universal"
+
+  package:linux:
+    desc: 打包 Linux 应用
+    deps: [build:linux]
+    cmds:
+      - wails3 build -platform linux/amd64 -clean -o "{{.APP_NAME}}-{{.VERSION}}-linux-amd64"
+
+  # ---- 清理 ----
+
+  clean:
+    desc: 清理构建产物
+    cmds:
+      - rm -rf bin frontend/dist

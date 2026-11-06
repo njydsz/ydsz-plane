@@ -918,6 +918,8 @@ onMounted(loadAll);
   </div>
 
 
+</template>
+
 <style scoped>
 .gm {
   max-width: 1200px;

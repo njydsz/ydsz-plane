@@ -12,6 +12,7 @@
  * Events:
  *  - update:modelValue: 节点变更
  */
+import { computed } from "vue";
 import type { GrantField, GrantOp } from "@/api/services/grant";
 import DynamicIcon from "@/components/DynamicIcon.vue";
 import { useI18n } from "@/composables/useI18n";
@@ -34,13 +35,18 @@ export interface ConditionNode {
   inner: ConditionNode | null;
 }
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   modelValue: ConditionNode;
-}>();
+  /** 是否为根节点（根节点不显示删除按钮） */
+  root?: boolean;
+}>(), { root: true });
 
 const emit = defineEmits<{
   "update:modelValue": [node: ConditionNode];
 }>();
+
+/** 当前节点 */
+const node = computed<ConditionNode>(() => props.modelValue);
 
 /** 递归替换节点（不可变更新，保证 v-model 语义正确）。 */
 function updateNode(root: ConditionNode, key: string, next: ConditionNode | null): ConditionNode {
@@ -160,48 +166,49 @@ function createLogicalNode(op: "and" | "or" | "not"): ConditionNode {
   return node;
 }
 
-function changeOp(node: ConditionNode, op: GrantOp) {
+function changeOp(op: GrantOp) {
+  const cur = node.value;
   mutate(() => {
     if (op === "not") {
-      return { ...node, op, inner: createComparisonNode(), children: [] };
+      return { ...cur, op, inner: createComparisonNode(), children: [] };
     }
     if (op === "and" || op === "or") {
-      return { ...node, op, children: [createComparisonNode()], inner: null };
+      return { ...cur, op, children: [createComparisonNode()], inner: null };
     }
     return {
-      ...node,
+      ...cur,
       op,
-      field: node.field || "projectId",
+      field: cur.field || "projectId",
       children: [],
       inner: null,
     };
   });
 }
 
-function setField(node: ConditionNode, field: GrantField) {
-  mutate(() => ({ ...node, field }));
+function setField(field: GrantField) {
+  mutate(() => ({ ...node.value, field }));
 }
 
-function setValue(node: ConditionNode, value: string) {
-  mutate(() => ({ ...node, value }));
+function setValue(value: string) {
+  mutate(() => ({ ...node.value, value }));
 }
 
-function setValuesText(node: ConditionNode, valuesText: string) {
-  mutate(() => ({ ...node, valuesText }));
+function setValuesText(valuesText: string) {
+  mutate(() => ({ ...node.value, valuesText }));
 }
 
-function addComparison(node: ConditionNode) {
-  mutate(() => ({ ...node, children: [...node.children, createComparisonNode()] }));
+function addComparison() {
+  mutate(() => ({ ...node.value, children: [...node.value.children, createComparisonNode()] }));
 }
 
-function addGroup(node: ConditionNode, op: "and" | "or") {
+function addGroup(op: "and" | "or") {
   mutate(() => ({
-    ...node,
-    children: [...node.children, createLogicalNode(op)],
+    ...node.value,
+    children: [...node.value.children, createLogicalNode(op)],
   }));
 }
 
-function removeNode(node: ConditionNode) {
+function removeNode() {
   mutate(() => null);
 }
 
@@ -237,54 +244,54 @@ function coerceValue(field: GrantField, raw: string): unknown {
 }
 
 /** 将构造器节点序列化为后端 Expr；不完整时返回 null */
-function nodeToExpr(node: ConditionNode): import("@/api/services/grant").GrantExpr | null {
-  if (isLogical(node.op)) {
-    if (node.op === "not") {
-      if (!node.inner) return null;
-      const inner = nodeToExpr(node.inner);
+function nodeToExpr(n: ConditionNode): import("@/api/services/grant").GrantExpr | null {
+  if (isLogical(n.op)) {
+    if (n.op === "not") {
+      if (!n.inner) return null;
+      const inner = nodeToExpr(n.inner);
       if (!inner) return null;
       return { op: "not", inner };
     }
-    if (node.children.length === 0) return null;
-    const subs = node.children.map(nodeToExpr);
+    if (n.children.length === 0) return null;
+    const subs = n.children.map(nodeToExpr);
     if (subs.some((s) => s === null)) return null;
-    if (node.op === "and") return { op: "and", all: subs as import("@/api/services/grant").GrantExpr[] };
+    if (n.op === "and") return { op: "and", all: subs as import("@/api/services/grant").GrantExpr[] };
     return { op: "or", any: subs as import("@/api/services/grant").GrantExpr[] };
   }
-  if (!node.field) return null;
-  if (usesValues(node.op)) {
-    const values = splitValues(node.valuesText);
+  if (!n.field) return null;
+  if (usesValues(n.op)) {
+    const values = splitValues(n.valuesText);
     if (values.length === 0) return null;
-    return { op: node.op, field: node.field, values };
+    return { op: n.op, field: n.field, values };
   }
-  if (node.value.trim() === "") return null;
-  return { op: node.op, field: node.field, value: coerceValue(node.field, node.value) };
+  if (n.value.trim() === "") return null;
+  return { op: n.op, field: n.field, value: coerceValue(n.field, n.value) };
 }
 
 /** 将后端 Expr 反序列化为构造器节点 */
 function exprToNode(expr: import("@/api/services/grant").GrantExpr | null | undefined): ConditionNode {
   if (!expr || typeof expr.op !== "string") return createComparisonNode();
   if (expr.op === "and" || expr.op === "or") {
-    const node = createLogicalNode(expr.op);
+    const n = createLogicalNode(expr.op);
     const subs = expr.op === "and" ? expr.all : expr.any;
-    node.children = (subs ?? []).map(exprToNode);
-    if (node.children.length === 0) node.children = [createComparisonNode()];
-    return node;
+    n.children = (subs ?? []).map(exprToNode);
+    if (n.children.length === 0) n.children = [createComparisonNode()];
+    return n;
   }
   if (expr.op === "not") {
-    const node = createLogicalNode("not");
-    node.inner = exprToNode(expr.inner ?? null);
-    return node;
+    const n = createLogicalNode("not");
+    n.inner = exprToNode(expr.inner ?? null);
+    return n;
   }
-  const node = createComparisonNode();
-  node.op = expr.op;
-  if (expr.field) node.field = expr.field;
+  const n = createComparisonNode();
+  n.op = expr.op;
+  if (expr.field) n.field = expr.field;
   if (expr.op === "in") {
-    node.valuesText = (expr.values ?? []).map((v) => String(v)).join(", ");
+    n.valuesText = (expr.values ?? []).map((v) => String(v)).join(", ");
   } else if (expr.value !== undefined && expr.value !== null) {
-    node.value = String(expr.value);
+    n.value = String(expr.value);
   }
-  return node;
+  return n;
 }
 
 /** 判断构造器是否可序列化 */
@@ -302,7 +309,7 @@ defineExpose({ nodeToExpr, exprToNode, nodeIsValid, createComparisonNode, create
       <select
         class="grant-cb__select"
         :value="node.op"
-        @change="changeOp(node, ($event.target as HTMLSelectElement).value as GrantOp)"
+        @change="changeOp(($event.target as HTMLSelectElement).value as GrantOp)"
       >
         <option v-for="o in OP_OPTIONS" :key="o.value" :value="o.value">
           {{ o.label }}
@@ -312,7 +319,7 @@ defineExpose({ nodeToExpr, exprToNode, nodeIsValid, createComparisonNode, create
         v-if="!$slots.root"
         type="button"
         class="grant-cb__remove"
-        @click="removeNode(node)"
+        @click="removeNode()"
       >
         {{ t("grantRule.remove") }}
       </button>
@@ -323,7 +330,7 @@ defineExpose({ nodeToExpr, exprToNode, nodeIsValid, createComparisonNode, create
       <select
         class="grant-cb__select"
         :value="node.field"
-        @change="setField(node, ($event.target as HTMLSelectElement).value as GrantField)"
+        @change="setField(($event.target as HTMLSelectElement).value as GrantField)"
       >
         <option v-for="f in FIELD_OPTIONS" :key="f.value" :value="f.value">
           {{ f.label }}
@@ -335,7 +342,7 @@ defineExpose({ nodeToExpr, exprToNode, nodeIsValid, createComparisonNode, create
         type="text"
         :value="node.valuesText"
         :placeholder="t('grantRule.valuesPlaceholder')"
-        @input="setValuesText(node, ($event.target as HTMLInputElement).value)"
+        @input="setValuesText(($event.target as HTMLInputElement).value)"
       />
       <input
         v-else
@@ -343,7 +350,7 @@ defineExpose({ nodeToExpr, exprToNode, nodeIsValid, createComparisonNode, create
         type="text"
         :value="node.value"
         :placeholder="t('grantRule.valuePlaceholder')"
-        @input="setValue(node, ($event.target as HTMLInputElement).value)"
+        @input="setValue(($event.target as HTMLInputElement).value)"
       />
     </div>
 
@@ -365,15 +372,15 @@ defineExpose({ nodeToExpr, exprToNode, nodeIsValid, createComparisonNode, create
         @update:model-value="onChildUpdate(child.key, $event)"
       />
       <div class="grant-cb__actions">
-        <button type="button" class="grant-cb__add" @click="addComparison(node)">
+        <button type="button" class="grant-cb__add" @click="addComparison()">
           <DynamicIcon name="Plus" :size="12" />
           {{ t("grantRule.addCondition") }}
         </button>
-        <button type="button" class="grant-cb__add" @click="addGroup(node, 'and')">
+        <button type="button" class="grant-cb__add" @click="addGroup('and')">
           <DynamicIcon name="Plus" :size="12" />
           {{ t("grantRule.addAndGroup") }}
         </button>
-        <button type="button" class="grant-cb__add" @click="addGroup(node, 'or')">
+        <button type="button" class="grant-cb__add" @click="addGroup('or')">
           <DynamicIcon name="Plus" :size="12" />
           {{ t("grantRule.addOrGroup") }}
         </button>

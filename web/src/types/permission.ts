@@ -115,10 +115,12 @@ export const WORKSPACE_MENU: MenuItem[] = [
   { name: 'workspace-knowledge', path: 'knowledge', titleKey: 'menu.knowledge', icon: 'BookOpen' },
   { name: 'workspace-automation', path: 'automation', titleKey: 'menu.automation', icon: 'Zap', permissions: ['automation:manage'], minLevel: 80 },
   { name: 'workspace-integrations', path: 'integrations', titleKey: 'menu.integrations', icon: 'Blocks', minLevel: 30 },
+  { name: 'workspace-marketplace', path: 'marketplace', titleKey: 'menu.marketplace', icon: 'Store', minLevel: 30 },
   { name: 'workspace-ai-agents', path: 'ai-agents', titleKey: 'menu.aiAgents', icon: 'Sparkles', minLevel: 30 },
   { name: 'workspace-ai-memory', path: 'ai-memory', titleKey: 'menu.aiMemory', icon: 'Brain', minLevel: 30 },
   { name: 'workspace-oauth-apps', path: 'oauth-apps', titleKey: 'menu.oauthApps', icon: 'KeyRound', minLevel: 40 },
   { name: 'workspace-grant-rules', path: 'grant-rules', titleKey: 'menu.grantRules', icon: 'ShieldCheck', minLevel: 40 },
+  { name: 'workspace-dlp', path: 'dlp', titleKey: 'menu.dlp', icon: 'ShieldCheck', minLevel: 40 },
   { name: 'workspace-members', path: 'members', titleKey: 'menu.members', icon: 'Users', permissions: ['member:change_role'], minLevel: 80 },
   { name: 'workspace-settings', path: 'settings', titleKey: 'menu.settings', icon: 'Settings', permissions: ['workspace:update'], minLevel: 80 },
 ]

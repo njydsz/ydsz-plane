@@ -5,6 +5,7 @@
 package workbench
 
 import (
+	"log/slog"
 	"net/http"
 	"strconv"
 
@@ -51,6 +52,16 @@ func (h *WorkbenchHandler) Register(r *gin.RouterGroup) {
 //	@Success		200	{object}	WorkbenchSummary
 //	@Router			/workbench [get]
 func (h *WorkbenchHandler) GetSummary(c *gin.Context) {
+	if h == nil || h.d == nil || h.d.WorkbenchSvc == nil {
+		slog.ErrorContext(c.Request.Context(), "workbench handler not initialized",
+			"path", c.Request.URL.Path,
+			"handler_nil", h == nil,
+			"deps_nil", h != nil && h.d == nil,
+			"svc_nil", h != nil && h.d != nil && h.d.WorkbenchSvc == nil,
+		)
+		middleware.AbortWithError(c, errs.ErrInternal)
+		return
+	}
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	projectID := c.GetInt64(middleware.CtxProjectID)
 	userID := c.GetInt64(middleware.CtxUserID)
@@ -289,6 +300,16 @@ func (h *WorkbenchHandler) GetFeed(c *gin.Context) {
 //	@Success		200	{object}	EfficiencyReport
 //	@Router			/workbench/efficiency [get]
 func (h *WorkbenchHandler) GetEfficiency(c *gin.Context) {
+	if h == nil || h.d == nil || h.d.WorkbenchSvc == nil {
+		slog.ErrorContext(c.Request.Context(), "workbench handler not initialized",
+			"path", c.Request.URL.Path,
+			"handler_nil", h == nil,
+			"deps_nil", h != nil && h.d == nil,
+			"svc_nil", h != nil && h.d != nil && h.d.WorkbenchSvc == nil,
+		)
+		middleware.AbortWithError(c, errs.ErrInternal)
+		return
+	}
 	wsID := c.GetInt64(middleware.CtxWorkspaceID)
 	projectID := c.GetInt64(middleware.CtxProjectID)
 	userID := c.GetInt64(middleware.CtxUserID)
@@ -326,5 +347,10 @@ func writeErr(c *gin.Context, err error) {
 		middleware.AbortWithError(c, appErr)
 		return
 	}
+	// 记录未被识别的错误，便于排查（生产环境由统一日志采集）
+	slog.ErrorContext(c.Request.Context(), "workbench handler error",
+		"path", c.Request.URL.Path,
+		"error", err.Error(),
+	)
 	middleware.AbortWithError(c, errs.ErrInternal)
 }

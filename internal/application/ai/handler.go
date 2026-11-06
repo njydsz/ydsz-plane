@@ -38,6 +38,8 @@ func (h *Handler) Register(r *gin.RouterGroup) {
 	r.POST("/assist", h.WritingAssist)
 	r.POST("/rewrite", h.RewriteText)
 	r.POST("/fix-grammar", h.FixGrammar)
+	// SSE 流式
+	r.POST("/stream", h.StreamWriting)
 }
 
 // Status godoc

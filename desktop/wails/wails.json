@@ -1,0 +1,38 @@
+{
+  "$schema": "https://wails.io/schemas/config.v3.json",
+  "name": "ydsz-plane",
+  "outputfilename": "ydsz-plane",
+  "assetdir": "frontend/dist",
+  "frontend": {
+    "install": "pnpm install",
+    "build": "pnpm build",
+    "dev": "pnpm dev",
+    "serve": ""
+  },
+  "info": {
+    "companyName": "Ydsz Plane",
+    "productName": "Ydsz Plane",
+    "productVersion": "0.1.0",
+    "copyright": "Copyright © 2026 Ydsz Plane Team",
+    "comments": "开源项目管理平台桌面客户端"
+  },
+  "windows": {
+    "applicationIcon": "build/icons/icon.ico",
+    "disableWindowIcon": false,
+    "windowsIsTransparent": false,
+    "webviewIsTransparent": false,
+    "disableFramelessWindowDecorations": false,
+    "webviewGpuIsDisabled": false,
+    "windowsTheme": "SystemDefault"
+  },
+  "macos": {
+    "applicationShouldTerminateAfterLastWindowClosed": false
+  },
+  "linux": {
+    "programName": "Ydsz Plane",
+    "icon": "build/icons/icon.png"
+  },
+  "devMode": {
+    "frontendDevServerUrl": "http://localhost:5173"
+  }
+}

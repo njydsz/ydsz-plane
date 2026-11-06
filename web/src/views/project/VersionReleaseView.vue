@@ -477,12 +477,13 @@ onMounted(load);
           >
             <template v-if="!checklistAllDone && !forceChecklist">
               ⚠️ 检查清单有未完成的必做项
-                        <template v-if="!qualityPassed">
+            </template>
+            <template v-if="!qualityPassed">
               ⚠️ 存在未关闭的致命/严重缺陷，质量门禁未通过
-            
+            </template>
             <template v-if="!checklistAllDone && !forceChecklist && !qualityPassed">
               <br />
-            
+            </template>
           </div>
         </section>
       </div>
@@ -528,9 +529,9 @@ onMounted(load);
           {{ releasing ? '发布中…' : '确认发布' }}
         </AppButton>
       </footer>
-    
+    </template>
   </div>
-
+</template>
 
 <style scoped>
 .release-wizard {

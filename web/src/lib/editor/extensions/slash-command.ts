@@ -194,9 +194,9 @@ const slashItems: SlashCommandItem[] = [
     description: "嵌入 YouTube / Bilibili 等视频",
     category: "媒体",
     execute: (editor) => {
-      const url = prompt("输入视频 URL (YouTube/Bilibili):")
+      const url = prompt("输入视频 URL (YouTube/Bilibili/Vimeo):")
       if (url) {
-        editor.chain().focus().setEmbed("video", url).run()
+        editor.chain().focus().setVideo(url).run()
       }
     },
   },

@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -45,15 +46,18 @@ import (
 	"github.com/njydsz/ydsz-plane/internal/application/customer"
 	"github.com/njydsz/ydsz-plane/internal/application/dashboard"
 	"github.com/njydsz/ydsz-plane/internal/application/datajob"
+	"github.com/njydsz/ydsz-plane/internal/application/dlp"
 	"github.com/njydsz/ydsz-plane/internal/application/dlq"
 	"github.com/njydsz/ydsz-plane/internal/application/godmode"
 	"github.com/njydsz/ydsz-plane/internal/application/grant"
+	"github.com/njydsz/ydsz-plane/internal/application/iam"
 	"github.com/njydsz/ydsz-plane/internal/application/importer"
 	"github.com/njydsz/ydsz-plane/internal/application/initiative"
 	"github.com/njydsz/ydsz-plane/internal/application/intake"
 	"github.com/njydsz/ydsz-plane/internal/application/integration"
 	"github.com/njydsz/ydsz-plane/internal/application/issue"
 	"github.com/njydsz/ydsz-plane/internal/application/knowledge"
+	"github.com/njydsz/ydsz-plane/internal/application/marketplace"
 	"github.com/njydsz/ydsz-plane/internal/application/milestone"
 	notif "github.com/njydsz/ydsz-plane/internal/application/notification"
 	"github.com/njydsz/ydsz-plane/internal/application/oauthapp"
@@ -75,6 +79,7 @@ import (
 	"github.com/njydsz/ydsz-plane/internal/application/workspace"
 	"github.com/njydsz/ydsz-plane/internal/application/workspaceview"
 	"github.com/njydsz/ydsz-plane/internal/config"
+	"github.com/njydsz/ydsz-plane/internal/infrastructure/crdt"
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/mail"
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/storage"
 	"github.com/njydsz/ydsz-plane/internal/infrastructure/telemetry"
@@ -177,6 +182,14 @@ type Deps struct {
 	GrantHandler *grant.Handler
 	// 导入域（Jira/Linear/Asana/CSV）
 	ImporterHandler *importer.Handler
+	// 应用商店域
+	MarketplaceHandler *marketplace.Handler
+	// CRDT 协同域
+	CRDTHub *crdt.Hub
+	// DLP 敏感数据扫描域
+	DLPHandler *dlp.Handler
+	// 权限审计服务
+	PermissionAudit *iam.AuditService
 	// 页面评论域（页面级 / 行内评论、线程、表情回应）
 	PageCommentHandler *pagecomment.Handler
 	// 重复工作项域（cron 模板自动生成工作项）
@@ -366,6 +379,13 @@ func RegisterSearchRoutes(r *gin.Engine, d *Deps) {
 	wsSearch.POST("/bookmarks", d.SearchHandler.CreateBookmark)
 	wsSearch.PATCH("/bookmarks/:bookmark_id", d.SearchHandler.UpdateBookmark)
 	wsSearch.DELETE("/bookmarks/:bookmark_id", d.SearchHandler.DeleteBookmark)
+}
+
+// RegisterWorkbenchRoutes 注册工作台路由（项目级 + 工作空间级）。
+func RegisterWorkbenchRoutes(r *gin.Engine, d *Deps) {
+	if d.WorkbenchHandler == nil {
+		return
+	}
 
 	// ----- 工作台（项目级） -----
 	projectWb := r.Group("/api/v1/workspaces/:workspace_id/projects/:project_id/workbench")
@@ -394,9 +414,6 @@ func RegisterSearchRoutes(r *gin.Engine, d *Deps) {
 	wsWb.GET("/feed", d.WorkbenchHandler.GetFeed)
 	wsWb.GET("/efficiency", d.WorkbenchHandler.GetEfficiency)
 }
-
-// RegisterWorkbenchRoutes 保留签名兼容（路由已在 RegisterSearchRoutes 中注册）。
-func RegisterWorkbenchRoutes(_ *gin.Engine, _ *Deps) {}
 
 // RegisterDashboardRoutes 注册项目仪表盘路由。
 func RegisterDashboardRoutes(r *gin.Engine, d *Deps) {
@@ -573,6 +590,93 @@ func RegisterInitiativeRoutes(r *gin.Engine, d *Deps) {
 		middleware.RequirePermissionFromDB(d.RBACStore, auth.PermProjectUpdate),
 	)
 	d.InitiativeHandler.RegisterWrite(wsWrite.Group(""))
+}
+
+// int64Query 解析 URL query 中的 int64 参数（不存在返回 0）。
+func int64Query(c *gin.Context, key string) int64 {
+	n, _ := strconv.ParseInt(c.Query(key), 10, 64)
+	return n
+}
+
+// RegisterDLPRoutes 注册数据防泄漏（DLP）路由。
+// 路由前缀：/api/v1/workspaces/:workspace_id/dlp
+// 权限：读 workspace:read；写 workspace:update。
+func RegisterDLPRoutes(r *gin.Engine, d *Deps) {
+	if d.DLPHandler == nil {
+		return
+	}
+	v1 := r.Group("/api/v1/workspaces/:workspace_id")
+	v1.Use(
+		middleware.RequireAuth(d.principalParser()),
+		middleware.RequireWorkspaceParam(),
+	)
+	wsRead := v1.Group("")
+	wsRead.Use(middleware.RequirePermissionFromDB(d.RBACStore, auth.PermWorkspaceRead))
+	g := wsRead.Group("/dlp")
+	g.GET("/findings", d.DLPHandler.ListFindings)
+	g.GET("/jobs", d.DLPHandler.ListJobs)
+	g.GET("/jobs/:job_id", d.DLPHandler.GetJob)
+	g.GET("/jobs/:job_id/report", d.DLPHandler.GetReport)
+	g.GET("/rules", d.DLPHandler.ListRules)
+	g.POST("/check", d.DLPHandler.Check)
+
+	wsWrite := v1.Group("")
+	wsWrite.Use(middleware.RequirePermissionFromDB(d.RBACStore, auth.PermWorkspaceUpdate))
+	gw := wsWrite.Group("/dlp")
+	gw.POST("/jobs", d.DLPHandler.CreateJob)
+	gw.POST("/jobs/:job_id/run", d.DLPHandler.RunJob)
+	gw.POST("/findings/:id/resolve", d.DLPHandler.ResolveFinding)
+}
+
+// RegisterCRDTRoutes 注册 CRDT 协同 WebSocket 路由。
+// 路由：/ws-collab/:workspace_id/:doc_id
+// 鉴权：需登录 + 工作空间成员。
+func RegisterCRDTRoutes(r *gin.Engine, d *Deps) {
+	if d.CRDTHub == nil {
+		return
+	}
+	r.GET("/ws-collab/:workspace_id/:doc_id", func(c *gin.Context) {
+		// 复用工作空间鉴权中间件的结果（此处假定已由上层中间件注入 userID/workspaceID）
+		userID := c.GetInt64(middleware.CtxUserID)
+		workspaceID := int64Query(c, "workspace_id")
+		docID := c.Param("doc_id")
+		if workspaceID <= 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid workspace"})
+			return
+		}
+		d.CRDTHub.HandleWebSocket(c.Writer, c.Request, userID, workspaceID, docID)
+	})
+}
+
+// RegisterMarketplaceRoutes 注册应用商店路由。
+// 路由前缀：/api/v1/workspaces/:workspace_id/marketplace
+// 权限：读 workspace:read；写 workspace:update。
+func RegisterMarketplaceRoutes(r *gin.Engine, d *Deps) {
+	if d.MarketplaceHandler == nil {
+		return
+	}
+	v1 := r.Group("/api/v1/workspaces/:workspace_id")
+	v1.Use(
+		middleware.RequireAuth(d.principalParser()),
+		middleware.RequireWorkspaceParam(),
+	)
+	wsRead := v1.Group("")
+	wsRead.Use(middleware.RequirePermissionFromDB(d.RBACStore, auth.PermWorkspaceRead))
+	g := wsRead.Group("/marketplace")
+	g.GET("/categories", d.MarketplaceHandler.ListCategories)
+	g.GET("/apps", d.MarketplaceHandler.ListApps)
+	g.GET("/apps/:slug", d.MarketplaceHandler.GetApp)
+	g.GET("/apps/:id/reviews", d.MarketplaceHandler.ListReviews)
+
+	wsWrite := v1.Group("")
+	wsWrite.Use(middleware.RequirePermissionFromDB(d.RBACStore, auth.PermWorkspaceUpdate))
+	gw := wsWrite.Group("/marketplace")
+	gw.GET("/installed", d.MarketplaceHandler.ListInstalled)
+	gw.POST("/apps/:id/install", d.MarketplaceHandler.Install)
+	gw.DELETE("/apps/:id/install", d.MarketplaceHandler.Uninstall)
+	gw.POST("/apps/:id/reviews", d.MarketplaceHandler.CreateReview)
+	gw.POST("/apps", d.MarketplaceHandler.CreateApp)
+	gw.PATCH("/apps/:slug", d.MarketplaceHandler.UpdateApp)
 }
 
 // RegisterImporterRoutes 注册导入路由。
@@ -1894,9 +1998,31 @@ func replaceRolePermissions(d *Deps) gin.HandlerFunc {
 			return
 		}
 
+		// 读取变更前快照（用于审计）
+		before, _ := d.RBACStore.GetRolePermissions(c.Request.Context(), roleSlug)
+
 		if err := d.RBACStore.ReplaceRolePermissions(c.Request.Context(), roleSlug, req.Permissions); err != nil {
 			writeError(c, err)
 			return
+		}
+
+		// 记录权限审计日志
+		if d.PermissionAudit != nil {
+			beforeJSON, _ := json.Marshal(before)
+			afterJSON, _ := json.Marshal(req.Permissions)
+			_, _ = d.PermissionAudit.Record(c.Request.Context(), iam.RecordInput{
+				WorkspaceID: c.GetInt64(middleware.CtxWorkspaceID),
+				ActorID:     c.GetInt64(middleware.CtxUserID),
+				ActorName:   userName(c),
+				RoleSlug:    roleSlug,
+				Action:      iam.AuditReplace,
+				Permissions: req.Permissions,
+				Before:      beforeJSON,
+				After:       afterJSON,
+				Reason:      c.GetHeader("X-Permission-Change-Reason"),
+				IP:          c.ClientIP(),
+				UserAgent:   c.GetHeader("User-Agent"),
+			})
 		}
 
 		// 返回覆盖后的矩阵，便于前端就地刷新。
