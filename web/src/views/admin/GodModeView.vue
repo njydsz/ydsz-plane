@@ -362,6 +362,7 @@ onMounted(loadAll);
           </template>
         </div>
       </div>
+    </header>
 
       <!-- 标签页 -->
       <nav class="gm__tabs" role="tablist">
@@ -378,7 +379,6 @@ onMounted(loadAll);
           {{ tab.label }}
         </button>
       </nav>
-    </header>
 
     <!-- ================= 概览 ================= -->
     <div v-if="activeTab === 'overview'" class="gm__body">
@@ -557,7 +557,8 @@ onMounted(loadAll);
             </div>
           </div>
         </section>
-          </div>
+      </template>
+    </div>
 
     <!-- ================= 设置 ================= -->
     <div v-else class="gm__body">
@@ -865,7 +866,8 @@ onMounted(loadAll);
             </label>
           </div>
         </section>
-          </div>
+      </template>
+    </div>
 
     <!-- ===== SMTP 测试弹窗 ===== -->
     <AppModal
@@ -892,7 +894,7 @@ onMounted(loadAll);
         <AppButton variant="primary" size="sm" :loading="testingSmtp" @click="submitSmtpTest">
           {{ t("godMode.smtp.test") }}
         </AppButton>
-      
+      </template>
     </AppModal>
 
     <!-- ===== 重置确认弹窗 ===== -->
@@ -911,6 +913,7 @@ onMounted(loadAll);
           {{ t("godMode.action.reset") }}
         </AppButton>
       
+      </template>
     </AppModal>
   </div>
 

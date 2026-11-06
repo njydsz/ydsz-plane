@@ -719,7 +719,7 @@ const isCurrentPageAllSelected = computed(() => {
       <span class="batch-bar__info">
         <template v-if="crossPageSelectedCount > 0">
           <strong>{{ $tc('issue.batch.selected', totalSelectedCount) }}</strong> ({{ $tc('issue.batch.crossPageCount', crossPageSelectedCount) }})
-        </template>
+        </template></span></div></div></template>
         <template v-else>
           <strong>{{ $tc('issue.batch.selected', totalSelectedCount) }}</strong>
               </span>

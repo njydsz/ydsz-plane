@@ -10,17 +10,20 @@ import (
 	"os"
 	"testing"
 
-	"github.com/njydsz/ydsz-plane/internal/infrastructure/persistence"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// integrationPool 返回测试库连接池；未配置时跳过测试。
-func integrationPool(t *testing.T) *persistence.Pool {
+// integrationPool 返回测试库连接；未配置时跳过测试。
+//
+// 返回 *pgxpool.Pool（而非 *persistence.Pool），与各域 Service 的
+// 构造函数签名保持一致，调用方无需二次解引用。
+func integrationPool(t *testing.T) *pgxpool.Pool {
 	t.Helper()
 	dsn := os.Getenv("YDSZ_TEST_DATABASE_URL")
 	if dsn == "" {
 		t.Skip("YDSZ_TEST_DATABASE_URL not set, skipping integration test")
 	}
-	pool, err := persistence.NewPool(context.Background(), dsn, 4)
+	pool, err := pgxpool.New(context.Background(), dsn)
 	if err != nil {
 		t.Fatalf("connect: %v", err)
 	}

@@ -572,7 +572,8 @@ onMounted(async () => {
         >
           {{ t("common.confirm") }}
         </AppButton>
-          </AppModal>
+      </template>
+    </AppModal>
 
     <!-- Add work item modal -->
     <AppModal
@@ -610,85 +611,11 @@ onMounted(async () => {
         >
           {{ t("common.confirm") }}
         </AppButton>
-      
+      </template>
     </AppModal>
-  
     </div>
   </AppPageContainer>
-
-
-    <!-- Add project modal -->
-    <AppModal
-      :visible="showAddProject"
-      :title="t('initiative.addProject')"
-      width="440px"
-      @close="showAddProject = false"
-    >
-      <label class="form__field">
-        <span class="form__label">{{ t("initiative.selectProject") }}</span>
-        <select v-model="selectedProjectId" class="form__input">
-          <option :value="null" disabled>{{ t("initiative.selectProject") }}</option>
-          <option v-for="p in availableProjects" :key="p.id" :value="p.id">
-            {{ p.name }} ({{ p.identifier }})
-          </option>
-        </select>
-      </label>
-      <template #footer>
-        <AppButton variant="secondary" size="sm" @click="showAddProject = false">
-          {{ t("common.cancel") }}
-        </AppButton>
-        <AppButton
-          variant="primary"
-          size="sm"
-          :loading="addingProject"
-          :disabled="!selectedProjectId"
-          @click="addProject"
-        >
-          {{ t("common.confirm") }}
-        </AppButton>
-      
-    </AppModal>
-
-    <!-- Add work item modal -->
-    <AppModal
-      :visible="showAddWorkItem"
-      :title="t('initiative.addWorkItem')"
-      width="440px"
-      @close="showAddWorkItem = false"
-    >
-      <label class="form__field">
-        <span class="form__label">{{ t("initiative.selectWorkItem") }}</span>
-        <input
-          v-model="workItemIdentifier"
-          :placeholder="t('initiative.selectWorkItem')"
-          class="form__input"
-        />
-      </label>
-      <label class="form__field">
-        <span class="form__label">{{ t("issue.type") }}</span>
-        <select v-model="workItemType" class="form__input">
-          <option value="requirement">{{ t("issue.typeRequirement") }}</option>
-          <option value="task">{{ t("issue.typeTask") }}</option>
-          <option value="defect">{{ t("issue.typeDefect") }}</option>
-        </select>
-      </label>
-      <template #footer>
-        <AppButton variant="secondary" size="sm" @click="showAddWorkItem = false">
-          {{ t("common.cancel") }}
-        </AppButton>
-        <AppButton
-          variant="primary"
-          size="sm"
-          :loading="addingWorkItem"
-          :disabled="!workItemIdentifier.trim()"
-          @click="addWorkItem"
-        >
-          {{ t("common.confirm") }}
-        </AppButton>
-      
-    </AppModal>
-  </div>
-
+</template>
 
 <style scoped>
 .initiative-detail {

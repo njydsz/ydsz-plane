@@ -295,56 +295,11 @@ const archivedList = computed(() => teamspaces.value.filter((t) => t.archived_at
         <button class="teamspaces__primary" :disabled="saving" @click="save">
           {{ saving ? "保存中..." : "保存" }}
         </button>
-          </AppModal>
-  
+      </template>
+    </AppModal>
     </div>
   </AppPageContainer>
-
-
-    <!-- 创建/编辑弹窗 -->
-    <AppModal
-      :visible="showForm"
-      :title="editingId ? '编辑团队空间' : '新建团队空间'"
-      @close="showForm = false"
-    >
-      <div class="teamspaces__form">
-        <label class="teamspaces__label">名称</label>
-        <input
-          v-model="form.name"
-          class="teamspaces__input"
-          placeholder="例如：平台研发组"
-        />
-
-        <label class="teamspaces__label">描述</label>
-        <textarea
-          v-model="form.description"
-          class="teamspaces__textarea"
-          rows="2"
-          placeholder="这个团队负责什么"
-        />
-
-        <label class="teamspaces__label">标识色</label>
-        <div class="teamspaces__colors">
-          <button
-            v-for="c in colorPresets"
-            :key="c"
-            class="teamspaces__color"
-            :class="{ 'teamspaces__color--active': form.color === c }"
-            :style="{ background: c }"
-            @click="form.color = c"
-          />
-        </div>
-      </div>
-
-      <template #footer>
-        <button class="teamspaces__ghost" @click="showForm = false">取消</button>
-        <button class="teamspaces__primary" :disabled="saving" @click="save">
-          {{ saving ? "保存中..." : "保存" }}
-        </button>
-      
-    </AppModal>
-  </div>
-
+</template>
 
 <style scoped>
 .teamspaces {

@@ -325,6 +325,8 @@ onMounted(load);
     </AppModal>
     </div>
   </AppPageContainer>
+</template>
+
 <style scoped>
 .knowledge-list__header {
   display: flex;

@@ -14,7 +14,7 @@ import (
 // TestDetectDuplicatesIntegration 验证重复检测在真实库上的行为。
 func TestDetectDuplicatesIntegration(t *testing.T) {
 	pool := integrationPool(t)
-	s := NewService(pool.Pool, Config{Provider: "fallback"})
+	s := NewService(pool, Config{Provider: "fallback"})
 
 	got, err := s.DetectDuplicates(context.Background(), 1, "Alpha requirement", "alpha requirement")
 	if err != nil {
@@ -28,7 +28,7 @@ func TestDetectDuplicatesIntegration(t *testing.T) {
 // TestSmartAssignIntegration 验证智能分配在真实库上的行为。
 func TestSmartAssignIntegration(t *testing.T) {
 	pool := integrationPool(t)
-	s := NewService(pool.Pool, Config{Provider: "fallback"})
+	s := NewService(pool, Config{Provider: "fallback"})
 
 	if _, err := s.SmartAssign(context.Background(), SmartAssignInput{
 		WorkspaceID: 1, ProjectID: 1, IssueTitle: "alpha", IssueDesc: "alpha", TopN: 3,

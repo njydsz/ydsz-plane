@@ -191,6 +191,7 @@ function onCancel() {
         {{ submitting ? "提交中..." : space ? "保存修改" : "创建空间" }}
       </AppButton>
     </template>
+    </AppModal></template>
   </AppModal>
 <style scoped>
 .space-form {

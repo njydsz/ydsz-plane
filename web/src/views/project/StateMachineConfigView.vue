@@ -519,7 +519,6 @@ const requiredFieldOptions = [
     </Teleport>
   
     </div>
-  </AppPageContainer>
     <!-- 状态表单弹窗 -->
     <Teleport to="body">
       <div v-if="showStateForm" class="sm-modal" @click.self="showStateForm = false">
@@ -613,7 +612,8 @@ const requiredFieldOptions = [
         </div>
       </div>
     </Teleport>
-  </div>
+  </AppPageContainer>
+</template>
 
 
 <style scoped>

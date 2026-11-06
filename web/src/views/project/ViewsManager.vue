@@ -238,6 +238,9 @@ onMounted(loadViews);
                 <button class="action-btn" title="编辑" @click.stop="openEditModal(v)">✎</button>
                 <button class="action-btn" title="删除" @click.stop="deleteView(v)">×</button>
               </template>
+</div></li></ul></div></template>
+</div>
+</template>
               <button v-if="isAdmin" class="action-btn" title="设为默认" @click.stop="setDefaultView(v)">★</button>
             </div>
           </li>

@@ -591,6 +591,8 @@ function formatDate(iso: string): string {
         <AppButton @click="showSecretModal = false">
           {{ t("oauthApp.close") }}
         </AppButton>
-          </AppModal>
+      </template>
+    </AppModal>
   </div>
+</template>
 

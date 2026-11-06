@@ -358,12 +358,9 @@ function openDetail(c: Customer) {
         </button>
       </template>
     </AppModal>
-  
     </div>
   </AppPageContainer>
-    </AppModal>
-  </div>
-
+</template>
 
 <style scoped>
 .customers {

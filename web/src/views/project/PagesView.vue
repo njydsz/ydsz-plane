@@ -850,6 +850,7 @@ onMounted(load);
     </div>
     <template #footer>
       <AppButton variant="secondary" @click="closeShareModal">关闭</AppButton>
+      </template>
       </AppModal>
 
 

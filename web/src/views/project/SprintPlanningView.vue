@@ -325,7 +325,7 @@ function openSprint(sp: Sprint) {
 
           <template #footer>
             <div v-if="backlog.length === 0" class="empty">Backlog 为空</div>
-          </template>
+          </template></VueDraggable></section></div></div></template>
         </VueDraggable>
       </section>
 

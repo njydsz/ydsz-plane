@@ -355,10 +355,9 @@ function back() {
         </section>
       </div>
     </template>
-  
     </div>
   </AppPageContainer>
-  </div>
+</template>
 
 
 <style scoped>

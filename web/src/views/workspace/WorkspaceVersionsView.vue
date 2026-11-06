@@ -305,10 +305,13 @@ onMounted(load);
       <template #footer>
         <AppButton variant="secondary" size="sm" @click="closeCreateModal">取消</AppButton>
         <AppButton variant="primary" size="sm" :loading="creating" @click="submitCreate">创建</AppButton>
-          </AppModal>
+      </template>
+    </AppModal>
     </div>
   </AppPageContainer>
 
+
+</template>
 
 <style scoped>
 /* 复用 VersionListView 中 create-form 的样式 */

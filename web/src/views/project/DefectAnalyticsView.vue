@@ -456,11 +456,9 @@ const OVERDUE_COLORS: Record<number, string> = {
         </div>
       </section>
     </template>
-  
     </div>
   </AppPageContainer>
-  </div>
-
+</template>
 
 <style scoped>
 .defect-analytics {

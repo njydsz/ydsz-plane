@@ -371,11 +371,9 @@ async function setStatus(r: CustomerRequest, status: RequestStatus) {
         </button>
       </template>
     </AppModal>
-  
     </div>
   </AppPageContainer>
-    </AppModal>
-  </div>
+</template>
 
 
 <style scoped>

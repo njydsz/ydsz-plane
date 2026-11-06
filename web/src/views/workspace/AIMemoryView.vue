@@ -393,11 +393,9 @@ onMounted(async () => {
         </AppButton>
       </template>
     </AppModal>
-  
     </div>
   </AppPageContainer>
-    </AppModal>
-  </div>
+</template>
 
 
 <style scoped>

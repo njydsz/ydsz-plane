@@ -248,6 +248,7 @@ watch(ready, (r) => {
           </template>
           <AppButton v-else variant="secondary" disabled>已结束</AppButton>
         </template>
+</div></header></div></template>
       </div>
     </header>
 

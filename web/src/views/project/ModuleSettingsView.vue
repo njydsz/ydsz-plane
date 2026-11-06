@@ -347,7 +347,9 @@ v-for="m in filteredMembers" :key="m.id" type="button" class="dropdown-item"
                     <AppButton size="sm" variant="secondary" @click="cancelEdit">取消</AppButton>
                   </td>
                 </tr>
-              </template>
+              </template></tbody></table></div></div></div></div>
+  </AppPageContainer>
+</template>
             </tbody>
           </table>
         </div>
@@ -364,6 +366,7 @@ v-for="m in filteredMembers" :key="m.id" type="button" class="dropdown-item"
         <AppButton variant="danger" :loading="deleting" :disabled="deleting" @click="confirmDelete">
           {{ deleting ? "删除中..." : "确认删除" }}
         </AppButton>
+      </template>
           </AppModal>
   
     </div>

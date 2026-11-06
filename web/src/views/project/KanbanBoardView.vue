@@ -505,6 +505,8 @@ function handleRemoteIssueUpdate(data: { project_id?: number; issue_id?: number;
       @created="load"
     />
   </div>
+</template>
+
 <style scoped>
 .kanban__header {
   display: flex;

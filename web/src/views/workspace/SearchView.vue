@@ -183,11 +183,14 @@ onMounted(() => {
           </template>
         </section>
       </div>
-        <!-- 初始空态 -->
+    </template>
+
+    <!-- 初始空态 -->
     <AppEmptyState
       v-else
       title="搜索工作空间内容"
       description="输入关键词搜索需求/任务/缺陷、迭代、版本和项目。"
     />
   </div>
+</template>
 

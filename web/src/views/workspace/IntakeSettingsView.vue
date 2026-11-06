@@ -317,7 +317,8 @@ onMounted(load);
               <option :value="5">5-建议</option>
             </select>
             <input v-model="promoteForm.found_phase" class="w-full rounded-md border border-[var(--border-subtle)] px-2 py-2 text-sm" placeholder="发现阶段，如：内测" />
-                    <div class="flex gap-2">
+          </template>
+          <div class="flex gap-2">
             <button class="flex-1 rounded-md bg-[var(--brand-600)] px-3 py-2 text-sm text-white hover:bg-[var(--brand-700)]" @click="promote">确认转正</button>
             <button class="rounded-md border border-[var(--border-subtle)] px-3 py-2 text-sm" @click="showPromote = false">取消</button>
           </div>
@@ -328,17 +329,19 @@ onMounted(load);
             <button class="rounded-md bg-[var(--success)] px-3 py-2 text-sm text-white" @click="flow(detail, 'accept')">接受</button>
             <button class="rounded-md bg-[var(--danger)] px-3 py-2 text-sm text-white" @click="flow(detail, 'reject')">拒绝</button>
             <button class="rounded-md border border-[var(--border-subtle)] px-3 py-2 text-sm" @click="flow(detail, 'archive')">归档</button>
-          
+          </template>
           <button
             v-if="detail.status === 'accepted' && !detail.linked_entity_id"
             class="rounded-md bg-[var(--brand-600)] px-3 py-2 text-sm text-white"
             @click="showPromote = !showPromote"
           >
-{{ showPromote ? "取消转正" : "转正" }}
-</button>
+            {{ showPromote ? "取消转正" : "转正" }}
+          </button>
           <button v-if="detail.status === 'accepted' || detail.status === 'rejected'" class="rounded-md border border-[var(--border-subtle)] px-3 py-2 text-sm" @click="flow(detail, 'archive')">归档</button>
         </div>
       </div>
     </div>
   </div>
+</template>
+
 

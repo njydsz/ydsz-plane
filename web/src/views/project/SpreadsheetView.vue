@@ -354,7 +354,7 @@ onUnmounted(() => {
           {{ issues.length }} 条记录
           <template v-if="selectedIds.size > 0">
             · 已选 {{ selectedIds.size }} 项
-          </template>
+          </template></span></div></div></div></template>
         </span>
       </div>
       <div class="toolbar-right">

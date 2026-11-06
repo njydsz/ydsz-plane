@@ -14,7 +14,7 @@ import (
 // TestVersionQueriesIntegration 验证版本查询在真实库上的行为。
 func TestVersionQueriesIntegration(t *testing.T) {
 	pool := integrationPool(t)
-	s := NewService(Deps{DB: pool.Pool})
+	s := NewService(Deps{DB: pool})
 	ctx := context.Background()
 
 	versions, total, err := s.List(ctx, ListVersionsOptions{WorkspaceID: 1, ProjectID: 1})

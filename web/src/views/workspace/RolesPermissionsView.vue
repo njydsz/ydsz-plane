@@ -279,7 +279,8 @@ onMounted(load);
             >
               {{ saving ? "保存中…" : "保存" }}
             </button>
-                  </div>
+          </template>
+        </div>
       </div>
 
       <div class="space-y-4">
@@ -340,4 +341,6 @@ onMounted(load);
       </div>
     </section>
   </div>
+</template>
+
 

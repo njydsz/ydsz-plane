@@ -618,7 +618,10 @@ onMounted(load);
           </div>
         </main>
       </div>
-      </div>
+    </template>
+  </div>
+</template>
+
 <style scoped>
 .knowledge-space__header {
   display: flex;

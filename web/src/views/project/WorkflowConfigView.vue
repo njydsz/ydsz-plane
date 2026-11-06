@@ -536,129 +536,7 @@ watch(wsId, (id) => {
           </template>
         </main>
       </div>
-        <!-- 工作流表单弹窗 -->
-    <AppModal
-      :visible="showWorkflowForm"
-      :title="editingWorkflow ? t('workflow.workflow.edit') : t('workflow.workflow.add')"
-      width="480px"
-      @close="showWorkflowForm = false"
-    >
-      <form class="wf-form" @submit.prevent="saveWorkflow">
-        <label class="wf-form__field">
-          <span class="wf-form__label">{{ t("workflow.workflow.name") }} *</span>
-          <input
-            v-model="workflowForm.name"
-            class="wf-input"
-            :placeholder="t('workflow.workflow.namePlaceholder')"
-            required
-          />
-        </label>
-        <label class="wf-form__field">
-          <span class="wf-form__label">{{ t("workflow.workflow.description") }}</span>
-          <textarea
-            v-model="workflowForm.description"
-            class="wf-input wf-textarea"
-            :placeholder="t('workflow.workflow.descriptionPlaceholder')"
-            rows="3"
-          />
-        </label>
-        <label class="wf-form__field wf-form__field--checkbox">
-          <input v-model="workflowForm.is_default" type="checkbox" />
-          <span>{{ t("workflow.workflow.setAsDefault") }}</span>
-        </label>
-        <p v-if="workflowFormError" class="wf-form__error">{{ workflowFormError }}</p>
-        <div class="wf-form__actions">
-          <button
-            type="button"
-            class="wf-btn wf-btn--ghost"
-            @click="showWorkflowForm = false"
-          >
-            {{ t("common.cancel") }}
-          </button>
-          <button type="submit" class="wf-btn wf-btn--primary" :disabled="workflowFormSaving">
-            {{ workflowFormSaving ? t("common.saving") : t("common.save") }}
-          </button>
-        </div>
-      </form>
-    </AppModal>
-
-    <!-- 流转规则表单弹窗 -->
-    <AppModal
-      :visible="showTransitionForm"
-      :title="t('workflow.transition.add')"
-      width="520px"
-      @close="showTransitionForm = false"
-    >
-      <form class="wf-form" @submit.prevent="saveTransition">
-        <div class="wf-form__row">
-          <label class="wf-form__field">
-            <span class="wf-form__label">{{ t("workflow.transition.from") }} *</span>
-            <select v-model.number="transitionForm.from_state_id" class="wf-select" required>
-              <option value="0" disabled>— {{ t("common.select") }} —</option>
-              <option v-for="st in states" :key="st.id" :value="st.id">{{ st.name }}</option>
-            </select>
-          </label>
-          <label class="wf-form__field">
-            <span class="wf-form__label">{{ t("workflow.transition.to") }} *</span>
-            <select v-model.number="transitionForm.to_state_id" class="wf-select" required>
-              <option value="0" disabled>— {{ t("common.select") }} —</option>
-              <option v-for="st in states" :key="st.id" :value="st.id">{{ st.name }}</option>
-            </select>
-          </label>
-        </div>
-        <label class="wf-form__field">
-          <span class="wf-form__label">{{ t("workflow.transition.name") }} *</span>
-          <input
-            v-model="transitionForm.name"
-            class="wf-input"
-            :placeholder="t('workflow.transition.namePlaceholder')"
-            required
-          />
-        </label>
-        <label class="wf-form__field wf-form__field--checkbox">
-          <input v-model="transitionForm.requires_approval" type="checkbox" />
-          <span>{{ t("workflow.transition.requiresApproval") }}</span>
-        </label>
-        <template v-if="transitionForm.requires_approval">
-          <label class="wf-form__field">
-            <span class="wf-form__label">{{ t("workflow.transition.approverRole") }}</span>
-            <select v-model="transitionForm.approver_role" class="wf-select">
-              <option v-for="opt in APPROVER_ROLE_OPTIONS" :key="opt.value" :value="opt.value">
-                {{ opt.label }}
-              </option>
-            </select>
-          </label>
-          <label class="wf-form__field">
-            <span class="wf-form__label">{{ t("workflow.transition.approverIds") }}</span>
-            <select v-model="transitionForm.approver_ids" class="wf-select" multiple>
-              <option v-for="m in members" :key="m.id" :value="m.id">
-                {{ m.display_name || m.email }}
-              </option>
-            </select>
-          </label>
-        
-        <p v-if="transitionFormError" class="wf-form__error">{{ transitionFormError }}</p>
-        <div class="wf-form__actions">
-          <button
-            type="button"
-            class="wf-btn wf-btn--ghost"
-            @click="showTransitionForm = false"
-          >
-            {{ t("common.cancel") }}
-          </button>
-          <button type="submit" class="wf-btn wf-btn--primary" :disabled="transitionFormSaving">
-            {{ transitionFormSaving ? t("common.saving") : t("common.add") }}
-          </button>
-        </div>
-      </form>
-    </AppModal>
-  
-    </div>
-  </AppPageContainer>
-
-        </main>
-      </div>
-    
+    </template>
 
     <!-- 工作流表单弹窗 -->
     <AppModal
@@ -760,7 +638,7 @@ watch(wsId, (id) => {
               </option>
             </select>
           </label>
-        
+        </template>
         <p v-if="transitionFormError" class="wf-form__error">{{ transitionFormError }}</p>
         <div class="wf-form__actions">
           <button
@@ -777,7 +655,8 @@ watch(wsId, (id) => {
       </form>
     </AppModal>
   </div>
-
+  </AppPageContainer>
+</template>
 
 <style scoped>
 .wf-view {

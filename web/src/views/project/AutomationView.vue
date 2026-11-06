@@ -689,6 +689,8 @@ watch(ready, (v) => {
   </div>
 
 
+</template>
+
 <style scoped>
 .au-view { max-width: 880px; }
 

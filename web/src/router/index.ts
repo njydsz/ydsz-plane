@@ -95,11 +95,8 @@ const router = createRouter({
       component: () => import("@/views/settings/ProfileView.vue"),
     },
     // God Mode 实例管理（实例级，非工作空间作用域；后端校验实例管理员权限）
-    {
-      path: "/admin",
-      name: "admin-god-mode",
-      component: () => import("@/views/admin/GodModeView.vue"),
-    },
+    // TEMP-DISABLED: GodMode 结构待修复
+      // { path: "/admin", name: "admin-god-mode", component: () => import("@/views/admin/GodModeView.vue") },
     {
       path: "/",
       component: () => import("@/layouts/WorkspaceLayout.vue"),

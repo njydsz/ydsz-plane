@@ -207,5 +207,7 @@ loadChannel();
       </div>
 
       <RouterLink to="/login" class="mt-4 block text-center text-xs text-[var(--text-tertiary)] hover:text-[var(--brand-600)]">返回登录 →</RouterLink>
-      </div>
+    </template>
+  </div>
+</template>
 

@@ -16,7 +16,7 @@ import (
 // TestMetricsQueriesIntegration 验证全部度量查询在真实库上的行为。
 func TestMetricsQueriesIntegration(t *testing.T) {
 	pool := integrationPool(t)
-	s := NewService(pool.Pool)
+	s := NewService(pool)
 	ctx := context.Background()
 
 	if _, err := s.GetLeadTime(ctx, 1, 1, 30); err != nil {

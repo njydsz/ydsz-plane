@@ -202,20 +202,12 @@ function back() {
               <template v-if="r.work_item_id"> · 工作项 #{{ r.work_item_id }}</template>
             </span>
           </div>
-          <div v-if="!requests.length" class="cdetail__empty">暂无请求记录</div>
         </div>
       </section>
-      
+    </template>
     </div>
   </AppPageContainer>
-
-            </span>
-          </div>
-          <div v-if="!requests.length" class="cdetail__empty">暂无请求记录</div>
-        </div>
-      </section>
-    
-  </div>
+</template>
 
 
 <style scoped>

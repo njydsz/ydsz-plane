@@ -184,6 +184,9 @@ onMounted(loadLabels);
               <button class="rounded border border-[var(--border-subtle)] px-3 py-1.5 text-xs" @click="editingId = null">取消</button>
             </div>
           </template>
+</div></section></template>
+</div>
+</template>
           <template v-else>
             <div class="flex min-w-0 items-center gap-2">
               <span class="inline-block h-3 w-3 shrink-0 rounded-full" :style="{ backgroundColor: l.color || 'var(--brand-500)' }" />

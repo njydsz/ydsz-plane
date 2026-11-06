@@ -246,6 +246,8 @@ onMounted(load);
         </main>
       </div>
     </template>
+</div>
+</template>
   </div>
 <style scoped>
 .space-detail__header {

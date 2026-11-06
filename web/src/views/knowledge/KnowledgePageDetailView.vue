@@ -482,7 +482,7 @@ H3
       <div v-if="previewMode" class="km-preview-bar">
         <span v-if="viewingVersion">
           查看版本 v{{ viewingVersion.version }}
-          <template v-if="viewingVersion.change_summary"> · {{ viewingVersion.change_summary }}</template>
+          <template v-if="viewingVersion.change_summary"> · {{ viewingVersion.change_summary }}</template></span></div></div></div></template>
           · {{ fmtTime(viewingVersion.created_at) }}
         </span>
         <span v-else>预览模式</span>

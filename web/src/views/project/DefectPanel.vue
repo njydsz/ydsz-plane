@@ -204,6 +204,8 @@ onMounted(load);
         </table>
       </div>
     </template>
+</div>
+</template>
   </div>
 <style scoped>
 .defect-panel {

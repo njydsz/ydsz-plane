@@ -535,11 +535,9 @@ async function removeView(view: WorkspaceView) {
         </AppButton>
       </template>
     </AppModal>
-  
     </div>
   </AppPageContainer>
-    </AppModal>
-  </div>
+</template>
 
 
 <style scoped>

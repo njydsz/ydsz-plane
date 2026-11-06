@@ -561,71 +561,11 @@ onMounted(() => {
         <AppButton :loading="saving" @click="saveForm">
           {{ isEditing ? t("common.save") : t("common.create") }}
         </AppButton>
-          </AppModal>
-  
+      </template>
+    </AppModal>
     </div>
   </AppPageContainer>
-
-
-    <!-- ===== 新建 / 编辑弹窗 ===== -->
-    <AppModal
-      :visible="showForm"
-      :title="isEditing ? t('milestones.editMilestone') : t('milestones.newMilestone')"
-      width="520px"
-      @close="closeForm"
-    >
-      <div class="milestones__form">
-        <div class="milestones__field">
-          <label class="milestones__label">
-            {{ t("milestones.name") }} <span class="milestones__required">*</span>
-          </label>
-          <input
-            v-model="form.name"
-            class="milestones__input"
-            :placeholder="t('milestones.namePlaceholder')"
-            maxlength="120"
-          />
-        </div>
-
-        <div class="milestones__field">
-          <label class="milestones__label">{{ t("milestones.description") }}</label>
-          <textarea
-            v-model="form.description"
-            class="milestones__input milestones__textarea"
-            :placeholder="t('milestones.descriptionPlaceholder')"
-            rows="3"
-          />
-        </div>
-
-        <div class="milestones__grid">
-          <div class="milestones__field">
-            <label class="milestones__label">{{ t("milestones.targetDate") }}</label>
-            <input v-model="form.target_date" type="date" class="milestones__input" />
-          </div>
-          <div class="milestones__field">
-            <label class="milestones__label">{{ t("milestones.status") }}</label>
-            <select v-model="form.status" class="milestones__input">
-              <option v-for="o in STATUS_OPTIONS" :key="o.value" :value="o.value">
-                {{ t(o.labelKey) }}
-              </option>
-            </select>
-          </div>
-        </div>
-
-        <p v-if="formError" class="milestones__error">{{ formError }}</p>
-      </div>
-
-      <template #footer>
-        <AppButton variant="ghost" :disabled="saving" @click="closeForm">
-          {{ t("common.cancel") }}
-        </AppButton>
-        <AppButton :loading="saving" @click="saveForm">
-          {{ isEditing ? t("common.save") : t("common.create") }}
-        </AppButton>
-      
-    </AppModal>
-  </div>
-
+</template>
 
 <style scoped>
 .milestones {

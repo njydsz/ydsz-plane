@@ -552,7 +552,8 @@ onMounted(load);
           <p class="text-xs text-[var(--text-tertiary)]">
             {{ t("integration.credentialHint") }}
           </p>
-              </div>
+        </template>
+      </div>
 
       <template #footer>
         <AppButton variant="secondary" @click="closeConnect">
@@ -562,6 +563,7 @@ onMounted(load);
           {{ t("integration.connect") }}
         </AppButton>
       
+      </template>
     </AppModal>
 
     <!-- 事件日志抽屉 -->
@@ -629,4 +631,5 @@ onMounted(load);
       </div>
     </AppModal>
   </div>
+</template>
 

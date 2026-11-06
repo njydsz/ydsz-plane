@@ -14,7 +14,7 @@ import (
 // TestSprintQueriesIntegration 验证迭代查询在真实库上的行为。
 func TestSprintQueriesIntegration(t *testing.T) {
 	pool := integrationPool(t)
-	s := NewService(pool.Pool)
+	s := NewService(pool)
 	ctx := context.Background()
 
 	if _, total, err := s.List(ctx, ListSprintsOptions{WorkspaceID: 1, ProjectID: 1}); err != nil {

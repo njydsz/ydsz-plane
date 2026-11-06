@@ -497,7 +497,8 @@ async function removeComment(upd: ProjectUpdate, commentId: number) {
         <button class="pstate__primary" :disabled="savingState" @click="saveState">
           {{ savingState ? "保存中..." : "保存" }}
         </button>
-          </AppModal>
+      </template>
+    </AppModal>
 
     <!-- 发布更新弹窗 -->
     <AppModal
@@ -535,141 +536,11 @@ async function removeComment(upd: ProjectUpdate, commentId: number) {
         <button class="pstate__primary" :disabled="savingUpdate" @click="saveUpdate">
           {{ savingUpdate ? "发布中..." : "发布" }}
         </button>
-      
+      </template>
     </AppModal>
-  
     </div>
   </AppPageContainer>
-
-            </button>
-          </div>
-
-          <!-- 评论 -->
-          <div v-if="showComments[upd.id]" class="pstate__comments">
-            <div
-              v-for="c in commentMap[upd.id] ?? []"
-              :key="c.id"
-              class="pstate__comment"
-            >
-              <span class="pstate__avatar pstate__avatar--sm">{{ c.author_id === currentUserId ? "我" : "#" + c.author_id }}</span>
-              <div class="pstate__comment-main">
-                <span class="pstate__comment-meta">
-                  {{ c.author_id === currentUserId ? "我" : `用户 #${c.author_id}` }}
-                  · {{ formatTime(c.created_at) }}
-                </span>
-                <span class="pstate__comment-content">{{ c.content }}</span>
-              </div>
-              <button
-                v-if="c.author_id === currentUserId"
-                class="pstate__link pstate__link--danger"
-                @click="removeComment(upd, c.id)"
-              >
-                删除
-              </button>
-            </div>
-
-            <div class="pstate__comment-input">
-              <input
-                v-model="commentDraft[upd.id]"
-                class="pstate__input"
-                placeholder="写下你的评论..."
-                @keyup.enter="addComment(upd)"
-              />
-              <button class="pstate__primary" @click="addComment(upd)">发送</button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- 状态编辑弹窗 -->
-    <AppModal
-      :visible="showStateForm"
-      title="编辑项目状态"
-      @close="showStateForm = false"
-    >
-      <div class="pstate__form">
-        <label class="pstate__label">状态</label>
-        <select v-model="stateForm.status" class="pstate__input">
-          <option v-for="o in statusOptions" :key="o.value" :value="o.value">
-            {{ o.label }}
-          </option>
-        </select>
-
-        <label class="pstate__label">优先级</label>
-        <select v-model="stateForm.priority" class="pstate__input">
-          <option v-for="o in priorityOptions" :key="o.value" :value="o.value">
-            {{ o.label }}
-          </option>
-        </select>
-
-        <div class="pstate__grid">
-          <div>
-            <label class="pstate__label">开始日期</label>
-            <input v-model="stateForm.start_date" type="date" class="pstate__input" />
-          </div>
-          <div>
-            <label class="pstate__label">目标日期</label>
-            <input v-model="stateForm.target_date" type="date" class="pstate__input" />
-          </div>
-        </div>
-
-        <label class="pstate__label">描述</label>
-        <textarea
-          v-model="stateForm.description"
-          class="pstate__textarea"
-          rows="3"
-          placeholder="项目当前的整体情况"
-        />
-      </div>
-      <template #footer>
-        <button class="pstate__ghost" @click="showStateForm = false">取消</button>
-        <button class="pstate__primary" :disabled="savingState" @click="saveState">
-          {{ savingState ? "保存中..." : "保存" }}
-        </button>
-      
-    </AppModal>
-
-    <!-- 发布更新弹窗 -->
-    <AppModal
-      :visible="showUpdateForm"
-      title="发布项目更新"
-      @close="showUpdateForm = false"
-    >
-      <div class="pstate__form">
-        <label class="pstate__label">当前状态</label>
-        <select v-model="updateForm.status" class="pstate__input">
-          <option v-for="o in statusOptions" :key="o.value" :value="o.value">
-            {{ o.label }}
-          </option>
-        </select>
-
-        <label class="pstate__label">进度（%）</label>
-        <input
-          v-model.number="updateForm.progress_percent"
-          type="number"
-          min="0"
-          max="100"
-          class="pstate__input"
-        />
-
-        <label class="pstate__label">更新内容</label>
-        <textarea
-          v-model="updateForm.content"
-          class="pstate__textarea"
-          rows="5"
-          placeholder="本期进展、风险与下一步计划..."
-        />
-      </div>
-      <template #footer>
-        <button class="pstate__ghost" @click="showUpdateForm = false">取消</button>
-        <button class="pstate__primary" :disabled="savingUpdate" @click="saveUpdate">
-          {{ savingUpdate ? "发布中..." : "发布" }}
-        </button>
-      
-    </AppModal>
-  </div>
-
+</template>
 
 <style scoped>
 .pstate {

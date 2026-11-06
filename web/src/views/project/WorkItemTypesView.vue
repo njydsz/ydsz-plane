@@ -696,6 +696,7 @@ onMounted(loadTypes);
         <AppButton :loading="savingType" @click="saveType">
           {{ t("common.save") }}
         </AppButton>
+      </template>
           </AppModal>
 
     <!-- 属性新建/编辑弹窗 -->
@@ -788,6 +789,9 @@ onMounted(loadTypes);
           {{ t("common.save") }}
         </AppButton>
       
+      </template>
     </AppModal>
   </div>
+</template>
+
 

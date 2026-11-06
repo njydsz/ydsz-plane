@@ -608,6 +608,8 @@ onMounted(() => {
       </template>
     </AppModal>
   </div>
+</template>
+
 <style scoped>
 .dashboard {
   display: flex;

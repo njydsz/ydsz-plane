@@ -14,7 +14,7 @@ import (
 // TestGetSummaryIntegration 验证工作台概览查询。
 func TestGetSummaryIntegration(t *testing.T) {
 	pool := integrationPool(t)
-	s := NewService(pool.Pool)
+	s := NewService(pool)
 
 	sum, err := s.GetSummary(context.Background(), 1, 1, nil)
 	if err != nil {
@@ -28,7 +28,7 @@ func TestGetSummaryIntegration(t *testing.T) {
 // TestGetEfficiencyIntegration 验证效率报表查询。
 func TestGetEfficiencyIntegration(t *testing.T) {
 	pool := integrationPool(t)
-	s := NewService(pool.Pool)
+	s := NewService(pool)
 
 	rep, err := s.GetEfficiency(context.Background(), 1, 1, nil)
 	if err != nil {
@@ -42,7 +42,7 @@ func TestGetEfficiencyIntegration(t *testing.T) {
 // TestGetFeedIntegration 验证动态流查询。
 func TestGetFeedIntegration(t *testing.T) {
 	pool := integrationPool(t)
-	s := NewService(pool.Pool)
+	s := NewService(pool)
 
 	feed, err := s.GetFeed(context.Background(), 1, 1, nil, 20, 0)
 	if err != nil {

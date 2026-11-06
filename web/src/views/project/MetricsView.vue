@@ -448,11 +448,9 @@ const throughputOption = computed<EChartsOption>(() => {
       </AppCard>
     </section>
     </template>
-  
     </div>
   </AppPageContainer>
-  </div>
-
+</template>
 
 <style scoped>
 .metrics-dashboard {
